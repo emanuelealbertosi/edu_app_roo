@@ -1,6 +1,7 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import UserViewSet, StudentViewSet, StudentLoginView # Importa la nuova view
+# Importa anche la view di test
+from .views import UserViewSet, StudentViewSet, StudentLoginView, StudentProtectedTestView
 
 # Crea un router e registra le nostre viewset
 router = DefaultRouter()
@@ -14,4 +15,6 @@ urlpatterns = [
     path('', include(router.urls)),
     # URL specifico per il login studente
     path('auth/student/login/', StudentLoginView.as_view(), name='student-login'),
+    # URL per la view di test protetta per studenti
+    path('student/test-auth/', StudentProtectedTestView.as_view(), name='student-test-auth'),
 ]

@@ -149,8 +149,58 @@ class UserAPITests(APITestCase):
         print("Skipping User creation test via API - requires password handling in ViewSet/Serializer.")
         self.assertTrue(True) # Placeholder per far passare il test
 
-    # Aggiungere test per retrieve, update, delete utenti da parte dell'admin
-    # Aggiungere test per permessi (es. docente non può accedere a detail/update/delete)
+    # --- Test CRUD aggiuntivi e Permessi ---
+
+    def test_admin_can_retrieve_teacher(self):
+        """ Verifica che un Admin possa recuperare i dettagli di un Docente. """
+        detail_url = reverse('admin-user-detail', kwargs={'pk': self.teacher_user.pk})
+        response = self.client.get(detail_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['username'], self.teacher_user.username)
+        self.assertEqual(response.data['role'], UserRole.TEACHER)
+
+    def test_teacher_cannot_retrieve_other_user(self):
+        """ Verifica che un Docente non possa recuperare dettagli di altri utenti tramite endpoint admin. """
+        self.client.force_authenticate(user=self.teacher_user)
+        detail_url = reverse('admin-user-detail', kwargs={'pk': self.admin_user.pk}) # Prova a vedere l'admin
+        response = self.client.get(detail_url)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_admin_can_update_teacher(self):
+        """ Verifica che un Admin possa aggiornare (PATCH) un Docente. """
+        detail_url = reverse('admin-user-detail', kwargs={'pk': self.teacher_user.pk})
+        data = {'first_name': 'Updated Name', 'is_active': False}
+        response = self.client.patch(detail_url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.teacher_user.refresh_from_db()
+        self.assertEqual(self.teacher_user.first_name, 'Updated Name')
+        self.assertFalse(self.teacher_user.is_active)
+        # Verifica che il ruolo non sia cambiato (non dovrebbe essere aggiornabile qui)
+        self.assertEqual(self.teacher_user.role, UserRole.TEACHER)
+
+    def test_teacher_cannot_update_user(self):
+        """ Verifica che un Docente non possa aggiornare utenti tramite endpoint admin. """
+        self.client.force_authenticate(user=self.teacher_user)
+        detail_url = reverse('admin-user-detail', kwargs={'pk': self.admin_user.pk})
+        data = {'first_name': 'Teacher Update Attempt'}
+        response = self.client.patch(detail_url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_admin_can_delete_teacher(self):
+        """ Verifica che un Admin possa eliminare un Docente. """
+        teacher_to_delete = UserFactory(role=UserRole.TEACHER, username='to_delete')
+        detail_url = reverse('admin-user-detail', kwargs={'pk': teacher_to_delete.pk})
+        response = self.client.delete(detail_url)
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(User.objects.filter(pk=teacher_to_delete.pk).exists())
+
+    def test_teacher_cannot_delete_user(self):
+        """ Verifica che un Docente non possa eliminare utenti tramite endpoint admin. """
+        self.client.force_authenticate(user=self.teacher_user)
+        detail_url = reverse('admin-user-detail', kwargs={'pk': self.admin_user.pk})
+        response = self.client.delete(detail_url)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertTrue(User.objects.filter(pk=self.admin_user.pk).exists())
 
 
 class StudentAPITests(APITestCase):
@@ -278,3 +328,75 @@ class StudentAPITests(APITestCase):
         response = self.client.delete(self.detail_url(self.student1_t2.pk))
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         self.assertFalse(Student.objects.filter(pk=self.student1_t2.pk).exists())
+
+
+class StudentAuthenticationAPITests(APITestCase):
+    """ Test per l'autenticazione studente (login e accesso protetto). """
+    def setUp(self):
+        self.teacher = UserFactory(role=UserRole.TEACHER)
+        # Crea studente con PIN hashato
+        self.student = StudentFactory(teacher=self.teacher, student_code="STUDENT001", pin="1234")
+        self.admin_user = UserFactory(admin=True)
+
+        self.login_url = reverse('student-login')
+        self.protected_url = reverse('student-test-auth')
+
+    def test_student_login_success(self):
+        """ Verifica login studente con credenziali corrette. """
+        data = {'student_code': 'STUDENT001', 'pin': '1234'}
+        response = self.client.post(self.login_url, data)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('access', response.data)
+        self.assertIn('refresh', response.data)
+        self.assertIn('student', response.data)
+        self.assertEqual(response.data['student']['id'], self.student.pk)
+
+    def test_student_login_invalid_code(self):
+        """ Verifica fallimento login con codice studente errato. """
+        data = {'student_code': 'INVALIDCODE', 'pin': '1234'}
+        response = self.client.post(self.login_url, data)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertNotIn('access', response.data)
+
+    def test_student_login_invalid_pin(self):
+        """ Verifica fallimento login con PIN errato. """
+        data = {'student_code': 'STUDENT001', 'pin': '0000'}
+        response = self.client.post(self.login_url, data)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertNotIn('access', response.data)
+
+    def test_access_protected_view_with_valid_student_token(self):
+        """ Verifica accesso a view protetta con token studente valido. """
+        # 1. Ottieni il token
+        login_data = {'student_code': 'STUDENT001', 'pin': '1234'}
+        login_response = self.client.post(self.login_url, login_data)
+        self.assertEqual(login_response.status_code, status.HTTP_200_OK)
+        access_token = login_response.data['access']
+
+        # 2. Usa il token per accedere alla view protetta
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {access_token}')
+        protected_response = self.client.get(self.protected_url)
+        self.assertEqual(protected_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(protected_response.data['message'], 'Access granted')
+        self.assertEqual(protected_response.data['student_id'], self.student.pk)
+
+    def test_access_protected_view_without_token(self):
+        """ Verifica fallimento accesso a view protetta senza token. """
+        self.client.credentials() # Rimuove autenticazione
+        response = self.client.get(self.protected_url)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_access_protected_view_with_invalid_token(self):
+        """ Verifica fallimento accesso a view protetta con token non valido. """
+        self.client.credentials(HTTP_AUTHORIZATION='Bearer invalidtoken')
+        response = self.client.get(self.protected_url)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_access_protected_view_with_non_student_token(self):
+        """ Verifica fallimento accesso a view protetta studente con token Admin/Docente. """
+        # Ottieni token per admin (assumendo che esista un endpoint /api/auth/login/)
+        # In alternativa, forza l'autenticazione standard e verifica il permesso IsStudent
+        self.client.force_authenticate(user=self.admin_user)
+        response = self.client.get(self.protected_url)
+        # Il permesso IsStudent dovrebbe negare l'accesso
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)

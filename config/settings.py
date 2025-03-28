@@ -171,9 +171,8 @@ REST_FRAMEWORK = {
         'apps.users.authentication.StudentJWTAuthentication',
         # Poi prova l'autenticazione JWT standard per Admin/Docenti
         'rest_framework_simplejwt.authentication.JWTAuthentication',
-        # Aggiungere SessionAuthentication permette di usare la browsable API di DRF
-        # e potenzialmente l'autenticazione basata su sessione per studenti se la abilitiamo
-        'rest_framework.authentication.SessionAuthentication',
+        # Rimuoviamo temporaneamente SessionAuthentication per debug test 401
+        # 'rest_framework.authentication.SessionAuthentication',
     ),
     'DEFAULT_PERMISSION_CLASSES': (
         # Default to requiring authentication

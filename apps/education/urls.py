@@ -30,8 +30,8 @@ question_templates_router.register(r'options', AnswerOptionTemplateViewSet, base
 # /quizzes/{quiz_pk}/questions/
 quizzes_router = routers.NestedDefaultRouter(router, r'quizzes', lookup='quiz')
 quizzes_router.register(r'questions', QuestionViewSet, basename='quiz-questions')
-# L'azione start_attempt è ora gestita da StudentQuizAttemptViewSet registrato nel router principale
-# quizzes_router.register(r'attempts', StudentQuizAttemptViewSet, basename='quiz-attempts') # Rimosso
+# Registra StudentQuizAttemptViewSet qui per l'azione start_attempt
+quizzes_router.register(r'attempts', StudentQuizAttemptViewSet, basename='quiz-attempts')
 
 # /quizzes/{quiz_pk}/questions/{question_pk}/options/
 questions_router = routers.NestedDefaultRouter(quizzes_router, r'questions', lookup='question')

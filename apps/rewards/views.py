@@ -16,7 +16,8 @@ from .permissions import (
     IsAdminOrReadOnly, IsRewardTemplateOwnerOrAdmin, IsRewardOwner,
     IsStudentOwnerForPurchase, IsTeacherOfStudentForPurchase
 )
-from apps.users.permissions import IsAdminUser, IsTeacherUser, IsStudent # Import IsStudent
+# Importa permessi da users, incluso IsStudentAuthenticated
+from apps.users.permissions import IsAdminUser, IsTeacherUser, IsStudent, IsStudentAuthenticated
 from apps.users.models import UserRole, Student # Import modelli utente
 
 
@@ -118,7 +119,7 @@ class StudentShopViewSet(viewsets.ReadOnlyModelViewSet):
     Endpoint ReadOnly per lo Studente per visualizzare le ricompense disponibili.
     """
     serializer_class = RewardSerializer
-    permission_classes = [permissions.IsAuthenticated, IsStudent] # Solo Studenti autenticati
+    permission_classes = [IsStudentAuthenticated] # Solo Studenti autenticati
 
     def get_queryset(self):
         # request.student è impostato da StudentJWTAuthentication
@@ -183,7 +184,7 @@ class StudentShopViewSet(viewsets.ReadOnlyModelViewSet):
 class StudentWalletViewSet(viewsets.ReadOnlyModelViewSet):
     """ Endpoint ReadOnly per lo Studente per vedere il proprio wallet e transazioni. """
     serializer_class = WalletSerializer
-    permission_classes = [permissions.IsAuthenticated, IsStudent] # Solo Studenti
+    permission_classes = [IsStudentAuthenticated] # Solo Studenti autenticati
 
     def get_queryset(self):
         # request.student è impostato da StudentJWTAuthentication
@@ -209,7 +210,7 @@ class StudentWalletViewSet(viewsets.ReadOnlyModelViewSet):
 class StudentPurchasesViewSet(viewsets.ReadOnlyModelViewSet):
     """ Endpoint ReadOnly per lo Studente per vedere i propri acquisti. """
     serializer_class = RewardPurchaseSerializer
-    permission_classes = [permissions.IsAuthenticated, IsStudent] # Solo Studenti
+    permission_classes = [IsStudentAuthenticated] # Solo Studenti autenticati
 
     def get_queryset(self):
         # request.student è impostato da StudentJWTAuthentication

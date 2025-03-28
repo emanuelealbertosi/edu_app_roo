@@ -57,7 +57,7 @@ class AnswerOptionSerializer(serializers.ModelSerializer):
 class QuestionSerializer(serializers.ModelSerializer):
     answer_options = AnswerOptionSerializer(
         many=True,
-        source='answer_options', # Usa related_name
+        # source='answer_options', # Rimosso perché ridondante
         read_only=True
     )
     question_type_display = serializers.CharField(source='get_question_type_display', read_only=True)

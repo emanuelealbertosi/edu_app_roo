@@ -300,7 +300,79 @@ class RewardTemplateAPITests(APITestCase):
         response = self.client.patch(self.detail_url(self.global_template.pk), data)
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
-    # Aggiungere test per DELETE
+    # --- Test Retrieve Specifici ---
+
+    def test_admin_can_retrieve_any_template(self):
+        """ Admin può recuperare qualsiasi template (globale o locale). """
+        self.client.force_authenticate(user=self.admin_user)
+        # Globale
+        response_global = self.client.get(self.detail_url(self.global_template.pk))
+        self.assertEqual(response_global.status_code, status.HTTP_200_OK)
+        self.assertEqual(response_global.data['name'], self.global_template.name)
+        # Locale (di teacher1)
+        response_local = self.client.get(self.detail_url(self.local_template_t1.pk))
+        self.assertEqual(response_local.status_code, status.HTTP_200_OK)
+        self.assertEqual(response_local.data['name'], self.local_template_t1.name)
+
+    def test_teacher_can_retrieve_own_local_template(self):
+        """ Docente può recuperare il proprio template locale. """
+        self.client.force_authenticate(user=self.teacher1)
+        response = self.client.get(self.detail_url(self.local_template_t1.pk))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['name'], self.local_template_t1.name)
+
+    def test_teacher_can_retrieve_global_template(self):
+        """ Docente può recuperare un template globale. """
+        self.client.force_authenticate(user=self.teacher1)
+        response = self.client.get(self.detail_url(self.global_template.pk))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['name'], self.global_template.name)
+
+    def test_teacher_cannot_retrieve_other_local_template(self):
+        """ Docente non può recuperare il template locale di un altro docente. """
+        self.client.force_authenticate(user=self.teacher1)
+        response = self.client.get(self.detail_url(self.local_template_t2.pk))
+        # Il queryset filtra, quindi 404
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    # --- Test DELETE ---
+
+    def test_admin_can_delete_global_template(self):
+        self.client.force_authenticate(user=self.admin_user)
+        response = self.client.delete(self.detail_url(self.global_template.pk))
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(RewardTemplate.objects.filter(pk=self.global_template.pk).exists())
+
+    def test_admin_can_delete_local_template(self):
+        """ Admin può eliminare anche template locali. """
+        local_pk = self.local_template_t1.pk
+        self.client.force_authenticate(user=self.admin_user)
+        response = self.client.delete(self.detail_url(local_pk))
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(RewardTemplate.objects.filter(pk=local_pk).exists())
+
+    def test_teacher_can_delete_own_local_template(self):
+        local_pk = self.local_template_t1.pk
+        self.client.force_authenticate(user=self.teacher1)
+        response = self.client.delete(self.detail_url(local_pk))
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(RewardTemplate.objects.filter(pk=local_pk).exists())
+
+    def test_teacher_cannot_delete_other_local_template(self):
+        local_pk_t2 = self.local_template_t2.pk
+        self.client.force_authenticate(user=self.teacher1)
+        response = self.client.delete(self.detail_url(local_pk_t2))
+        # Il queryset filtra -> 404
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertTrue(RewardTemplate.objects.filter(pk=local_pk_t2).exists())
+
+    def test_teacher_cannot_delete_global_template(self):
+        global_pk = self.global_template.pk
+        self.client.force_authenticate(user=self.teacher1)
+        response = self.client.delete(self.detail_url(global_pk))
+        # Il permesso IsTemplateOwnerOrAdmin nega l'accesso
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertTrue(RewardTemplate.objects.filter(pk=global_pk).exists())
 
 
 class RewardAPITests(APITestCase):
@@ -405,10 +477,445 @@ class RewardAPITests(APITestCase):
         self.assertEqual(self.reward_t1_all.availability_type, Reward.AvailabilityType.ALL_STUDENTS)
         self.assertEqual(self.reward_t1_all.available_to_specific_students.count(), 0)
 
-    # Aggiungere test per retrieve, update (altri campi), delete, permessi admin/altri docenti
+    # --- Test CRUD aggiuntivi e Permessi ---
+
+    def test_teacher_can_retrieve_own_reward(self):
+        """ Verifica che un docente possa recuperare i dettagli della propria ricompensa. """
+        self.client.force_authenticate(user=self.teacher1)
+        response = self.client.get(self.detail_url(self.reward_t1_all.pk))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['name'], self.reward_t1_all.name)
+
+    def test_teacher_cannot_retrieve_other_reward(self):
+        """ Verifica che un docente non possa recuperare i dettagli della ricompensa di un altro. """
+        self.client.force_authenticate(user=self.teacher1)
+        response = self.client.get(self.detail_url(self.reward_t2.pk))
+        # IsRewardOwner dovrebbe negare l'accesso (o queryset filtra -> 404)
+        self.assertTrue(response.status_code in [status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND])
+
+    def test_admin_can_retrieve_any_reward(self):
+        """ Verifica che un admin possa recuperare i dettagli di qualsiasi ricompensa. """
+        self.client.force_authenticate(user=self.admin_user)
+        response = self.client.get(self.detail_url(self.reward_t2.pk)) # Ricompensa di teacher2
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['name'], self.reward_t2.name)
+
+    def test_teacher_can_update_own_reward_fields(self):
+        """ Verifica che un docente possa aggiornare (PATCH) campi della propria ricompensa. """
+        self.client.force_authenticate(user=self.teacher1)
+        data = {'name': 'Updated R1 Name', 'cost_points': 150, 'is_active': False}
+        response = self.client.patch(self.detail_url(self.reward_t1_all.pk), data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.reward_t1_all.refresh_from_db()
+        self.assertEqual(self.reward_t1_all.name, 'Updated R1 Name')
+        self.assertEqual(self.reward_t1_all.cost_points, 150)
+        self.assertFalse(self.reward_t1_all.is_active)
+
+    def test_teacher_cannot_update_other_reward(self):
+        """ Verifica che un docente non possa aggiornare la ricompensa di un altro. """
+        self.client.force_authenticate(user=self.teacher1)
+        data = {'name': 'Attempted Update'}
+        response = self.client.patch(self.detail_url(self.reward_t2.pk), data, format='json')
+        self.assertTrue(response.status_code in [status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND])
+        self.reward_t2.refresh_from_db()
+        self.assertNotEqual(self.reward_t2.name, 'Attempted Update')
+
+    def test_admin_can_update_any_reward(self):
+        """ Verifica che un admin possa aggiornare qualsiasi ricompensa. """
+        self.client.force_authenticate(user=self.admin_user)
+        data = {'name': 'Admin Updated R2 Name', 'is_active': False}
+        response = self.client.patch(self.detail_url(self.reward_t2.pk), data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.reward_t2.refresh_from_db()
+        self.assertEqual(self.reward_t2.name, 'Admin Updated R2 Name')
+        self.assertFalse(self.reward_t2.is_active)
+
+    def test_teacher_can_delete_own_reward(self):
+        """ Verifica che un docente possa eliminare la propria ricompensa (se non acquistata). """
+        # Assicurati che non ci siano acquisti per questa ricompensa
+        RewardPurchase.objects.filter(reward=self.reward_t1_all).delete()
+        self.client.force_authenticate(user=self.teacher1)
+        response = self.client.delete(self.detail_url(self.reward_t1_all.pk))
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(Reward.objects.filter(pk=self.reward_t1_all.pk).exists())
+
+    def test_teacher_cannot_delete_other_reward(self):
+        """ Verifica che un docente non possa eliminare la ricompensa di un altro. """
+        reward_t2_pk = self.reward_t2.pk
+        self.client.force_authenticate(user=self.teacher1)
+        response = self.client.delete(self.detail_url(reward_t2_pk))
+        self.assertTrue(response.status_code in [status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND])
+        self.assertTrue(Reward.objects.filter(pk=reward_t2_pk).exists())
+
+    def test_admin_can_delete_any_reward(self):
+        """ Verifica che un admin possa eliminare qualsiasi ricompensa (se non acquistata). """
+        reward_t2_pk = self.reward_t2.pk
+        RewardPurchase.objects.filter(reward=self.reward_t2).delete()
+        self.client.force_authenticate(user=self.admin_user)
+        response = self.client.delete(self.detail_url(reward_t2_pk))
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(Reward.objects.filter(pk=reward_t2_pk).exists())
+
+    def test_cannot_delete_reward_if_purchased(self):
+        """ Verifica che la protezione on_delete impedisca l'eliminazione se ci sono acquisti. """
+        RewardPurchaseFactory(reward=self.reward_t1_all, student=self.student1_t1)
+        self.client.force_authenticate(user=self.teacher1) # O admin
+        response = self.client.delete(self.detail_url(self.reward_t1_all.pk))
+        # DRF solitamente restituisce 409 Conflict o 500 Internal Server Error in caso di ProtectedError
+        # A seconda di come viene gestito l'errore a livello di view/eccezione
+        self.assertTrue(response.status_code in [status.HTTP_409_CONFLICT, status.HTTP_500_INTERNAL_SERVER_ERROR, status.HTTP_400_BAD_REQUEST])
+        self.assertTrue(Reward.objects.filter(pk=self.reward_t1_all.pk).exists())
 
 
-# Aggiungere test per StudentShopViewSet, StudentWalletViewSet, StudentPurchasesViewSet
-# (tenendo conto dei placeholder per l'autenticazione studente)
 
-# Aggiungere test per TeacherRewardDeliveryViewSet
+class StudentShopAPITests(APITestCase):
+    """ Test per /api/rewards/student/shop/ """
+    def setUp(self):
+        self.teacher1 = UserFactory(role=UserRole.TEACHER)
+        self.teacher2 = UserFactory(role=UserRole.TEACHER) # Altro docente
+        self.student1 = StudentFactory(teacher=self.teacher1)
+        self.student2 = StudentFactory(teacher=self.teacher1) # Altro studente stesso docente
+        self.student_t2 = StudentFactory(teacher=self.teacher2) # Studente altro docente
+
+        # Wallet per gli studenti
+        self.wallet1 = WalletFactory(student=self.student1, current_points=200)
+        self.wallet2 = WalletFactory(student=self.student2, current_points=30) # Pochi punti
+        self.wallet_t2 = WalletFactory(student=self.student_t2, current_points=500)
+
+        # Ricompense
+        self.reward_all_t1 = RewardFactory(teacher=self.teacher1, name="R All T1", cost_points=100, is_active=True)
+        self.reward_spec_t1_s1 = RewardFactory(
+            teacher=self.teacher1, name="R Spec T1 S1", cost_points=50, is_active=True,
+            specific_availability=True, available_to_specific_students=[self.student1]
+        )
+        self.reward_spec_t1_s2 = RewardFactory(
+            teacher=self.teacher1, name="R Spec T1 S2", cost_points=20, is_active=True,
+            specific_availability=True, available_to_specific_students=[self.student2]
+        )
+        self.reward_inactive_t1 = RewardFactory(teacher=self.teacher1, name="R Inactive T1", cost_points=10, is_active=False)
+        self.reward_all_t2 = RewardFactory(teacher=self.teacher2, name="R All T2", cost_points=150, is_active=True) # Ricompensa altro docente
+
+        # URL Helpers
+        self.shop_list_url = reverse('student-shop-list')
+        self.purchase_url = lambda pk: reverse('student-shop-purchase', kwargs={'pk': pk})
+
+        # Associazione User <-> Student per autenticazione
+        if not hasattr(self.student1, 'user') or not self.student1.user:
+             self.student1_user = UserFactory(username=f"student_{self.student1.pk}")
+             self.student1.user = self.student1_user
+             self.student1.save()
+        else:
+             self.student1_user = self.student1.user
+        # ... (fare lo stesso per student2 e student_t2 se necessario per altri test) ...
+        if not hasattr(self.student2, 'user') or not self.student2.user:
+             self.student2_user = UserFactory(username=f"student_{self.student2.pk}")
+             self.student2.user = self.student2_user
+             self.student2.save()
+        else:
+             self.student2_user = self.student2.user
+
+
+    def test_student_sees_available_rewards_in_shop(self):
+        """ Verifica che lo studente veda solo le ricompense attive e disponibili per lui. """
+        self.client.force_authenticate(user=self.student1_user)
+        response = self.client.get(self.shop_list_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 2) # R All T1, R Spec T1 S1
+        reward_names = {r['name'] for r in response.data}
+        self.assertEqual(reward_names, {"R All T1", "R Spec T1 S1"})
+        # Verifica che non veda quelle inattive, quelle specifiche per altri, o quelle di altri docenti
+        self.assertNotIn(self.reward_inactive_t1.pk, {r['id'] for r in response.data})
+        self.assertNotIn(self.reward_spec_t1_s2.pk, {r['id'] for r in response.data})
+        self.assertNotIn(self.reward_all_t2.pk, {r['id'] for r in response.data})
+
+    def test_teacher_cannot_access_student_shop(self):
+        """ Verifica che un docente non possa accedere allo shop studente. """
+        self.client.force_authenticate(user=self.teacher1)
+        response = self.client.get(self.shop_list_url)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_student_can_purchase_available_reward_with_sufficient_points(self):
+        """ Verifica acquisto riuscito con punti sufficienti. """
+        self.client.force_authenticate(user=self.student1_user)
+        initial_points = self.wallet1.current_points
+        reward_cost = self.reward_all_t1.cost_points
+
+        response = self.client.post(self.purchase_url(self.reward_all_t1.pk))
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        # Verifica creazione RewardPurchase
+        self.assertTrue(RewardPurchase.objects.filter(student=self.student1, reward=self.reward_all_t1).exists())
+        purchase = RewardPurchase.objects.get(student=self.student1, reward=self.reward_all_t1)
+        self.assertEqual(purchase.points_spent, reward_cost)
+        self.assertEqual(purchase.status, RewardPurchase.PurchaseStatus.PURCHASED)
+
+        # Verifica aggiornamento Wallet
+        self.wallet1.refresh_from_db()
+        self.assertEqual(self.wallet1.current_points, initial_points - reward_cost)
+
+        # Verifica creazione PointTransaction
+        self.assertTrue(self.wallet1.transactions.filter(points_change=-reward_cost).exists())
+
+    def test_student_cannot_purchase_with_insufficient_points(self):
+        """ Verifica errore acquisto con punti insufficienti. """
+        self.client.force_authenticate(user=self.student2_user) # student2 ha solo 30 punti
+        reward_cost = self.reward_all_t1.cost_points # Costa 100
+        initial_points = self.wallet2.current_points
+
+        response = self.client.post(self.purchase_url(self.reward_all_t1.pk))
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('Insufficient points', response.data.get('detail', ''))
+
+        # Verifica che non sia stato creato l'acquisto e il saldo sia invariato
+        self.assertFalse(RewardPurchase.objects.filter(student=self.student2, reward=self.reward_all_t1).exists())
+        self.wallet2.refresh_from_db()
+        self.assertEqual(self.wallet2.current_points, initial_points)
+
+    def test_student_cannot_purchase_unavailable_reward(self):
+        """ Verifica errore acquisto per ricompensa non disponibile (specifica per altro studente). """
+        self.client.force_authenticate(user=self.student1_user) # student1 ha punti sufficienti
+        response = self.client.post(self.purchase_url(self.reward_spec_t1_s2.pk)) # Ricompensa per student2
+        # La view dovrebbe dare 404 perché get_object_or_404 fallisce sul queryset filtrato
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertFalse(RewardPurchase.objects.filter(student=self.student1, reward=self.reward_spec_t1_s2).exists())
+
+    def test_student_cannot_purchase_inactive_reward(self):
+        """ Verifica errore acquisto per ricompensa inattiva. """
+        self.client.force_authenticate(user=self.student1_user)
+        response = self.client.post(self.purchase_url(self.reward_inactive_t1.pk))
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertFalse(RewardPurchase.objects.filter(student=self.student1, reward=self.reward_inactive_t1).exists())
+
+    def test_student_cannot_purchase_other_teacher_reward(self):
+        """ Verifica errore acquisto per ricompensa di altro docente. """
+        self.client.force_authenticate(user=self.student1_user)
+        response = self.client.post(self.purchase_url(self.reward_all_t2.pk))
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertFalse(RewardPurchase.objects.filter(student=self.student1, reward=self.reward_all_t2).exists())
+
+
+# Importa i serializer necessari
+from .serializers import WalletSerializer, PointTransactionSerializer
+
+class StudentWalletAPITests(APITestCase):
+    """ Test per /api/rewards/student/wallet/ """
+    def setUp(self):
+        self.teacher = UserFactory(role=UserRole.TEACHER)
+        self.student = StudentFactory(teacher=self.teacher)
+        self.wallet = WalletFactory(student=self.student, current_points=150)
+        # Aggiungi alcune transazioni
+        PointTransactionFactory(wallet=self.wallet, points_change=100, reason="Initial")
+        PointTransactionFactory(wallet=self.wallet, points_change=75, reason="Quiz A")
+        PointTransactionFactory(wallet=self.wallet, points_change=-25, reason="Purchase X") # Saldo: 150
+
+        # URL Helper - Assumiamo che sia un retrieve su una risorsa singleton o custom view
+        # Il nome potrebbe variare in base all'implementazione effettiva degli URL
+        self.wallet_url = reverse('student-wallet-detail') # Potrebbe essere 'student-wallet-retrieve' o altro
+
+        # Associazione User <-> Student per autenticazione
+        if not hasattr(self.student, 'user') or not self.student.user:
+             self.student_user = UserFactory(username=f"student_{self.student.pk}")
+             self.student.user = self.student_user
+             self.student.save()
+        else:
+             self.student_user = self.student.user
+
+    def test_student_can_retrieve_own_wallet(self):
+        """ Verifica che lo studente possa recuperare i dettagli del proprio wallet. """
+        self.client.force_authenticate(user=self.student_user)
+        response = self.client.get(self.wallet_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['student'], self.student.pk)
+        self.assertEqual(response.data['current_points'], 150)
+        # Verifica che le transazioni siano incluse (se il serializer le include)
+        # Il serializer di default potrebbe non includerle, dipende dall'implementazione
+        # Se WalletSerializer include 'transactions' come nested:
+        # self.assertTrue('transactions' in response.data)
+        # self.assertEqual(len(response.data['transactions']), 3)
+
+    def test_teacher_cannot_retrieve_student_wallet(self):
+        """ Verifica che un docente non possa accedere al wallet dello studente tramite questo endpoint. """
+        self.client.force_authenticate(user=self.teacher)
+        response = self.client.get(self.wallet_url)
+        # IsStudent dovrebbe negare l'accesso
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+
+# Importa i serializer necessari
+from .serializers import RewardPurchaseSerializer
+
+class StudentPurchasesAPITests(APITestCase):
+    """ Test per /api/rewards/student/purchases/ """
+    def setUp(self):
+        self.teacher = UserFactory(role=UserRole.TEACHER)
+        self.student1 = StudentFactory(teacher=self.teacher)
+        self.student2 = StudentFactory(teacher=self.teacher) # Altro studente
+
+        # Ricompense
+        self.reward1 = RewardFactory(teacher=self.teacher, cost_points=50)
+        self.reward2 = RewardFactory(teacher=self.teacher, cost_points=100)
+
+        # Acquisti per student1
+        self.purchase1_s1 = RewardPurchaseFactory(student=self.student1, reward=self.reward1)
+        self.purchase2_s1 = RewardPurchaseFactory(student=self.student1, reward=self.reward2, delivered=True) # Consegnato
+
+        # Acquisto per student2
+        self.purchase1_s2 = RewardPurchaseFactory(student=self.student2, reward=self.reward1)
+
+        # URL Helper
+        self.purchases_list_url = reverse('student-purchases-list')
+
+        # Associazione User <-> Student per autenticazione
+        if not hasattr(self.student1, 'user') or not self.student1.user:
+             self.student1_user = UserFactory(username=f"student_{self.student1.pk}")
+             self.student1.user = self.student1_user
+             self.student1.save()
+        else:
+             self.student1_user = self.student1.user
+        # ... (fare lo stesso per student2 se necessario) ...
+        if not hasattr(self.student2, 'user') or not self.student2.user:
+             self.student2_user = UserFactory(username=f"student_{self.student2.pk}")
+             self.student2.user = self.student2_user
+             self.student2.save()
+        else:
+             self.student2_user = self.student2.user
+
+
+    def test_student_can_list_own_purchases(self):
+        """ Verifica che lo studente veda solo i propri acquisti. """
+        self.client.force_authenticate(user=self.student1_user)
+        response = self.client.get(self.purchases_list_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 2) # student1 ha 2 acquisti
+        purchase_ids = {p['id'] for p in response.data}
+        self.assertIn(self.purchase1_s1.pk, purchase_ids)
+        self.assertIn(self.purchase2_s1.pk, purchase_ids)
+        self.assertNotIn(self.purchase1_s2.pk, purchase_ids) # Non vede acquisto di student2
+
+    def test_other_student_sees_own_purchases(self):
+        """ Verifica che un altro studente veda i propri acquisti. """
+        self.client.force_authenticate(user=self.student2_user)
+        response = self.client.get(self.purchases_list_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1) # student2 ha 1 acquisto
+        self.assertEqual(response.data[0]['id'], self.purchase1_s2.pk)
+
+    def test_teacher_cannot_list_student_purchases(self):
+        """ Verifica che un docente non possa accedere alla lista acquisti studente. """
+        self.client.force_authenticate(user=self.teacher)
+        response = self.client.get(self.purchases_list_url)
+        # IsStudent dovrebbe negare l'accesso
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+
+class TeacherRewardDeliveryAPITests(APITestCase):
+    """ Test per /api/rewards/teacher/pending-delivery/ e /api/rewards/teacher/purchases/{pk}/mark-delivered/ """
+    def setUp(self):
+        self.teacher1 = UserFactory(role=UserRole.TEACHER)
+        self.teacher2 = UserFactory(role=UserRole.TEACHER) # Altro docente
+        self.student1_t1 = StudentFactory(teacher=self.teacher1)
+        self.student2_t1 = StudentFactory(teacher=self.teacher1)
+        self.student1_t2 = StudentFactory(teacher=self.teacher2) # Studente altro docente
+
+        # Ricompense reali e digitali
+        self.real_reward_t1 = RewardFactory(teacher=self.teacher1, type=Reward.RewardType.REAL_WORLD, name="Real T1")
+        self.digital_reward_t1 = RewardFactory(teacher=self.teacher1, type=Reward.RewardType.DIGITAL, name="Digital T1")
+        self.real_reward_t2 = RewardFactory(teacher=self.teacher2, type=Reward.RewardType.REAL_WORLD, name="Real T2")
+
+        # Acquisti in vari stati
+        self.purchase_pending_t1_s1 = RewardPurchaseFactory(student=self.student1_t1, reward=self.real_reward_t1, status=RewardPurchase.PurchaseStatus.PURCHASED)
+        self.purchase_pending_t1_s2 = RewardPurchaseFactory(student=self.student2_t1, reward=self.real_reward_t1, status=RewardPurchase.PurchaseStatus.PURCHASED)
+        self.purchase_delivered_t1 = RewardPurchaseFactory(student=self.student1_t1, reward=self.real_reward_t1, delivered=True) # Già consegnato
+        self.purchase_digital_t1 = RewardPurchaseFactory(student=self.student1_t1, reward=self.digital_reward_t1, status=RewardPurchase.PurchaseStatus.PURCHASED) # Digitale, non dovrebbe apparire
+        self.purchase_pending_t2 = RewardPurchaseFactory(student=self.student1_t2, reward=self.real_reward_t2, status=RewardPurchase.PurchaseStatus.PURCHASED) # Altro docente
+
+        # URL Helpers
+        self.list_pending_url = reverse('teacher-delivery-list-pending')
+        self.mark_delivered_url = lambda pk: reverse('teacher-delivery-mark-delivered', kwargs={'pk': pk})
+
+        # Associazione User <-> Student (necessaria solo se si testasse accesso studente)
+        # ...
+
+    def test_teacher_can_list_pending_real_world_deliveries(self):
+        """ Verifica che il docente veda solo acquisti 'purchased' di tipo 'real_world' dei propri studenti. """
+        self.client.force_authenticate(user=self.teacher1)
+        response = self.client.get(self.list_pending_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 2) # Solo i due pending di teacher1
+        purchase_ids = {p['id'] for p in response.data}
+        self.assertIn(self.purchase_pending_t1_s1.pk, purchase_ids)
+        self.assertIn(self.purchase_pending_t1_s2.pk, purchase_ids)
+        # Verifica che non veda quelli consegnati, digitali o di altri docenti
+        self.assertNotIn(self.purchase_delivered_t1.pk, purchase_ids)
+        self.assertNotIn(self.purchase_digital_t1.pk, purchase_ids)
+        self.assertNotIn(self.purchase_pending_t2.pk, purchase_ids)
+
+    def test_other_teacher_sees_own_pending_deliveries(self):
+        """ Verifica che un altro docente veda i propri pending. """
+        self.client.force_authenticate(user=self.teacher2)
+        response = self.client.get(self.list_pending_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1) # Solo quello di teacher2
+        self.assertEqual(response.data[0]['id'], self.purchase_pending_t2.pk)
+
+    def test_student_cannot_list_pending_deliveries(self):
+        """ Verifica che uno studente non possa accedere a questo endpoint docente. """
+        # Crea utente studente se necessario per autenticare
+        if not hasattr(self.student1_t1, 'user') or not self.student1_t1.user:
+             student1_user = UserFactory(username=f"student_{self.student1_t1.pk}")
+             self.student1_t1.user = student1_user
+             self.student1_t1.save()
+        else:
+             student1_user = self.student1_t1.user
+        self.client.force_authenticate(user=student1_user)
+        response = self.client.get(self.list_pending_url)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_teacher_can_mark_own_pending_delivery_as_delivered(self):
+        """ Verifica che il docente possa marcare come consegnato un acquisto pending del proprio studente. """
+        self.client.force_authenticate(user=self.teacher1)
+        data = {'delivery_notes': 'Consegnato a mano'}
+        response = self.client.post(self.mark_delivered_url(self.purchase_pending_t1_s1.pk), data)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        self.purchase_pending_t1_s1.refresh_from_db()
+        self.assertEqual(self.purchase_pending_t1_s1.status, RewardPurchase.PurchaseStatus.DELIVERED)
+        self.assertEqual(self.purchase_pending_t1_s1.delivered_by, self.teacher1)
+        self.assertIsNotNone(self.purchase_pending_t1_s1.delivered_at)
+        self.assertEqual(self.purchase_pending_t1_s1.delivery_notes, 'Consegnato a mano')
+
+    def test_teacher_cannot_mark_other_teacher_delivery(self):
+        """ Verifica che un docente non possa marcare consegne di altri docenti. """
+        self.client.force_authenticate(user=self.teacher1)
+        response = self.client.post(self.mark_delivered_url(self.purchase_pending_t2.pk)) # Acquisto di teacher2
+        # Il queryset della view dovrebbe filtrare per docente -> 404
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.purchase_pending_t2.refresh_from_db()
+        self.assertEqual(self.purchase_pending_t2.status, RewardPurchase.PurchaseStatus.PURCHASED) # Stato invariato
+
+    def test_teacher_cannot_mark_already_delivered_purchase(self):
+        """ Verifica che non si possa marcare come consegnato un acquisto già consegnato. """
+        self.client.force_authenticate(user=self.teacher1)
+        response = self.client.post(self.mark_delivered_url(self.purchase_delivered_t1.pk))
+        # La view dovrebbe verificare lo stato -> 400 Bad Request
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('già consegnato', response.data.get('detail', '').lower())
+
+    def test_teacher_cannot_mark_digital_purchase(self):
+        """ Verifica che non si possa marcare come consegnato un acquisto digitale. """
+        self.client.force_authenticate(user=self.teacher1)
+        response = self.client.post(self.mark_delivered_url(self.purchase_digital_t1.pk))
+        # Il queryset della view dovrebbe filtrare per tipo 'real_world' -> 404
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_student_cannot_mark_delivery(self):
+        """ Verifica che uno studente non possa marcare consegne. """
+        if not hasattr(self.student1_t1, 'user') or not self.student1_t1.user:
+             student1_user = UserFactory(username=f"student_{self.student1_t1.pk}")
+             self.student1_t1.user = student1_user
+             self.student1_t1.save()
+        else:
+             student1_user = self.student1_t1.user
+        self.client.force_authenticate(user=student1_user)
+        response = self.client.post(self.mark_delivered_url(self.purchase_pending_t1_s1.pk))
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)

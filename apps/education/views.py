@@ -1,9 +1,10 @@
 from rest_framework import viewsets, permissions, status, serializers
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from django.db import transaction, models
+from django.db import transaction, models, IntegrityError # Import IntegrityError
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from django.core.exceptions import PermissionDenied # Import PermissionDenied
 
 from .models import (
     QuizTemplate, QuestionTemplate, AnswerOptionTemplate,
@@ -13,7 +14,7 @@ from .models import (
 )
 from .serializers import (
     QuizTemplateSerializer, QuestionTemplateSerializer, AnswerOptionTemplateSerializer,
-    QuizSerializer, QuestionSerializer, AnswerOptionSerializer, PathwaySerializer,
+    QuizSerializer, QuestionSerializer, AnswerOptionSerializer, PathwaySerializer, PathwayQuizSerializer, # Aggiunto PathwayQuizSerializer
     QuizAttemptSerializer, StudentAnswerSerializer, PathwayProgressSerializer,
     QuizAttemptDetailSerializer # Importa il nuovo serializer
 )
@@ -21,7 +22,7 @@ from .permissions import (
     IsAdminOrReadOnly, IsQuizTemplateOwnerOrAdmin, IsQuizOwner, IsPathwayOwner,
     IsStudentOwnerForAttempt, IsTeacherOfStudentForAttempt
 )
-from apps.users.permissions import IsAdminUser, IsTeacherUser, IsStudent # Import IsStudent
+from apps.users.permissions import IsAdminUser, IsTeacherUser, IsStudent, IsStudentAuthenticated # Import IsStudentAuthenticated
 from apps.users.models import UserRole, Student # Import modelli utente
 from apps.rewards.models import Wallet # Import Wallet
 
@@ -144,7 +145,8 @@ class QuizViewSet(viewsets.ModelViewSet):
 
 class QuestionViewSet(viewsets.ModelViewSet):
     serializer_class = QuestionSerializer
-    permission_classes = [permissions.IsAuthenticated, IsQuizOwner]
+    # Rimosso IsQuizOwner, il queryset e perform_create gestiscono l'ownership
+    permission_classes = [permissions.IsAuthenticated, (IsTeacherUser | IsAdminUser)] # Permetti a Docenti o Admin
 
     def get_queryset(self):
         quiz = get_object_or_404(Quiz, pk=self.kwargs['quiz_pk'])
@@ -158,8 +160,17 @@ class QuestionViewSet(viewsets.ModelViewSet):
              raise PermissionDenied("Non puoi aggiungere domande a questo quiz.")
         serializer.save(quiz=quiz)
 
+# Importa il nuovo permesso
+from .permissions import (
+    IsAdminOrReadOnly, IsQuizTemplateOwnerOrAdmin, IsQuizOwner, IsPathwayOwner,
+    IsStudentOwnerForAttempt, IsTeacherOfStudentForAttempt, IsAnswerOptionOwner
+)
+# ... (altri import) ...
+
 class AnswerOptionViewSet(viewsets.ModelViewSet):
      serializer_class = AnswerOptionSerializer
+     # Usa il nuovo permesso IsAnswerOptionOwner
+     permission_classes = [permissions.IsAuthenticated, IsAnswerOptionOwner]
 
      def get_queryset(self):
          question = get_object_or_404(Question, pk=self.kwargs['question_pk'])
@@ -243,7 +254,7 @@ class PathwayViewSet(viewsets.ModelViewSet):
 
 class StudentDashboardViewSet(viewsets.ViewSet):
      """ Endpoint per lo studente per vedere cosa gli è stato assegnato. """
-     permission_classes = [permissions.IsAuthenticated, IsStudent] # Solo Studenti
+     permission_classes = [IsStudentAuthenticated] # Solo Studenti autenticati
 
      def list(self, request):
          student = request.student
@@ -267,7 +278,7 @@ class StudentDashboardViewSet(viewsets.ViewSet):
 
 class StudentQuizAttemptViewSet(viewsets.GenericViewSet):
     """ Gestisce l'inizio di un Quiz da parte dello Studente (spostato da QuizViewSet). """
-    permission_classes = [permissions.IsAuthenticated, IsStudent] # Solo Studenti
+    permission_classes = [IsStudentAuthenticated] # Solo Studenti autenticati
     serializer_class = QuizAttemptSerializer # Per output base
 
     # POST /api/education/quizzes/{quiz_pk}/start-attempt/
@@ -296,7 +307,8 @@ class StudentQuizAttemptViewSet(viewsets.GenericViewSet):
 class AttemptViewSet(viewsets.GenericViewSet):
     """ Gestisce le azioni su un tentativo di quiz specifico (submit, complete). """
     queryset = QuizAttempt.objects.all()
-    permission_classes = [permissions.IsAuthenticated, IsStudent, IsStudentOwnerForAttempt] # Solo lo studente proprietario
+    # Usa IsStudentAuthenticated
+    permission_classes = [IsStudentAuthenticated, IsStudentOwnerForAttempt] # Solo lo studente proprietario
 
     # GET /api/education/attempts/{pk}/details/
     @action(detail=True, methods=['get'])
@@ -304,6 +316,35 @@ class AttemptViewSet(viewsets.GenericViewSet):
         attempt = self.get_object() # get_object usa queryset e pk dall'URL
         serializer = QuizAttemptDetailSerializer(attempt, context={'request': request})
         return Response(serializer.data)
+
+    # GET /api/education/attempts/{pk}/current-question/
+    @action(detail=True, methods=['get'], url_path='current-question')
+    def current_question(self, request, pk=None):
+        """ Restituisce la prossima domanda non risposta nel tentativo. """
+        attempt = self.get_object()
+        if attempt.status != QuizAttempt.AttemptStatus.IN_PROGRESS:
+            return Response({'detail': 'Questo tentativo non è più in corso.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Ottieni tutte le domande del quiz ordinate
+        all_questions = attempt.quiz.questions.order_by('order')
+        # Ottieni gli ID delle domande già risposte in questo tentativo
+        answered_question_ids = set(attempt.student_answers.values_list('question_id', flat=True))
+
+        next_question = None
+        for question in all_questions:
+            if question.id not in answered_question_ids:
+                next_question = question
+                break # Trovata la prima domanda non risposta
+
+        if next_question:
+            # Serializza e restituisci la domanda corrente
+            serializer = QuestionSerializer(next_question, context={'request': request})
+            return Response(serializer.data)
+        else:
+            # Se non ci sono più domande non risposte, ma il tentativo è ancora in corso
+            # (l'utente potrebbe non aver ancora chiamato 'complete'),
+            # restituisci 204 No Content per indicare che non c'è una *prossima* domanda.
+            return Response(status=status.HTTP_204_NO_CONTENT)
 
     # POST /api/education/attempts/{pk}/submit-answer/
     @action(detail=True, methods=['post'], url_path='submit-answer')
@@ -323,13 +364,79 @@ class AttemptViewSet(viewsets.GenericViewSet):
         except Question.DoesNotExist:
              return Response({'detail': 'Domanda non trovata in questo quiz.'}, status=status.HTTP_404_NOT_FOUND)
 
-        # TODO: Validare selected_answers_data in base a question.question_type
+        # Validazione di selected_answers_data in base a question.question_type
+        validation_error = None
+        valid_data_for_storage = {} # Dati validati da salvare
 
-        # Crea o aggiorna la risposta dello studente
+        q_type = question.question_type
+        if q_type in [QuestionType.MULTIPLE_CHOICE_SINGLE, QuestionType.TRUE_FALSE]:
+            if not isinstance(selected_answers_data, dict) or 'selected_option_id' not in selected_answers_data:
+                validation_error = "Per questo tipo di domanda, 'selected_answers' deve essere un dizionario con chiave 'selected_option_id'."
+            else:
+                selected_id = selected_answers_data['selected_option_id']
+                # Permetti None per deselezionare? Se sì, aggiungere 'or selected_id is None'
+                if not isinstance(selected_id, int):
+                    validation_error = "'selected_option_id' deve essere un intero."
+                else:
+                    # Verifica che l'opzione esista per questa domanda
+                    if not question.answer_options.filter(pk=selected_id).exists():
+                        validation_error = f"L'opzione con ID {selected_id} non è valida per questa domanda."
+                    else:
+                        # Dati validi per il salvataggio
+                        valid_data_for_storage = {'selected_option_id': selected_id}
+
+        elif q_type == QuestionType.MULTIPLE_CHOICE_MULTIPLE:
+            if not isinstance(selected_answers_data, dict) or 'selected_option_ids' not in selected_answers_data:
+                validation_error = "Per questo tipo di domanda, 'selected_answers' deve essere un dizionario con chiave 'selected_option_ids'."
+            else:
+                selected_ids = selected_answers_data['selected_option_ids']
+                if not isinstance(selected_ids, list) or not all(isinstance(i, int) for i in selected_ids):
+                    validation_error = "'selected_option_ids' deve essere una lista di interi."
+                else:
+                    # Verifica che tutte le opzioni esistano per questa domanda
+                    valid_option_ids = set(question.answer_options.values_list('id', flat=True))
+                    submitted_ids_set = set(selected_ids)
+                    if not submitted_ids_set.issubset(valid_option_ids):
+                        invalid_ids = submitted_ids_set - valid_option_ids
+                        validation_error = f"Le seguenti opzioni non sono valide per questa domanda: {list(invalid_ids)}."
+                    else:
+                        # Dati validi per il salvataggio (salva la lista)
+                        # Ordina gli ID per consistenza, se importante
+                        valid_data_for_storage = {'selected_option_ids': sorted(list(submitted_ids_set))}
+
+        elif q_type == QuestionType.FILL_BLANK:
+            if not isinstance(selected_answers_data, dict) or 'answer_text' not in selected_answers_data:
+                validation_error = "Per questo tipo di domanda, 'selected_answers' deve essere un dizionario con chiave 'answer_text'."
+            else:
+                answer_text = selected_answers_data['answer_text']
+                if not isinstance(answer_text, str):
+                     validation_error = "'answer_text' deve essere una stringa."
+                else:
+                    valid_data_for_storage = {'answer_text': answer_text}
+
+        elif q_type == QuestionType.OPEN_ANSWER_MANUAL:
+            if not isinstance(selected_answers_data, dict) or 'answer_text' not in selected_answers_data:
+                validation_error = "Per questo tipo di domanda, 'selected_answers' deve essere un dizionario con chiave 'answer_text'."
+            else:
+                answer_text = selected_answers_data['answer_text']
+                # Permetti stringa vuota? Se sì, va bene. Altrimenti aggiungi controllo.
+                if not isinstance(answer_text, str):
+                     validation_error = "'answer_text' deve essere una stringa."
+                else:
+                    # Dati validi per il salvataggio
+                    valid_data_for_storage = {'answer_text': answer_text}
+        else:
+            # Tipo di domanda non gestito o sconosciuto
+             validation_error = f"La validazione per il tipo di domanda '{q_type}' non è implementata."
+
+        if validation_error:
+            return Response({'detail': validation_error}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Usa valid_data_for_storage per creare/aggiornare
         student_answer, created = StudentAnswer.objects.update_or_create(
             quiz_attempt=attempt,
             question=question,
-            defaults={'selected_answers': selected_answers_data}
+            defaults={'selected_answers': valid_data_for_storage} # Usa i dati validati
         )
 
         # Per ora, restituisce solo la risposta salvata. Non facciamo correzione automatica qui.
@@ -368,80 +475,151 @@ class AttemptViewSet(viewsets.GenericViewSet):
             serializer = QuizAttemptSerializer(attempt) # Usa serializer base
             return Response(serializer.data)
 
-    def calculate_score(self, attempt):
-        """
-        Placeholder: Calcola il punteggio finale per un tentativo
-        (solo domande a correzione automatica).
-        """
-        total_score = 0
-        max_score = 0 # O numero di domande
-        correct_answers = 0
-        total_questions = attempt.quiz.questions.count() # O solo quelle auto?
+    # Import necessari (assicurarsi che siano presenti all'inizio del file)
+    from django.db.models import F
+    # Assumendo che QuestionType sia definito altrove, es: from .models import QuestionType
+    # Assumendo che Wallet sia definito altrove, es: from apps.users.models import Wallet
+    # Assumendo che QuizAttempt sia definito altrove, es: from .models import QuizAttempt
 
-        for answer in attempt.student_answers.select_related('question').all():
-            question = answer.question
-            # Ignora manuali per ora
-            if question.question_type == QuestionType.OPEN_ANSWER_MANUAL:
+    def calculate_score(self, attempt, validated_data):
+        """
+        Calcola il punteggio per un tentativo basandosi sulle risposte fornite.
+        Questo metodo ora utilizza i dati validati passati durante la creazione/aggiornamento.
+        """
+        score = 0
+        # Usa 'student_answers' se è il nome del campo nel serializer per le risposte
+        answers_data = validated_data.get('student_answers', [])
+        quiz = attempt.quiz
+
+        # Pre-fetch questions and their correct options for efficiency
+        # Assumendo che 'questions' sia il related_name corretto
+        questions = quiz.questions.prefetch_related('answer_options').all()
+        correct_options_map = {}
+        fill_blank_answers_map = {}
+        total_autograded_questions = 0
+
+        for q in questions:
+            # Considera solo le domande a correzione automatica per il calcolo del punteggio %
+            if q.question_type != QuestionType.OPEN_ANSWER_MANUAL:
+                total_autograded_questions += 1
+                if q.question_type in [QuestionType.MULTIPLE_CHOICE_SINGLE, QuestionType.TRUE_FALSE]:
+                     correct_option = q.answer_options.filter(is_correct=True).first()
+                     if correct_option:
+                         correct_options_map[q.id] = correct_option.id
+                elif q.question_type == QuestionType.MULTIPLE_CHOICE_MULTIPLE:
+                     correct_options_map[q.id] = set(q.answer_options.filter(is_correct=True).values_list('id', flat=True))
+                # elif q.question_type == QuestionType.FILL_BLANK:
+                #     # Assumendo che la risposta corretta sia in metadata['correct_answer']
+                #     fill_blank_answers_map[q.id] = q.metadata.get('correct_answer', '').strip().lower()
+
+
+        correct_answers_count = 0
+
+        if total_autograded_questions == 0:
+             # Se non ci sono domande a correzione automatica, il punteggio automatico è 0.
+             # Lo stato del tentativo potrebbe dover riflettere la necessità di revisione manuale.
+             attempt.score = 0
+             print(f"Nessuna domanda a correzione automatica per il quiz {quiz.id}. Punteggio automatico impostato a 0.")
+             return 0
+
+        for answer_data in answers_data:
+            # validated_data contiene istanze, non solo ID
+            question = answer_data.get('question')
+            # Salta se la domanda non è nel set (es. se è manuale e non è in answers_data)
+            if not question or question.question_type == QuestionType.OPEN_ANSWER_MANUAL:
                 continue
 
-            # Logica di correzione automatica (semplificata)
-            is_correct = False
-            if question.question_type in [QuestionType.MULTIPLE_CHOICE_SINGLE, QuestionType.TRUE_FALSE]:
-                correct_option = question.answer_options.filter(is_correct=True).first()
-                selected_id = answer.selected_answers.get('selected_options', [None])[0]
-                is_correct = correct_option and selected_id == correct_option.id
-            elif question.question_type == QuestionType.MULTIPLE_CHOICE_MULTIPLE:
-                correct_ids = set(question.answer_options.filter(is_correct=True).values_list('id', flat=True))
-                selected_ids = set(answer.selected_answers.get('selected_options', []))
-                is_correct = correct_ids == selected_ids
-            # Aggiungere logica per FILL_BLANK basata su question.metadata
+            question_id = question.id
+            question_type = question.question_type
 
-            answer.is_correct = is_correct
-            # Assegna punteggio (es. 1 punto per risposta corretta)
-            answer.score = 1.0 if is_correct else 0.0
-            answer.save()
+            is_correct = False
+            if question_type in [QuestionType.MULTIPLE_CHOICE_SINGLE, QuestionType.TRUE_FALSE]:
+                # Accedi all'ID dell'opzione selezionata dall'istanza Option
+                selected_option_id = answer_data.get('selected_option').id if answer_data.get('selected_option') else None
+                if question_id in correct_options_map and selected_option_id == correct_options_map[question_id]:
+                    is_correct = True
+            elif question_type == QuestionType.MULTIPLE_CHOICE_MULTIPLE:
+                 # Accedi agli ID delle opzioni selezionate dalle istanze Option
+                 selected_option_ids = set(opt.id for opt in answer_data.get('selected_options', []))
+                 if question_id in correct_options_map and selected_option_ids == correct_options_map[question_id]:
+                     is_correct = True
+            # elif question_type == QuestionType.FILL_BLANK:
+            #     user_answer = answer_data.get('answer_text', '').strip().lower()
+            #     if question_id in fill_blank_answers_map and user_answer == fill_blank_answers_map[question_id]:
+            #         is_correct = True
 
             if is_correct:
-                correct_answers += 1
+                correct_answers_count += 1
+            # Nota: Non salviamo più la singola risposta qui, lo fa il serializer/view
 
-        # Calcola punteggio finale (es. percentuale)
-        if total_questions > 0:
-             final_score = (correct_answers / total_questions) * 100
-             return round(final_score, 2)
-        return 0.0
+        # Calculate score as a percentage of auto-graded questions
+        score = (correct_answers_count / total_autograded_questions) * 100
+        score = round(score, 2) # Round score to two decimal places
+
+        attempt.score = score
+        # Il salvataggio dell'istanza attempt con il punteggio è gestito in perform_create/perform_update
+        print(f"Calcolato punteggio automatico per tentativo {attempt.id}: {score}")
+        return score
 
     def check_and_assign_points(self, attempt):
         """
-        Placeholder: Verifica se è il primo completamento corretto e assegna punti.
+        Verifica il punteggio del tentativo e assegna punti allo studente se applicabile,
+        basandosi sulle regole definite nel quiz (metadata).
+        Controlla anche se è il primo completamento con successo.
         """
         quiz = attempt.quiz
-        student = attempt.student
-        threshold = quiz.metadata.get('completion_threshold', 0.8) * 100 # Converti in percentuale
-        points_to_award = quiz.metadata.get('points_on_completion', 0)
+        student = attempt.student # Usa 'student' come nel codice originale
+        # Usa i metadati del quiz per soglia e punti, con fallback a default ragionevoli
+        threshold = quiz.metadata.get('completion_threshold_percent', 80.0) # Default 80%
+        points_to_award = quiz.metadata.get('points_on_completion', 0) # Default 0 punti
 
-        if attempt.score is None or points_to_award <= 0:
+        if attempt.score is None:
+             print(f"Tentativo {attempt.id}: Punteggio non ancora calcolato. Nessuna azione sui punti.")
+             return
+        if points_to_award <= 0:
+            print(f"Tentativo {attempt.id}: Punti non previsti per questo quiz ({points_to_award}). Nessuna azione.")
             return
 
         is_successful = attempt.score >= threshold
 
         if is_successful:
-            # Verifica se è il *primo* tentativo completato con successo
-            previous_success = QuizAttempt.objects.filter(
+            print(f"Tentativo {attempt.id} superato (Punteggio: {attempt.score} >= Soglia: {threshold}). Controllo assegnazione punti...")
+            # Verifica se è il *primo* tentativo completato con successo per questo quiz/studente
+            # Escludi il tentativo corrente dalla verifica
+            previous_successful_attempts = QuizAttempt.objects.filter(
                 student=student,
                 quiz=quiz,
-                status=QuizAttempt.AttemptStatus.COMPLETED,
+                status=QuizAttempt.AttemptStatus.COMPLETED, # Assicurati che lo stato sia corretto
                 score__gte=threshold
             ).exclude(pk=attempt.pk).exists()
 
-            if not previous_success:
+            if not previous_successful_attempts:
+                print(f"Questo è il primo completamento con successo per {student.full_name} del quiz '{quiz.title}'. Assegnazione punti...")
                 try:
+                    # Usa il wallet dello studente come nel codice originale
                     wallet = student.wallet
-                    wallet.add_points(points_to_award, f"Completamento Quiz: {quiz.title}")
-                    print(f"Assegnati {points_to_award} punti a {student.full_name} per {quiz.title}") # Log
+                    # Usa F() per aggiornamenti atomici sul campo 'balance' (o come si chiama)
+                    # Assumendo che il campo si chiami 'balance'
+                    wallet.balance = F('balance') + points_to_award
+                    wallet.save(update_fields=['balance'])
+                    # Ricarica per ottenere il valore aggiornato se necessario mostrarlo subito
+                    wallet.refresh_from_db()
+                    print(f"Assegnati {points_to_award} punti a {student.full_name}. Nuovo saldo: {wallet.balance}")
+
+                    # Opzionale: Registra la transazione se esiste un modello apposito
+                    # PointTransaction.objects.create(wallet=wallet, amount=points_to_award, reason=f"Completamento Quiz: {quiz.title}")
+
                 except Wallet.DoesNotExist:
-                    print(f"Errore: Wallet non trovato per studente {student.id}") # Log errore
+                    print(f"ERRORE: Wallet non trovato per lo studente {student.id}. Impossibile assegnare punti.")
                 except Exception as e:
-                     print(f"Errore durante assegnazione punti: {e}") # Log errore
+                     print(f"ERRORE durante l'assegnazione dei punti per il tentativo {attempt.id}: {e}")
+            else:
+                print(f"Lo studente {student.full_name} aveva già completato con successo il quiz '{quiz.title}'. Nessun punto aggiuntivo assegnato.")
+        else:
+            print(f"Tentativo {attempt.id} non superato (Punteggio: {attempt.score} < Soglia: {threshold}). Nessun punto assegnato.")
+
+        # Future enhancement: Check for badge eligibility based on score or points
+        # self.check_and_award_badges(student, attempt)
 
 
 # --- ViewSets per Docenti (Correzione/Risultati) ---
@@ -462,6 +640,7 @@ class TeacherGradingViewSet(viewsets.GenericViewSet):
 
     @action(detail=False, methods=['get'], url_path='pending')
     def list_pending(self, request):
+        print(f"[list_pending] User: {request.user}, Student: {getattr(request, 'student', 'N/A')}") # DEBUG
         queryset = self.get_queryset()
         page = self.paginate_queryset(queryset)
         if page is not None:
@@ -472,7 +651,18 @@ class TeacherGradingViewSet(viewsets.GenericViewSet):
 
     @action(detail=True, methods=['post'], url_path='grade')
     def grade_answer(self, request, pk=None):
-        student_answer = get_object_or_404(self.get_queryset(), pk=pk)
+        # Recupera la risposta verificando che appartenga al docente, ma senza filtrare per is_correct=None
+        student_answer = get_object_or_404(
+            StudentAnswer.objects.filter(
+                quiz_attempt__student__teacher=request.user,
+                question__question_type=QuestionType.OPEN_ANSWER_MANUAL
+            ),
+            pk=pk
+        )
+
+        # Controlla se è già stata gradata
+        if student_answer.is_correct is not None:
+            return Response({'detail': 'Questa risposta è già stata corretta.'}, status=status.HTTP_400_BAD_REQUEST)
 
         is_correct_input = request.data.get('is_correct')
         score_input = request.data.get('score')

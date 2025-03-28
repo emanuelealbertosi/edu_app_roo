@@ -103,6 +103,14 @@ class Student(models.Model):
     def full_name(self):
         return f"{self.first_name} {self.last_name}"
 
+    @property
+    def is_authenticated(self):
+        """
+        Property to satisfy Django REST Framework's IsAuthenticated permission check
+        when the user object is an instance of Student.
+        """
+        return True
+
     def set_pin(self, raw_pin):
         """ Imposta l'hash del PIN dal PIN in chiaro. """
         # Aggiungere validazione per assicurarsi che sia numerico e di lunghezza adeguata?

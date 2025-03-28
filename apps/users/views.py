@@ -1,7 +1,7 @@
 from rest_framework import viewsets, permissions, serializers # Import serializers for ValidationError
 from .models import User, Student, UserRole # Import UserRole
 from .serializers import UserSerializer, StudentSerializer
-from .permissions import IsAdminUser, IsTeacherUser, IsStudentOwnerOrAdmin
+from .permissions import IsAdminUser, IsTeacherUser, IsStudentOwnerOrAdmin, IsStudent
 
 class UserViewSet(viewsets.ModelViewSet):
     """
@@ -107,13 +107,19 @@ class StudentLoginView(APIView):
             refresh['student_code'] = student.student_code
             refresh['is_student'] = True # Claim custom per identificarlo facilmente
 
+            # Genera l'access token dal refresh token e aggiungi i claim custom anche qui
+            access = refresh.access_token
+            access['student_id'] = student.pk
+            access['student_code'] = student.student_code
+            access['is_student'] = True
+
             # Non usiamo login() di Django qui, ci basiamo solo sui token
             # login(request, student, backend='apps.users.backends.StudentCodeBackend')
 
             serializer = StudentSerializer(student) # Info studente da restituire
             return Response({
                 'refresh': str(refresh),
-                'access': str(refresh.access_token),
+                'access': str(access), # Usa l'access token modificato
                 'student': serializer.data
             })
         else:
@@ -123,4 +129,15 @@ class StudentLoginView(APIView):
                 status=status.HTTP_401_UNAUTHORIZED
             )
 
+from rest_framework.views import APIView # Import APIView
+
 # Potremmo aggiungere StudentLogoutView se necessario
+
+# View semplice per testare l'autenticazione studente
+class StudentProtectedTestView(APIView):
+    """ Endpoint protetto accessibile solo da studenti autenticati. """
+    permission_classes = [permissions.IsAuthenticated, IsStudent]
+
+    def get(self, request):
+        # request.student è disponibile grazie a StudentJWTAuthentication
+        return Response({"message": "Access granted", "student_id": request.student.pk})

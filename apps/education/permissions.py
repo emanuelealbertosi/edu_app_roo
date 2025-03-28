@@ -33,8 +33,10 @@ class IsQuizOwner(permissions.BasePermission):
         # La lettura potrebbe essere permessa anche agli studenti assegnati (gestito nella view)
         if request.method in permissions.SAFE_METHODS:
             return True
-        # La scrittura è permessa solo al Docente creatore
-        return obj.teacher == request.user and request.user.role == UserRole.TEACHER
+        # La scrittura è permessa al Docente creatore O a un Admin
+        is_owner = obj.teacher == request.user and request.user.role == UserRole.TEACHER
+        is_admin = request.user.is_authenticated and request.user.role == UserRole.ADMIN
+        return is_owner or is_admin
 
 class IsPathwayOwner(permissions.BasePermission):
     """
@@ -76,6 +78,25 @@ class IsTeacherOfStudentForAttempt(permissions.BasePermission):
 
         if student:
             return student.teacher == request.user and request.user.role == UserRole.TEACHER
+        return False
+
+class IsAnswerOptionOwner(permissions.BasePermission):
+    """
+    Permette modifiche solo al Docente creatore del Quiz a cui appartiene la Domanda dell'Opzione,
+    o a un Admin.
+    """
+    def has_object_permission(self, request, view, obj):
+        # obj is an AnswerOption instance
+        if not request.user or not request.user.is_authenticated:
+            return False
+
+        if hasattr(obj, 'question') and hasattr(obj.question, 'quiz') and hasattr(obj.question.quiz, 'teacher'):
+            is_owner = obj.question.quiz.teacher == request.user and request.user.role == UserRole.TEACHER
+            is_admin = request.user.role == UserRole.ADMIN
+            # Allow read access for safe methods if needed, otherwise restrict
+            # if request.method in permissions.SAFE_METHODS:
+            #     return is_owner or is_admin # Or potentially broader access
+            return is_owner or is_admin
         return False
 
 # Potremmo aggiungere permessi più granulari, es. per assegnare quiz/percorsi.
