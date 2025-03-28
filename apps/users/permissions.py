@@ -1,4 +1,5 @@
 from rest_framework import permissions
+from rest_framework.exceptions import PermissionDenied # Importa l'eccezione
 from .models import UserRole, User, Student # Import UserRole, User, Student
 
 class IsAdminUser(permissions.BasePermission):
@@ -15,14 +16,15 @@ class IsTeacherUser(permissions.BasePermission):
     """
     def has_permission(self, request, view):
         # Controlla se l'utente è autenticato e ha il ruolo TEACHER
-        print(f"[IsTeacherUser] Checking user: {request.user} (Type: {type(request.user)}), Role: {getattr(request.user, 'role', 'N/A')}") # DEBUG
+        # print(f"[IsTeacherUser] Checking user: {request.user} (Type: {type(request.user)}), Role: {getattr(request.user, 'role', 'N/A')}") # DEBUG
         is_teacher = bool(
             request.user and
             request.user.is_authenticated and
             isinstance(request.user, User) and # Assicura che sia il modello User corretto
             request.user.role == UserRole.TEACHER
         )
-        print(f"[IsTeacherUser] Result: {is_teacher}") # DEBUG
+        # print(f"[IsTeacherUser] Result: {is_teacher}") # DEBUG
+        # Ripristina: restituisce semplicemente il booleano
         return is_teacher
 
 class IsStudentOwnerOrAdmin(permissions.BasePermission):
@@ -63,10 +65,22 @@ class IsStudentAuthenticated(permissions.BasePermission):
     """
     def has_permission(self, request, view):
         # request.user sarà l'oggetto Student grazie a StudentJWTAuthentication
-        return (
-            isinstance(request.user, Student) and
-            hasattr(request.user, 'is_authenticated') and # Verifica aggiunta nel modello Student
-            request.user.is_authenticated
+        print(f"[IsStudentAuthenticated] Checking permission...") # DEBUG
+        print(f"[IsStudentAuthenticated] request.user: {request.user} (Type: {type(request.user)})") # DEBUG
+        print(f"[IsStudentAuthenticated] request.auth: {getattr(request, 'auth', 'N/A')}") # DEBUG
+        is_student_instance = isinstance(request.user, Student)
+        has_auth_prop = hasattr(request.user, 'is_authenticated')
+        is_auth_val = getattr(request.user, 'is_authenticated', False) if has_auth_prop else False
+        print(f"[IsStudentAuthenticated] is_student_instance: {is_student_instance}") # DEBUG
+        print(f"[IsStudentAuthenticated] has_auth_prop: {has_auth_prop}") # DEBUG
+        print(f"[IsStudentAuthenticated] is_auth_val: {is_auth_val}") # DEBUG
+
+        result = (
+            is_student_instance and
+            has_auth_prop and
+            is_auth_val
         )
+        print(f"[IsStudentAuthenticated] Result: {result}") # DEBUG
+        return result
 
 # Potremmo aggiungere altri permessi qui, come IsReadOnly, etc.

@@ -175,8 +175,9 @@ REST_FRAMEWORK = {
         # 'rest_framework.authentication.SessionAuthentication',
     ),
     'DEFAULT_PERMISSION_CLASSES': (
-        # Default to requiring authentication
-        'rest_framework.permissions.IsAuthenticated',
+        # NON impostare un permesso predefinito globale.
+        # I permessi verranno specificati esplicitamente in ciascuna View/ViewSet.
+        # 'rest_framework.permissions.IsAuthenticated', # Rimosso
     ),
     # Optional: Add pagination, filtering, etc. defaults here
     # 'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',

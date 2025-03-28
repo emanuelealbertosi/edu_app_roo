@@ -5,6 +5,7 @@ from django.db import transaction, models, IntegrityError # Import IntegrityErro
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.core.exceptions import PermissionDenied # Import PermissionDenied
+from django.db.models import F # Import F
 
 from .models import (
     QuizTemplate, QuestionTemplate, AnswerOptionTemplate,
@@ -20,14 +21,13 @@ from .serializers import (
 )
 from .permissions import (
     IsAdminOrReadOnly, IsQuizTemplateOwnerOrAdmin, IsQuizOwner, IsPathwayOwner,
-    IsStudentOwnerForAttempt, IsTeacherOfStudentForAttempt
+    IsStudentOwnerForAttempt, IsTeacherOfStudentForAttempt, IsAnswerOptionOwner # Aggiunto IsAnswerOptionOwner
 )
 from apps.users.permissions import IsAdminUser, IsTeacherUser, IsStudent, IsStudentAuthenticated # Import IsStudentAuthenticated
-from apps.users.models import UserRole, Student # Import modelli utente
-from apps.rewards.models import Wallet # Import Wallet
+from apps.users.models import UserRole, Student, User # Import modelli utente e User
+from apps.rewards.models import Wallet, PointTransaction # Import Wallet e PointTransaction
 
 # --- ViewSets per Admin (Templates) ---
-# ... (QuizTemplateViewSet, QuestionTemplateViewSet, AnswerOptionTemplateViewSet come prima) ...
 class QuizTemplateViewSet(viewsets.ModelViewSet):
     """ API endpoint per i Quiz Templates (Admin). """
     serializer_class = QuizTemplateSerializer
@@ -66,7 +66,6 @@ class AnswerOptionTemplateViewSet(viewsets.ModelViewSet):
 
 
 # --- ViewSets per Docenti (Contenuti Concreti) ---
-# ... (QuizViewSet, QuestionViewSet, AnswerOptionViewSet, PathwayViewSet come prima, con azioni assign) ...
 class QuizViewSet(viewsets.ModelViewSet):
     """ API endpoint per i Quiz concreti (Docente). """
     serializer_class = QuizSerializer
@@ -74,14 +73,14 @@ class QuizViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        if user.is_admin: # Admin può vedere tutti i quiz? Decidiamo di sì.
+        if isinstance(user, User) and user.is_admin: # Admin può vedere tutti i quiz? Decidiamo di sì.
             return Quiz.objects.all().select_related('teacher')
-        elif user.is_teacher:
+        elif isinstance(user, User) and user.is_teacher:
             return Quiz.objects.filter(teacher=user).select_related('teacher')
         return Quiz.objects.none()
 
     def perform_create(self, serializer):
-        if not self.request.user.is_teacher:
+        if not isinstance(self.request.user, User) or not self.request.user.is_teacher:
              raise serializers.ValidationError("Solo i Docenti possono creare quiz.")
         serializer.save(teacher=self.request.user)
 
@@ -145,42 +144,37 @@ class QuizViewSet(viewsets.ModelViewSet):
 
 class QuestionViewSet(viewsets.ModelViewSet):
     serializer_class = QuestionSerializer
-    # Rimosso IsQuizOwner, il queryset e perform_create gestiscono l'ownership
-    permission_classes = [permissions.IsAuthenticated, (IsTeacherUser | IsAdminUser)] # Permetti a Docenti o Admin
+    # Permetti a Docenti o Admin
+    permission_classes = [(IsTeacherUser | IsAdminUser)]
 
     def get_queryset(self):
         quiz = get_object_or_404(Quiz, pk=self.kwargs['quiz_pk'])
-        if quiz.teacher != self.request.user and not self.request.user.is_admin:
+        # Verifica ownership o ruolo admin
+        if not isinstance(self.request.user, User) or (not self.request.user.is_admin and quiz.teacher != self.request.user):
              raise PermissionDenied("Non hai accesso a questo quiz.")
         return Question.objects.filter(quiz=quiz)
 
     def perform_create(self, serializer):
         quiz = get_object_or_404(Quiz, pk=self.kwargs['quiz_pk'])
-        if quiz.teacher != self.request.user:
+        if not isinstance(self.request.user, User) or quiz.teacher != self.request.user:
              raise PermissionDenied("Non puoi aggiungere domande a questo quiz.")
         serializer.save(quiz=quiz)
-
-# Importa il nuovo permesso
-from .permissions import (
-    IsAdminOrReadOnly, IsQuizTemplateOwnerOrAdmin, IsQuizOwner, IsPathwayOwner,
-    IsStudentOwnerForAttempt, IsTeacherOfStudentForAttempt, IsAnswerOptionOwner
-)
-# ... (altri import) ...
 
 class AnswerOptionViewSet(viewsets.ModelViewSet):
      serializer_class = AnswerOptionSerializer
      # Usa il nuovo permesso IsAnswerOptionOwner
-     permission_classes = [permissions.IsAuthenticated, IsAnswerOptionOwner]
+     permission_classes = [IsAnswerOptionOwner]
 
      def get_queryset(self):
          question = get_object_or_404(Question, pk=self.kwargs['question_pk'])
-         if question.quiz.teacher != self.request.user and not self.request.user.is_admin:
+         # Verifica ownership o ruolo admin
+         if not isinstance(self.request.user, User) or (not self.request.user.is_admin and question.quiz.teacher != self.request.user):
               raise PermissionDenied("Non hai accesso a questa domanda.")
          return AnswerOption.objects.filter(question=question)
 
      def perform_create(self, serializer):
          question = get_object_or_404(Question, pk=self.kwargs['question_pk'])
-         if question.quiz.teacher != self.request.user:
+         if not isinstance(self.request.user, User) or question.quiz.teacher != self.request.user:
               raise PermissionDenied("Non puoi aggiungere opzioni a questa domanda.")
          serializer.save(question=question)
 
@@ -191,14 +185,14 @@ class PathwayViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        if user.is_admin:
+        if isinstance(user, User) and user.is_admin:
             return Pathway.objects.all().select_related('teacher').prefetch_related('pathwayquiz_set__quiz')
-        elif user.is_teacher:
+        elif isinstance(user, User) and user.is_teacher:
             return Pathway.objects.filter(teacher=user).select_related('teacher').prefetch_related('pathwayquiz_set__quiz')
         return Pathway.objects.none()
 
     def perform_create(self, serializer):
-        if not self.request.user.is_teacher:
+        if not isinstance(self.request.user, User) or not self.request.user.is_teacher:
              raise serializers.ValidationError("Solo i Docenti possono creare percorsi.")
         serializer.save(teacher=self.request.user)
 
@@ -257,9 +251,8 @@ class StudentDashboardViewSet(viewsets.ViewSet):
      permission_classes = [IsStudentAuthenticated] # Solo Studenti autenticati
 
      def list(self, request):
-         student = request.student
-         if not student:
-             return Response({"assigned_quizzes": [], "assigned_pathways": []})
+         student = request.user # Ora request.user è lo studente
+         # Rimosso controllo 'if not student:' perché IsStudentAuthenticated garantisce che ci sia
 
          assigned_quiz_ids = QuizAssignment.objects.filter(student=student).values_list('quiz_id', flat=True)
          assigned_pathway_ids = PathwayAssignment.objects.filter(student=student).values_list('pathway_id', flat=True)
@@ -285,9 +278,8 @@ class StudentQuizAttemptViewSet(viewsets.GenericViewSet):
     @action(detail=False, methods=['post'], url_path='start-attempt')
     def start_attempt(self, request, quiz_pk=None):
          quiz = get_object_or_404(Quiz, pk=quiz_pk)
-         student = request.student
-         if not student:
-             return Response({'detail': 'Autenticazione studente fallita.'}, status=status.HTTP_401_UNAUTHORIZED)
+         student = request.user # Ora request.user è lo studente
+         # Rimosso controllo 'if not student:'
 
          is_assigned = QuizAssignment.objects.filter(student=student, quiz=quiz).exists()
          if not is_assigned:
@@ -475,24 +467,16 @@ class AttemptViewSet(viewsets.GenericViewSet):
             serializer = QuizAttemptSerializer(attempt) # Usa serializer base
             return Response(serializer.data)
 
-    # Import necessari (assicurarsi che siano presenti all'inizio del file)
-    from django.db.models import F
-    # Assumendo che QuestionType sia definito altrove, es: from .models import QuestionType
-    # Assumendo che Wallet sia definito altrove, es: from apps.users.models import Wallet
-    # Assumendo che QuizAttempt sia definito altrove, es: from .models import QuizAttempt
-
-    def calculate_score(self, attempt, validated_data):
+    def calculate_score(self, attempt): # Rimosso validated_data
         """
-        Calcola il punteggio per un tentativo basandosi sulle risposte fornite.
-        Questo metodo ora utilizza i dati validati passati durante la creazione/aggiornamento.
+        Calcola il punteggio per un tentativo basandosi sulle risposte SALVATE nel DB.
         """
         score = 0
-        # Usa 'student_answers' se è il nome del campo nel serializer per le risposte
-        answers_data = validated_data.get('student_answers', [])
+        # Recupera le risposte dello studente per questo tentativo
+        student_answers = attempt.student_answers.select_related('question').all()
         quiz = attempt.quiz
 
         # Pre-fetch questions and their correct options for efficiency
-        # Assumendo che 'questions' sia il related_name corretto
         questions = quiz.questions.prefetch_related('answer_options').all()
         correct_options_map = {}
         fill_blank_answers_map = {}
@@ -508,9 +492,11 @@ class AttemptViewSet(viewsets.GenericViewSet):
                          correct_options_map[q.id] = correct_option.id
                 elif q.question_type == QuestionType.MULTIPLE_CHOICE_MULTIPLE:
                      correct_options_map[q.id] = set(q.answer_options.filter(is_correct=True).values_list('id', flat=True))
-                # elif q.question_type == QuestionType.FILL_BLANK:
-                #     # Assumendo che la risposta corretta sia in metadata['correct_answer']
-                #     fill_blank_answers_map[q.id] = q.metadata.get('correct_answer', '').strip().lower()
+                elif q.question_type == QuestionType.FILL_BLANK:
+                    # Assumendo che la risposta corretta sia in metadata['correct_answer']
+                    # Consideriamo anche la possibilità di risposte multiple separate da | e case-insensitivity
+                    correct_answers = [ans.strip().lower() for ans in q.metadata.get('correct_answers', [])] # Usa 'correct_answers' (lista)
+                    fill_blank_answers_map[q.id] = correct_answers
 
 
         correct_answers_count = 0
@@ -522,35 +508,42 @@ class AttemptViewSet(viewsets.GenericViewSet):
              print(f"Nessuna domanda a correzione automatica per il quiz {quiz.id}. Punteggio automatico impostato a 0.")
              return 0
 
-        for answer_data in answers_data:
-            # validated_data contiene istanze, non solo ID
-            question = answer_data.get('question')
-            # Salta se la domanda non è nel set (es. se è manuale e non è in answers_data)
-            if not question or question.question_type == QuestionType.OPEN_ANSWER_MANUAL:
+        # Itera sulle risposte dello studente recuperate dal DB
+        for student_answer in student_answers:
+            question = student_answer.question
+            # Salta le domande a risposta manuale
+            if question.question_type == QuestionType.OPEN_ANSWER_MANUAL:
                 continue
 
             question_id = question.id
             question_type = question.question_type
+            selected_data = student_answer.selected_answers # Questo è il JSON salvato
 
             is_correct = False
-            if question_type in [QuestionType.MULTIPLE_CHOICE_SINGLE, QuestionType.TRUE_FALSE]:
-                # Accedi all'ID dell'opzione selezionata dall'istanza Option
-                selected_option_id = answer_data.get('selected_option').id if answer_data.get('selected_option') else None
-                if question_id in correct_options_map and selected_option_id == correct_options_map[question_id]:
-                    is_correct = True
-            elif question_type == QuestionType.MULTIPLE_CHOICE_MULTIPLE:
-                 # Accedi agli ID delle opzioni selezionate dalle istanze Option
-                 selected_option_ids = set(opt.id for opt in answer_data.get('selected_options', []))
-                 if question_id in correct_options_map and selected_option_ids == correct_options_map[question_id]:
-                     is_correct = True
-            # elif question_type == QuestionType.FILL_BLANK:
-            #     user_answer = answer_data.get('answer_text', '').strip().lower()
-            #     if question_id in fill_blank_answers_map and user_answer == fill_blank_answers_map[question_id]:
-            #         is_correct = True
+            try:
+                if question_type in [QuestionType.MULTIPLE_CHOICE_SINGLE, QuestionType.TRUE_FALSE]:
+                    selected_option_id = selected_data.get('selected_option_id') if isinstance(selected_data, dict) else None
+                    if question_id in correct_options_map and selected_option_id == correct_options_map[question_id]:
+                        is_correct = True
+                elif question_type == QuestionType.MULTIPLE_CHOICE_MULTIPLE:
+                    selected_option_ids = set(selected_data.get('selected_option_ids', [])) if isinstance(selected_data, dict) else set()
+                    if question_id in correct_options_map and selected_option_ids == correct_options_map[question_id]:
+                        is_correct = True
+                elif question_type == QuestionType.FILL_BLANK:
+                    user_answer = selected_data.get('answer_text', '').strip().lower() if isinstance(selected_data, dict) else ''
+                    # Controlla se la risposta utente è una delle risposte corrette possibili
+                    if question_id in fill_blank_answers_map and user_answer in fill_blank_answers_map[question_id]:
+                        is_correct = True
+            except Exception as e:
+                print(f"Errore durante la valutazione della risposta per domanda {question_id} nel tentativo {attempt.id}: {e}")
 
             if is_correct:
                 correct_answers_count += 1
-            # Nota: Non salviamo più la singola risposta qui, lo fa il serializer/view
+            # Aggiorna il campo is_correct sulla risposta dello studente (se non è manuale)
+            # Questo potrebbe essere fatto qui o in un processo separato
+            if student_answer.is_correct != is_correct: # Aggiorna solo se cambia
+                student_answer.is_correct = is_correct
+                student_answer.save(update_fields=['is_correct'])
 
         # Calculate score as a percentage of auto-graded questions
         score = (correct_answers_count / total_autograded_questions) * 100
@@ -597,19 +590,19 @@ class AttemptViewSet(viewsets.GenericViewSet):
                 print(f"Questo è il primo completamento con successo per {student.full_name} del quiz '{quiz.title}'. Assegnazione punti...")
                 try:
                     # Usa il wallet dello studente come nel codice originale
-                    wallet = student.wallet
+                    wallet, created = Wallet.objects.get_or_create(student=student) # Usa get_or_create
                     # Usa F() per aggiornamenti atomici sul campo 'balance' (o come si chiama)
-                    # Assumendo che il campo si chiami 'balance'
-                    wallet.balance = F('balance') + points_to_award
-                    wallet.save(update_fields=['balance'])
+                    # Assumendo che il campo si chiami 'current_points'
+                    wallet.current_points = F('current_points') + points_to_award
+                    wallet.save(update_fields=['current_points'])
                     # Ricarica per ottenere il valore aggiornato se necessario mostrarlo subito
                     wallet.refresh_from_db()
-                    print(f"Assegnati {points_to_award} punti a {student.full_name}. Nuovo saldo: {wallet.balance}")
+                    print(f"Assegnati {points_to_award} punti a {student.full_name}. Nuovo saldo: {wallet.current_points}")
 
-                    # Opzionale: Registra la transazione se esiste un modello apposito
-                    # PointTransaction.objects.create(wallet=wallet, amount=points_to_award, reason=f"Completamento Quiz: {quiz.title}")
+                    # Registra la transazione
+                    PointTransaction.objects.create(wallet=wallet, points_change=points_to_award, reason=f"Completamento Quiz: {quiz.title}")
 
-                except Wallet.DoesNotExist:
+                except Wallet.DoesNotExist: # Questo non dovrebbe accadere con get_or_create
                     print(f"ERRORE: Wallet non trovato per lo studente {student.id}. Impossibile assegnare punti.")
                 except Exception as e:
                      print(f"ERRORE durante l'assegnazione dei punti per il tentativo {attempt.id}: {e}")
@@ -623,24 +616,38 @@ class AttemptViewSet(viewsets.GenericViewSet):
 
 
 # --- ViewSets per Docenti (Correzione/Risultati) ---
-# ... (TeacherGradingViewSet come prima) ...
 class TeacherGradingViewSet(viewsets.GenericViewSet):
     """ Endpoint per Docenti per visualizzare e correggere risposte manuali. """
     serializer_class = StudentAnswerSerializer
-    permission_classes = [permissions.IsAuthenticated, IsTeacherUser, IsTeacherOfStudentForAttempt]
+    # Ripristiniamo IsTeacherUser a livello di ViewSet (anche se sembra inefficace per list_pending)
+    permission_classes = [IsTeacherUser]
 
     def get_queryset(self):
         """ Filtra le risposte manuali pendenti dei propri studenti. """
         user = self.request.user
+        # Assicurati che user sia un'istanza di User prima di filtrare
+        if not isinstance(user, User):
+            return StudentAnswer.objects.none()
         return StudentAnswer.objects.filter(
             quiz_attempt__student__teacher=user,
             question__question_type=QuestionType.OPEN_ANSWER_MANUAL,
             is_correct__isnull=True # Solo quelle non ancora corrette
         ).select_related('quiz_attempt__student', 'question')
 
+    # Rimuoviamo il permesso esplicito qui, affidandoci a quello del ViewSet
     @action(detail=False, methods=['get'], url_path='pending')
     def list_pending(self, request):
-        print(f"[list_pending] User: {request.user}, Student: {getattr(request, 'student', 'N/A')}") # DEBUG
+        # WORKAROUND STABILE: Controllo manuale che restituisce 403 direttamente.
+        if not IsTeacherUser().has_permission(request, self):
+            print("[list_pending WORKAROUND] Controllo manuale fallito! Restituisco 403.")
+            return Response({"detail": "Accesso consentito solo ai docenti."}, status=status.HTTP_403_FORBIDDEN)
+
+        # Rimosso controllo manuale duplicato
+        # if not IsTeacherUser().has_permission(request, self):
+        #     print("[list_pending DEBUG] Controllo esplicito fallito!")
+        #     raise PermissionDenied("Accesso negato esplicitamente.")
+
+        # print(f"[list_pending] User: {request.user}, Student: {getattr(request, 'student', 'N/A')}") # DEBUG
         queryset = self.get_queryset()
         page = self.paginate_queryset(queryset)
         if page is not None:
@@ -651,6 +658,12 @@ class TeacherGradingViewSet(viewsets.GenericViewSet):
 
     @action(detail=True, methods=['post'], url_path='grade')
     def grade_answer(self, request, pk=None):
+        # WORKAROUND: Controllo manuale esplicito perché il permesso a livello di ViewSet
+        # non blocca correttamente gli studenti in questo caso specifico.
+        if not IsTeacherUser().has_permission(request, self):
+            print("[grade_answer WORKAROUND] Controllo manuale fallito! Restituisco 403.")
+            return Response({"detail": "Accesso consentito solo ai docenti."}, status=status.HTTP_403_FORBIDDEN)
+
         # Recupera la risposta verificando che appartenga al docente, ma senza filtrare per is_correct=None
         student_answer = get_object_or_404(
             StudentAnswer.objects.filter(
@@ -700,4 +713,4 @@ class TeacherGradingViewSet(viewsets.GenericViewSet):
 
 # Nota: La logica di calculate_score e check_and_assign_points è placeholder
 # e potrebbe necessitare di raffinamenti (es. gestione punti per domanda,
-# calcolo punteggio con risposte manuali).
+# gestione più robusta dei metadati, etc.)
