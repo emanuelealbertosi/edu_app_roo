@@ -142,11 +142,117 @@ class TeacherAccessPermissionTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     # Aggiungere test simili per Question e AnswerOption se necessario
-    # Esempio (richiede URL corretti):
-    # def test_teacher_cannot_retrieve_other_teacher_question(self):
-    #     self.client.force_authenticate(user=self.teacher1)
-    #     response = self.client.get(self.question_detail_url(self.quiz_t2.pk, self.question_t2.pk))
-    #     self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
 
-# Aggiungere qui altre classi di test per permessi studenti, etc.
+class StudentAccessPermissionTests(APITestCase):
+    """
+    Test per verificare che uno Studente NON possa accedere/modificare
+    risorse dei Docenti (Quiz, Percorsi, etc.).
+    """
+    def setUp(self):
+        self.teacher = UserFactory(role=UserRole.TEACHER, username='student_perm_teacher')
+        self.student = StudentFactory(teacher=self.teacher) # Studente associato al docente
+
+        # Risorse create dal docente
+        self.quiz = QuizFactory(teacher=self.teacher, title="Student Test Quiz")
+        self.pathway = PathwayFactory(teacher=self.teacher, title="Student Test Pathway")
+
+        # URLs
+        self.quiz_list_url = reverse('quiz-list')
+        self.quiz_detail_url = lambda pk: reverse('quiz-detail', kwargs={'pk': pk})
+        self.pathway_list_url = reverse('pathway-list')
+        self.pathway_detail_url = lambda pk: reverse('pathway-detail', kwargs={'pk': pk})
+        self.student_login_url = reverse('student-login')
+
+    def _login_student(self, student):
+        """ Helper per fare il login dello studente e ottenere il token. """
+        login_data = {'student_code': student.student_code, 'pin': '1234'} # Assumendo pin '1234'
+        login_response = self.client.post(self.student_login_url, login_data)
+        self.assertEqual(login_response.status_code, status.HTTP_200_OK, f"Login studente {student.student_code} fallito")
+        return login_response.data['access']
+
+    def test_student_cannot_list_quizzes(self):
+        """ Verifica che uno studente non possa listare i quiz tramite l'endpoint docente. """
+        access_token = self._login_student(self.student)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {access_token}')
+        response = self.client.get(self.quiz_list_url)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.client.credentials()
+
+    def test_student_cannot_retrieve_quiz(self):
+        """ Verifica che uno studente non possa vedere i dettagli di un quiz tramite l'endpoint docente. """
+        access_token = self._login_student(self.student)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {access_token}')
+        response = self.client.get(self.quiz_detail_url(self.quiz.pk))
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.client.credentials()
+
+    def test_student_cannot_create_quiz(self):
+        """ Verifica che uno studente non possa creare un quiz. """
+        access_token = self._login_student(self.student)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {access_token}')
+        data = {'title': 'Student Quiz Attempt'}
+        response = self.client.post(self.quiz_list_url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.client.credentials()
+
+    def test_student_cannot_update_quiz(self):
+        """ Verifica che uno studente non possa modificare un quiz. """
+        access_token = self._login_student(self.student)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {access_token}')
+        data = {'title': 'Student Update Attempt'}
+        response = self.client.patch(self.quiz_detail_url(self.quiz.pk), data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.client.credentials()
+
+    def test_student_cannot_delete_quiz(self):
+        """ Verifica che uno studente non possa eliminare un quiz. """
+        access_token = self._login_student(self.student)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {access_token}')
+        response = self.client.delete(self.quiz_detail_url(self.quiz.pk))
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.client.credentials()
+
+    def test_student_cannot_list_pathways(self):
+        """ Verifica che uno studente non possa listare i percorsi tramite l'endpoint docente. """
+        access_token = self._login_student(self.student)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {access_token}')
+        response = self.client.get(self.pathway_list_url)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.client.credentials()
+
+    def test_student_cannot_retrieve_pathway(self):
+        """ Verifica che uno studente non possa vedere i dettagli di un percorso tramite l'endpoint docente. """
+        access_token = self._login_student(self.student)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {access_token}')
+        response = self.client.get(self.pathway_detail_url(self.pathway.pk))
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.client.credentials()
+
+    def test_student_cannot_create_pathway(self):
+        """ Verifica che uno studente non possa creare un percorso. """
+        access_token = self._login_student(self.student)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {access_token}')
+        data = {'title': 'Student Pathway Attempt'}
+        response = self.client.post(self.pathway_list_url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.client.credentials()
+
+    def test_student_cannot_update_pathway(self):
+        """ Verifica che uno studente non possa modificare un percorso. """
+        access_token = self._login_student(self.student)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {access_token}')
+        data = {'title': 'Student Update Attempt'}
+        response = self.client.patch(self.pathway_detail_url(self.pathway.pk), data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.client.credentials()
+
+    def test_student_cannot_delete_pathway(self):
+        """ Verifica che uno studente non possa eliminare un percorso. """
+        access_token = self._login_student(self.student)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {access_token}')
+        response = self.client.delete(self.pathway_detail_url(self.pathway.pk))
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.client.credentials()
+
+# Aggiungere qui altre classi di test per permessi studenti su altre risorse (es. grading)
