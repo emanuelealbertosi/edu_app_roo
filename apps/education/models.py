@@ -459,19 +459,106 @@ class QuizAttempt(models.Model):
                     wallet.refresh_from_db()
                     print(f"Assegnati {points_to_award} punti a {student.full_name}. Nuovo saldo: {wallet.current_points}")
                     PointTransaction.objects.create(wallet=wallet, points_change=points_to_award, reason=f"Completamento Quiz: {quiz.title}")
-                    # Aggiorna il campo points_earned sull'attempt
-                    self.points_earned = points_to_award
-                    # self.save(update_fields=['points_earned']) # Salva separatamente o insieme allo score/status
-                    return True # Indica che i punti sono stati assegnati
-                except Exception as e:
-                     print(f"ERRORE durante l'assegnazione dei punti per il tentativo {self.id}: {e}")
-                     return False
+                    # Aggiorna il campo points_earned sull'attempt - Rimosso, non esiste
+                    # self.points_earned = points_to_award
+                    # self.save(update_fields=['points_earned']) # Rimosso
+
+                    # ---> AGGIUNTA LOGICA PATHWAY <---
+                    self.update_pathway_progress() # Chiamata corretta
+                    # ---> FINE AGGIUNTA LOGICA PATHWAY <---
+
+                    return True # Indica che i punti quiz sono stati (tentati di essere) assegnati
+                except Exception as e: # Blocco except corretto e indentato
+                    print(f"ERRORE durante l'assegnazione dei punti QUIZ o aggiornamento PATHWAY per il tentativo {self.id}: {e}")
+                    return False # Ritorna False se c'è un errore
             else:
                 print(f"Lo studente {student.full_name} aveva già completato con successo il quiz '{quiz.title}'. Nessun punto aggiuntivo assegnato.")
+                # Anche se non assegniamo punti QUIZ, dobbiamo aggiornare il progresso PATHWAY
+                self.update_pathway_progress()
                 return False
         else:
             print(f"Tentativo {self.id} non superato (Punteggio: {self.score} < Soglia: {threshold}). Nessun punto assegnato.")
+            # Tentativo non superato, ma potrebbe comunque sbloccare il prossimo step in un percorso se l'ordine è rispettato?
+            # Per ora, aggiorniamo il progresso solo sui tentativi superati.
+            # self.update_pathway_progress() # Opzionale: aggiornare anche su fallimento?
             return False
+
+    def update_pathway_progress(self):
+        """
+        Controlla e aggiorna il progresso nei percorsi a cui questo quiz appartiene,
+        dopo che questo tentativo è stato completato con successo.
+        """
+        quiz = self.quiz
+        student = self.student
+        threshold = quiz.metadata.get('completion_threshold_percent', 80.0)
+
+        # Considera solo se il tentativo è stato completato con successo
+        if self.status != self.AttemptStatus.COMPLETED or self.score is None or self.score < threshold:
+            return
+
+        # Trova i percorsi a cui questo quiz appartiene e per cui lo studente ha un progresso attivo
+        pathway_quizzes = PathwayQuiz.objects.filter(quiz=quiz).select_related('pathway')
+        active_progresses = PathwayProgress.objects.filter(
+            student=student,
+            pathway__in=[pq.pathway for pq in pathway_quizzes],
+            status=PathwayProgress.ProgressStatus.IN_PROGRESS
+        ).select_related('pathway').order_by('pathway_id') # Lock per pathway?
+
+        print(f"[Attempt {self.id}] Trovati {len(active_progresses)} progressi attivi per quiz {quiz.id} e studente {student.id}")
+
+        for progress in active_progresses:
+            pathway = progress.pathway
+            current_quiz_order_in_pathway = PathwayQuiz.objects.get(pathway=pathway, quiz=quiz).order
+
+            print(f"  - Controllo progresso per Pathway '{pathway.title}' (ID: {pathway.id}). Quiz attuale ordine: {current_quiz_order_in_pathway}. Ultimo completato: {progress.last_completed_quiz_order}")
+
+            # Aggiorna solo se questo quiz è il *successivo* a quello già completato (o il primo)
+            next_expected_order = (progress.last_completed_quiz_order or 0) + 1
+            if current_quiz_order_in_pathway == next_expected_order:
+                progress.last_completed_quiz_order = current_quiz_order_in_pathway
+                print(f"    -> Aggiornato last_completed_quiz_order a {current_quiz_order_in_pathway}")
+
+                # Controlla se il percorso è stato completato
+                total_quizzes_in_pathway = pathway.quizzes.count()
+                if progress.last_completed_quiz_order == total_quizzes_in_pathway:
+                    print(f"    -> Percorso '{pathway.title}' completato!")
+                    progress.status = PathwayProgress.ProgressStatus.COMPLETED
+                    progress.completed_at = timezone.now()
+
+                    # Verifica se è il primo completamento corretto del percorso
+                    previous_pathway_completions = PathwayProgress.objects.filter(
+                        student=student,
+                        pathway=pathway,
+                        status=PathwayProgress.ProgressStatus.COMPLETED
+                    ).exclude(pk=progress.pk).exists()
+
+                    if not previous_pathway_completions:
+                        progress.first_correct_completion = True
+                        print(f"    -> Primo completamento corretto del percorso '{pathway.title}'.")
+                        # Assegna punti percorso
+                        pathway_points = pathway.metadata.get('points_on_completion', 0)
+                        if pathway_points > 0:
+                            try:
+                                wallet, created = Wallet.objects.get_or_create(student=student)
+                                wallet.current_points = F('current_points') + pathway_points
+                                wallet.save(update_fields=['current_points'])
+                                wallet.refresh_from_db()
+                                PointTransaction.objects.create(wallet=wallet, points_change=pathway_points, reason=f"Completamento Percorso: {pathway.title}")
+                                print(f"      -> Assegnati {pathway_points} punti percorso. Nuovo saldo: {wallet.current_points}")
+                                # Aggiorna campo points_earned sul progresso (se esiste e vogliamo usarlo)
+                                # progress.points_earned = pathway_points
+                            except Exception as e:
+                                print(f"      -> ERRORE assegnazione punti percorso: {e}")
+                        else:
+                            print("    -> Nessun punto previsto per il completamento di questo percorso.")
+                    else:
+                        progress.first_correct_completion = False # Non è il primo
+                        print("    -> Percorso già completato in precedenza. Nessun punto assegnato.")
+
+                # Salva le modifiche al progresso
+                progress.save() # Salva tutti i campi aggiornati
+            else:
+                print(f"    -> Quiz completato fuori ordine (atteso: {next_expected_order}). Nessun aggiornamento al progresso.")
 
 
 class StudentAnswer(models.Model):
@@ -520,6 +607,7 @@ class StudentAnswer(models.Model):
         return f"Answer by {self.quiz_attempt.student.full_name} to Q{self.question.order} in {self.quiz_attempt}"
 
 
+# --- INSERIMENTO MODELLO PathwayProgress ---
 class PathwayProgress(models.Model):
     """ Traccia il progresso di uno Studente in un Percorso. """
     class ProgressStatus(models.TextChoices):
@@ -546,8 +634,12 @@ class PathwayProgress(models.Model):
     )
     started_at = models.DateTimeField(_('Started At'), auto_now_add=True)
     completed_at = models.DateTimeField(_('Completed At'), null=True, blank=True)
-    # points_earned: Calcolato al completamento se le condizioni sono soddisfatte
-    # first_correct_completion: Calcolato al completamento
+    # points_earned: Non memorizzato qui, ma in PointTransaction
+    first_correct_completion = models.BooleanField(
+        _('First Correct Completion?'),
+        default=False,
+        help_text=_('Indicates if this is the first time the student successfully completed the pathway.')
+    )
     status = models.CharField(
         _('Status'),
         max_length=20,
@@ -563,6 +655,7 @@ class PathwayProgress(models.Model):
 
     def __str__(self):
         return f"Progress of {self.student.full_name} in {self.pathway.title} ({self.status})"
+# --- FINE INSERIMENTO MODELLO PathwayProgress ---
 
 
 # --- Assignment Models ---
