@@ -2,6 +2,7 @@ import factory
 from factory.django import DjangoModelFactory
 from django.contrib.auth.hashers import make_password # Per hashare password di default
 from .models import User, Student, UserRole
+# NON importare WalletFactory qui
 
 class UserFactory(DjangoModelFactory):
     class Meta:
@@ -47,3 +48,7 @@ class StudentFactory(DjangoModelFactory):
     first_name = factory.Faker('first_name')
     last_name = factory.Faker('last_name')
     is_active = True
+
+    # Crea automaticamente un Wallet per lo studente usando la stringa
+    # 'student' si riferisce all'istanza di Student appena creata
+    wallet = factory.RelatedFactory('apps.rewards.factories.WalletFactory', factory_related_name='student')

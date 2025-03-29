@@ -10,7 +10,8 @@ from apps.users.models import UserRole
 from .models import (
     QuizTemplate, QuestionTemplate, AnswerOptionTemplate,
     Quiz, Question, AnswerOption, Pathway, PathwayQuiz,
-    QuizAttempt, StudentAnswer, PathwayProgress, QuestionType
+    QuizAttempt, StudentAnswer, PathwayProgress, QuestionType,
+    QuizAssignment, PathwayAssignment # Aggiunti modelli Assignment
 )
 
 # --- Template Factories ---
@@ -174,3 +175,27 @@ class PathwayProgressFactory(DjangoModelFactory):
             completed_at=factory.LazyFunction(timezone.now),
             # last_completed_quiz_order andrebbe impostato in base ai quiz del percorso
         )
+
+# --- Assignment Factories ---
+
+class QuizAssignmentFactory(DjangoModelFactory):
+    class Meta:
+        model = QuizAssignment
+        django_get_or_create = ('student', 'quiz') # Evita duplicati
+
+    student = factory.SubFactory(StudentFactory)
+    # Assicura che il quiz sia dello stesso docente dello studente
+    quiz = factory.SubFactory(QuizFactory, teacher=factory.SelfAttribute('..student.teacher'))
+    # Assicura che assigned_by sia il docente del quiz/studente
+    assigned_by = factory.SelfAttribute('quiz.teacher')
+
+class PathwayAssignmentFactory(DjangoModelFactory):
+    class Meta:
+        model = PathwayAssignment
+        django_get_or_create = ('student', 'pathway') # Evita duplicati
+
+    student = factory.SubFactory(StudentFactory)
+    # Assicura che il percorso sia dello stesso docente dello studente
+    pathway = factory.SubFactory(PathwayFactory, teacher=factory.SelfAttribute('..student.teacher'))
+    # Assicura che assigned_by sia il docente del percorso/studente
+    assigned_by = factory.SelfAttribute('pathway.teacher')
