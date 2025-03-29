@@ -43,12 +43,18 @@ class StudentFactory(DjangoModelFactory):
     teacher = factory.SubFactory(UserFactory, role=UserRole.TEACHER)
     # Genera un codice studente univoco
     student_code = factory.Sequence(lambda n: f'STUDENT{1000+n}')
-    # Imposta un PIN predefinito (hashato)
-    pin_hash = factory.LazyFunction(lambda: make_password('1234')) # Usa make_password importato
     first_name = factory.Faker('first_name')
     last_name = factory.Faker('last_name')
     is_active = True
 
-    # Crea automaticamente un Wallet per lo studente usando la stringa
-    # 'student' si riferisce all'istanza di Student appena creata
-    wallet = factory.RelatedFactory('apps.rewards.factories.WalletFactory', factory_related_name='student')
+    # Parametro per passare il PIN in chiaro
+    class Params:
+        pin = None
+
+    # LazyAttribute per hashare il PIN fornito o usare il default
+    pin_hash = factory.LazyAttribute(lambda o: make_password(o.pin if o.pin else '1234'))
+
+    # RIMOSSO: Crea automaticamente un Wallet per lo studente
+    # Questo causava errori IntegrityError se un wallet veniva creato altrove.
+    # Creeremo i wallet esplicitamente dove necessario.
+    # wallet = factory.RelatedFactory('apps.rewards.factories.WalletFactory', factory_related_name='student')

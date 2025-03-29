@@ -360,6 +360,7 @@ class QuizAttempt(models.Model):
         correct_answers_count = 0
         manual_score_total = 0
         manual_questions_graded = 0
+        correct_manual_answers_count = 0 # Aggiunto contatore
 
         # Itera sulle risposte dello studente recuperate dal DB
         for student_answer in student_answers:
@@ -372,6 +373,8 @@ class QuizAttempt(models.Model):
                 if student_answer.score is not None: # Considera solo se gradata
                     manual_score_total += student_answer.score
                     manual_questions_graded += 1
+                    if student_answer.is_correct: # Aggiunto controllo
+                        correct_manual_answers_count += 1
                 continue # Salta il controllo automatico
 
             # Logica correzione automatica
@@ -403,17 +406,17 @@ class QuizAttempt(models.Model):
         # Se ci sono domande manuali, il punteggio potrebbe essere la somma dei punteggi manuali
         # più un punteggio proporzionale per quelle automatiche, o una media ponderata.
         # Per ora, usiamo una media semplice se ci sono domande automatiche,
-        # altrimenti la somma dei punteggi manuali (se presenti).
+        # altrimenti calcoliamo la percentuale di risposte manuali corrette.
         # TODO: Definire meglio la strategia di calcolo del punteggio misto.
         final_score = 0
         if total_autograded_questions > 0:
+            # Se ci sono domande auto-gradate, usa la logica esistente (basata solo su quelle)
+            # TODO: Rivedere se il punteggio manuale debba influenzare questo caso
             final_score = (correct_answers_count / total_autograded_questions) * 100
         elif manual_questions_graded > 0:
-             # Se ci sono solo domande manuali, il punteggio è la somma? O una media?
-             # Assumiamo una media per ora, ma andrebbe chiarito.
-             # Potremmo anche usare i punti definiti nel metadata della domanda manuale.
-             # Per semplicità, usiamo la somma per ora.
-             final_score = manual_score_total # O una logica diversa
+             # Se ci sono SOLO domande manuali e sono state gradate
+             final_score = (correct_manual_answers_count / manual_questions_graded) * 100 # Calcola percentuale
+        # else: final_score rimane 0
 
         final_score = round(final_score, 2)
         print(f"Calcolato punteggio finale per tentativo {self.id}: {final_score}")

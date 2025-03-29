@@ -1,5 +1,5 @@
 from rest_framework import permissions
-from apps.users.models import UserRole
+from apps.users.models import UserRole, User # Importa User
 
 class IsAdminOrReadOnly(permissions.BasePermission):
     """
@@ -23,6 +23,10 @@ class IsRewardTemplateOwnerOrAdmin(permissions.BasePermission):
         if request.method in permissions.SAFE_METHODS:
             return True
 
+        # Verifica che l'utente sia un User (Admin o Teacher) prima di controllare il ruolo
+        if not isinstance(request.user, User):
+            return False
+
         # La scrittura è permessa solo al creatore (se locale) o a un Admin (se globale o locale)
         is_admin = request.user.role == UserRole.ADMIN
         is_owner = obj.creator == request.user
@@ -33,9 +37,9 @@ class IsRewardTemplateOwnerOrAdmin(permissions.BasePermission):
             return is_admin # Solo Admin modifica globali
         return False
 
-class IsRewardOwner(permissions.BasePermission):
+class IsRewardOwnerOrAdmin(permissions.BasePermission): # Rinomina classe
     """
-    Permette modifiche solo al Docente creatore della Ricompensa specifica.
+    Permette modifiche solo al Docente creatore della Ricompensa specifica o a un Admin.
     """
     def has_object_permission(self, request, view, obj):
         # La lettura potrebbe essere permessa anche agli studenti a cui è disponibile (gestito nella view)
@@ -43,8 +47,10 @@ class IsRewardOwner(permissions.BasePermission):
             # Potremmo aggiungere qui logica per studenti, ma è più semplice nel queryset della view
             return True
 
-        # La scrittura è permessa solo al Docente creatore
-        return obj.teacher == request.user and request.user.role == UserRole.TEACHER
+        # La scrittura è permessa al Docente creatore O a un Admin
+        is_admin = request.user.role == UserRole.ADMIN
+        is_owner = obj.teacher == request.user and request.user.role == UserRole.TEACHER
+        return is_owner or is_admin
 
 class IsStudentOwnerForPurchase(permissions.BasePermission):
     """

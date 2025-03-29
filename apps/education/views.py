@@ -413,14 +413,22 @@ class AttemptViewSet(viewsets.GenericViewSet):
                         valid_data_for_storage = {'selected_option_ids': sorted(list(submitted_ids_set))}
 
         elif q_type == QuestionType.FILL_BLANK:
-            if not isinstance(selected_answers_data, dict) or 'answer_text' not in selected_answers_data:
-                validation_error = "Per questo tipo di domanda, 'selected_answers' deve essere un dizionario con chiave 'answer_text'."
+            # CORRETTO: Aspettarsi 'answers' come lista
+            if not isinstance(selected_answers_data, dict) or 'answers' not in selected_answers_data:
+                validation_error = "Per questo tipo di domanda, 'selected_answers' deve essere un dizionario con chiave 'answers'."
             else:
-                answer_text = selected_answers_data['answer_text']
-                if not isinstance(answer_text, str):
-                     validation_error = "'answer_text' deve essere una stringa."
+                answers_list = selected_answers_data['answers']
+                # CORRETTO: Validare che sia una lista di stringhe
+                if not isinstance(answers_list, list) or not all(isinstance(a, str) for a in answers_list):
+                     validation_error = "'answers' deve essere una lista di stringhe."
                 else:
-                    valid_data_for_storage = {'answer_text': answer_text}
+                    # CORRETTO: Controllare il numero di risposte
+                    expected_answers_count = len(question.metadata.get('correct_answers', []))
+                    if len(answers_list) != expected_answers_count:
+                        validation_error = f"Numero errato di risposte fornite. Attese {expected_answers_count}, ricevute {len(answers_list)}."
+                    else:
+                        # Dati validi per il salvataggio
+                        valid_data_for_storage = {'answers': answers_list} # Salva la lista
 
         elif q_type == QuestionType.OPEN_ANSWER_MANUAL:
             if not isinstance(selected_answers_data, dict) or 'answer_text' not in selected_answers_data:
@@ -691,9 +699,13 @@ class TeacherGradingViewSet(viewsets.GenericViewSet):
             pk=pk
         )
 
-        # Controlla se è già stata gradata
+        # INVERTITO: Controlla PRIMA se è già stata gradata
         if student_answer.is_correct is not None:
             return Response({'detail': 'Questa risposta è già stata corretta.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # POI controlla se il tentativo è in attesa di grading
+        if student_answer.quiz_attempt.status != QuizAttempt.AttemptStatus.PENDING_GRADING:
+            return Response({'detail': 'Il tentativo associato non è in attesa di correzione manuale.'}, status=status.HTTP_400_BAD_REQUEST)
 
         is_correct_input = request.data.get('is_correct')
         score_input = request.data.get('score')

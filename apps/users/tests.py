@@ -137,17 +137,17 @@ class UserAPITests(APITestCase):
             'role': UserRole.TEACHER # Specifica il ruolo
         }
         response = self.client.post(self.list_url, data)
-        # Nota: UserViewSet non gestisce la creazione password di default,
-        # dovremmo estenderlo o usare un serializer dedicato per la creazione.
-        # Per ora, aspettiamoci un errore o modifichiamo la viewset.
-        # Assumiamo che la viewset base fallisca o non hashi la password.
-        # self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        # self.assertEqual(User.objects.count(), 3)
-        # new_user = User.objects.get(username='new_teacher')
-        # self.assertEqual(new_user.role, UserRole.TEACHER)
-        # self.assertTrue(new_user.check_password('password123'))
-        print("Skipping User creation test via API - requires password handling in ViewSet/Serializer.")
-        self.assertTrue(True) # Placeholder per far passare il test
+        # Ora ci aspettiamo che funzioni grazie a UserCreateSerializer
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        # Contiamo gli utenti totali (admin + teacher + nuovo teacher)
+        self.assertEqual(User.objects.count(), 3)
+        new_user = User.objects.get(username='new_teacher')
+        self.assertEqual(new_user.role, UserRole.TEACHER)
+        # Verifica che la password sia stata hashata correttamente
+        self.assertTrue(new_user.check_password('password123'))
+        # Verifica altri campi se necessario
+        self.assertEqual(new_user.email, 'new@example.com')
+        self.assertEqual(new_user.first_name, 'New')
 
     # --- Test CRUD aggiuntivi e Permessi ---
 

@@ -31,6 +31,34 @@ class UserSerializer(serializers.ModelSerializer):
     # Potremmo aggiungere validazione specifica qui se necessario
 
 
+class UserCreateSerializer(serializers.ModelSerializer):
+    """ Serializer specifico per la creazione di User (Admin/Docente) con gestione password. """
+    # Rende la password scrivibile solo durante la creazione
+    password = serializers.CharField(write_only=True, required=True, style={'input_type': 'password'})
+    role = serializers.ChoiceField(choices=UserRole.choices, required=True) # Rende il ruolo obbligatorio alla creazione
+
+    class Meta:
+        model = User
+        fields = [
+            'id',
+            'username',
+            'email',
+            'first_name',
+            'last_name',
+            'password', # Includi password per la creazione
+            'role',     # Includi ruolo per la creazione
+            'is_active',
+        ]
+        # Non ci sono campi read_only specifici per la creazione qui,
+        # 'id' è gestito automaticamente.
+
+    def create(self, validated_data):
+        """ Crea l'utente e imposta la password hashata. """
+        user = User.objects.create_user(**validated_data)
+        # create_user gestisce automaticamente l'hashing della password
+        return user
+
+
 class StudentSerializer(serializers.ModelSerializer):
     """
     Serializer per il modello Student.

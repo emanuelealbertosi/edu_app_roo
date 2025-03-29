@@ -13,7 +13,7 @@ from .serializers import (
     RewardSerializer, RewardPurchaseSerializer
 )
 from .permissions import (
-    IsAdminOrReadOnly, IsRewardTemplateOwnerOrAdmin, IsRewardOwner,
+    IsAdminOrReadOnly, IsRewardTemplateOwnerOrAdmin, IsRewardOwnerOrAdmin, # Aggiornato nome permesso
     IsStudentOwnerForPurchase, IsTeacherOfStudentForPurchase
 )
 # Importa permessi da users, incluso IsStudentAuthenticated
@@ -32,26 +32,38 @@ class RewardTemplateViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        if user.is_admin:
+        # Importa User e Student qui per evitare import circolari a livello di modulo
+        from apps.users.models import User, Student
+
+        if isinstance(user, User) and user.is_admin:
             # Admin vede tutti i template (globali e locali)
             return RewardTemplate.objects.all()
-        elif user.is_teacher:
+        elif isinstance(user, User) and user.is_teacher:
             # Docente vede i propri locali + tutti i globali
             return RewardTemplate.objects.filter(
                 models.Q(scope=RewardTemplate.RewardScope.GLOBAL) | models.Q(creator=user, scope=RewardTemplate.RewardScope.LOCAL)
             )
-        return RewardTemplate.objects.none() # Nessun altro può vedere template
+        # Gli studenti o altri utenti non vedono nulla tramite questo endpoint
+        return RewardTemplate.objects.none()
 
     def perform_create(self, serializer):
         user = self.request.user
+        # Importa User qui per evitare import circolari
+        from apps.users.models import User
+
         scope = RewardTemplate.RewardScope.LOCAL # Default per Docente
-        if user.is_admin:
-            # Admin può specificare lo scope nel payload, altrimenti default a GLOBAL?
-            # Per semplicità, forziamo GLOBAL se creato da Admin.
-            scope = RewardTemplate.RewardScope.GLOBAL
-            # Potremmo aggiungere un controllo: se l'admin specifica scope=LOCAL, sollevare errore?
-        elif not user.is_teacher:
-             raise serializers.ValidationError("Solo Admin o Docenti possono creare template.")
+        # Controlla che sia un User prima di accedere a is_admin/is_teacher
+        if isinstance(user, User):
+            if user.is_admin:
+                # Admin può specificare lo scope nel payload, altrimenti default a GLOBAL?
+                # Per semplicità, forziamo GLOBAL se creato da Admin.
+                scope = RewardTemplate.RewardScope.GLOBAL
+                # Potremmo aggiungere un controllo: se l'admin specifica scope=LOCAL, sollevare errore?
+            elif not user.is_teacher:
+                 raise serializers.ValidationError("Solo Admin o Docenti possono creare template.")
+        else:
+            # Se non è un User (es. Studente), non può creare
+            raise serializers.ValidationError("Azione non permessa.")
 
         serializer.save(creator=user, scope=scope)
 
@@ -64,7 +76,7 @@ class RewardViewSet(viewsets.ModelViewSet):
     - Studente: Lettura delle ricompense disponibili (gestito in endpoint separato 'shop').
     """
     serializer_class = RewardSerializer
-    permission_classes = [permissions.IsAuthenticated, IsRewardOwner] # IsTeacherUser è implicito in IsRewardOwner per scrittura
+    permission_classes = [permissions.IsAuthenticated, IsRewardOwnerOrAdmin] # Aggiornato permesso
 
     def get_queryset(self):
         user = self.request.user
@@ -110,6 +122,18 @@ class RewardViewSet(viewsets.ModelViewSet):
                     raise serializers.ValidationError(f"Lo studente {student.id} non appartiene a questo docente.")
 
         serializer.save()
+
+    def destroy(self, request, *args, **kwargs):
+        """ Sovrascrive destroy per gestire ProtectedError. """
+        instance = self.get_object()
+        try:
+            self.perform_destroy(instance)
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except models.ProtectedError:
+            return Response(
+                {"detail": "Impossibile eliminare questa ricompensa perché è stata acquistata."},
+                status=status.HTTP_409_CONFLICT
+            )
 
 
 # --- ViewSet specifici per Studenti ---
@@ -236,7 +260,7 @@ class TeacherRewardDeliveryViewSet(viewsets.GenericViewSet):
             status=RewardPurchase.PurchaseStatus.PURCHASED # Solo quelle non ancora consegnate
         ).select_related('student', 'reward')
 
-    @action(detail=False, methods=['get'], url_path='pending-delivery')
+    @action(detail=False, methods=['get'], url_path='pending-delivery', permission_classes=[permissions.IsAuthenticated, IsTeacherUser]) # Già aggiunto
     def list_pending(self, request):
         """ Lista gli acquisti in attesa di consegna. """
         queryset = self.get_queryset()
@@ -247,10 +271,25 @@ class TeacherRewardDeliveryViewSet(viewsets.GenericViewSet):
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
-    @action(detail=True, methods=['post'], url_path='mark-delivered')
+    @action(detail=True, methods=['post'], url_path='mark-delivered', permission_classes=[permissions.IsAuthenticated, IsTeacherUser, IsTeacherOfStudentForPurchase]) # Aggiunto IsTeacherUser
     def mark_delivered(self, request, pk=None):
         """ Segna un acquisto come consegnato. """
-        purchase = get_object_or_404(self.get_queryset(), pk=pk) # Assicura che sia pendente e del docente
+        # Modificato: Recupera l'acquisto senza filtrare per stato nel queryset principale
+        # Il permesso IsTeacherOfStudentForPurchase verifica l'appartenenza
+        purchase = get_object_or_404(
+            RewardPurchase.objects.filter(
+                student__teacher=request.user,
+                reward__type=RewardTemplate.RewardType.REAL_WORLD # Ancora necessario filtrare per tipo
+            ),
+            pk=pk
+        )
+
+        # AGGIUNTO: Controlla lo stato PRIMA di procedere
+        if purchase.status != RewardPurchase.PurchaseStatus.PURCHASED:
+            return Response(
+                {'detail': 'Questo acquisto non è in attesa di consegna (potrebbe essere già consegnato o cancellato).'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         # Verifica permessi a livello oggetto (già fatto da get_queryset + get_object_or_404)
         # self.check_object_permissions(request, purchase) # Non strettamente necessario qui

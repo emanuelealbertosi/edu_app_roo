@@ -852,7 +852,19 @@ class AttemptAPITests(APITestCase):
         self.q2 = QuestionFactory(quiz=self.quiz, order=2, question_type=QuestionType.MULTIPLE_CHOICE_SINGLE, text="Q2: MC-S")
         self.q2_opt1 = AnswerOptionFactory(question=self.q2, text="A", is_correct=False, order=1)
         self.q2_opt2 = AnswerOptionFactory(question=self.q2, text="B", is_correct=True, order=2)
-        self.q3 = QuestionFactory(quiz=self.quiz, order=3, question_type=QuestionType.OPEN_ANSWER_MANUAL, text="Q3: Open")
+        self.q3 = QuestionFactory(quiz=self.quiz, order=3, question_type=QuestionType.MULTIPLE_CHOICE_MULTIPLE, text="Q3: MC-M")
+        self.q3_opt1 = AnswerOptionFactory(question=self.q3, text="C", is_correct=True, order=1)
+        self.q3_opt2 = AnswerOptionFactory(question=self.q3, text="D", is_correct=True, order=2)
+        self.q3_opt3 = AnswerOptionFactory(question=self.q3, text="E", is_correct=False, order=3)
+        self.q4 = QuestionFactory(
+            quiz=self.quiz,
+            order=4,
+            question_type=QuestionType.FILL_BLANK,
+            text="Q4: Fill __blank__ and __blank__.",
+            metadata={'correct_answers': ['first', 'second']} # Risposte corrette per fill_blank
+        )
+        self.q5 = QuestionFactory(quiz=self.quiz, order=5, question_type=QuestionType.OPEN_ANSWER_MANUAL, text="Q5: Open")
+
 
         # Assegna il quiz allo studente
         self.assignment = QuizAssignment.objects.create(quiz=self.quiz, student=self.student, assigned_by=self.teacher)
@@ -884,7 +896,7 @@ class AttemptAPITests(APITestCase):
         response = self.client.get(self.details_url(self.attempt.pk))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['id'], self.attempt.pk)
-        self.assertEqual(len(response.data['questions']), 3) # Verifica che le domande siano incluse
+        self.assertEqual(len(response.data['questions']), 5) # Aggiornato numero domande
         self.assertEqual(len(response.data['given_answers']), 0) # Nessuna risposta ancora
 
     def test_other_student_cannot_get_attempt_details(self):
@@ -947,10 +959,12 @@ class AttemptAPITests(APITestCase):
 
     def test_current_question_when_all_answered(self):
         """ Verifica che current_question restituisca 204 se tutte le domande sono state risposte. """
-        # Simula risposta a tutte le domande
+        # Simula risposta a tutte le domande (ora 5)
         StudentAnswerFactory(quiz_attempt=self.attempt, question=self.q1)
         StudentAnswerFactory(quiz_attempt=self.attempt, question=self.q2)
         StudentAnswerFactory(quiz_attempt=self.attempt, question=self.q3)
+        StudentAnswerFactory(quiz_attempt=self.attempt, question=self.q4)
+        StudentAnswerFactory(quiz_attempt=self.attempt, question=self.q5)
 
         # Login studente
         login_data = {'student_code': self.student.student_code, 'pin': '1234'}
@@ -1025,6 +1039,103 @@ class AttemptAPITests(APITestCase):
         self.assertIn('detail', response.data) # Verifica presenza messaggio di errore
         self.assertFalse(StudentAnswer.objects.filter(quiz_attempt=self.attempt, question=self.q1).exists())
 
+    def test_submit_answer_mc_multiple_correct(self):
+        """ Verifica l'invio di una risposta corretta per Multiple Choice Multiple. """
+        # Login studente
+        login_data = {'student_code': self.student.student_code, 'pin': '1234'}
+        login_response = self.client.post(self.student_login_url, login_data)
+        self.assertEqual(login_response.status_code, status.HTTP_200_OK, "Login studente fallito")
+        access_token = login_response.data['access']
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {access_token}')
+
+        correct_option_ids = [self.q3_opt1.id, self.q3_opt2.id]
+        data = {
+            'question_id': self.q3.id,
+            'selected_answers': {'selected_option_ids': correct_option_ids}
+        }
+        response = self.client.post(self.submit_answer_url(self.attempt.pk), data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        student_answer = StudentAnswer.objects.get(quiz_attempt=self.attempt, question=self.q3)
+        # Verifica che gli ID siano salvati correttamente (l'ordine potrebbe non essere garantito)
+        self.assertCountEqual(student_answer.selected_answers['selected_option_ids'], correct_option_ids)
+
+    def test_submit_answer_fill_blank_correct(self):
+        """ Verifica l'invio di una risposta corretta per Fill Blank. """
+        # Login studente
+        login_data = {'student_code': self.student.student_code, 'pin': '1234'}
+        login_response = self.client.post(self.student_login_url, login_data)
+        self.assertEqual(login_response.status_code, status.HTTP_200_OK, "Login studente fallito")
+        access_token = login_response.data['access']
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {access_token}')
+
+        correct_answers = ['first', 'second'] # Come definito in metadata
+        data = {
+            'question_id': self.q4.id,
+            'selected_answers': {'answers': correct_answers}
+        }
+        response = self.client.post(self.submit_answer_url(self.attempt.pk), data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        student_answer = StudentAnswer.objects.get(quiz_attempt=self.attempt, question=self.q4)
+        self.assertEqual(student_answer.selected_answers['answers'], correct_answers)
+
+    def test_submit_answer_fill_blank_incorrect_number(self):
+        """ Verifica errore se si invia un numero errato di risposte per Fill Blank. """
+        # Login studente
+        login_data = {'student_code': self.student.student_code, 'pin': '1234'}
+        login_response = self.client.post(self.student_login_url, login_data)
+        self.assertEqual(login_response.status_code, status.HTTP_200_OK, "Login studente fallito")
+        access_token = login_response.data['access']
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {access_token}')
+
+        incorrect_answers = ['only_one'] # Solo una risposta invece di due
+        data = {
+            'question_id': self.q4.id,
+            'selected_answers': {'answers': incorrect_answers}
+        }
+        response = self.client.post(self.submit_answer_url(self.attempt.pk), data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('numero errato di risposte', response.data.get('detail', '').lower())
+
+    def test_submit_answer_open_answer(self):
+        """ Verifica l'invio di una risposta per Open Answer Manual. """
+        # Login studente
+        login_data = {'student_code': self.student.student_code, 'pin': '1234'}
+        login_response = self.client.post(self.student_login_url, login_data)
+        self.assertEqual(login_response.status_code, status.HTTP_200_OK, "Login studente fallito")
+        access_token = login_response.data['access']
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {access_token}')
+
+        answer_text = "Questa è la mia risposta aperta."
+        data = {
+            'question_id': self.q5.id,
+            'selected_answers': {'answer_text': answer_text}
+        }
+        response = self.client.post(self.submit_answer_url(self.attempt.pk), data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        student_answer = StudentAnswer.objects.get(quiz_attempt=self.attempt, question=self.q5)
+        self.assertEqual(student_answer.selected_answers['answer_text'], answer_text)
+        self.assertIsNone(student_answer.is_correct) # Deve essere None per grading manuale
+
+    def test_submit_answer_open_answer_invalid_format(self):
+        """ Verifica errore se il formato per Open Answer non è {'answer_text': '...'}. """
+        # Login studente
+        login_data = {'student_code': self.student.student_code, 'pin': '1234'}
+        login_response = self.client.post(self.student_login_url, login_data)
+        self.assertEqual(login_response.status_code, status.HTTP_200_OK, "Login studente fallito")
+        access_token = login_response.data['access']
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {access_token}')
+
+        data = {
+            'question_id': self.q5.id,
+            'selected_answers': {'wrong_key': 'some text'} # Chiave errata
+        }
+        response = self.client.post(self.submit_answer_url(self.attempt.pk), data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        # Aggiorna l'asserzione per controllare il messaggio specifico restituito
+        expected_error_substring = "deve essere un dizionario con chiave 'answer_text'"
+        self.assertIn(expected_error_substring, response.data.get('detail', ''))
+
+
     def test_submit_answer_attempt_not_in_progress(self):
         """ Verifica errore se si tenta di inviare risposta per un tentativo non in corso. """
         self.attempt.status = QuizAttempt.AttemptStatus.COMPLETED
@@ -1066,14 +1177,15 @@ class AttemptAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND) # get_object_or_404 su Question fallisce
 
     # --- Test per complete_attempt ---
-
     def test_complete_attempt_no_manual_questions(self):
         """ Verifica il completamento di un tentativo senza domande manuali. """
-        # Rimuoviamo la domanda manuale per questo test specifico
-        self.q3.delete()
-        # Simula risposte a q1 e q2
+        # Rimuoviamo TUTTE le domande manuali per questo test specifico
+        self.q5.delete() # q5 è OPEN_ANSWER_MANUAL
+        # Simula risposte alle domande rimanenti (q1, q2, q3, q4)
         StudentAnswerFactory(quiz_attempt=self.attempt, question=self.q1)
         StudentAnswerFactory(quiz_attempt=self.attempt, question=self.q2)
+        StudentAnswerFactory(quiz_attempt=self.attempt, question=self.q3)
+        StudentAnswerFactory(quiz_attempt=self.attempt, question=self.q4)
 
         # Login studente
         login_data = {'student_code': self.student.student_code, 'pin': '1234'}
@@ -1845,6 +1957,24 @@ class TeacherGradingAPITests(APITestCase):
         # dato che il messaggio specifico può variare o essere troncato.
         self.assertNotIn('is_correct', response.data)
         self.assertIn('score', response.data)
+
+    def test_teacher_cannot_grade_answer_for_non_pending_attempt(self):
+        """ Verifica errore se si tenta di gradare una risposta di un tentativo non PENDING. """
+        # Usa il tentativo già completato
+        self.client.force_authenticate(user=self.teacher1)
+        data = {'is_correct': False, 'score': 0}
+        response = self.client.post(self.grade_answer_url(self.answer4_manual_completed.pk), data)
+        # La view dovrebbe verificare lo stato -> 400 Bad Request
+        # Poiché il controllo is_correct viene prima, ci aspettiamo questo errore specifico
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('già stata corretta', response.data.get('detail', '').lower()) # Aggiornata asserzione
+
+        # Prova anche con un tentativo IN_PROGRESS (risposta non gradata)
+        attempt_in_progress = QuizAttemptFactory(student=self.student1_t1, quiz=self.quiz_manual_t1, status=QuizAttempt.AttemptStatus.IN_PROGRESS)
+        answer_in_progress = StudentAnswerFactory(quiz_attempt=attempt_in_progress, question=self.q_manual_t1)
+        response_inprogress = self.client.post(self.grade_answer_url(answer_in_progress.pk), data)
+        self.assertEqual(response_inprogress.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('non è in attesa', response_inprogress.data.get('detail', '').lower())
 
 
 class AnswerOptionTemplateAPITests(APITestCase):

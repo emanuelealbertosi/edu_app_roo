@@ -1,6 +1,7 @@
-from rest_framework import viewsets, permissions, serializers # Import serializers for ValidationError
-from .models import User, Student, UserRole # Import UserRole
-from .serializers import UserSerializer, StudentSerializer
+from rest_framework import viewsets, permissions, serializers
+from .models import User, Student, UserRole
+# Importa entrambi i serializer User
+from .serializers import UserSerializer, StudentSerializer, UserCreateSerializer
 from .permissions import IsAdminUser, IsTeacherUser, IsStudentOwnerOrAdmin, IsStudent
 
 class UserViewSet(viewsets.ModelViewSet):
@@ -8,8 +9,14 @@ class UserViewSet(viewsets.ModelViewSet):
     API endpoint che permette agli Admin di visualizzare o modificare Utenti (Admin/Docenti).
     """
     queryset = User.objects.all().order_by('-date_joined')
-    serializer_class = UserSerializer
+    # serializer_class = UserSerializer # Rimosso, useremo get_serializer_class
     permission_classes = [permissions.IsAuthenticated, IsAdminUser] # Solo Admin autenticati
+
+    def get_serializer_class(self):
+        """ Restituisce il serializer appropriato in base all'azione. """
+        if self.action == 'create':
+            return UserCreateSerializer
+        return UserSerializer # Default per list, retrieve, update, etc.
 
     # Potremmo aggiungere filtri o logica specifica per la creazione/aggiornamento qui
     # Ad esempio, impedire a un Admin di cambiare il proprio ruolo o eliminarsi.
