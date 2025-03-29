@@ -20,7 +20,7 @@ from .serializers import (
     QuizAttemptDetailSerializer # Importa il nuovo serializer
 )
 from .permissions import (
-    IsAdminOrReadOnly, IsQuizTemplateOwnerOrAdmin, IsQuizOwner, IsPathwayOwner,
+    IsAdminOrReadOnly, IsQuizTemplateOwnerOrAdmin, IsQuizOwnerOrAdmin, IsPathwayOwnerOrAdmin, # Updated IsPathwayOwner -> IsPathwayOwnerOrAdmin
     IsStudentOwnerForAttempt, IsTeacherOfStudentForAttempt, IsAnswerOptionOwner # Aggiunto IsAnswerOptionOwner
 )
 from apps.users.permissions import IsAdminUser, IsTeacherUser, IsStudent, IsStudentAuthenticated # Import IsStudentAuthenticated
@@ -69,14 +69,23 @@ class AnswerOptionTemplateViewSet(viewsets.ModelViewSet):
 class QuizViewSet(viewsets.ModelViewSet):
     """ API endpoint per i Quiz concreti (Docente). """
     serializer_class = QuizSerializer
-    permission_classes = [permissions.IsAuthenticated, IsQuizOwner] # IsTeacherUser implicito
+    permission_classes = [permissions.IsAuthenticated, IsQuizOwnerOrAdmin] # Removed permissions. prefix
 
     def get_queryset(self):
         user = self.request.user
-        if isinstance(user, User) and user.is_admin: # Admin può vedere tutti i quiz? Decidiamo di sì.
+
+        # Per azioni di dettaglio (retrieve, update, etc.), permettiamo a DRF di trovare l'oggetto.
+        # Il permesso IsQuizOwner (o altri permessi a livello di oggetto) gestirà l'accesso (403 vs 404).
+        # Questo assicura che un utente non autorizzato riceva 403 invece di 404 se l'oggetto esiste.
+        if self.action in ['retrieve', 'update', 'partial_update', 'destroy', 'assign_student']: # Aggiunte azioni custom che operano su un oggetto
+            return Quiz.objects.all().select_related('teacher')
+
+        # Per l'azione 'list' (e altre azioni a livello di lista), applichiamo i filtri standard.
+        if isinstance(user, User) and user.is_admin:
             return Quiz.objects.all().select_related('teacher')
         elif isinstance(user, User) and user.is_teacher:
             return Quiz.objects.filter(teacher=user).select_related('teacher')
+        # Per studenti o altri utenti non privilegiati, la lista dei quiz è vuota.
         return Quiz.objects.none()
 
     def perform_create(self, serializer):
@@ -122,7 +131,7 @@ class QuizViewSet(viewsets.ModelViewSet):
         except Exception as e:
             return Response({'detail': f'Errore durante la creazione da template: {e}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    @action(detail=True, methods=['post'], url_path='assign-student', permission_classes=[permissions.IsAuthenticated, IsQuizOwner])
+    @action(detail=True, methods=['post'], url_path='assign-student', permission_classes=[permissions.IsAuthenticated, IsQuizOwnerOrAdmin]) # Removed permissions. prefix
     def assign_student(self, request, pk=None):
         quiz = self.get_object()
         student_id = request.data.get('student_id')
@@ -181,14 +190,21 @@ class AnswerOptionViewSet(viewsets.ModelViewSet):
 class PathwayViewSet(viewsets.ModelViewSet):
     """ API endpoint per i Percorsi (Docente). """
     serializer_class = PathwaySerializer
-    permission_classes = [permissions.IsAuthenticated, IsPathwayOwner] # IsTeacherUser implicito
+    permission_classes = [permissions.IsAuthenticated, IsPathwayOwnerOrAdmin] # Updated permission
 
     def get_queryset(self):
         user = self.request.user
+
+        # Allow DRF to find the object for detail actions. Permissions handle access.
+        if self.action in ['retrieve', 'update', 'partial_update', 'destroy', 'add_quiz', 'assign_student_pathway']: # Added detail/custom actions
+            return Pathway.objects.all().select_related('teacher').prefetch_related('pathwayquiz_set__quiz')
+
+        # Standard filtering for list action.
         if isinstance(user, User) and user.is_admin:
             return Pathway.objects.all().select_related('teacher').prefetch_related('pathwayquiz_set__quiz')
         elif isinstance(user, User) and user.is_teacher:
             return Pathway.objects.filter(teacher=user).select_related('teacher').prefetch_related('pathwayquiz_set__quiz')
+        # Empty list for students or others.
         return Pathway.objects.none()
 
     def perform_create(self, serializer):
@@ -196,7 +212,7 @@ class PathwayViewSet(viewsets.ModelViewSet):
              raise serializers.ValidationError("Solo i Docenti possono creare percorsi.")
         serializer.save(teacher=self.request.user)
 
-    @action(detail=True, methods=['post'], url_path='add-quiz', permission_classes=[permissions.IsAuthenticated, IsPathwayOwner])
+    @action(detail=True, methods=['post'], url_path='add-quiz', permission_classes=[permissions.IsAuthenticated, IsPathwayOwnerOrAdmin]) # Updated permission
     def add_quiz(self, request, pk=None):
         pathway = self.get_object()
         quiz_id = request.data.get('quiz_id')
@@ -223,7 +239,7 @@ class PathwayViewSet(viewsets.ModelViewSet):
         except IntegrityError:
              return Response({'detail': 'Errore nell\'aggiungere il quiz al percorso.'}, status=status.HTTP_400_BAD_REQUEST)
 
-    @action(detail=True, methods=['post'], url_path='assign-student', permission_classes=[permissions.IsAuthenticated, IsPathwayOwner])
+    @action(detail=True, methods=['post'], url_path='assign-student', permission_classes=[permissions.IsAuthenticated, IsPathwayOwnerOrAdmin]) # Updated permission
     def assign_student_pathway(self, request, pk=None):
         pathway = self.get_object()
         student_id = request.data.get('student_id')
@@ -457,12 +473,14 @@ class AttemptViewSet(viewsets.GenericViewSet):
                 attempt = QuizAttempt.objects.select_for_update().get(pk=pk) # Lock
                 attempt.status = QuizAttempt.AttemptStatus.COMPLETED
                 attempt.completed_at = timezone.now()
-                # --- INIZIO LOGICA DA IMPLEMENTARE ---
-                attempt.score = self.calculate_score(attempt)
+                # Chiama i metodi spostati sul modello QuizAttempt
+                attempt.score = attempt.calculate_final_score()
                 # Verifica se è il primo completamento corretto e assegna punti
-                self.check_and_assign_points(attempt)
-                # --- FINE LOGICA DA IMPLEMENTARE ---
-                attempt.save()
+                # Il metodo del modello ora gestisce anche il salvataggio di points_earned se necessario
+                points_assigned = attempt.assign_completion_points()
+                # Salva lo stato, il punteggio e completed_at. La creazione della PointTransaction
+                # e l'aggiornamento di first_correct_completion avvengono dentro assign_completion_points.
+                attempt.save(update_fields=['status', 'completed_at', 'score']) # Removed 'points_earned'
 
             serializer = QuizAttemptSerializer(attempt) # Usa serializer base
             return Response(serializer.data)
@@ -694,18 +712,23 @@ class TeacherGradingViewSet(viewsets.GenericViewSet):
         student_answer.save()
 
         attempt = student_answer.quiz_attempt
-        pending_answers = attempt.student_answers.filter(is_correct__isnull=True).count()
+        # Modificato: Filtra solo le risposte a domande MANUALI che sono ancora pendenti
+        pending_answers = attempt.student_answers.filter(
+            question__question_type=QuestionType.OPEN_ANSWER_MANUAL,
+            is_correct__isnull=True
+        ).count()
         if pending_answers == 0 and attempt.status == QuizAttempt.AttemptStatus.PENDING_GRADING:
             # Tutte le risposte (manuali) sono state corrette, finalizza l'attempt
             with transaction.atomic():
                 attempt = QuizAttempt.objects.select_for_update().get(pk=attempt.pk) # Lock
                 attempt.status = QuizAttempt.AttemptStatus.COMPLETED
                 attempt.completed_at = timezone.now()
-                # Ricalcola punteggio includendo le risposte manuali (se necessario)
-                # La logica in calculate_score potrebbe dover essere aggiornata
-                attempt.score = self.calculate_score(attempt) # Ricalcola
-                self.check_and_assign_points(attempt)
-                attempt.save()
+                # Ricalcola punteggio finale usando il metodo del modello
+                attempt.score = attempt.calculate_final_score()
+                # Verifica se è il primo completamento corretto e assegna punti (gestito nel modello)
+                attempt.assign_completion_points()
+                # Salva i campi aggiornati
+                attempt.save(update_fields=['status', 'completed_at', 'score'])
             print(f"Attempt {attempt.id} completato e corretto dopo grading manuale.")
 
         serializer = self.get_serializer(student_answer)

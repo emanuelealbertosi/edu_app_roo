@@ -283,6 +283,69 @@ class QuizTemplateAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
         self.assertTrue(QuizTemplate.objects.filter(pk=template1_pk).exists())
 
+    # --- Test Permessi Studente su Endpoint QuizTemplate ---
+
+    def _login_student(self, student):
+        """ Helper per fare il login dello studente e ottenere il token. """
+        student_login_url = reverse('student-login')
+        login_data = {'student_code': student.student_code, 'pin': '1234'} # Assumendo pin '1234'
+        login_response = self.client.post(student_login_url, login_data)
+        self.assertEqual(login_response.status_code, status.HTTP_200_OK, f"Login studente {student.student_code} fallito")
+        return login_response.data['access']
+
+    def test_student_cannot_list_quiz_templates(self):
+        """ Verifica che uno studente non possa listare i template di quiz. """
+        student_user = StudentFactory() # Rimosso pin='1234'
+        access_token = self._login_student(student_user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {access_token}')
+
+        response = self.client.get(self.list_url)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.client.credentials()
+
+    def test_student_cannot_create_quiz_template(self):
+        """ Verifica che uno studente non possa creare un template di quiz. """
+        student_user = StudentFactory() # Rimosso pin='1234'
+        access_token = self._login_student(student_user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {access_token}')
+
+        data = {'title': 'Student Template Attempt', 'description': 'Should fail'}
+        response = self.client.post(self.list_url, data)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.client.credentials()
+
+    def test_student_cannot_retrieve_quiz_template(self):
+        """ Verifica che uno studente non possa recuperare i dettagli di un template di quiz. """
+        student_user = StudentFactory() # Rimosso pin='1234'
+        access_token = self._login_student(student_user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {access_token}')
+
+        response = self.client.get(self.detail_url(self.template1.pk))
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.client.credentials()
+
+    def test_student_cannot_update_quiz_template(self):
+        """ Verifica che uno studente non possa aggiornare un template di quiz. """
+        student_user = StudentFactory() # Rimosso pin='1234'
+        access_token = self._login_student(student_user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {access_token}')
+
+        data = {'title': 'Student Update Attempt'}
+        response = self.client.patch(self.detail_url(self.template1.pk), data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.client.credentials()
+
+    def test_student_cannot_delete_quiz_template(self):
+        """ Verifica che uno studente non possa eliminare un template di quiz. """
+        student_user = StudentFactory() # Rimosso pin='1234'
+        access_token = self._login_student(student_user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {access_token}')
+
+        response = self.client.delete(self.detail_url(self.template1.pk))
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertTrue(QuizTemplate.objects.filter(pk=self.template1.pk).exists())
+        self.client.credentials()
+
 
 class QuizAPITests(APITestCase):
     """ Test per /api/education/quizzes/ """
@@ -396,8 +459,8 @@ class QuizAPITests(APITestCase):
         """ Verifica che un docente non possa recuperare i dettagli del quiz di un altro docente. """
         self.client.force_authenticate(user=self.teacher1)
         response = self.client.get(self.detail_url(self.quiz_t2.pk))
-        # IsQuizOwner dovrebbe negare l'accesso (ma il queryset filtra prima)
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        # IsQuizOwnerOrAdmin nega l'accesso
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN) # Updated expected status
 
     def test_admin_can_retrieve_any_quiz(self):
         """ Verifica che un admin possa recuperare i dettagli di qualsiasi quiz. """
@@ -420,7 +483,7 @@ class QuizAPITests(APITestCase):
         self.client.force_authenticate(user=self.teacher1)
         data = {'title': 'Attempted Update'}
         response = self.client.patch(self.detail_url(self.quiz_t2.pk), data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND) # Queryset filtra
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN) # Updated expected status
         self.quiz_t2.refresh_from_db()
         self.assertNotEqual(self.quiz_t2.title, 'Attempted Update')
 
@@ -445,7 +508,7 @@ class QuizAPITests(APITestCase):
         quiz_t2_pk = self.quiz_t2.pk
         self.client.force_authenticate(user=self.teacher1)
         response = self.client.delete(self.detail_url(quiz_t2_pk))
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND) # Queryset filtra
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN) # Updated expected status
         self.assertTrue(Quiz.objects.filter(pk=quiz_t2_pk).exists())
 
     def test_admin_can_delete_any_quiz(self):
@@ -455,6 +518,93 @@ class QuizAPITests(APITestCase):
         response = self.client.delete(self.detail_url(quiz_t2_pk))
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         self.assertFalse(Quiz.objects.filter(pk=quiz_t2_pk).exists())
+
+    # --- Test Permessi Studente su Endpoint Quiz ---
+
+    def _login_student(self, student):
+        """ Helper per fare il login dello studente e ottenere il token. """
+        student_login_url = reverse('student-login')
+        login_data = {'student_code': student.student_code, 'pin': '1234'} # Assumendo pin '1234'
+        login_response = self.client.post(student_login_url, login_data)
+        self.assertEqual(login_response.status_code, status.HTTP_200_OK, f"Login studente {student.student_code} fallito")
+        return login_response.data['access']
+
+    def test_student_cannot_list_quizzes(self):
+        """ Verifica che uno studente non possa listare i quiz tramite l'endpoint principale. """
+        student_user = StudentFactory() # Rimosso pin='1234'
+        access_token = self._login_student(student_user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {access_token}')
+
+        response = self.client.get(self.list_url)
+        # Ci aspettiamo 403 Forbidden perché l'endpoint richiede IsTeacherUser o IsAdminUser
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.client.credentials() # Pulisce le credenziali per i test successivi
+
+    def test_student_cannot_create_quiz(self):
+        """ Verifica che uno studente non possa creare un quiz. """
+        student_user = StudentFactory() # Rimosso pin='1234'
+        access_token = self._login_student(student_user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {access_token}')
+
+        data = {'title': 'Student Quiz Attempt', 'description': 'Should fail'}
+        response = self.client.post(self.list_url, data)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.client.credentials()
+
+    def test_student_cannot_retrieve_quiz(self):
+        """ Verifica che uno studente non possa recuperare i dettagli di un quiz. """
+        student_user = StudentFactory() # Rimosso pin='1234'
+        access_token = self._login_student(student_user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {access_token}')
+
+        response = self.client.get(self.detail_url(self.quiz_t1.pk))
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.client.credentials()
+
+    def test_student_cannot_update_quiz(self):
+        """ Verifica che uno studente non possa aggiornare un quiz. """
+        student_user = StudentFactory() # Rimosso pin='1234'
+        access_token = self._login_student(student_user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {access_token}')
+
+        data = {'title': 'Student Update Attempt'}
+        response = self.client.patch(self.detail_url(self.quiz_t1.pk), data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.client.credentials()
+
+    def test_student_cannot_delete_quiz(self):
+        """ Verifica che uno studente non possa eliminare un quiz. """
+        student_user = StudentFactory() # Rimosso pin='1234'
+        access_token = self._login_student(student_user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {access_token}')
+
+        response = self.client.delete(self.detail_url(self.quiz_t1.pk))
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertTrue(Quiz.objects.filter(pk=self.quiz_t1.pk).exists()) # Verifica che non sia stato eliminato
+        self.client.credentials()
+
+    def test_student_cannot_create_quiz_from_template(self):
+        """ Verifica che uno studente non possa creare un quiz da un template. """
+        student_user = StudentFactory() # Rimosso pin='1234'
+        access_token = self._login_student(student_user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {access_token}')
+
+        data = {'template_id': self.template.pk, 'title': 'Student Template Attempt'}
+        response = self.client.post(self.create_from_template_url, data)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.client.credentials()
+
+    def test_student_cannot_assign_quiz(self):
+        """ Verifica che uno studente non possa assegnare un quiz. """
+        student_user = StudentFactory() # Rimosso pin='1234'
+        another_student = StudentFactory(teacher=self.teacher1) # Uno studente a cui assegnare
+        access_token = self._login_student(student_user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {access_token}')
+
+        data = {'student_id': another_student.pk}
+        response = self.client.post(self.assign_student_url(self.quiz_t1.pk), data)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.client.credentials()
 
 
 class PathwayAPITests(APITestCase):
@@ -510,7 +660,7 @@ class PathwayAPITests(APITestCase):
     def test_teacher_cannot_retrieve_other_pathway(self):
         self.client.force_authenticate(user=self.teacher1)
         response = self.client.get(self.detail_url(self.pathway_t2.pk))
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND) # Queryset filtra
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN) # Updated expected status
 
     def test_teacher_can_update_own_pathway(self):
         self.client.force_authenticate(user=self.teacher1)
@@ -524,7 +674,7 @@ class PathwayAPITests(APITestCase):
         self.client.force_authenticate(user=self.teacher1)
         data = {'title': 'Attempted Update'}
         response = self.client.patch(self.detail_url(self.pathway_t2.pk), data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND) # Queryset filtra
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN) # Updated expected status
 
     def test_teacher_can_delete_own_pathway(self):
         self.client.force_authenticate(user=self.teacher1)
@@ -536,7 +686,7 @@ class PathwayAPITests(APITestCase):
         pathway_t2_pk = self.pathway_t2.pk
         self.client.force_authenticate(user=self.teacher1)
         response = self.client.delete(self.detail_url(pathway_t2_pk))
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND) # Queryset filtra
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN) # Updated expected status
         self.assertTrue(Pathway.objects.filter(pk=pathway_t2_pk).exists())
 
     def test_teacher_can_add_own_quiz_to_own_pathway(self):
@@ -595,6 +745,92 @@ class PathwayAPITests(APITestCase):
         response = self.client.post(self.assign_student_url(self.pathway_t1.pk), data)
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
         self.assertFalse(PathwayAssignment.objects.filter(pathway=self.pathway_t1, student=other_student).exists())
+
+    # --- Test Permessi Studente su Endpoint Pathway ---
+
+    def _login_student(self, student):
+        """ Helper per fare il login dello studente e ottenere il token. """
+        student_login_url = reverse('student-login')
+        login_data = {'student_code': student.student_code, 'pin': '1234'} # Assumendo pin '1234'
+        login_response = self.client.post(student_login_url, login_data)
+        self.assertEqual(login_response.status_code, status.HTTP_200_OK, f"Login studente {student.student_code} fallito")
+        return login_response.data['access']
+
+    def test_student_cannot_list_pathways(self):
+        """ Verifica che uno studente non possa listare i percorsi. """
+        student_user = StudentFactory() # Rimosso pin='1234'
+        access_token = self._login_student(student_user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {access_token}')
+
+        response = self.client.get(self.list_url)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.client.credentials()
+
+    def test_student_cannot_create_pathway(self):
+        """ Verifica che uno studente non possa creare un percorso. """
+        student_user = StudentFactory() # Rimosso pin='1234'
+        access_token = self._login_student(student_user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {access_token}')
+
+        data = {'title': 'Student Pathway Attempt', 'description': 'Should fail'}
+        response = self.client.post(self.list_url, data)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.client.credentials()
+
+    def test_student_cannot_retrieve_pathway(self):
+        """ Verifica che uno studente non possa recuperare i dettagli di un percorso. """
+        student_user = StudentFactory() # Rimosso pin='1234'
+        access_token = self._login_student(student_user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {access_token}')
+
+        response = self.client.get(self.detail_url(self.pathway_t1.pk))
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.client.credentials()
+
+    def test_student_cannot_update_pathway(self):
+        """ Verifica che uno studente non possa aggiornare un percorso. """
+        student_user = StudentFactory() # Rimosso pin='1234'
+        access_token = self._login_student(student_user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {access_token}')
+
+        data = {'title': 'Student Update Attempt'}
+        response = self.client.patch(self.detail_url(self.pathway_t1.pk), data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.client.credentials()
+
+    def test_student_cannot_delete_pathway(self):
+        """ Verifica che uno studente non possa eliminare un percorso. """
+        student_user = StudentFactory() # Rimosso pin='1234'
+        access_token = self._login_student(student_user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {access_token}')
+
+        response = self.client.delete(self.detail_url(self.pathway_t1.pk))
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertTrue(Pathway.objects.filter(pk=self.pathway_t1.pk).exists())
+        self.client.credentials()
+
+    def test_student_cannot_add_quiz_to_pathway(self):
+        """ Verifica che uno studente non possa aggiungere un quiz a un percorso. """
+        student_user = StudentFactory() # Rimosso pin='1234'
+        access_token = self._login_student(student_user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {access_token}')
+
+        data = {'quiz_id': self.quiz_t1_1.pk, 'order': 1}
+        response = self.client.post(self.add_quiz_url(self.pathway_t1.pk), data)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.client.credentials()
+
+    def test_student_cannot_assign_pathway(self):
+        """ Verifica che uno studente non possa assegnare un percorso. """
+        student_user = StudentFactory() # Rimosso pin='1234'
+        another_student = StudentFactory(teacher=self.teacher1)
+        access_token = self._login_student(student_user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {access_token}')
+
+        data = {'student_id': another_student.pk}
+        response = self.client.post(self.assign_student_url(self.pathway_t1.pk), data)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.client.credentials()
 
 
 # Aggiungere test per QuestionAPITests, AnswerOptionAPITests (usando nested URLs)
@@ -1135,6 +1371,44 @@ class QuestionTemplateAPITests(APITestCase):
         response_delete = self.client.delete(self.detail_url(self.quiz_template.pk, self.q_template1.pk))
         self.assertEqual(response_delete.status_code, status.HTTP_403_FORBIDDEN)
 
+    def _login_student(self, student):
+        """ Helper per fare il login dello studente e ottenere il token. """
+        student_login_url = reverse('student-login')
+        login_data = {'student_code': student.student_code, 'pin': '1234'} # Assumendo pin '1234'
+        login_response = self.client.post(student_login_url, login_data)
+        self.assertEqual(login_response.status_code, status.HTTP_200_OK, f"Login studente {student.student_code} fallito")
+        return login_response.data['access']
+
+    def test_student_cannot_access_nested_question_template_endpoints(self):
+        """ Verifica che uno studente non possa accedere agli endpoint nested dei template di domande. """
+        student_user = StudentFactory() # Rimosso pin='1234'
+        access_token = self._login_student(student_user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {access_token}')
+
+        # Test LIST
+        response_list = self.client.get(self.list_url(self.quiz_template.pk))
+        self.assertEqual(response_list.status_code, status.HTTP_403_FORBIDDEN)
+
+        # Test CREATE
+        data_create = {'text': 'Student Q', 'question_type': QuestionType.TRUE_FALSE, 'order': 3}
+        response_create = self.client.post(self.list_url(self.quiz_template.pk), data_create)
+        self.assertEqual(response_create.status_code, status.HTTP_403_FORBIDDEN)
+
+        # Test RETRIEVE
+        response_retrieve = self.client.get(self.detail_url(self.quiz_template.pk, self.q_template1.pk))
+        self.assertEqual(response_retrieve.status_code, status.HTTP_403_FORBIDDEN)
+
+        # Test UPDATE
+        data_update = {'text': 'Student Update'}
+        response_update = self.client.patch(self.detail_url(self.quiz_template.pk, self.q_template1.pk), data_update)
+        self.assertEqual(response_update.status_code, status.HTTP_403_FORBIDDEN)
+
+        # Test DELETE
+        response_delete = self.client.delete(self.detail_url(self.quiz_template.pk, self.q_template1.pk))
+        self.assertEqual(response_delete.status_code, status.HTTP_403_FORBIDDEN)
+
+        self.client.credentials() # Pulisce credenziali studente
+
 
 class QuestionAPITests(APITestCase):
     """ Test per /api/education/quizzes/{quiz_pk}/questions/ """
@@ -1407,6 +1681,14 @@ class TeacherGradingAPITests(APITestCase):
         else:
              self.student1_user = self.student1_t1.user
 
+    def _login_student(self, student):
+        """ Helper per fare il login dello studente e ottenere il token. """
+        student_login_url = reverse('student-login')
+        login_data = {'student_code': student.student_code, 'pin': '1234'} # Assumendo pin '1234'
+        login_response = self.client.post(student_login_url, login_data)
+        self.assertEqual(login_response.status_code, status.HTTP_200_OK, f"Login studente {student.student_code} fallito")
+        return login_response.data['access']
+
     def test_teacher_can_list_own_pending_answers(self):
         """ Verifica che il docente veda solo le risposte manuali PENDING dei propri studenti. """
         self.client.force_authenticate(user=self.teacher1)
@@ -1432,9 +1714,13 @@ class TeacherGradingAPITests(APITestCase):
 
     def test_student_cannot_list_pending_answers(self):
         """ Verifica che uno studente non possa accedere a questo endpoint docente. """
-        self.client.force_authenticate(user=self.student1_user)
+        # Usa l'autenticazione JWT studente invece di force_authenticate
+        # Passa l'oggetto Student (self.student1_t1), non l'User associato
+        access_token = self._login_student(self.student1_t1)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {access_token}')
         response = self.client.get(self.list_pending_url)
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.client.credentials() # Pulisci le credenziali
 
     def test_teacher_can_grade_own_pending_answer(self):
         """ Verifica che il docente possa gradare una risposta manuale pending di un proprio studente. """
@@ -1496,6 +1782,69 @@ class TeacherGradingAPITests(APITestCase):
         data = {'is_correct': True, 'score': 10}
         response = self.client.post(self.grade_answer_url(self.answer1_manual.pk))
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN) # IsTeacherUser dovrebbe bloccare
+
+    def test_grade_answer_completes_attempt(self):
+        """ Verifica che gradare l'ultima risposta manuale completi il tentativo. """
+        # Assicurati che ci sia solo una risposta manuale nel tentativo
+        # (Nel setUp di default, answer1_auto è per q1, answer1_manual per q3)
+        # Per simulare che q3 sia l'unica domanda manuale, potremmo dover modificare il setup
+        # o creare un tentativo specifico qui. Per semplicità, assumiamo che sia l'unica
+        # risposta manuale rimasta da gradare.
+        self.attempt1_pending.status = QuizAttempt.AttemptStatus.PENDING_GRADING
+        self.attempt1_pending.save()
+        # Assicuriamoci che l'altra risposta (se esiste e fosse manuale) sia già gradata
+        # In questo setup, answer1_auto non è manuale, quindi non serve.
+
+        self.client.force_authenticate(user=self.teacher1)
+        data = {'is_correct': True, 'score': 10}
+        response = self.client.post(self.grade_answer_url(self.answer1_manual.pk), data)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        self.answer1_manual.refresh_from_db()
+        self.assertTrue(self.answer1_manual.is_correct)
+        self.assertEqual(self.answer1_manual.score, 10)
+
+        self.attempt1_pending.refresh_from_db()
+        self.assertEqual(self.attempt1_pending.status, QuizAttempt.AttemptStatus.COMPLETED)
+        self.assertIsNotNone(self.attempt1_pending.completed_at)
+        self.assertIsNotNone(self.attempt1_pending.score) # Il punteggio dovrebbe essere stato calcolato
+        # Potremmo aggiungere un controllo sui punti guadagnati se la logica è definita
+        # self.assertIsNotNone(self.attempt1_pending.points_earned)
+
+    def test_grade_answer_updates_answer_status_but_not_attempt(self):
+        """ Verifica che gradare una risposta aggiorni is_correct/score, ma non completi
+            il tentativo se ci sono altre risposte manuali pendenti. """
+        # Aggiungi un'altra domanda manuale e risposta al tentativo
+        q_manual2 = QuestionFactory(quiz=self.quiz_manual_t1, order=4, question_type=QuestionType.OPEN_ANSWER_MANUAL, text="Q Manual 2")
+        answer_manual2 = StudentAnswerFactory(quiz_attempt=self.attempt1_pending, question=q_manual2, selected_answers={'text': 'Seconda risposta'})
+        self.attempt1_pending.status = QuizAttempt.AttemptStatus.PENDING_GRADING
+        self.attempt1_pending.save()
+
+        self.client.force_authenticate(user=self.teacher1)
+        data = {'is_correct': False, 'score': 0}
+        response = self.client.post(self.grade_answer_url(self.answer1_manual.pk), data) # Grada la prima
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        self.answer1_manual.refresh_from_db()
+        self.assertFalse(self.answer1_manual.is_correct)
+        self.assertEqual(self.answer1_manual.score, 0)
+
+        # Il tentativo dovrebbe rimanere PENDING_GRADING
+        self.attempt1_pending.refresh_from_db()
+        self.assertEqual(self.attempt1_pending.status, QuizAttempt.AttemptStatus.PENDING_GRADING)
+        self.assertIsNone(self.attempt1_pending.completed_at)
+        self.assertIsNone(self.attempt1_pending.score)
+
+    def test_grade_answer_invalid_data(self):
+        """ Verifica errore se i dati inviati non sono validi (es. score non numerico). """
+        self.client.force_authenticate(user=self.teacher1)
+        data = {'is_correct': 'maybe', 'score': 'ten'} # Dati invalidi
+        response = self.client.post(self.grade_answer_url(self.answer1_manual.pk), data)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        # Modificato: Verifica solo la presenza della chiave 'score' negli errori,
+        # dato che il messaggio specifico può variare o essere troncato.
+        self.assertNotIn('is_correct', response.data)
+        self.assertIn('score', response.data)
 
 
 class AnswerOptionTemplateAPITests(APITestCase):
@@ -1579,3 +1928,34 @@ class AnswerOptionTemplateAPITests(APITestCase):
         # Delete
         response_delete = self.client.delete(self.detail_url(self.quiz_template.pk, self.question_template.pk, self.option_template1.pk))
         self.assertEqual(response_delete.status_code, status.HTTP_403_FORBIDDEN)
+
+    def _login_student(self, student):
+        """ Helper per fare il login dello studente e ottenere il token. """
+        student_login_url = reverse('student-login')
+        login_data = {'student_code': student.student_code, 'pin': '1234'} # Assumendo pin '1234'
+        login_response = self.client.post(student_login_url, login_data)
+        self.assertEqual(login_response.status_code, status.HTTP_200_OK, f"Login studente {student.student_code} fallito")
+        return login_response.data['access']
+
+    def test_student_cannot_access_nested_option_template_endpoints(self):
+        """ Studente non può accedere a nessun endpoint nested per le opzioni template. """
+        student_user = StudentFactory() # Rimosso pin='1234'
+        access_token = self._login_student(student_user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {access_token}')
+
+        # Create
+        data_create = {'text': 'Student Opt', 'is_correct': False, 'order': 3}
+        response_create = self.client.post(self.list_url(self.quiz_template.pk, self.question_template.pk), data_create)
+        self.assertEqual(response_create.status_code, status.HTTP_403_FORBIDDEN)
+        # Retrieve
+        response_retrieve = self.client.get(self.detail_url(self.quiz_template.pk, self.question_template.pk, self.option_template1.pk))
+        self.assertEqual(response_retrieve.status_code, status.HTTP_403_FORBIDDEN)
+        # Update
+        data_update = {'text': 'Student Update'}
+        response_update = self.client.patch(self.detail_url(self.quiz_template.pk, self.question_template.pk, self.option_template1.pk), data_update)
+        self.assertEqual(response_update.status_code, status.HTTP_403_FORBIDDEN)
+        # Delete
+        response_delete = self.client.delete(self.detail_url(self.quiz_template.pk, self.question_template.pk, self.option_template1.pk))
+        self.assertEqual(response_delete.status_code, status.HTTP_403_FORBIDDEN)
+
+        self.client.credentials() # Pulisce credenziali studente

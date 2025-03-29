@@ -7,8 +7,13 @@ class IsAdminUser(permissions.BasePermission):
     Permesso personalizzato per consentire l'accesso solo agli utenti Admin.
     """
     def has_permission(self, request, view):
-        # Controlla se l'utente è autenticato e ha il ruolo ADMIN
-        return bool(request.user and request.user.is_authenticated and request.user.role == UserRole.ADMIN)
+        # Controlla se l'utente è un'istanza di User, autenticato e ha il ruolo ADMIN
+        return bool(
+            request.user and
+            request.user.is_authenticated and
+            isinstance(request.user, User) and # Verifica che sia un User
+            request.user.role == UserRole.ADMIN
+        )
 
 class IsTeacherUser(permissions.BasePermission):
     """
@@ -17,14 +22,14 @@ class IsTeacherUser(permissions.BasePermission):
     def has_permission(self, request, view):
         # Controlla se l'utente è autenticato e ha il ruolo TEACHER
         # print(f"[IsTeacherUser] Checking user: {request.user} (Type: {type(request.user)}), Role: {getattr(request.user, 'role', 'N/A')}") # DEBUG
+        # Controlla se l'utente è un'istanza di User, autenticato e ha il ruolo TEACHER
         is_teacher = bool(
             request.user and
             request.user.is_authenticated and
-            isinstance(request.user, User) and # Assicura che sia il modello User corretto
+            isinstance(request.user, User) and # Verifica che sia un User
             request.user.role == UserRole.TEACHER
         )
         # print(f"[IsTeacherUser] Result: {is_teacher}") # DEBUG
-        # Ripristina: restituisce semplicemente il booleano
         return is_teacher
 
 class IsStudentOwnerOrAdmin(permissions.BasePermission):

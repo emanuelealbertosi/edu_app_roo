@@ -1,5 +1,6 @@
 from rest_framework import permissions
-from apps.users.models import UserRole
+from apps.users.models import UserRole, User # Import User model
+
 
 class IsAdminOrReadOnly(permissions.BasePermission):
     """
@@ -11,7 +12,8 @@ class IsAdminOrReadOnly(permissions.BasePermission):
             return False
         if request.method in permissions.SAFE_METHODS:
             return True
-        return request.user.role == UserRole.ADMIN
+        # Check if user is a Django User and has ADMIN role
+        return isinstance(request.user, User) and request.user.role == UserRole.ADMIN
 
 class IsQuizTemplateOwnerOrAdmin(permissions.BasePermission):
     """
@@ -21,31 +23,59 @@ class IsQuizTemplateOwnerOrAdmin(permissions.BasePermission):
     """
     def has_object_permission(self, request, view, obj):
         if request.method in permissions.SAFE_METHODS:
-            return True
-        # Solo Admin possono modificare i template
-        return request.user.is_authenticated and request.user.role == UserRole.ADMIN
+            # Allow read access for authenticated users (Teachers mainly)
+            return request.user and request.user.is_authenticated
+        # Write access only for Admins
+        return request.user and request.user.is_authenticated and isinstance(request.user, User) and request.user.role == UserRole.ADMIN
 
-class IsQuizOwner(permissions.BasePermission):
+class IsQuizOwnerOrAdmin(permissions.BasePermission): # Renamed
     """
-    Permette modifiche solo al Docente creatore del Quiz specifico.
+    Permette accesso:
+    - View Level (list, create): Solo a Docenti o Admin autenticati.
+    - Object Level (retrieve, update, delete): Solo al Docente creatore o Admin autenticati.
     """
+    def has_permission(self, request, view):
+        # Allow access only to authenticated Teachers or Admins for list/create actions
+        return (
+            request.user and
+            request.user.is_authenticated and
+            isinstance(request.user, User) and # Check it's a Django User
+            (request.user.role == UserRole.TEACHER or request.user.role == UserRole.ADMIN)
+        )
+
     def has_object_permission(self, request, view, obj):
-        # La lettura potrebbe essere permessa anche agli studenti assegnati (gestito nella view)
-        if request.method in permissions.SAFE_METHODS:
-            return True
-        # La scrittura è permessa al Docente creatore O a un Admin
+        # Already checked for authenticated Teacher/Admin in has_permission
+        # Now check ownership for object-specific actions (safe or unsafe methods)
+        if not request.user or not isinstance(request.user, User): # Should not happen if has_permission passed, but safe check
+             return False
+
         is_owner = obj.teacher == request.user and request.user.role == UserRole.TEACHER
-        is_admin = request.user.is_authenticated and request.user.role == UserRole.ADMIN
+        is_admin = request.user.role == UserRole.ADMIN
         return is_owner or is_admin
+class IsPathwayOwnerOrAdmin(permissions.BasePermission): # Renamed
+    """
+    Permette accesso:
+    - View Level (list, create): Solo a Docenti o Admin autenticati.
+    - Object Level (retrieve, update, delete): Solo al Docente creatore o Admin autenticati.
+    """
+    def has_permission(self, request, view):
+        # Allow access only to authenticated Teachers or Admins for list/create actions
+        return (
+            request.user and
+            request.user.is_authenticated and
+            isinstance(request.user, User) and # Check it's a Django User
+            (request.user.role == UserRole.TEACHER or request.user.role == UserRole.ADMIN)
+        )
 
-class IsPathwayOwner(permissions.BasePermission):
-    """
-    Permette modifiche solo al Docente creatore del Percorso.
-    """
     def has_object_permission(self, request, view, obj):
-        if request.method in permissions.SAFE_METHODS:
-            return True
-        return obj.teacher == request.user and request.user.role == UserRole.TEACHER
+        # Already checked for authenticated Teacher/Admin in has_permission
+        # Now check ownership for object-specific actions (safe or unsafe methods)
+        if not request.user or not isinstance(request.user, User): # Should not happen if has_permission passed, but safe check
+             return False
+
+        is_owner = obj.teacher == request.user and request.user.role == UserRole.TEACHER
+        is_admin = request.user.role == UserRole.ADMIN
+        return is_owner or is_admin
 
 class IsStudentOwnerForAttempt(permissions.BasePermission):
     """

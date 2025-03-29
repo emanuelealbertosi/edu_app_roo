@@ -1,4 +1,4 @@
-# Riepilogo Stato Avanzamento Progetto (28 Marzo 2025, ~20:45)
+# Riepilogo Stato Avanzamento Progetto (29 Marzo 2025, ~07:15)
 
 ## 1. Progettazione
 
@@ -8,6 +8,7 @@
 
 *   Creato ambiente virtuale (`.venv`).
 *   Installato Django e le dipendenze necessarie (`psycopg2-binary`, `python-dotenv`, `dj-database-url`, `djangorestframework`, `djangorestframework-simplejwt`, `drf-nested-routers`, `factory-boy`, `Faker`).
+*   Aggiunto `pytest` e `pytest-django` alle dipendenze e creato `pytest.ini`.
 *   Inizializzato progetto Django (`config`, `manage.py`).
 *   Creata directory `apps`.
 *   Create app Django: `users`, `education`, `rewards` all'interno di `apps/`.
@@ -44,6 +45,8 @@
 *   **Implementata logica core:** Completata l'implementazione di `calculate_score` (incluso `FILL_BLANK`) e `check_and_assign_points` (inclusa creazione `PointTransaction`) in `AttemptViewSet`.
 *   Aggiunta view e URL di test (`StudentProtectedTestView`) per debug autenticazione studente.
 *   **Workaround per permessi:** Aggiunto controllo manuale con restituzione `403 Forbidden` nelle azioni `list_pending` e `grade_answer` di `TeacherGradingViewSet` a causa di un comportamento anomalo dei permessi standard in quel contesto.
+*   **Corretti permessi e logica ViewSet:** Aggiornati i permessi (`IsQuizOwnerOrAdmin`, `IsPathwayOwnerOrAdmin`) e i metodi `get_queryset` in `QuizViewSet` e `PathwayViewSet` per gestire correttamente l'accesso degli studenti e degli altri docenti, restituendo `403 Forbidden` invece di `404 Not Found` o `200 OK` inappropriati.
+*   **Corretta logica di completamento/grading:** Risolto `ValueError` in `complete_attempt` rimuovendo il salvataggio del campo inesistente `points_earned`. Risolto `AttributeError` in `grade_answer` chiamando i metodi corretti (`calculate_final_score`, `assign_completion_points`) sul modello `QuizAttempt`.
 
 ## 6. Interfaccia Admin
 
@@ -73,7 +76,10 @@
     *   `StudentPurchasesViewSet` (`list`)
     *   `TeacherGradingViewSet` (`list_pending`, `grade_answer`)
     *   `StudentAuthenticationAPITests` (login studente)
-*   **La maggior parte dei test API ora passa.** Rimane un fallimento (`test_student_cannot_list_pending_answers`) che sembra dovuto a un'anomalia dell'ambiente di test, nonostante il workaround implementato nella view.
+*   **Corretti tutti i fallimenti nei test API dell'app `education`:**
+    *   Aggiornate le asserzioni nei test che si aspettavano `404` ma ora ricevono correttamente `403`.
+    *   Corretta l'autenticazione nel test `test_student_cannot_list_pending_answers` (usando JWT invece di `force_authenticate`), risolvendo l'ultimo fallimento.
+*   **Tutti i 150 test API dell'app `education` ora passano.**
 
 ## 8. Controllo Versione
 
@@ -88,13 +94,12 @@
 
 *   Il server di sviluppo Django è in esecuzione (`python manage.py runserver`).
 *   L'interfaccia di amministrazione (`/admin/`) è accessibile.
-*   Gli endpoint API per Admin/Docente e Studente sono per lo più funzionanti (secondo i test).
+*   Gli endpoint API per Admin/Docente e Studente sono funzionanti (secondo i test).
 *   La logica per il calcolo punteggio/punti è implementata.
-*   I test dei modelli passano. Quasi tutti i test API passano (eccetto uno con anomalia nota).
+*   I test dei modelli passano. Tutti i test API dell'app `education` passano.
 *   Il codice è versionato su GitHub.
 
 ## Prossimi Passi Previsti (vedi NEXT_STEPS.md)
 
-*   Risoluzione dell'anomalia nel test `test_student_cannot_list_pending_answers` (opzionale, priorità bassa).
-*   Completamento e raffinamento dei test API.
+*   Completamento e raffinamento dei test API (per altre app o casi limite).
 *   Raffinamento generale del codice.

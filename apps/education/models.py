@@ -5,6 +5,12 @@ from django.core.exceptions import ValidationError
 
 # Import Student model
 from apps.users.models import Student
+from django.utils import timezone # Import timezone
+from django.db.models import F # Import F for atomic updates
+# Import Wallet and PointTransaction later to avoid circular dependency if needed,
+# or ensure they are defined before QuizAttempt if in the same file.
+# Let's import them here for clarity for now.
+from apps.rewards.models import Wallet, PointTransaction
 
 # Choices for Question Types (consistent with design doc)
 class QuestionType(models.TextChoices):
@@ -316,6 +322,156 @@ class QuizAttempt(models.Model):
 
     def __str__(self):
         return f"Attempt by {self.student.full_name} on {self.quiz.title} ({self.status})"
+
+    # Methods moved from AttemptViewSet
+    def calculate_final_score(self):
+        """
+        Calcola il punteggio finale per questo tentativo basandosi sulle risposte SALVATE nel DB.
+        Questo metodo ora opera sull'istanza QuizAttempt (self).
+        Include il punteggio delle domande manuali se disponibili.
+        """
+        score = 0
+        # Recupera le risposte dello studente per questo tentativo
+        student_answers = self.student_answers.select_related('question').all()
+        quiz = self.quiz
+
+        # Pre-fetch questions and their correct options for efficiency
+        questions = quiz.questions.prefetch_related('answer_options').all()
+        correct_options_map = {}
+        fill_blank_answers_map = {}
+        total_questions = 0 # Conteggio totale domande (per punteggio manuale)
+        total_autograded_questions = 0 # Conteggio domande auto-gradate
+
+        for q in questions:
+            total_questions += 1
+            # Considera solo le domande a correzione automatica per il calcolo del punteggio %
+            if q.question_type != QuestionType.OPEN_ANSWER_MANUAL:
+                total_autograded_questions += 1
+                if q.question_type in [QuestionType.MULTIPLE_CHOICE_SINGLE, QuestionType.TRUE_FALSE]:
+                     correct_option = q.answer_options.filter(is_correct=True).first()
+                     if correct_option:
+                         correct_options_map[q.id] = correct_option.id
+                elif q.question_type == QuestionType.MULTIPLE_CHOICE_MULTIPLE:
+                     correct_options_map[q.id] = set(q.answer_options.filter(is_correct=True).values_list('id', flat=True))
+                elif q.question_type == QuestionType.FILL_BLANK:
+                    correct_answers = [ans.strip().lower() for ans in q.metadata.get('correct_answers', [])]
+                    fill_blank_answers_map[q.id] = correct_answers
+
+        correct_answers_count = 0
+        manual_score_total = 0
+        manual_questions_graded = 0
+
+        # Itera sulle risposte dello studente recuperate dal DB
+        for student_answer in student_answers:
+            question = student_answer.question
+            question_id = question.id
+            question_type = question.question_type
+            selected_data = student_answer.selected_answers
+
+            if question_type == QuestionType.OPEN_ANSWER_MANUAL:
+                if student_answer.score is not None: # Considera solo se gradata
+                    manual_score_total += student_answer.score
+                    manual_questions_graded += 1
+                continue # Salta il controllo automatico
+
+            # Logica correzione automatica
+            is_correct = False
+            try:
+                if question_type in [QuestionType.MULTIPLE_CHOICE_SINGLE, QuestionType.TRUE_FALSE]:
+                    selected_option_id = selected_data.get('selected_option_id') if isinstance(selected_data, dict) else None
+                    if question_id in correct_options_map and selected_option_id == correct_options_map[question_id]:
+                        is_correct = True
+                elif question_type == QuestionType.MULTIPLE_CHOICE_MULTIPLE:
+                    selected_option_ids = set(selected_data.get('selected_option_ids', [])) if isinstance(selected_data, dict) else set()
+                    if question_id in correct_options_map and selected_option_ids == correct_options_map[question_id]:
+                        is_correct = True
+                elif question_type == QuestionType.FILL_BLANK:
+                    user_answer = selected_data.get('answer_text', '').strip().lower() if isinstance(selected_data, dict) else ''
+                    if question_id in fill_blank_answers_map and user_answer in fill_blank_answers_map[question_id]:
+                        is_correct = True
+            except Exception as e:
+                print(f"Errore durante la valutazione della risposta per domanda {question_id} nel tentativo {self.id}: {e}")
+
+            if is_correct:
+                correct_answers_count += 1
+            # Aggiorna is_correct sulla risposta se necessario (opzionale qui)
+            if student_answer.is_correct != is_correct:
+                 student_answer.is_correct = is_correct
+                 # student_answer.save(update_fields=['is_correct']) # Evita save qui
+
+        # Calcola punteggio finale
+        # Se ci sono domande manuali, il punteggio potrebbe essere la somma dei punteggi manuali
+        # più un punteggio proporzionale per quelle automatiche, o una media ponderata.
+        # Per ora, usiamo una media semplice se ci sono domande automatiche,
+        # altrimenti la somma dei punteggi manuali (se presenti).
+        # TODO: Definire meglio la strategia di calcolo del punteggio misto.
+        final_score = 0
+        if total_autograded_questions > 0:
+            final_score = (correct_answers_count / total_autograded_questions) * 100
+        elif manual_questions_graded > 0:
+             # Se ci sono solo domande manuali, il punteggio è la somma? O una media?
+             # Assumiamo una media per ora, ma andrebbe chiarito.
+             # Potremmo anche usare i punti definiti nel metadata della domanda manuale.
+             # Per semplicità, usiamo la somma per ora.
+             final_score = manual_score_total # O una logica diversa
+
+        final_score = round(final_score, 2)
+        print(f"Calcolato punteggio finale per tentativo {self.id}: {final_score}")
+        return final_score
+
+    def assign_completion_points(self):
+        """
+        Verifica il punteggio del tentativo e assegna punti allo studente se applicabile,
+        basandosi sulle regole definite nel quiz (metadata).
+        Controlla anche se è il primo completamento con successo.
+        Questo metodo ora opera sull'istanza QuizAttempt (self).
+        """
+        quiz = self.quiz
+        student = self.student
+        threshold = quiz.metadata.get('completion_threshold_percent', 80.0)
+        points_to_award = quiz.metadata.get('points_on_completion', 0)
+
+        if self.score is None:
+             print(f"Tentativo {self.id}: Punteggio non ancora calcolato. Nessuna azione sui punti.")
+             return False # Indica che i punti non sono stati assegnati
+        if points_to_award <= 0:
+            print(f"Tentativo {self.id}: Punti non previsti per questo quiz ({points_to_award}). Nessuna azione.")
+            return False
+
+        is_successful = self.score >= threshold
+
+        if is_successful:
+            print(f"Tentativo {self.id} superato (Punteggio: {self.score} >= Soglia: {threshold}). Controllo assegnazione punti...")
+            # Verifica se è il *primo* tentativo completato con successo per questo quiz/studente
+            previous_successful_attempts = QuizAttempt.objects.filter(
+                student=student,
+                quiz=quiz,
+                status=QuizAttempt.AttemptStatus.COMPLETED,
+                score__gte=threshold
+            ).exclude(pk=self.pk).exists()
+
+            if not previous_successful_attempts:
+                print(f"Questo è il primo completamento con successo per {student.full_name} del quiz '{quiz.title}'. Assegnazione punti...")
+                try:
+                    wallet, created = Wallet.objects.get_or_create(student=student)
+                    wallet.current_points = F('current_points') + points_to_award
+                    wallet.save(update_fields=['current_points'])
+                    wallet.refresh_from_db()
+                    print(f"Assegnati {points_to_award} punti a {student.full_name}. Nuovo saldo: {wallet.current_points}")
+                    PointTransaction.objects.create(wallet=wallet, points_change=points_to_award, reason=f"Completamento Quiz: {quiz.title}")
+                    # Aggiorna il campo points_earned sull'attempt
+                    self.points_earned = points_to_award
+                    # self.save(update_fields=['points_earned']) # Salva separatamente o insieme allo score/status
+                    return True # Indica che i punti sono stati assegnati
+                except Exception as e:
+                     print(f"ERRORE durante l'assegnazione dei punti per il tentativo {self.id}: {e}")
+                     return False
+            else:
+                print(f"Lo studente {student.full_name} aveva già completato con successo il quiz '{quiz.title}'. Nessun punto aggiuntivo assegnato.")
+                return False
+        else:
+            print(f"Tentativo {self.id} non superato (Punteggio: {self.score} < Soglia: {threshold}). Nessun punto assegnato.")
+            return False
 
 
 class StudentAnswer(models.Model):
