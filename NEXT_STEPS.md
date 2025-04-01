@@ -9,17 +9,17 @@
     *   ~~Implementare la logica per la correzione automatica delle domande `fill_blank` (inclusa in `calculate_score`).~~ (Inclusa in `calculate_final_score` sul modello).
     *   ~~Implementare la logica per l'aggiornamento del progresso e l'assegnazione punti dei Percorsi.~~ (Aggiunta al modello `QuizAttempt`).
 
-3.  **Completare e Raffinare Test API:**
+3.  **~~Completare e Raffinare Test API:~~** **(PARZIALMENTE COMPLETATO)**
     *   **~~Priorità Media:~~** ~~Scrivere test per verificare i permessi in modo più granulare (es. tentativi di accesso non autorizzati con ruoli diversi, accesso admin).~~ **(COMPLETATO)**
-    *   **~~Priorità Media:~~** ~~Scrivere test specifici per le azioni API mancanti o meno testate (es. logica punti per percorsi, gestione errori specifici, edge case).~~ **(PARZIALMENTE COMPLETATO - Logica punti percorsi base)**
-    *   **Priorità Media:** Scrivere test specifici per altri casi limite o azioni API meno testate (es. gestione errori specifici, altri edge case logica punti percorsi, grading manuale).
-    *   **Priorità Bassa:** Verificare e aggiungere test per le altre app (`users`, `rewards`).
+    *   **~~Priorità Media:~~** ~~Scrivere test specifici per le azioni API mancanti o meno testate (es. logica punti per percorsi, gestione errori specifici, edge case).~~ **(COMPLETATO - Logica punti percorsi, grading manuale, tipi domande)**
+    *   **~~Priorità Media:~~** ~~Scrivere test specifici per altri casi limite o azioni API meno testate (es. gestione errori specifici, altri edge case logica punti percorsi, grading manuale).~~ **(COMPLETATO)**
+    *   **~~Priorità Bassa:~~** ~~Verificare e aggiungere test per le altre app (`users`, `rewards`).~~ **(COMPLETATO - Test API base e correzioni)**
 
 4.  **Raffinamento Generale:**
-    *   **Priorità Bassa:** Rivedere il codice per coerenza, manutenibilità e performance.
-    *   **Priorità Bassa:** Aggiungere documentazione (docstring, commenti) dove necessario.
-    *   **Priorità Bassa:** Considerare l'aggiunta di logging più strutturato.
+    *   **Priorità Bassa:** ~~Rivedere il codice per coerenza, manutenibilità e performance.~~ **(COMPLETATO - Rimosse stampe debug, chiariti commenti)**
+    *   **Priorità Bassa:** ~~Aggiungere documentazione (docstring, commenti) dove necessario.~~ **(COMPLETATO - Aggiunti/migliorati docstring e help_text)**
+    *   **Priorità Bassa:** ~~Considerare l'aggiunta di logging più strutturato.~~ **(COMPLETATO - Aggiunto logging base per errori)**
     *   **Priorità Bassa:** Valutare l'implementazione di `GlobalSetting` se necessario.
     *   **Priorità Bassa:** Valutare l'implementazione di gruppi di studenti per assegnazioni/disponibilità.
 
-*(Stato al 29 Marzo 2025, ~09:53)*
+*(Stato al 1 Aprile 2025, ~06:28)*

@@ -34,9 +34,16 @@ class Wallet(models.Model):
         return f"Wallet for {self.student.full_name} ({self.current_points} points)"
 
     def add_points(self, points_to_add, reason):
-        """ Aggiunge punti e crea una transazione. """
+        """
+        Adds points to the wallet and creates a transaction record.
+
+        Args:
+            points_to_add (int): The number of points to add (must be positive).
+            reason (str): The reason for the point addition.
+        """
         if points_to_add <= 0:
-            return # O solleva un errore? Per ora ignora.
+            # Consider raising ValueError for consistency? For now, just return.
+            return
         self.current_points += points_to_add
         PointTransaction.objects.create(
             wallet=self,
@@ -46,7 +53,16 @@ class Wallet(models.Model):
         self.save()
 
     def subtract_points(self, points_to_subtract, reason):
-        """ Sottrae punti e crea una transazione. Solleva ValueError se i punti non sono sufficienti. """
+        """
+        Subtracts points from the wallet and creates a transaction record.
+
+        Args:
+            points_to_subtract (int): The number of points to subtract (must be positive).
+            reason (str): The reason for the point subtraction.
+
+        Raises:
+            ValueError: If points_to_subtract is not positive or if insufficient points.
+        """
         if points_to_subtract <= 0:
             raise ValueError("Points to subtract must be positive.")
         if self.current_points < points_to_subtract:
@@ -127,7 +143,7 @@ class RewardTemplate(models.Model):
         _('Metadata'),
         default=dict,
         blank=True,
-        help_text=_('Extra data like image URL, link, etc.')
+        help_text=_('Extra data like image URL, link, etc. Example: {"image_url": "http://example.com/img.png", "external_link": "http://info.example.com"}')
     )
     created_at = models.DateTimeField(_('Created At'), auto_now_add=True)
 
@@ -190,7 +206,7 @@ class Reward(models.Model):
         _('Metadata'),
         default=dict,
         blank=True,
-        help_text=_('Extra data like image URL, link, etc. Inherited/overridden from template.')
+        help_text=_('Extra data like image URL, link, etc. Inherited/overridden from template. Example: {"image_url": "http://example.com/reward.jpg"}')
     )
     is_active = models.BooleanField(
         _('Active'),

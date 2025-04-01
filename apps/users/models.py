@@ -51,10 +51,12 @@ class User(AbstractUser):
     # Proprietà per un controllo più semplice del ruolo
     @property
     def is_admin(self):
+        """ Returns True if the user has the ADMIN role. """
         return self.role == UserRole.ADMIN
 
     @property
     def is_teacher(self):
+        """ Returns True if the user has the TEACHER role. """
         return self.role == UserRole.TEACHER
 
 
@@ -101,6 +103,7 @@ class Student(models.Model):
 
     @property
     def full_name(self):
+        """ Returns the student's full name. """
         return f"{self.first_name} {self.last_name}"
 
     @property
@@ -112,7 +115,15 @@ class Student(models.Model):
         return True
 
     def set_pin(self, raw_pin):
-        """ Imposta l'hash del PIN dal PIN in chiaro. """
+        """
+        Sets the student's PIN hash from a raw PIN string.
+
+        Args:
+            raw_pin (str): The raw PIN string to hash.
+
+        Raises:
+            ValueError: If the PIN is not numeric or doesn't meet length requirements.
+        """
         # Aggiungere validazione per assicurarsi che sia numerico e di lunghezza adeguata?
         if not raw_pin or not raw_pin.isdigit():
              raise ValueError("Il PIN deve essere numerico.")
@@ -122,6 +133,14 @@ class Student(models.Model):
         self.pin_hash = make_password(raw_pin)
 
     def check_pin(self, raw_pin):
-        """ Verifica se il PIN in chiaro corrisponde all'hash memorizzato. """
+        """
+        Checks if the provided raw PIN matches the stored hash.
+
+        Args:
+            raw_pin (str): The raw PIN string to check.
+
+        Returns:
+            bool: True if the PIN matches, False otherwise.
+        """
         return check_password(raw_pin, self.pin_hash)
 

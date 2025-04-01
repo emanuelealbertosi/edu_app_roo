@@ -1,7 +1,11 @@
+import logging # Import logging
 from rest_framework import viewsets, permissions, serializers
 from .models import User, Student, UserRole
 # Importa entrambi i serializer User
 from .serializers import UserSerializer, StudentSerializer, UserCreateSerializer
+
+# Get an instance of a logger
+logger = logging.getLogger(__name__)
 from .permissions import IsAdminUser, IsTeacherUser, IsStudentOwnerOrAdmin, IsStudent
 
 class UserViewSet(viewsets.ModelViewSet):
@@ -68,6 +72,7 @@ class StudentViewSet(viewsets.ModelViewSet):
                 # Verifichiamo che l'ID corrisponda a un Docente valido
                 teacher = User.objects.get(pk=teacher_id, role=UserRole.TEACHER)
             except User.DoesNotExist:
+                logger.warning(f"Admin {request.user.username} ha tentato di creare uno studente con ID docente non valido: {teacher_id}")
                 raise serializers.ValidationError({'teacher': 'Docente non valido specificato.'})
             serializer.save(teacher=teacher) # Passiamo il docente esplicitamente
         # Non dovrebbe essere possibile arrivare qui per altri tipi di utente.

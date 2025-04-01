@@ -4,6 +4,10 @@ from rest_framework.response import Response
 from django.db import transaction, models # Add models
 from django.shortcuts import get_object_or_404
 from django.utils import timezone # Add this import
+import logging # Import logging
+
+# Get an instance of a logger
+logger = logging.getLogger(__name__)
 
 from .models import (
     Wallet, PointTransaction, RewardTemplate, Reward, RewardPurchase
@@ -31,6 +35,11 @@ class RewardTemplateViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated, IsRewardTemplateOwnerOrAdmin] # IsAdminOrReadOnly gestito implicitamente
 
     def get_queryset(self):
+        """
+        Restricts the queryset based on the user role.
+        - Admins see all templates (global and local).
+        - Teachers see their own local templates and all global templates.
+        """
         user = self.request.user
         # Importa User e Student qui per evitare import circolari a livello di modulo
         from apps.users.models import User, Student
@@ -47,6 +56,11 @@ class RewardTemplateViewSet(viewsets.ModelViewSet):
         return RewardTemplate.objects.none()
 
     def perform_create(self, serializer):
+        """
+        Sets the creator and scope automatically based on the user role.
+        - Admins create GLOBAL templates.
+        - Teachers create LOCAL templates.
+        """
         user = self.request.user
         # Importa User qui per evitare import circolari
         from apps.users.models import User
@@ -79,6 +93,12 @@ class RewardViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated, IsRewardOwnerOrAdmin] # Aggiornato permesso
 
     def get_queryset(self):
+        """
+        Restricts the queryset based on the user role for list actions.
+        - Admins see all rewards.
+        - Teachers see only their own rewards.
+        Object-level permissions handle retrieve/update/delete access.
+        """
         user = self.request.user
         if user.is_admin:
             # Admin vede tutte le ricompense
@@ -96,6 +116,11 @@ class RewardViewSet(viewsets.ModelViewSet):
         return context
 
     def perform_create(self, serializer):
+        """
+        Sets the teacher automatically and validates specific student availability.
+        Ensures that if 'available_to_specific_students' is provided,
+        those students belong to the requesting teacher.
+        """
         user = self.request.user
         if not user.is_teacher:
              raise serializers.ValidationError("Solo i Docenti possono creare ricompense.")
@@ -111,6 +136,11 @@ class RewardViewSet(viewsets.ModelViewSet):
         serializer.save(teacher=user)
 
     def perform_update(self, serializer):
+        """
+        Validates specific student availability during updates.
+        Ensures that if 'available_to_specific_students' is provided in the update payload,
+        those students belong to the requesting teacher.
+        """
          # Simile a perform_create, validiamo gli studenti se vengono modificati
         user = self.request.user
         specific_students_data = serializer.validated_data.get('available_to_specific_students') # Può essere None o []
@@ -130,6 +160,7 @@ class RewardViewSet(viewsets.ModelViewSet):
             self.perform_destroy(instance)
             return Response(status=status.HTTP_204_NO_CONTENT)
         except models.ProtectedError:
+            logger.warning(f"Tentativo fallito di eliminare la ricompensa {instance.id} ('{instance.name}') perché protetta (probabilmente acquistata).")
             return Response(
                 {"detail": "Impossibile eliminare questa ricompensa perché è stata acquistata."},
                 status=status.HTTP_409_CONFLICT
@@ -146,6 +177,11 @@ class StudentShopViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [IsStudentAuthenticated] # Solo Studenti autenticati
 
     def get_queryset(self):
+        """
+        Returns the queryset of rewards available to the authenticated student.
+        Filters rewards based on the student's teacher, reward active status,
+        and availability rules (all students or specific student).
+        """
         # request.student è impostato da StudentJWTAuthentication
         student = self.request.student
         if not student:
@@ -164,7 +200,12 @@ class StudentShopViewSet(viewsets.ReadOnlyModelViewSet):
 
     @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated, IsStudent]) # Solo Studenti
     def purchase(self, request, pk=None):
-        """ Azione custom per acquistare una ricompensa. """
+        """
+        Allows the authenticated student to purchase a specific reward.
+
+        Checks for availability, active status, and sufficient points before proceeding.
+        Uses an atomic transaction to subtract points and create the RewardPurchase record.
+        """
         reward = self.get_object() # Ottiene la ricompensa specifica dall'URL (pk)
         student = request.student # Ottiene lo studente da StudentJWTAuthentication
 
@@ -199,9 +240,12 @@ class StudentShopViewSet(viewsets.ReadOnlyModelViewSet):
             serializer = RewardPurchaseSerializer(purchase)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         except ValueError as e: # Errore da subtract_points (es. punti insufficienti)
+            # Questo è un errore "atteso" (es. fondi insufficienti), quindi potremmo loggarlo come warning o info.
+            logger.info(f"Errore di validazione durante l'acquisto della ricompensa {reward.id} da parte dello studente {student.id}: {e}")
             return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
-            # Log dell'errore
+            # Questo è un errore inatteso, logghiamolo come exception.
+            logger.exception(f"Errore imprevisto durante l'acquisto della ricompensa {reward.id} da parte dello studente {student.id}")
             return Response({'detail': 'Errore durante l\'acquisto.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -211,15 +255,16 @@ class StudentWalletViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [IsStudentAuthenticated] # Solo Studenti autenticati
 
     def get_queryset(self):
+        """ Returns the Wallet belonging to the authenticated student. """
         # request.student è impostato da StudentJWTAuthentication
         student = self.request.student
         if not student:
              return Wallet.objects.none()
         return Wallet.objects.filter(student=student)
 
-    @action(detail=True, methods=['get']) # pk qui è lo student_id (essendo la chiave del Wallet)
+    @action(detail=True, methods=['get']) # pk here is the student_id (as it's the Wallet's PK)
     def transactions(self, request, pk=None):
-        """ Mostra le transazioni per questo wallet. """
+        """ Lists the point transactions for the student's wallet. """
         wallet = self.get_object()
         transactions = wallet.transactions.all() # Usa related_name
         page = self.paginate_queryset(transactions) # Applica paginazione se configurata

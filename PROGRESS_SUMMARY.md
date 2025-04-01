@@ -1,4 +1,4 @@
-# Riepilogo Stato Avanzamento Progetto (29 Marzo 2025, ~09:50)
+# Riepilogo Stato Avanzamento Progetto (1 Aprile 2025, ~06:27)
 
 ## 1. Progettazione
 
@@ -46,9 +46,11 @@
 *   **Implementata logica core:** Completata l'implementazione di `calculate_score` (incluso `FILL_BLANK`) e `check_and_assign_points` (inclusa creazione `PointTransaction`) in `AttemptViewSet`.
 *   Aggiunta view e URL di test (`StudentProtectedTestView`) per debug autenticazione studente.
 *   **Workaround per permessi:** Aggiunto controllo manuale con restituzione `403 Forbidden` nelle azioni `list_pending` e `grade_answer` di `TeacherGradingViewSet` a causa di un comportamento anomalo dei permessi standard in quel contesto.
-*   **Corretti permessi e logica ViewSet:** Aggiornati i permessi (`IsQuizOwnerOrAdmin`, `IsPathwayOwnerOrAdmin`) e i metodi `get_queryset` in `QuizViewSet` e `PathwayViewSet` per gestire correttamente l'accesso degli studenti e degli altri docenti, restituendo `403 Forbidden` invece di `404 Not Found` o `200 OK` inappropriati.
-*   **Corretta logica di completamento/grading:** Risolto `ValueError` in `complete_attempt` rimuovendo il salvataggio del campo inesistente `points_earned`. Risolto `AttributeError` in `grade_answer` chiamando i metodi corretti (`calculate_final_score`, `assign_completion_points`) sul modello `QuizAttempt`.
+*   **Corretti permessi e logica ViewSet:** Aggiornati i permessi (`IsQuizOwnerOrAdmin`, `IsPathwayOwnerOrAdmin`, `IsRewardOwnerOrAdmin`, `IsRewardTemplateOwnerOrAdmin`) e i metodi `get_queryset` in `QuizViewSet`, `PathwayViewSet`, `RewardViewSet`, `RewardTemplateViewSet` per gestire correttamente l'accesso degli utenti e restituire `403 Forbidden` o `404 Not Found` appropriati.
+*   **Corretta logica di completamento/grading:** Risolto `ValueError` in `complete_attempt` rimuovendo il salvataggio del campo inesistente `points_earned`. Risolto `AttributeError` in `grade_answer` chiamando i metodi corretti (`calculate_final_score`, `assign_completion_points`) sul modello `QuizAttempt`. Corretto calcolo punteggio per domande manuali.
 *   **Implementata logica punti percorso:** Aggiunto metodo `update_pathway_progress` al modello `QuizAttempt` per gestire l'aggiornamento del progresso e l'assegnazione dei punti al completamento del percorso.
+*   **Implementata creazione utenti API:** Aggiunto `UserCreateSerializer` e modificato `UserViewSet` per gestire correttamente la creazione di utenti (Admin/Docente) con hashing della password.
+*   **Implementata gestione ProtectedError:** Sovrascritto metodo `destroy` in `RewardViewSet` per restituire 409 Conflict se si tenta di eliminare una ricompensa acquistata.
 
 ## 6. Interfaccia Admin
 
@@ -64,8 +66,11 @@
     *   Verificato accesso Admin a risorse di altri docenti.
     *   Verificato che i Docenti non possano accedere a risorse di altri docenti.
     *   Verificato che gli Studenti non possano accedere agli endpoint dei docenti.
-    *   Verificata la logica di assegnazione punti per i Percorsi (primo completamento, fallimento quiz, secondo completamento).
-*   **Tutti i test API dell'app `education` (in `tests.py` e `test_permissions.py`) ora passano.**
+    *   Verificata la logica di assegnazione punti per i Percorsi (primo completamento, fallimento quiz, secondo completamento, grading manuale).
+*   **Aggiunti test API mancanti per `education`:** Coperti tutti i tipi di domanda in `submit_answer` e casi limite per grading manuale.
+*   **Corretti tutti i fallimenti nei test API dell'app `users`:** Abilitato e corretto test creazione utente API.
+*   **Corretti tutti i fallimenti nei test API dell'app `rewards`:** Risolti problemi con factory (Wallet, Reward, RewardTemplate, RewardPurchase), permessi (IsRewardOwnerOrAdmin, IsRewardTemplateOwnerOrAdmin), autenticazione studente e gestione ProtectedError.
+*   **Tutti i test (295) ora passano.**
 
 ## 8. Controllo Versione
 
@@ -82,10 +87,17 @@
 *   L'interfaccia di amministrazione (`/admin/`) è accessibile.
 *   Gli endpoint API per Admin/Docente e Studente sono funzionanti (secondo i test).
 *   La logica per il calcolo punteggio/punti per Quiz e Percorsi è implementata.
-*   I test dei modelli passano. Tutti i test API dell'app `education` passano.
+*   Tutti i test (modelli e API) passano.
 *   Il codice è versionato su GitHub.
 
 ## Prossimi Passi Previsti (vedi NEXT_STEPS.md)
 
 *   Completamento e raffinamento dei test API (per altre app o casi limite).
 *   Raffinamento generale del codice.
+
+## 10. Raffinamento Codice
+
+*   Rimosse istruzioni `print()` di debug dai file `views.py` e `models.py` delle app `education`, `users`, `rewards`.
+*   Chiariti commenti sulla logica di calcolo del punteggio in `apps/education/models.py`.
+*   Aggiunti/Migliorati docstring e `help_text` nei modelli delle app `education`, `users`, `rewards`.
+*   Aggiunto logging di base per errori/eccezioni nei metodi dei modelli e delle view.

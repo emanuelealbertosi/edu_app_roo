@@ -11,6 +11,10 @@ from django.db.models import F # Import F for atomic updates
 # or ensure they are defined before QuizAttempt if in the same file.
 # Let's import them here for clarity for now.
 from apps.rewards.models import Wallet, PointTransaction
+import logging # Import logging
+
+# Get an instance of a logger
+logger = logging.getLogger(__name__)
 
 # Choices for Question Types (consistent with design doc)
 class QuestionType(models.TextChoices):
@@ -38,7 +42,7 @@ class QuizTemplate(models.Model):
         _('Metadata'),
         default=dict,
         blank=True,
-        help_text=_('Extra data like difficulty, subject, etc.')
+        help_text=_('Extra data like difficulty ("easy", "medium", "hard"), subject ("Math", "History"), etc. Example: {"difficulty": "medium", "subject": "Physics"}')
     )
     created_at = models.DateTimeField(_('Created At'), auto_now_add=True)
 
@@ -74,7 +78,7 @@ class QuestionTemplate(models.Model):
         _('Metadata'),
         default=dict,
         blank=True,
-        help_text=_('Specific config based on type, e.g., correct answers for fill_blank, points.')
+        help_text=_('Specific config based on type. E.g., for FILL_BLANK: {"correct_answers": ["Paris", "paris"], "case_sensitive": false}. For MC/TF: {"points_per_correct_answer": 2}.')
     )
 
     class Meta:
@@ -142,7 +146,7 @@ class Quiz(models.Model):
         _('Metadata'),
         default=dict,
         blank=True,
-        help_text=_('E.g., difficulty, subject, completion_threshold (0-1), points_on_completion')
+        help_text=_('E.g., difficulty, subject, completion_threshold_percent (0-100), points_on_completion. Example: {"difficulty": "hard", "completion_threshold_percent": 75.0, "points_on_completion": 10}')
     )
     created_at = models.DateTimeField(_('Created At'), auto_now_add=True)
     available_from = models.DateTimeField(_('Available From'), null=True, blank=True)
@@ -181,7 +185,7 @@ class Question(models.Model):
         _('Metadata'),
         default=dict,
         blank=True,
-        help_text=_('Specific config based on type, e.g., correct answers for fill_blank, points.')
+        help_text=_('Specific config based on type. E.g., for FILL_BLANK: {"correct_answers": ["Rome", "rome"], "case_sensitive": false}. For MC/TF: {"points_per_correct_answer": 1}. For OPEN_MANUAL: {"max_score": 5}.')
     )
 
     class Meta:
@@ -244,7 +248,7 @@ class Pathway(models.Model):
         _('Metadata'),
         default=dict,
         blank=True,
-        help_text=_('E.g., points_on_completion')
+        help_text=_('E.g., points_on_completion. Example: {"points_on_completion": 50}')
     )
     created_at = models.DateTimeField(_('Created At'), auto_now_add=True)
 
@@ -326,9 +330,21 @@ class QuizAttempt(models.Model):
     # Methods moved from AttemptViewSet
     def calculate_final_score(self):
         """
-        Calcola il punteggio finale per questo tentativo basandosi sulle risposte SALVATE nel DB.
-        Questo metodo ora opera sull'istanza QuizAttempt (self).
-        Include il punteggio delle domande manuali se disponibili.
+        Calculates the final score for this attempt based on saved answers.
+
+        This method operates on the QuizAttempt instance (`self`).
+        It evaluates automatically gradable questions (MC_SINGLE, MC_MULTI, TF, FILL_BLANK)
+        and calculates a score percentage based on those.
+
+        If only manually graded questions (OPEN_MANUAL) exist and have been graded,
+        it calculates the score based on the percentage of correctly marked manual answers.
+
+        Note: The current logic prioritizes the score from auto-graded questions if present.
+              Manually assigned scores on OPEN_MANUAL questions are used primarily for teacher feedback
+              unless *only* manual questions exist in the quiz.
+
+        Returns:
+            float: The calculated final score (percentage, 0-100), rounded to 2 decimal places.
         """
         score = 0
         # Recupera le risposte dello studente per questo tentativo
@@ -393,7 +409,9 @@ class QuizAttempt(models.Model):
                     if question_id in fill_blank_answers_map and user_answer in fill_blank_answers_map[question_id]:
                         is_correct = True
             except Exception as e:
-                print(f"Errore durante la valutazione della risposta per domanda {question_id} nel tentativo {self.id}: {e}")
+                logger.exception(f"Errore durante la valutazione della risposta per domanda {question_id} nel tentativo {self.id}")
+                # Consideriamo la risposta come errata in caso di eccezione? Per ora sì.
+                is_correct = False # Assicurati che is_correct sia False
 
             if is_correct:
                 correct_answers_count += 1
@@ -403,31 +421,47 @@ class QuizAttempt(models.Model):
                  # student_answer.save(update_fields=['is_correct']) # Evita save qui
 
         # Calcola punteggio finale
-        # Se ci sono domande manuali, il punteggio potrebbe essere la somma dei punteggi manuali
-        # più un punteggio proporzionale per quelle automatiche, o una media ponderata.
-        # Per ora, usiamo una media semplice se ci sono domande automatiche,
-        # altrimenti calcoliamo la percentuale di risposte manuali corrette.
-        # TODO: Definire meglio la strategia di calcolo del punteggio misto.
+        # Calcolo del punteggio finale:
+        # - Se ci sono domande a correzione automatica, il punteggio è la percentuale
+        #   di risposte corrette *solo* tra quelle automatiche. Il punteggio manuale
+        #   viene ignorato in questo calcolo percentuale finale.
+        # - Se ci sono *solo* domande manuali e sono state tutte gradate,
+        #   il punteggio è la percentuale di risposte manuali corrette.
+        # - Altrimenti (es. solo domande manuali non ancora gradate), il punteggio è 0.
         final_score = 0
         if total_autograded_questions > 0:
-            # Se ci sono domande auto-gradate, usa la logica esistente (basata solo su quelle)
-            # TODO: Rivedere se il punteggio manuale debba influenzare questo caso
+            # Caso 1: Ci sono domande auto-gradate. Il punteggio si basa solo su queste.
             final_score = (correct_answers_count / total_autograded_questions) * 100
         elif manual_questions_graded > 0:
-             # Se ci sono SOLO domande manuali e sono state gradate
+             # Caso 2: Ci sono SOLO domande manuali e sono state gradate.
              final_score = (correct_manual_answers_count / manual_questions_graded) * 100 # Calcola percentuale
         # else: final_score rimane 0
 
         final_score = round(final_score, 2)
-        print(f"Calcolato punteggio finale per tentativo {self.id}: {final_score}")
+        # print(f"Calcolato punteggio finale per tentativo {self.id}: {final_score}") # Rimosso print
         return final_score
 
     def assign_completion_points(self):
         """
-        Verifica il punteggio del tentativo e assegna punti allo studente se applicabile,
-        basandosi sulle regole definite nel quiz (metadata).
-        Controlla anche se è il primo completamento con successo.
-        Questo metodo ora opera sull'istanza QuizAttempt (self).
+        Checks if the attempt meets the completion threshold and assigns points if applicable.
+
+        This method operates on the QuizAttempt instance (`self`).
+        It reads 'completion_threshold_percent' and 'points_on_completion' from the Quiz metadata.
+        Points are awarded only if:
+        1. The attempt's score meets or exceeds the threshold.
+        2. 'points_on_completion' is greater than 0.
+        3. This is the *first* successful completion of this specific quiz by this student
+           (checked by querying previous successful attempts).
+
+        If points are awarded, it atomically updates the student's Wallet balance
+        and creates a PointTransaction record.
+
+        It also triggers `update_pathway_progress` regardless of whether points were awarded for the quiz itself,
+        to ensure pathway progression is checked upon successful quiz completion.
+
+        Returns:
+            bool: True if points were successfully awarded (or attempted), False otherwise
+                  (e.g., threshold not met, already completed, no points defined, error during transaction).
         """
         quiz = self.quiz
         student = self.student
@@ -435,16 +469,16 @@ class QuizAttempt(models.Model):
         points_to_award = quiz.metadata.get('points_on_completion', 0)
 
         if self.score is None:
-             print(f"Tentativo {self.id}: Punteggio non ancora calcolato. Nessuna azione sui punti.")
+             # print(f"Tentativo {self.id}: Punteggio non ancora calcolato. Nessuna azione sui punti.") # Rimosso print
              return False # Indica che i punti non sono stati assegnati
         if points_to_award <= 0:
-            print(f"Tentativo {self.id}: Punti non previsti per questo quiz ({points_to_award}). Nessuna azione.")
+            # print(f"Tentativo {self.id}: Punti non previsti per questo quiz ({points_to_award}). Nessuna azione.") # Rimosso print
             return False
 
         is_successful = self.score >= threshold
 
         if is_successful:
-            print(f"Tentativo {self.id} superato (Punteggio: {self.score} >= Soglia: {threshold}). Controllo assegnazione punti...")
+            # print(f"Tentativo {self.id} superato (Punteggio: {self.score} >= Soglia: {threshold}). Controllo assegnazione punti...") # Rimosso print
             # Verifica se è il *primo* tentativo completato con successo per questo quiz/studente
             previous_successful_attempts = QuizAttempt.objects.filter(
                 student=student,
@@ -454,13 +488,13 @@ class QuizAttempt(models.Model):
             ).exclude(pk=self.pk).exists()
 
             if not previous_successful_attempts:
-                print(f"Questo è il primo completamento con successo per {student.full_name} del quiz '{quiz.title}'. Assegnazione punti...")
+                # print(f"Questo è il primo completamento con successo per {student.full_name} del quiz '{quiz.title}'. Assegnazione punti...") # Rimosso print
                 try:
                     wallet, created = Wallet.objects.get_or_create(student=student)
                     wallet.current_points = F('current_points') + points_to_award
                     wallet.save(update_fields=['current_points'])
                     wallet.refresh_from_db()
-                    print(f"Assegnati {points_to_award} punti a {student.full_name}. Nuovo saldo: {wallet.current_points}")
+                    # print(f"Assegnati {points_to_award} punti a {student.full_name}. Nuovo saldo: {wallet.current_points}") # Rimosso print
                     PointTransaction.objects.create(wallet=wallet, points_change=points_to_award, reason=f"Completamento Quiz: {quiz.title}")
                     # Aggiorna il campo points_earned sull'attempt - Rimosso, non esiste
                     # self.points_earned = points_to_award
@@ -472,15 +506,15 @@ class QuizAttempt(models.Model):
 
                     return True # Indica che i punti quiz sono stati (tentati di essere) assegnati
                 except Exception as e: # Blocco except corretto e indentato
-                    print(f"ERRORE durante l'assegnazione dei punti QUIZ o aggiornamento PATHWAY per il tentativo {self.id}: {e}")
+                    logger.exception(f"ERRORE durante l'assegnazione dei punti QUIZ o aggiornamento PATHWAY per il tentativo {self.id}")
                     return False # Ritorna False se c'è un errore
             else:
-                print(f"Lo studente {student.full_name} aveva già completato con successo il quiz '{quiz.title}'. Nessun punto aggiuntivo assegnato.")
+                # Lo studente aveva già completato con successo il quiz. Nessun punto aggiuntivo assegnato.
                 # Anche se non assegniamo punti QUIZ, dobbiamo aggiornare il progresso PATHWAY
                 self.update_pathway_progress()
                 return False
         else:
-            print(f"Tentativo {self.id} non superato (Punteggio: {self.score} < Soglia: {threshold}). Nessun punto assegnato.")
+            # print(f"Tentativo {self.id} non superato (Punteggio: {self.score} < Soglia: {threshold}). Nessun punto assegnato.") # Rimosso print
             # Tentativo non superato, ma potrebbe comunque sbloccare il prossimo step in un percorso se l'ordine è rispettato?
             # Per ora, aggiorniamo il progresso solo sui tentativi superati.
             # self.update_pathway_progress() # Opzionale: aggiornare anche su fallimento?
@@ -488,8 +522,23 @@ class QuizAttempt(models.Model):
 
     def update_pathway_progress(self):
         """
-        Controlla e aggiorna il progresso nei percorsi a cui questo quiz appartiene,
-        dopo che questo tentativo è stato completato con successo.
+        Checks and updates the student's progress in any pathways containing this quiz.
+
+        This method is called after a successful quiz attempt (`assign_completion_points`).
+        It operates on the QuizAttempt instance (`self`).
+
+        For each pathway containing this quiz where the student has active progress:
+        1. It checks if the current quiz's order matches the *next expected* quiz order
+           in the pathway (based on `last_completed_quiz_order`).
+        2. If the order is correct, it updates `last_completed_quiz_order` in the
+           student's `PathwayProgress` record for that pathway.
+        3. If updating `last_completed_quiz_order` results in the last quiz of the
+           pathway being completed, it marks the `PathwayProgress` as COMPLETED,
+           sets `completed_at`, and checks for pathway completion points.
+        4. Pathway points are awarded only on the *first* correct completion of the
+           entire pathway, similar to quiz points logic.
+
+        This ensures students progress through pathways sequentially.
         """
         quiz = self.quiz
         student = self.student
@@ -507,24 +556,24 @@ class QuizAttempt(models.Model):
             status=PathwayProgress.ProgressStatus.IN_PROGRESS
         ).select_related('pathway').order_by('pathway_id') # Lock per pathway?
 
-        print(f"[Attempt {self.id}] Trovati {len(active_progresses)} progressi attivi per quiz {quiz.id} e studente {student.id}")
+        # print(f"[Attempt {self.id}] Trovati {len(active_progresses)} progressi attivi per quiz {quiz.id} e studente {student.id}") # Rimosso print
 
         for progress in active_progresses:
             pathway = progress.pathway
             current_quiz_order_in_pathway = PathwayQuiz.objects.get(pathway=pathway, quiz=quiz).order
 
-            print(f"  - Controllo progresso per Pathway '{pathway.title}' (ID: {pathway.id}). Quiz attuale ordine: {current_quiz_order_in_pathway}. Ultimo completato: {progress.last_completed_quiz_order}")
+            # print(f"  - Controllo progresso per Pathway '{pathway.title}' (ID: {pathway.id}). Quiz attuale ordine: {current_quiz_order_in_pathway}. Ultimo completato: {progress.last_completed_quiz_order}") # Rimosso print
 
             # Aggiorna solo se questo quiz è il *successivo* a quello già completato (o il primo)
             next_expected_order = (progress.last_completed_quiz_order or 0) + 1
             if current_quiz_order_in_pathway == next_expected_order:
                 progress.last_completed_quiz_order = current_quiz_order_in_pathway
-                print(f"    -> Aggiornato last_completed_quiz_order a {current_quiz_order_in_pathway}")
+                # print(f"    -> Aggiornato last_completed_quiz_order a {current_quiz_order_in_pathway}") # Rimosso print
 
                 # Controlla se il percorso è stato completato
                 total_quizzes_in_pathway = pathway.quizzes.count()
                 if progress.last_completed_quiz_order == total_quizzes_in_pathway:
-                    print(f"    -> Percorso '{pathway.title}' completato!")
+                    # print(f"    -> Percorso '{pathway.title}' completato!") # Rimosso print
                     progress.status = PathwayProgress.ProgressStatus.COMPLETED
                     progress.completed_at = timezone.now()
 
@@ -537,7 +586,7 @@ class QuizAttempt(models.Model):
 
                     if not previous_pathway_completions:
                         progress.first_correct_completion = True
-                        print(f"    -> Primo completamento corretto del percorso '{pathway.title}'.")
+                        # print(f"    -> Primo completamento corretto del percorso '{pathway.title}'.") # Rimosso print
                         # Assegna punti percorso
                         pathway_points = pathway.metadata.get('points_on_completion', 0)
                         if pathway_points > 0:
@@ -547,21 +596,25 @@ class QuizAttempt(models.Model):
                                 wallet.save(update_fields=['current_points'])
                                 wallet.refresh_from_db()
                                 PointTransaction.objects.create(wallet=wallet, points_change=pathway_points, reason=f"Completamento Percorso: {pathway.title}")
-                                print(f"      -> Assegnati {pathway_points} punti percorso. Nuovo saldo: {wallet.current_points}")
+                                # print(f"      -> Assegnati {pathway_points} punti percorso. Nuovo saldo: {wallet.current_points}") # Rimosso print
                                 # Aggiorna campo points_earned sul progresso (se esiste e vogliamo usarlo)
                                 # progress.points_earned = pathway_points
                             except Exception as e:
-                                print(f"      -> ERRORE assegnazione punti percorso: {e}")
+                                logger.exception(f"ERRORE durante l'assegnazione dei punti PATHWAY per {pathway.id} a {student.full_name}")
+                                # Considerare se propagare l'errore o solo loggarlo. Per ora logga e continua.
+                                pass
                         else:
-                            print("    -> Nessun punto previsto per il completamento di questo percorso.")
+                            # Nessun punto previsto per il completamento di questo percorso.
+                            pass
                     else:
                         progress.first_correct_completion = False # Non è il primo
-                        print("    -> Percorso già completato in precedenza. Nessun punto assegnato.")
+                        # print("    -> Percorso già completato in precedenza. Nessun punto assegnato.") # Rimosso print
 
                 # Salva le modifiche al progresso
                 progress.save() # Salva tutti i campi aggiornati
             else:
-                print(f"    -> Quiz completato fuori ordine (atteso: {next_expected_order}). Nessun aggiornamento al progresso.")
+                # print(f"    -> Quiz completato fuori ordine (atteso: {next_expected_order}). Nessun aggiornamento al progresso.") # Rimosso print
+                pass
 
 
 class StudentAnswer(models.Model):
