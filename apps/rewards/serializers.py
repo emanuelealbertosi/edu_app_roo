@@ -136,3 +136,18 @@ class RewardPurchaseSerializer(serializers.ModelSerializer):
 
     # La logica di acquisto (controllo punti, disponibilità ricompensa, creazione transazione)
     # verrà gestita nella ViewSet (perform_create).
+
+
+# --- Serializer Specifico per Dashboard Studente ---
+
+class StudentWalletDashboardSerializer(serializers.Serializer):
+    """
+    Serializer per le informazioni del wallet nella dashboard studente.
+    Combina i punti correnti con le transazioni recenti.
+    """
+    current_points = serializers.IntegerField(read_only=True)
+    # Usa PointTransactionSerializer per le transazioni recenti
+    recent_transactions = PointTransactionSerializer(many=True, read_only=True)
+
+    # Nota: Questo non è un ModelSerializer perché aggrega dati da Wallet e PointTransaction.
+    # La view dovrà costruire l'oggetto dati da passare a questo serializer.

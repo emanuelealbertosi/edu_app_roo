@@ -29,7 +29,15 @@ urlpatterns = [
     path('api/auth/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('api/auth/token/verify/', TokenVerifyView.as_view(), name='token_verify'),
     # App APIs
-    path('api/', include('apps.users.urls')), # Include users app URLs under /api/
-    path('api/rewards/', include('apps.rewards.urls')), # Include rewards app URLs
-    path('api/education/', include('apps.education.urls')), # Include education app URLs
+    # API Studente (raggruppate sotto /api/student/)
+    path('api/student/', include([
+        path('', include('apps.users.urls')), # Per login, test-auth, ecc.
+        path('', include('apps.education.urls')), # Per dashboard quizzes/pathways, tentativi, ecc.
+        path('', include('apps.rewards.urls')), # Per dashboard wallet, shop, acquisti, ecc.
+    ])),
+    # API Gestione (Docente/Admin) - Manteniamo /api/ per ora
+    # Potremmo voler separare meglio in futuro
+    path('api/', include('apps.users.urls')), # Gestione utenti
+    path('api/rewards/', include('apps.rewards.urls')), # Gestione ricompense
+    path('api/education/', include('apps.education.urls')), # Gestione contenuti educativi
 ]

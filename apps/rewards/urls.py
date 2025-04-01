@@ -2,7 +2,8 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import (
     RewardTemplateViewSet, RewardViewSet, StudentShopViewSet,
-    StudentWalletViewSet, StudentPurchasesViewSet, TeacherRewardDeliveryViewSet
+    StudentWalletViewSet, StudentPurchasesViewSet, TeacherRewardDeliveryViewSet,
+    StudentWalletInfoView # Importa la nuova view
 )
 
 # Crea un router e registra le viewset standard
@@ -20,6 +21,8 @@ router.register(r'teacher/delivery', TeacherRewardDeliveryViewSet, basename='tea
 # Gli URL dell'API sono determinati automaticamente dal router.
 urlpatterns = [
     path('', include(router.urls)),
+    # URL specifico per le info aggregate del wallet nella dashboard (il prefisso 'student/' verrà aggiunto in config/urls.py)
+    path('dashboard/wallet/', StudentWalletInfoView.as_view(), name='student-dashboard-wallet'),
 ]
 
 # Nota: Gli URL generati saranno tipo:

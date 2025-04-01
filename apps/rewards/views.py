@@ -1,8 +1,10 @@
-from rest_framework import viewsets, permissions, status, serializers
+from rest_framework import viewsets, permissions, status, serializers, generics # Import generics
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db import transaction, models # Add models
 from django.shortcuts import get_object_or_404
+from django.http import Http404 # Import Http404
+from django.utils import timezone # Add this import
 from django.utils import timezone # Add this import
 import logging # Import logging
 
@@ -14,7 +16,8 @@ from .models import (
 )
 from .serializers import (
     WalletSerializer, PointTransactionSerializer, RewardTemplateSerializer,
-    RewardSerializer, RewardPurchaseSerializer
+    RewardSerializer, RewardPurchaseSerializer,
+    StudentWalletDashboardSerializer # Importa il nuovo serializer
 )
 from .permissions import (
     IsAdminOrReadOnly, IsRewardTemplateOwnerOrAdmin, IsRewardOwnerOrAdmin, # Aggiornato nome permesso
@@ -23,6 +26,7 @@ from .permissions import (
 # Importa permessi da users, incluso IsStudentAuthenticated
 from apps.users.permissions import IsAdminUser, IsTeacherUser, IsStudent, IsStudentAuthenticated
 from apps.users.models import UserRole, Student # Import modelli utente
+from .models import Wallet, PointTransaction # Assicurati che siano importati
 
 
 class RewardTemplateViewSet(viewsets.ModelViewSet):
@@ -352,3 +356,46 @@ class TeacherRewardDeliveryViewSet(viewsets.GenericViewSet):
 
 # Nota: Manca l'import di timezone. Aggiungerlo all'inizio del file:
 # from django.utils import timezone
+
+# --- View Specifiche per Dashboard Studente ---
+
+class StudentWalletInfoView(generics.RetrieveAPIView):
+    """
+    Restituisce le informazioni aggregate del wallet per la dashboard studente:
+    punti correnti e transazioni recenti.
+    """
+    serializer_class = StudentWalletDashboardSerializer
+    permission_classes = [IsStudentAuthenticated] # Solo studenti autenticati
+
+    def get_object(self):
+        """
+        Recupera il wallet dello studente autenticato.
+        La creazione del wallet dovrebbe essere gestita altrove (es. segnali).
+        """
+        student = self.request.user # request.user è lo studente
+        try:
+            # Accedi direttamente tramite la relazione one-to-one inversa
+            wallet = student.wallet
+            return wallet
+        except Wallet.DoesNotExist:
+            # Se il wallet non esiste per qualche motivo, solleva 404
+            # Logga questo evento perché non dovrebbe accadere in teoria
+            logger.error(f"Wallet non trovato per lo studente {student.id} ({student.student_code})")
+            raise Http404("Wallet non trovato.")
+
+    def retrieve(self, request, *args, **kwargs):
+        """
+        Costruisce l'oggetto dati aggregato e lo passa al serializer.
+        """
+        wallet = self.get_object()
+        # Recupera le ultime N transazioni (es. le ultime 5)
+        recent_transactions = wallet.transactions.order_by('-timestamp')[:5]
+
+        # Costruisci l'oggetto dati per il serializer
+        data = {
+            'current_points': wallet.current_points,
+            'recent_transactions': recent_transactions
+        }
+
+        serializer = self.get_serializer(data)
+        return Response(serializer.data)

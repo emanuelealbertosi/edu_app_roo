@@ -101,3 +101,39 @@
 *   Chiariti commenti sulla logica di calcolo del punteggio in `apps/education/models.py`.
 *   Aggiunti/Migliorati docstring e `help_text` nei modelli delle app `education`, `users`, `rewards`.
 *   Aggiunto logging di base per errori/eccezioni nei metodi dei modelli e delle view.
+
+## 11. Frontend Studenti (Vue.js)
+
+*   Creato progetto Vue.js nella directory `frontend-student` utilizzando `npm create vue@latest` con supporto per:
+    *   TypeScript
+    *   JSX
+    *   Vue Router
+    *   Pinia (gestione stato)
+    *   Vitest (unit testing)
+    *   Playwright (e2e testing)
+    *   ESLint e Prettier
+*   Ripulito progetto Vue.js dai componenti e dalle viste di esempio.
+*   Installata libreria `axios` per la comunicazione con il backend.
+*   Implementata struttura base del frontend:
+    *   Creata directory `api` con file `config.ts` (configurazione axios) e `auth.ts` (servizi autenticazione).
+    *   Creato store Pinia `auth.ts` per gestione stato autenticazione.
+    *   Creato componente `LoginForm.vue` per il form di login degli studenti.
+    *   Creata vista `LoginView.vue` per la pagina di login.
+    *   Creata vista `DashboardView.vue` per la dashboard studente dopo login.
+    *   Configurato router con rotte protette e guardie di navigazione.
+*   Aggiunto supporto CORS al backend Django:
+    *   Installato `django-cors-headers` e aggiunto alle dipendenze in `requirements.txt`.
+    *   Configurato CORS in `settings.py` per permettere richieste dal frontend Vue.js.
+*   Testato il flusso di login frontend utilizzando un servizio mock (`mockAuth.ts`) e corretto `AuthService` per gestire la risposta.
+*   Ripristinato `AuthService` per utilizzare le chiamate API reali (`apiClient`) al backend Django.
+*   **Integrato Login Studente con Backend:**
+    *   Risolto problema `pin_hash` nell'interfaccia Admin Django creando un form personalizzato.
+    *   Allineato il frontend (form, store, API service) per usare `student_code` e `pin`.
+    *   Corretta la gestione della risposta API di login nello store Pinia.
+*   **Implementati Endpoint Backend per Dashboard:**
+    *   Creati serializer specifici (`StudentQuizDashboardSerializer`, `StudentPathwayDashboardSerializer`, `StudentWalletDashboardSerializer`).
+    *   Create view API (`StudentAssignedQuizzesView`, `StudentAssignedPathwaysView`, `StudentWalletInfoView`) per fornire dati aggregati.
+    *   Registrati i relativi URL sotto `/api/student/dashboard/`.
+*   **Abilitata Creazione Automatica Wallet:** Implementato segnale `post_save` per creare `Wallet` alla creazione di `Student`.
+*   **Corretto Wallet Mancante:** Creato manualmente il `Wallet` per lo studente esistente.
+*   **Dashboard Funzionante:** La dashboard studente ora carica correttamente i dati iniziali (quiz, percorsi, wallet) dal backend.

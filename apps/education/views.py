@@ -1,11 +1,11 @@
-from rest_framework import viewsets, permissions, status, serializers
+from rest_framework import viewsets, permissions, status, serializers, generics # Import generics
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db import transaction, models, IntegrityError # Import IntegrityError
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.core.exceptions import PermissionDenied # Import PermissionDenied
-from django.db.models import F # Import F
+from django.db.models import F, OuterRef, Subquery, Count # Import per Subquery e Count
 
 from .models import (
     QuizTemplate, QuestionTemplate, AnswerOptionTemplate,
@@ -17,7 +17,8 @@ from .serializers import (
     QuizTemplateSerializer, QuestionTemplateSerializer, AnswerOptionTemplateSerializer,
     QuizSerializer, QuestionSerializer, AnswerOptionSerializer, PathwaySerializer, PathwayQuizSerializer, # Aggiunto PathwayQuizSerializer
     QuizAttemptSerializer, StudentAnswerSerializer, PathwayProgressSerializer,
-    QuizAttemptDetailSerializer # Importa il nuovo serializer
+    QuizAttemptDetailSerializer, # Importa il nuovo serializer
+    StudentQuizDashboardSerializer, StudentPathwayDashboardSerializer # Importa i nuovi serializer
 )
 from .permissions import (
     IsAdminOrReadOnly, IsQuizTemplateOwnerOrAdmin, IsQuizOwnerOrAdmin, IsPathwayOwnerOrAdmin, # Updated IsPathwayOwner -> IsPathwayOwnerOrAdmin
@@ -26,6 +27,7 @@ from .permissions import (
 from apps.users.permissions import IsAdminUser, IsTeacherUser, IsStudent, IsStudentAuthenticated # Import IsStudentAuthenticated
 from apps.users.models import UserRole, Student, User # Import modelli utente e User
 from apps.rewards.models import Wallet, PointTransaction # Import Wallet e PointTransaction
+from .models import QuizAssignment, PathwayAssignment, QuizAttempt, PathwayProgress # Assicurati che siano importati
 
 # --- ViewSets per Admin (Templates) ---
 class QuizTemplateViewSet(viewsets.ModelViewSet):
@@ -601,3 +603,82 @@ class TeacherGradingViewSet(viewsets.GenericViewSet):
 # Nota: La logica di calculate_score e check_and_assign_points è placeholder
 # e potrebbe necessitare di raffinamenti (es. gestione punti per domanda,
 # gestione più robusta dei metadati, etc.)
+# --- View Specifiche per Dashboard Studente ---
+
+class StudentAssignedQuizzesView(generics.ListAPIView):
+    """
+    Restituisce la lista dei quiz assegnati allo studente autenticato,
+    arricchiti con informazioni sull'ultimo tentativo.
+    """
+    serializer_class = StudentQuizDashboardSerializer
+    permission_classes = [IsStudentAuthenticated] # Solo studenti autenticati
+
+    def get_queryset(self):
+        student = self.request.user # request.user è lo studente grazie a StudentJWTAuthentication
+
+        # Ottieni gli ID dei quiz assegnati allo studente
+        assigned_quiz_ids = QuizAssignment.objects.filter(student=student).values_list('quiz_id', flat=True)
+
+        # Subquery per ottenere l'ID dell'ultimo tentativo per ogni quiz per questo studente
+        latest_attempt_subquery = QuizAttempt.objects.filter(
+            quiz=OuterRef('pk'),
+            student=student
+        ).order_by('-started_at').values('pk')[:1] # Prende solo il più recente
+
+        # Query principale: filtra per i quiz assegnati e annota con l'ID dell'ultimo tentativo e il conteggio
+        queryset = Quiz.objects.filter(
+            id__in=assigned_quiz_ids
+        ).annotate(
+            # Annotazione per l'ID dell'ultimo tentativo (usando Subquery)
+            latest_attempt_id=Subquery(latest_attempt_subquery),
+            # Annotazione per il conteggio dei tentativi
+            attempts_count=Count('attempts', filter=models.Q(attempts__student=student))
+        ).select_related('teacher') # Ottimizzazione
+
+        # Recupera gli oggetti QuizAttempt completi per gli ID annotati
+        attempt_ids = [qz.latest_attempt_id for qz in queryset if qz.latest_attempt_id]
+        attempts_dict = {att.pk: att for att in QuizAttempt.objects.filter(pk__in=attempt_ids)}
+
+        # Assegna l'oggetto tentativo completo al campo 'latest_attempt' (che il serializer si aspetta)
+        for qz in queryset:
+            qz.latest_attempt = attempts_dict.get(qz.latest_attempt_id) # Usa .get() per sicurezza
+
+        return queryset
+
+
+class StudentAssignedPathwaysView(generics.ListAPIView):
+    """
+    Restituisce la lista dei percorsi assegnati allo studente autenticato,
+    arricchiti con informazioni sul progresso.
+    """
+    serializer_class = StudentPathwayDashboardSerializer
+    permission_classes = [IsStudentAuthenticated]
+
+    def get_queryset(self):
+        student = self.request.user
+
+        # Ottieni gli ID dei percorsi assegnati
+        assigned_pathway_ids = PathwayAssignment.objects.filter(student=student).values_list('pathway_id', flat=True)
+
+        # Subquery per ottenere l'ID del progresso per ogni percorso per questo studente
+        progress_subquery = PathwayProgress.objects.filter(
+            pathway=OuterRef('pk'),
+            student=student
+        ).values('pk')[:1] # Assume al massimo un progresso per studente/percorso
+
+        # Query principale: filtra per i percorsi assegnati e annota con l'ID del progresso
+        queryset = Pathway.objects.filter(
+            id__in=assigned_pathway_ids
+        ).annotate(
+            progress_id=Subquery(progress_subquery) # Annotiamo l'ID
+        ).select_related('teacher').prefetch_related('pathwayquiz_set__quiz') # Ottimizzazione
+
+        # Recupera gli oggetti PathwayProgress completi per gli ID annotati
+        progress_ids = [pw.progress_id for pw in queryset if pw.progress_id]
+        progress_dict = {prog.pk: prog for prog in PathwayProgress.objects.filter(pk__in=progress_ids)}
+
+        # Assegna l'oggetto progresso completo al campo 'progress' (che il serializer si aspetta)
+        for pw in queryset:
+            pw.progress = progress_dict.get(pw.progress_id) # Usa .get() per sicurezza
+
+        return queryset

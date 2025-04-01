@@ -4,7 +4,8 @@ from .views import (
     QuizTemplateViewSet, QuestionTemplateViewSet, AnswerOptionTemplateViewSet,
     QuizViewSet, QuestionViewSet, AnswerOptionViewSet, PathwayViewSet,
     StudentDashboardViewSet, StudentQuizAttemptViewSet, TeacherGradingViewSet,
-    AttemptViewSet # Importa la nuova viewset
+    AttemptViewSet, # Importa la nuova viewset
+    StudentAssignedQuizzesView, StudentAssignedPathwaysView # Importa le nuove view
 )
 
 # Router principale per le risorse top-level dell'app education
@@ -41,6 +42,10 @@ questions_router.register(r'options', AnswerOptionViewSet, basename='question-op
 # Combina tutti gli URL
 urlpatterns = [
     path('', include(router.urls)),
+
+    # URLs specifici per la dashboard studente (il prefisso 'student/' verrà aggiunto in config/urls.py)
+    path('dashboard/quizzes/', StudentAssignedQuizzesView.as_view(), name='student-dashboard-quizzes'),
+    path('dashboard/pathways/', StudentAssignedPathwaysView.as_view(), name='student-dashboard-pathways'),
     path('', include(quiz_templates_router.urls)),
     path('', include(question_templates_router.urls)),
     path('', include(quizzes_router.urls)),

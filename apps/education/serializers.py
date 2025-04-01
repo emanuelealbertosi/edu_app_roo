@@ -2,9 +2,11 @@ from rest_framework import serializers
 from .models import (
     QuizTemplate, QuestionTemplate, AnswerOptionTemplate,
     Quiz, Question, AnswerOption, Pathway, PathwayQuiz,
-    QuizAttempt, StudentAnswer, PathwayProgress, QuestionType
+    QuizAttempt, StudentAnswer, PathwayProgress, QuestionType,
+    QuizAssignment # Importa QuizAssignment per la view
 )
 from apps.users.serializers import UserSerializer, StudentSerializer # Per info utente/studente
+from .models import QuizAttempt # Assicurati che QuizAttempt sia importato
 
 # --- Template Serializers ---
 
@@ -168,3 +170,46 @@ class PathwayProgressSerializer(serializers.ModelSerializer):
             'last_completed_quiz_order', 'started_at', 'completed_at', 'status', 'status_display'
         ]
         read_only_fields = fields # Il progresso è gestito internamente
+
+
+# --- Serializers Specifici per Dashboard Studente ---
+
+class SimpleQuizAttemptSerializer(serializers.ModelSerializer):
+    """ Serializer semplificato per l'ultimo tentativo, usato nella dashboard. """
+    class Meta:
+        model = QuizAttempt
+        fields = ['id', 'status', 'score', 'started_at', 'completed_at']
+        read_only_fields = fields
+
+class StudentQuizDashboardSerializer(QuizSerializer):
+    """
+    Serializer per i Quiz nella dashboard studente.
+    Include informazioni sull'ultimo tentativo dello studente.
+    """
+    latest_attempt = SimpleQuizAttemptSerializer(read_only=True) # Campo per l'ultimo tentativo
+    attempts_count = serializers.IntegerField(read_only=True) # Campo per il numero di tentativi
+
+    class Meta(QuizSerializer.Meta): # Eredita Meta da QuizSerializer
+        # Aggiungi i nuovi campi a quelli esistenti
+        fields = QuizSerializer.Meta.fields + ['latest_attempt', 'attempts_count']
+        read_only_fields = fields # Tutto è read-only in questo contesto
+
+
+class SimplePathwayProgressSerializer(serializers.ModelSerializer):
+    """ Serializer semplificato per il progresso del percorso, usato nella dashboard. """
+    class Meta:
+        model = PathwayProgress
+        fields = ['status', 'last_completed_quiz_order', 'completed_at', 'points_earned'] # Aggiunto points_earned
+        read_only_fields = fields
+
+class StudentPathwayDashboardSerializer(PathwaySerializer):
+    """
+    Serializer per i Percorsi nella dashboard studente.
+    Include informazioni sul progresso dello studente.
+    """
+    progress = SimplePathwayProgressSerializer(read_only=True) # Campo per il progresso
+
+    class Meta(PathwaySerializer.Meta): # Eredita Meta da PathwaySerializer
+        # Aggiungi il nuovo campo a quelli esistenti
+        fields = PathwaySerializer.Meta.fields + ['progress']
+        read_only_fields = fields # Tutto è read-only in questo contesto
