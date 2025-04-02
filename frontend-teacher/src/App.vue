@@ -17,8 +17,8 @@ const authStore = useAuthStore();
         <RouterLink :to="{ name: 'rewards' }">Ricompense</RouterLink>
         <RouterLink :to="{ name: 'assign' }">Assegna</RouterLink>
         <RouterLink :to="{ name: 'grading' }">Valutazioni</RouterLink>
+        <RouterLink :to="{ name: 'delivery' }">Consegne</RouterLink> <!-- Aggiunto link Consegne -->
         <RouterLink :to="{ name: 'student-progress' }">Progressi</RouterLink>
-        <!-- Add other links here -->
         <button @click="authStore.logout">Logout</button>
       </nav>
     </div>

@@ -397,12 +397,25 @@ class QuizAttempt(models.Model):
             is_correct = False
             try:
                 if question_type in [QuestionType.MULTIPLE_CHOICE_SINGLE, QuestionType.TRUE_FALSE]:
-                    selected_option_id = selected_data.get('selected_option_id') if isinstance(selected_data, dict) else None
-                    if question_id in correct_options_map and selected_option_id == correct_options_map[question_id]:
+                    selected_option_id_raw = selected_data.get('answer_option_id') if isinstance(selected_data, dict) else None
+                    expected_correct_id = correct_options_map.get(question_id)
+
+                    # Tentativo di conversione a intero e confronto
+                    selected_option_id = None
+                    try:
+                        if selected_option_id_raw is not None:
+                            selected_option_id = int(selected_option_id_raw)
+                    except (ValueError, TypeError):
+                        logger.warning(f"Attempt {self.id} - Q {question_id}: Could not convert selected_option_id '{selected_option_id_raw}' to int.") # Manteniamo questo warning
+
+                    if expected_correct_id is not None and selected_option_id == expected_correct_id: # Rimosso log da qui
                         is_correct = True
                 elif question_type == QuestionType.MULTIPLE_CHOICE_MULTIPLE:
-                    selected_option_ids = set(selected_data.get('selected_option_ids', [])) if isinstance(selected_data, dict) else set()
-                    if question_id in correct_options_map and selected_option_ids == correct_options_map[question_id]:
+                    # Corretto per usare answer_option_ids
+                    selected_option_ids = set(selected_data.get('answer_option_ids', [])) if isinstance(selected_data, dict) else set()
+                    expected_correct_set = correct_options_map.get(question_id, set()) # Get the set or an empty set
+                    print(f"--- Attempt {self.id}: Evaluating Q {question_id} (MC_MULTI): Selected Set={selected_option_ids}, Expected Set={expected_correct_set} ---") # DEBUG PRINT
+                    if question_id in correct_options_map and selected_option_ids == expected_correct_set:
                         is_correct = True
                 elif question_type == QuestionType.FILL_BLANK:
                     user_answer = selected_data.get('answer_text', '').strip().lower() if isinstance(selected_data, dict) else ''
@@ -415,10 +428,10 @@ class QuizAttempt(models.Model):
 
             if is_correct:
                 correct_answers_count += 1
-            # Aggiorna is_correct sulla risposta se necessario (opzionale qui)
+            # Aggiorna is_correct sulla risposta se è cambiato
             if student_answer.is_correct != is_correct:
                  student_answer.is_correct = is_correct
-                 # student_answer.save(update_fields=['is_correct']) # Evita save qui
+                 student_answer.save(update_fields=['is_correct']) # Salva l'esito della singola risposta
 
         # Calcola punteggio finale
         # Calcolo del punteggio finale:
@@ -463,16 +476,18 @@ class QuizAttempt(models.Model):
             bool: True if points were successfully awarded (or attempted), False otherwise
                   (e.g., threshold not met, already completed, no points defined, error during transaction).
         """
+        # logger.info(f"Attempt {self.id} - Entered assign_completion_points method.") # Rimosso print/log
         quiz = self.quiz
         student = self.student
         threshold = quiz.metadata.get('completion_threshold_percent', 80.0)
         points_to_award = quiz.metadata.get('points_on_completion', 0)
+        # logger.info(f"Attempt {self.id} - Checking points: Threshold={threshold}, PointsToAward={points_to_award}, Score={self.score}") # Rimosso print/log
 
         if self.score is None:
              # print(f"Tentativo {self.id}: Punteggio non ancora calcolato. Nessuna azione sui punti.") # Rimosso print
              return False # Indica che i punti non sono stati assegnati
         if points_to_award <= 0:
-            # print(f"Tentativo {self.id}: Punti non previsti per questo quiz ({points_to_award}). Nessuna azione.") # Rimosso print
+            # logger.info(f"Attempt {self.id}: Points not awarded. points_on_completion is {points_to_award}.") # Rimosso print/log
             return False
 
         is_successful = self.score >= threshold
@@ -486,6 +501,7 @@ class QuizAttempt(models.Model):
                 status=QuizAttempt.AttemptStatus.COMPLETED,
                 score__gte=threshold
             ).exclude(pk=self.pk).exists()
+            # logger.info(f"Attempt {self.id} - Checking previous success: Exists={previous_successful_attempts}") # Rimosso print/log
 
             if not previous_successful_attempts:
                 # print(f"Questo è il primo completamento con successo per {student.full_name} del quiz '{quiz.title}'. Assegnazione punti...") # Rimosso print
@@ -494,31 +510,29 @@ class QuizAttempt(models.Model):
                     wallet.current_points = F('current_points') + points_to_award
                     wallet.save(update_fields=['current_points'])
                     wallet.refresh_from_db()
-                    # print(f"Assegnati {points_to_award} punti a {student.full_name}. Nuovo saldo: {wallet.current_points}") # Rimosso print
+                    # logger.info(f"Attempt {self.id}: Awarded {points_to_award} points to student {student.id}. New balance: {wallet.current_points}") # Rimosso print/log
                     PointTransaction.objects.create(wallet=wallet, points_change=points_to_award, reason=f"Completamento Quiz: {quiz.title}")
                     # Aggiorna il campo points_earned sull'attempt - Rimosso, non esiste
                     # self.points_earned = points_to_award
                     # self.save(update_fields=['points_earned']) # Rimosso
-
-                    # ---> AGGIUNTA LOGICA PATHWAY <---
-                    self.update_pathway_progress() # Chiamata corretta
-                    # ---> FINE AGGIUNTA LOGICA PATHWAY <---
-
-                    return True # Indica che i punti quiz sono stati (tentati di essere) assegnati
-                except Exception as e: # Blocco except corretto e indentato
-                    logger.exception(f"ERRORE durante l'assegnazione dei punti QUIZ o aggiornamento PATHWAY per il tentativo {self.id}")
-                    return False # Ritorna False se c'è un errore
+                    # Aggiorna il progresso del percorso dopo aver assegnato i punti
+                    self.update_pathway_progress()
+                    return True # Punti assegnati
+                except Exception as e:
+                    # logger.exception(f"Attempt {self.id}: Error awarding points to student {student.id}.") # Commentato logger
+                    logger.exception(f"Attempt {self.id}: Error awarding points to student {student.id}.") # Ripristinato logger per errori
+                    return False # Error during transaction
             else:
-                # Lo studente aveva già completato con successo il quiz. Nessun punto aggiuntivo assegnato.
-                # Anche se non assegniamo punti QUIZ, dobbiamo aggiornare il progresso PATHWAY
+                # logger.info(f"Attempt {self.id}: Points not awarded. Previous successful attempt exists.") # Rimosso print/log
+                # Still update pathway progress even if points aren't awarded again
                 self.update_pathway_progress()
-                return False
+                return False # Not the first success
         else:
-            # print(f"Tentativo {self.id} non superato (Punteggio: {self.score} < Soglia: {threshold}). Nessun punto assegnato.") # Rimosso print
-            # Tentativo non superato, ma potrebbe comunque sbloccare il prossimo step in un percorso se l'ordine è rispettato?
-            # Per ora, aggiorniamo il progresso solo sui tentativi superati.
-            # self.update_pathway_progress() # Opzionale: aggiornare anche su fallimento?
-            return False
+            # logger.info(f"Attempt {self.id}: Points not awarded. Score {self.score} did not meet threshold {threshold}.") # Rimosso print/log
+            # Update pathway progress even on failure? Maybe not, depends on requirements.
+            # Let's assume pathway only progresses on success.
+            return False # Threshold not met
+# Rimosso blocco duplicato/errato che causava IndentationError
 
     def update_pathway_progress(self):
         """

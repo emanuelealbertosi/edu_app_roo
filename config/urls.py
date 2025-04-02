@@ -15,7 +15,8 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path, include # Add include
+from django.urls import path, include
+from apps.rewards.views import StudentWalletInfoView # Importa la view per il wallet
 from rest_framework_simplejwt.views import ( # Add these imports
     TokenObtainPairView,
     TokenRefreshView,
@@ -33,7 +34,9 @@ urlpatterns = [
     path('api/student/', include([
         path('', include('apps.users.urls')), # Per login, test-auth, ecc.
         path('', include('apps.education.urls')), # Per dashboard quizzes/pathways, tentativi, ecc.
-        path('', include('apps.rewards.urls')), # Per dashboard wallet, shop, acquisti, ecc.
+        # Rimosso include di apps.rewards.urls da qui per evitare conflitti
+        # Aggiunto URL specifico per la dashboard wallet qui
+        path('dashboard/wallet/', StudentWalletInfoView.as_view(), name='student-dashboard-wallet'),
     ])),
     # API Gestione (Docente/Admin) - Manteniamo /api/ per ora
     # Potremmo voler separare meglio in futuro

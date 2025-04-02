@@ -13,7 +13,8 @@ export interface QuizDetails {
 export interface Question {
   id: number;
   text: string;
-  question_type: 'multiple_choice_single' | 'multiple_choice_multiple' | 'true_false' | 'fill_blank' | 'open_answer_manual';
+  // Aggiornato per usare i valori effettivi del backend (come in models.py)
+  question_type: 'MC_SINGLE' | 'MC_MULTI' | 'TF' | 'FILL_BLANK' | 'OPEN_MANUAL';
   order: number;
   metadata: {
     points?: number;
@@ -37,15 +38,24 @@ export interface QuizAttempt {
   status: 'in_progress' | 'pending_manual_grading' | 'completed';
 }
 
+// Interfaccia per una singola risposta data dallo studente
+export interface StudentAnswerResult {
+  id: number;
+  quiz_attempt: number;
+  question: number; // ID della domanda
+  question_text?: string; // Opzionale, potrebbe non essere sempre incluso
+  // Aggiornato per usare i valori effettivi del backend
+  question_type?: 'MC_SINGLE' | 'MC_MULTI' | 'TF' | 'FILL_BLANK' | 'OPEN_MANUAL'; // Opzionale
+  selected_answers: any; // Formato dipende dal tipo di domanda
+  is_correct: boolean | null;
+  score: number | null;
+  answered_at: string;
+}
+
 export interface AttemptDetails extends QuizAttempt {
   questions: Question[];
-  student_answers: {
-    question_id: number;
-    selected_answers: any; // Formato dipende dal tipo di domanda
-    is_correct: boolean | null;
-    score: number | null;
-    answered_at: string;
-  }[];
+  // Corretto il nome e usato la nuova interfaccia
+  given_answers: StudentAnswerResult[];
 }
 
 // Tipi per le risposte alle domande
@@ -87,7 +97,8 @@ const QuizService = {
    */
   async getQuizDetails(quizId: number): Promise<QuizDetails> {
     try {
-      const response = await apiClient.get(`quizzes/${quizId}/`);
+      // Aggiunto prefisso completo relativo a /api/
+      const response = await apiClient.get(`student/quizzes/${quizId}/`);
       return response.data;
     } catch (error) {
       console.error(`Error fetching quiz details for quiz ${quizId}:`, error);
@@ -100,7 +111,8 @@ const QuizService = {
    */
   async startAttempt(quizId: number): Promise<QuizAttempt> {
     try {
-      const response = await apiClient.post(`quizzes/${quizId}/start-attempt/`);
+      // Aggiunto prefisso completo relativo a /api/
+      const response = await apiClient.post(`student/quizzes/${quizId}/attempts/start-attempt/`);
       return response.data;
     } catch (error) {
       console.error(`Error starting attempt for quiz ${quizId}:`, error);
@@ -113,7 +125,8 @@ const QuizService = {
    */
   async getAttemptDetails(attemptId: number): Promise<AttemptDetails> {
     try {
-      const response = await apiClient.get(`attempts/${attemptId}/details/`);
+      // Aggiunto prefisso completo relativo a /api/
+      const response = await apiClient.get(`student/attempts/${attemptId}/details/`);
       return response.data;
     } catch (error) {
       console.error(`Error fetching attempt details for attempt ${attemptId}:`, error);
@@ -126,7 +139,8 @@ const QuizService = {
    */
   async getCurrentQuestion(attemptId: number): Promise<Question> {
     try {
-      const response = await apiClient.get(`attempts/${attemptId}/current-question/`);
+      // Aggiunto prefisso completo relativo a /api/
+      const response = await apiClient.get(`student/attempts/${attemptId}/current-question/`);
       return response.data;
     } catch (error) {
       console.error(`Error fetching current question for attempt ${attemptId}:`, error);
@@ -143,7 +157,8 @@ const QuizService = {
     answer: Answer
   ): Promise<{ is_correct: boolean | null; message?: string }> {
     try {
-      const response = await apiClient.post(`attempts/${attemptId}/submit-answer/`, {
+      // Aggiunto prefisso completo relativo a /api/
+      const response = await apiClient.post(`student/attempts/${attemptId}/submit-answer/`, {
         question_id: questionId,
         selected_answers: answer
       });
@@ -159,7 +174,8 @@ const QuizService = {
    */
   async completeAttempt(attemptId: number): Promise<AttemptDetails> {
     try {
-      const response = await apiClient.post(`attempts/${attemptId}/complete/`);
+      // Aggiunto prefisso completo relativo a /api/
+      const response = await apiClient.post(`student/attempts/${attemptId}/complete/`);
       return response.data;
     } catch (error) {
       console.error(`Error completing attempt ${attemptId}:`, error);

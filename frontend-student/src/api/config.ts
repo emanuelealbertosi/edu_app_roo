@@ -3,7 +3,7 @@ import axios from 'axios';
 // Crea un'istanza axios configurata per l'API
 const apiClient = axios.create({
   // URL base del backend. In produzione, questo potrebbe essere un URL assoluto
-  baseURL: 'http://localhost:8000/api/',
+  baseURL: 'http://localhost:8000/api/', // Ripristinato baseURL generico
   
   // Headers di default per tutte le richieste
   headers: {

@@ -1,7 +1,7 @@
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
+import { useRouter } from 'vue-router' // Importa useRouter
 import * as authService from '@/api/auth' // Import auth service
-// import router from '@/router' // <-- Rimuovere import del router
 
 // Define the shape of the user object for teachers (adjust as needed)
 interface TeacherUser {
@@ -14,6 +14,7 @@ interface TeacherUser {
 }
 
 export const useAuthStore = defineStore('auth', () => {
+  const router = useRouter(); // Ottieni l'istanza del router qui
   const user = ref<TeacherUser | null>(null)
   const accessToken = ref<string | null>(localStorage.getItem('teacher_access_token')) // Use a different key than student
   const refreshToken = ref<string | null>(localStorage.getItem('teacher_refresh_token'))
@@ -85,8 +86,7 @@ export const useAuthStore = defineStore('auth', () => {
     // Optional: Add backend call to invalidate token here if implemented
     // try { await authService.logoutTeacher(refreshToken.value); } catch(e) {}
     clearAuthData();
-    // La navigazione verrà gestita dal componente che chiama logout
-    // await router.push({ name: 'login' }); // <-- Rimuovere redirect
+    router.push({ name: 'login' }); // Reindirizza alla pagina di login
   }
 
   // TODO: Add action to fetch user profile if needed

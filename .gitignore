@@ -110,3 +110,6 @@ cython_debug/
 
 # Pyright
 .pyright_cache/
+
+# Node / Frontend dependencies
+node_modules/

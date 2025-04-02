@@ -32,6 +32,11 @@ export const useDashboardStore = defineStore('dashboard', {
     availableQuizzes(state): Quiz[] {
       const now = new Date();
       return state.quizzes.filter(quiz => {
+        // Escludi se l'ultimo tentativo è completato
+        if (quiz.latest_attempt?.status === 'COMPLETED') { // Corretto valore status
+            return false;
+        }
+
         const availableFrom = quiz.available_from ? new Date(quiz.available_from) : null;
         const availableUntil = quiz.available_until ? new Date(quiz.available_until) : null;
         
@@ -52,7 +57,7 @@ export const useDashboardStore = defineStore('dashboard', {
     completedQuizzes(state): Quiz[] {
       return state.quizzes.filter(quiz => 
         quiz.latest_attempt && 
-        quiz.latest_attempt.status === 'completed'
+        quiz.latest_attempt.status === 'COMPLETED' // Corretto valore status
       );
     },
     

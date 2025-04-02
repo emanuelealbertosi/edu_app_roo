@@ -2,7 +2,7 @@ import axios from 'axios';
 import { useAuthStore } from '@/stores/auth'; // Import auth store
 
 const apiClient = axios.create({
-  baseURL: 'http://127.0.0.1:8000/api', // Your Django API base URL
+  baseURL: 'http://127.0.0.1:8000/api/', // Aggiunto slash finale
   headers: {
     'Content-Type': 'application/json'
   }

@@ -113,6 +113,12 @@ const router = createRouter({
       name: 'student-progress',
       component: () => import('../views/StudentProgressView.vue'),
       meta: { requiresAuth: true }
+    },
+    {
+      path: '/delivery', // Rotta per la consegna ricompense
+      name: 'delivery',
+      component: () => import('../views/DeliveryView.vue'),
+      meta: { requiresAuth: true }
     }
     // Add other teacher routes here later (e.g., student-progress-detail)
   ]

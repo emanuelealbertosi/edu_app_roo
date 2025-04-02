@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import QuizService, { type AttemptDetails, type Question } from '@/api/quiz';
+import QuizService, { type AttemptDetails, type Question, type StudentAnswerResult } from '@/api/quiz'; // Aggiunto StudentAnswerResult
 
 // State
 const route = useRoute();
@@ -33,41 +33,45 @@ async function fetchAttemptResults() {
 }
 
 function getStudentAnswerForQuestion(questionId: number) {
-  return attemptDetails.value?.student_answers.find(ans => ans.question_id === questionId);
+  // Corretto per usare 'given_answers' come definito nel serializer
+  // Corretto per usare 'question' invece di 'question_id'
+  return attemptDetails.value?.given_answers.find((ans: StudentAnswerResult) => ans.question === questionId);
 }
 
 function getQuestionById(questionId: number): Question | undefined {
     return attemptDetails.value?.questions.find(q => q.id === questionId);
 }
 
-function formatAnswer(answerData: any, questionType: Question['question_type']): string {
+// Modificato per accettare l'oggetto Question completo
+function formatAnswer(answerData: any, question: Question): string {
     if (answerData === null || answerData === undefined) return 'Nessuna risposta';
 
-    switch (questionType) {
-        case 'multiple_choice_single': {
+    // Usa question.question_type dall'oggetto passato
+    switch (question.question_type) {
+        case 'MC_SINGLE': { // Usa il tipo corretto dal backend
             const optionId = answerData.answer_option_id;
-            const question = getQuestionById(answerData.question_id);
-            const option = question?.answer_options?.find(opt => opt.id === optionId);
+            // Usa direttamente l'oggetto question passato
+            const option = question.answer_options?.find(opt => opt.id === optionId);
             return option ? option.text : 'Opzione non trovata';
         }
-        case 'multiple_choice_multiple': {
+        case 'MC_MULTI': { // Usa il tipo corretto dal backend
             const optionIds = answerData.answer_option_ids || [];
-            const question = getQuestionById(answerData.question_id);
+            // Usa direttamente l'oggetto question passato
             const selectedTexts = optionIds
-                .map((id: number) => question?.answer_options?.find(opt => opt.id === id)?.text)
+                .map((id: number) => question.answer_options?.find(opt => opt.id === id)?.text)
                 .filter(Boolean); // Filtra eventuali undefined
             return selectedTexts.length > 0 ? selectedTexts.join(', ') : 'Nessuna opzione selezionata';
         }
-        case 'true_false':
+        case 'TF': // Usa il tipo corretto dal backend
             return answerData.is_true ? 'Vero' : 'Falso';
-        case 'fill_blank': {
-            const answers = answerData.answers || {};
-            return Object.entries(answers)
-                         .map(([key, value]) => `#${key}: ${value}`)
-                         .join('; ');
+        case 'FILL_BLANK': { // Usa il tipo corretto dal backend
+            // Assumendo che answerData.answers sia ora una lista di stringhe come salvato nel backend
+            const answersList = answerData.answers || [];
+            return answersList.map((ans: string, index: number) => `#${index + 1}: ${ans}`).join('; ');
         }
-        case 'open_answer_manual':
-            return answerData.text || 'Nessuna risposta fornita';
+        case 'OPEN_MANUAL': // Usa il tipo corretto dal backend
+            // Assumendo che la chiave sia 'answer_text' come nella validazione backend
+            return answerData.answer_text || 'Nessuna risposta fornita';
         default:
             return JSON.stringify(answerData); // Fallback
     }
@@ -112,8 +116,8 @@ onMounted(() => {
       <p v-if="attemptDetails.completed_at"><strong>Completato il:</strong> {{ new Date(attemptDetails.completed_at).toLocaleString() }}</p>
       
       <div v-if="attemptDetails.status === 'completed'" class="summary-scores">
-          <p><strong>Punteggio Finale:</strong> {{ attemptDetails.score ?? 'N/D' }}</p>
-          <p><strong>Punti Guadagnati:</strong> {{ attemptDetails.points_earned ?? 0 }}</p>
+          <p><strong>Punteggio Finale:</strong> {{ attemptDetails.score !== null ? Math.round(attemptDetails.score) : 'N/D' }}%</p> <!-- Aggiunto % e arrotondamento -->
+          <!-- <p><strong>Punti Guadagnati:</strong> {{ attemptDetails.points_earned ?? 0 }}</p> --> <!-- Rimosso: points_earned non è sul modello Attempt -->
       </div>
        <div v-else-if="attemptDetails.status === 'pending_manual_grading'" class="summary-scores pending">
           <p>Il punteggio finale e i punti guadagnati saranno disponibili dopo la correzione manuale.</p>
@@ -122,10 +126,11 @@ onMounted(() => {
       <h3>Dettaglio Risposte</h3>
       <ul class="answers-list">
         <li v-for="question in attemptDetails.questions" :key="question.id" class="answer-item">
-          <p class="question-text"><strong>{{ question.order }}. {{ question.text }}</strong> ({{ question.question_type }})</p>
-          <div v-if="getStudentAnswerForQuestion(question.id)" :class="['student-answer', getCorrectnessClass(getStudentAnswerForQuestion(question.id)?.is_correct)]">
-            <p><strong>Tua Risposta:</strong> {{ formatAnswer(getStudentAnswerForQuestion(question.id)?.selected_answers, question.question_type) }}</p>
-            <p><strong>Esito:</strong> {{ getCorrectnessText(getStudentAnswerForQuestion(question.id)?.is_correct) }} 
+          <p class="question-text"><strong>{{ question.order + 1 }}. {{ question.text }}</strong> ({{ question.question_type }})</p> <!-- Corretto numero domanda -->
+          <div v-if="getStudentAnswerForQuestion(question.id)" :class="['student-answer', getCorrectnessClass(getStudentAnswerForQuestion(question.id)?.is_correct ?? null)]"> <!-- Aggiunto ?? null -->
+            <!-- Passa l'intero oggetto question a formatAnswer -->
+            <p><strong>Tua Risposta:</strong> {{ formatAnswer(getStudentAnswerForQuestion(question.id)?.selected_answers, question) }}</p>
+            <p><strong>Esito:</strong> {{ getCorrectnessText(getStudentAnswerForQuestion(question.id)?.is_correct ?? null) }} <!-- Aggiunto ?? null -->
                <span v-if="getStudentAnswerForQuestion(question.id)?.score !== null"> (Punti: {{ getStudentAnswerForQuestion(question.id)?.score }})</span>
             </p>
             <!-- Qui potremmo aggiungere la risposta corretta se disponibile e se vogliamo mostrarla -->

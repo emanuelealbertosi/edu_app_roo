@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia';
+import { useRouter } from 'vue-router'; // Importa useRouter
 import AuthService from '@/api/auth';
 
 // Interfaccia aggiornata per riflettere i dati dello studente dalla risposta API
@@ -73,10 +74,12 @@ export const useAuthStore = defineStore('auth', {
      * Effettua il logout dell'utente
      */
     logout(): void {
+      const router = useRouter(); // Ottieni l'istanza del router
       AuthService.logout();
       this.user = null;
       this.token = null;
       this.isAuthenticated = false;
+      router.push({ name: 'login' }); // Reindirizza alla pagina di login
     },
     
     /**

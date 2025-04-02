@@ -36,7 +36,8 @@ const AuthService = {
    */
   async login(credentials: LoginCredentials): Promise<LoginResponse> {
     try {
-      const response = await apiClient.post<LoginResponse>('auth/student/login/', credentials);
+      // Aggiunto prefisso completo relativo a /api/
+      const response = await apiClient.post<LoginResponse>('student/auth/student/login/', credentials);
       
       // Salviamo il token e i dati utente in localStorage per uso futuro
       if (response.data && response.data.access && response.data.student) { // Verifica 'access' e 'student'
@@ -91,6 +92,7 @@ const AuthService = {
       
       // Possiamo fare una chiamata a un endpoint protetto per verificare
       // che il token sia ancora valido
+      // Aggiunto prefisso completo relativo a /api/
       await apiClient.get('student/test-auth/');
       return true;
     } catch (error) {

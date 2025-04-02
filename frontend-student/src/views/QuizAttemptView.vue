@@ -64,7 +64,7 @@ async function fetchCurrentQuestion() {
     // Se l'API restituisce 404 o un errore specifico quando non ci sono più domande,
     // potremmo gestirlo qui per indicare la fine del quiz.
     // Altrimenti, potrebbe essere un errore generico.
-    if (err.response &amp;&amp; err.response.status === 404) {
+    if (err.response && err.response.status === 404) {
        // Probabilmente il quiz è finito, ma l'endpoint /current-question/ non è pensato per questo.
        // L'azione di completamento è separata.
        console.log("Nessuna domanda successiva trovata, considerare il completamento.");
@@ -152,11 +152,11 @@ onMounted(() => {
 // Mappa i tipi di domanda ai componenti importati
 // Usiamo shallowRef per i componenti dinamici per ottimizzare le performance
 const questionComponentMap = {
-  'multiple_choice_single': shallowRef(MultipleChoiceSingleQuestion),
-  'multiple_choice_multiple': shallowRef(MultipleChoiceMultipleQuestion),
-  'true_false': shallowRef(TrueFalseQuestion),
-  'fill_blank': shallowRef(FillBlankQuestion),
-  'open_answer_manual': shallowRef(OpenAnswerManualQuestion),
+  'MC_SINGLE': shallowRef(MultipleChoiceSingleQuestion), // Aggiornato per corrispondere al backend
+  'MC_MULTI': shallowRef(MultipleChoiceMultipleQuestion), // Aggiornato per corrispondere al backend
+  'TF': shallowRef(TrueFalseQuestion), // Aggiornato per corrispondere al backend
+  'FILL_BLANK': shallowRef(FillBlankQuestion), // Aggiornato per corrispondere al backend
+  'OPEN_MANUAL': shallowRef(OpenAnswerManualQuestion), // Aggiornato per corrispondere al backend
   // 'true_false': shallowRef(TrueFalseQuestion),
   // 'fill_blank': shallowRef(FillBlankQuestion),
   // 'open_answer_manual': shallowRef(OpenAnswerManualQuestion),
@@ -164,7 +164,8 @@ const questionComponentMap = {
 
 const currentQuestionComponent = computed(() => {
   if (!currentQuestion.value?.question_type) return null;
-  return questionComponentMap[currentQuestion.value.question_type] ?? null;
+  const componentRef = questionComponentMap[currentQuestion.value.question_type];
+  return componentRef ? componentRef.value : null; // Accedi a .value dello shallowRef
 });
 
 // Funzione per aggiornare la risposta dell'utente dal componente figlio
@@ -178,7 +179,7 @@ function updateUserAnswer(answer: Answer | null) {
   <div class="quiz-attempt-view">
     <h1>Svolgimento Quiz</h1>
 
-    <div v-if="isLoading &amp;&amp; !attempt" class="loading">
+    <div v-if="isLoading && !attempt" class="loading">
       <p>Avvio del tentativo...</p>
       <!-- Aggiungere uno spinner o indicatore di caricamento -->
     </div>
@@ -187,22 +188,22 @@ function updateUserAnswer(answer: Answer | null) {
       <p>{{ error }}</p>
     </div>
 
-    <div v-if="attempt &amp;&amp; !isLoading">
+    <div v-if="attempt && !isLoading">
       <h2>{{ attempt.quiz.title }}</h2>
       <p>{{ attempt.quiz.description }}</p>
 
-      <div v-if="isLoading &amp;&amp; currentQuestion === null" class="loading">
+      <div v-if="isLoading && currentQuestion === null" class="loading">
         <p>Caricamento domanda...</p>
       </div>
 
       <div v-if="currentQuestion" class="question-container">
-        <h3>Domanda {{ currentQuestion.order }}</h3>
+        <h3>Domanda {{ currentQuestion.order + 1 }}</h3> <!-- Aggiunto +1 per partire da 1 -->
         <p class="question-text">{{ currentQuestion.text }}</p>
 
         <!-- Renderizza dinamicamente il componente domanda corretto -->
         <div class="answer-area">
           <component
-            v-if="currentQuestionComponent &amp;&amp; currentQuestion"
+            v-if="currentQuestionComponent && currentQuestion"
             :is="currentQuestionComponent"
             :question="currentQuestion"
             @update:answer="updateUserAnswer"
@@ -218,7 +219,7 @@ function updateUserAnswer(answer: Answer | null) {
         </button>
       </div>
 
-      <div v-else-if="!isLoading &amp;&amp; !error">
+      <div v-else-if="!isLoading && !error">
         <p>Hai risposto a tutte le domande!</p>
         <button @click="completeAttemptHandler" :disabled="isCompleting">
           {{ isCompleting ? 'Completamento...' : 'Completa Quiz e Vedi Risultati' }}

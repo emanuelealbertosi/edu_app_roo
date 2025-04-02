@@ -59,6 +59,7 @@ const DashboardService = {
    */
   async getAssignedQuizzes(): Promise<Quiz[]> {
     try {
+      // Aggiunto prefisso completo relativo a /api/
       const response = await apiClient.get('student/dashboard/quizzes/');
       return response.data;
     } catch (error) {
@@ -72,6 +73,7 @@ const DashboardService = {
    */
   async getAssignedPathways(): Promise<Pathway[]> {
     try {
+      // Aggiunto prefisso completo relativo a /api/
       const response = await apiClient.get('student/dashboard/pathways/');
       return response.data;
     } catch (error) {
@@ -85,7 +87,8 @@ const DashboardService = {
    */
   async getWalletInfo(): Promise<WalletInfo> {
     try {
-      const response = await apiClient.get('student/dashboard/wallet/'); // Corretto URL
+      // Aggiunto prefisso completo relativo a /api/
+      const response = await apiClient.get('student/dashboard/wallet/');
       return response.data;
     } catch (error) {
       console.error('Error fetching wallet info:', error);

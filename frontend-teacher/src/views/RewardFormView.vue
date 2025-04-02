@@ -21,18 +21,16 @@
         <label for="type">Tipo:</label>
         <select id="type" v-model="rewardData.type" required>
             <option disabled value="">Seleziona un tipo</option>
-            <!-- TODO: Popolare con i tipi da RewardType.choices -->
-            <option value="VIRTUAL_ITEM">Oggetto Virtuale</option>
-            <option value="DISCOUNT_CODE">Codice Sconto</option>
-            <option value="PHYSICAL_ITEM">Oggetto Fisico</option>
-            <option value="OTHER">Altro</option>
+            <!-- Valori aggiornati per corrispondere a RewardTemplate.RewardType -->
+            <option value="DIGITAL">Digitale (es. badge, item virtuale)</option>
+            <option value="REAL_WORLD">Reale (consegna tracciata)</option>
         </select>
       </div>
        <div class="form-group">
         <label for="availability_type">Disponibilità:</label>
         <select id="availability_type" v-model="rewardData.availability_type" required>
-            <option value="ALL_STUDENTS">Tutti gli studenti</option>
-            <option value="SPECIFIC_STUDENTS">Studenti Specifici</option>
+            <option value="ALL">Tutti gli studenti</option> <!-- Corretto valore -->
+            <option value="SPECIFIC">Studenti Specifici</option> <!-- Corretto valore -->
         </select>
         <!-- TODO: Aggiungere UI per selezionare studenti specifici se availability_type === 'SPECIFIC_STUDENTS' -->
       </div>

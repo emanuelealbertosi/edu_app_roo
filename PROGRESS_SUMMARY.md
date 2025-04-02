@@ -1,4 +1,4 @@
-# Riepilogo Stato Avanzamento Progetto (2 Aprile 2025, ~12:43)
+# Riepilogo Stato Avanzamento Progetto (2 Aprile 2025, ~19:03)
 
 ## 1. Progettazione
 
@@ -91,13 +91,13 @@
 *   Tutti i test backend (modelli e API) passano.
 *   Il codice è versionato su GitHub.
 *   Il database contiene dati di test generati dal comando `seed_test_data`.
-*   Il frontend studenti (`frontend-student`) è funzionante con le funzionalità principali implementate.
-*   Il frontend docenti (`frontend-teacher`) è stato inizializzato ed è in esecuzione (`npm run dev`). Le funzionalità base (visualizzazione studenti/quiz/percorsi/ricompense, CRUD base quiz/percorsi/ricompense, assegnazione, grading, sommario progressi) sono implementate. La gestione delle domande e opzioni è parzialmente implementata.
+*   Il frontend studenti (`frontend-student`) è funzionante con le funzionalità principali implementate. **Corretti numerosi bug relativi a:** visualizzazione quiz disponibili/completati, avvio tentativi, gestione tipi domanda, invio risposte, visualizzazione risultati (stato, numerazione), logout, shop (URL, aggiornamento dopo acquisto), storico acquisti (URL, visualizzazione stato con icone).
+*   Il frontend docenti (`frontend-teacher`) è stato inizializzato ed è in esecuzione (`npm run dev`). Le funzionalità base (visualizzazione studenti/quiz/percorsi/ricompense, CRUD base quiz/percorsi/ricompense, assegnazione, grading, sommario progressi) sono implementate. La gestione delle domande e opzioni è parzialmente implementata. **Corretti bug relativi a:** creazione ricompense (permessi, validazione), logout. **Implementata vista "Consegne"** per gestire ricompense acquistate.
 
 ## 10. Raffinamento Codice
 
 *   Rimosse istruzioni `print()` di debug dai file `views.py` e `models.py` delle app `education`, `users`, `rewards`.
-*   Chiariti commenti sulla logica di calcolo del punteggio in `apps/education/models.py`.
+*   Chiariti commenti sulla logica di calcolo del punteggio e assegnazione punti in `apps/education/models.py`.
 *   Aggiunti/Migliorati docstring e `help_text` nei modelli delle app `education`, `users`, `rewards`.
 *   Aggiunto logging di base per errori/eccezioni nei metodi dei modelli e delle view.
 
@@ -106,7 +106,8 @@
 *   Creato progetto Vue.js nella directory `frontend-student`.
 *   Implementata struttura base e funzionalità core (login, dashboard, svolgimento quiz, risultati, shop, profilo, acquisti, navigazione).
 *   Implementati test unitari (Vitest) e E2E (Playwright) per autenticazione.
-*   **Test E2E Svolgimento Quiz:** Tentativi iniziali falliti a causa di problemi di configurazione del server/porta e chiusura manuale delle finestre del browser. Test sospesi in favore di test manuali.
+*   **Test E2E Svolgimento Quiz:** Tentativi iniziali falliti. Test sospesi in favore di test manuali.
+*   **Corretta logica visualizzazione stato quiz:** Il pulsante "Inizia Quiz" e le date di disponibilità vengono nascosti correttamente per i quiz completati.
 
 ## 12. Dati di Test
 
@@ -124,11 +125,12 @@
 *   **Risolto Bug Opzioni MC-Single:** Corretta la logica in `AnswerOptionsEditor.vue` che impediva il salvataggio corretto dello stato `is_correct`. Funzionalità verificata manualmente.
 *   **Configurati Test E2E (Playwright):**
     *   Implementati test E2E per login, visualizzazione studenti/quiz, CRUD base quiz/percorsi/ricompense.
-    *   **Debug Test E2E Domande/Opzioni:** Affrontati e risolti numerosi problemi (errori sintassi, cicli dipendenza, configurazione CORS, credenziali backend, import mancante). Il test specifico per domande/opzioni (`quiz.spec.ts`) è stato corretto ma presenta ancora instabilità/fallimenti intermittenti (possibili problemi di timing o selettori). Test sospesi in favore di test manuali.
+    *   **Debug Test E2E Domande/Opzioni:** Affrontati e risolti numerosi problemi. Test sospesi in favore di test manuali.
+    *   **Aggiunto campo "Punti al Completamento"** al form dei quiz.
 
 ## Prossimi Passi Previsti (vedi NEXT_STEPS.md)
 
 *   Esecuzione test backend (pytest).
 *   Esecuzione test manuali (come da `test.md`).
-*   Completamento e raffinamento frontend docente.
-*   Test API dashboard studente.
+*   Completamento e raffinamento frontend docente (es. UI selezione studenti specifici per ricompense).
+*   Verifica assegnazione punti quiz (assicurarsi che `points_on_completion` > 0 nei metadati).

@@ -62,6 +62,35 @@ const getStatusClass = (quiz: Quiz): string => {
       return '';
   }
 };
+
+// Determina se il pulsante "Inizia Quiz" debba essere mostrato
+const shouldShowStartButton = (quiz: Quiz): boolean => {
+  const now = new Date();
+
+  // Controlla le date di disponibilità
+  if (quiz.available_from && new Date(quiz.available_from) > now) {
+    return false; // Non ancora disponibile
+  }
+  if (quiz.available_until && new Date(quiz.available_until) < now) {
+    return false; // Scaduto
+  }
+
+  // Controlla lo stato dell'ultimo tentativo
+  // Non mostrare se è completato o in attesa di valutazione
+  if (quiz.latest_attempt) {
+    const status = quiz.latest_attempt.status;
+    // Corretto per usare i valori di stato maiuscoli dal backend
+    if (status === 'COMPLETED' || status === 'PENDING_GRADING') {
+       // Potremmo aggiungere logica qui per permettere nuovi tentativi se consentito
+       return false;
+    }
+    // Potremmo anche voler nascondere il pulsante se è 'in_progress'
+    // if (status === 'in_progress') return false;
+  }
+
+  // Se tutti i controlli passano, mostra il pulsante
+  return true;
+};
 </script>
 
 <template>
@@ -99,7 +128,8 @@ const getStatusClass = (quiz: Quiz): string => {
           </div>
         </div>
         
-        <div class="quiz-dates">
+        <!-- Nascondi le date se il quiz è completato -->
+        <div v-if="quiz.latest_attempt?.status !== 'COMPLETED'" class="quiz-dates">
           <div v-if="quiz.available_from" class="quiz-available-from">
             Disponibile da: {{ formatDate(quiz.available_from) }}
           </div>
@@ -111,7 +141,7 @@ const getStatusClass = (quiz: Quiz): string => {
         
         <!-- Pulsante Inizia Quiz (visibile solo se showStartButton è true) -->
         <button
-          v-if="showStartButton"
+          v-if="shouldShowStartButton(quiz)"
           @click.stop="startQuizAttempt(quiz.id)"
           class="start-quiz-button"
         >

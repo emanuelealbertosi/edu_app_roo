@@ -72,7 +72,7 @@ watch(blankAnswers, (newVal) => {
   // Verifica se tutte le risposte richieste sono state date (anche se vuote)
   const allBlanksAnswered = blankIndices.value.every(index => newVal[index] !== undefined);
   
-  if (allBlanksAnswered &amp;&amp; blankIndices.value.length > 0) {
+  if (allBlanksAnswered && blankIndices.value.length > 0) {
      // Emette solo se ci sono blank e sono stati tutti inizializzati (anche se vuoti)
      // Filtra eventuali proprietà extra che potrebbero essere state aggiunte
      const filteredAnswers: Record<string, string> = {};

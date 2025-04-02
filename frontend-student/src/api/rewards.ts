@@ -20,7 +20,7 @@ export interface RewardPurchase {
   reward: Reward;
   points_spent: number;
   purchased_at: string;
-  status: 'purchased' | 'delivered' | 'cancelled';
+  status: 'PURCHASED' | 'DELIVERED' | 'CANCELLED'; // Aggiornato per usare i valori del backend
   delivered_at: string | null;
   delivery_notes: string | null;
 }
@@ -34,7 +34,10 @@ const RewardsService = {
    */
   async getAvailableRewards(): Promise<Reward[]> {
     try {
-      const response = await apiClient.get('student/shop/');
+      // Ripristinato 'student/' perché il router backend lo include
+      // Aggiunto prefisso completo relativo a /api/
+      // Corretto percorso completo relativo a /api/
+      const response = await apiClient.get('rewards/student/shop/');
       return response.data;
     } catch (error) {
       console.error('Error fetching available rewards:', error);
@@ -47,7 +50,10 @@ const RewardsService = {
    */
   async purchaseReward(rewardId: number): Promise<RewardPurchase> {
     try {
-      const response = await apiClient.post(`student/shop/purchase/${rewardId}/`);
+      // Ripristinato 'student/' e corretto URL per l'azione 'purchase'
+      // Aggiunto prefisso completo relativo a /api/
+      // Corretto percorso completo relativo a /api/
+      const response = await apiClient.post(`rewards/student/shop/${rewardId}/purchase/`);
       return response.data;
     } catch (error) {
       console.error(`Error purchasing reward ${rewardId}:`, error);
@@ -60,7 +66,10 @@ const RewardsService = {
    */
   async getPurchaseHistory(): Promise<RewardPurchase[]> {
     try {
-      const response = await apiClient.get('student/purchases/');
+      // Ripristinato 'student/' perché già nel baseURL
+      // Aggiunto prefisso completo relativo a /api/
+      // Corretto percorso completo relativo a /api/
+      const response = await apiClient.get('rewards/student/purchases/');
       return response.data;
     } catch (error) {
       console.error('Error fetching purchase history:', error);
@@ -73,7 +82,10 @@ const RewardsService = {
    */
   async getPurchaseDetails(purchaseId: number): Promise<RewardPurchase> {
     try {
-      const response = await apiClient.get(`student/purchases/${purchaseId}/`);
+      // Ripristinato 'student/' perché il router backend lo include
+      // Aggiunto prefisso completo relativo a /api/
+      // Corretto percorso completo relativo a /api/
+      const response = await apiClient.get(`rewards/student/purchases/${purchaseId}/`);
       return response.data;
     } catch (error) {
       console.error(`Error fetching purchase details for purchase ${purchaseId}:`, error);

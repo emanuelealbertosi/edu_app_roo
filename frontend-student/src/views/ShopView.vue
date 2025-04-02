@@ -62,8 +62,8 @@ async function handlePurchase(reward: Reward) {
     // Potrebbe essere ottimizzato aggiornando solo il wallet
     await dashboardStore.loadDashboard(); 
 
-    // Opzionale: ricarica le ricompense se la disponibilità potrebbe cambiare dopo l'acquisto
-    // await fetchAvailableRewards(); 
+    // Ricarica le ricompense per aggiornare la lista dopo l'acquisto
+    await fetchAvailableRewards();
 
   } catch (err: any) {
     console.error(`Errore durante l'acquisto della ricompensa ${reward.id}:`, err);
@@ -85,7 +85,7 @@ onMounted(() => {
   fetchAvailableRewards();
   // Assicurati che i dati del wallet siano caricati se non lo sono già
   if (!dashboardStore.wallet) {
-      dashboardStore.loadWallet();
+      dashboardStore.fetchWallet(); // Corretto nome azione
   }
 });
 

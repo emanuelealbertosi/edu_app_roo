@@ -37,26 +37,7 @@ const formatDate = (dateString: string | null): string => {
   });
 };
 
-// Ottiene un'etichetta leggibile per lo stato dell'acquisto
-const getStatusLabel = (status: RewardPurchase['status']): string => {
-    switch (status) {
-        case 'purchased': return 'Acquistato (In attesa)';
-        case 'delivered': return 'Consegnato';
-        case 'cancelled': return 'Annullato';
-        default: return status;
-    }
-};
-
-// Ottiene una classe CSS per lo stato
-const getStatusClass = (status: RewardPurchase['status']): string => {
-    switch (status) {
-        case 'purchased': return 'status-purchased';
-        case 'delivered': return 'status-delivered';
-        case 'cancelled': return 'status-cancelled';
-        default: return '';
-    }
-};
-
+// Funzioni getStatusLabel e getStatusClass rimosse perché sostituite da icone
 
 // Lifecycle Hooks
 onMounted(() => {
@@ -98,10 +79,11 @@ onMounted(() => {
             <td data-label="Ricompensa">{{ purchase.reward.name }}</td>
             <td data-label="Costo" class="points-spent">{{ purchase.points_spent }}</td>
             <td data-label="Data Acquisto">{{ formatDate(purchase.purchased_at) }}</td>
-            <td data-label="Stato">
-              <span :class="['status-badge', getStatusClass(purchase.status)]">
-                {{ getStatusLabel(purchase.status) }}
-              </span>
+            <td data-label="Stato" class="status-cell">
+              <span v-if="purchase.status === 'PURCHASED'" title="Acquistato (In attesa di consegna)">⏳</span> <!-- Corretto valore status -->
+              <span v-else-if="purchase.status === 'DELIVERED'" title="Consegnato">✅</span> <!-- Corretto valore status -->
+              <span v-else-if="purchase.status === 'CANCELLED'" title="Annullato">❌</span> <!-- Corretto valore status -->
+              <span v-else>{{ purchase.status }}</span> <!-- Fallback -->
             </td>
             <td data-label="Data Consegna">{{ formatDate(purchase.delivered_at) }}</td>
           </tr>
@@ -212,32 +194,13 @@ onMounted(() => {
 
 .points-spent {
     font-weight: bold;
-    color: #dc3545; /* Rosso per i punti spesi */
+    /* color: #dc3545; */ /* Assicura che il colore rosso sia rimosso */
 }
-
-.status-badge {
-    padding: 4px 8px;
-    border-radius: 12px; /* Più arrotondato */
-    font-size: 0.85em;
-    font-weight: 500;
-    white-space: nowrap;
+.status-cell span {
+    font-size: 1.5em; /* Rende le icone più grandi */
+    vertical-align: middle;
 }
-
-.status-purchased {
-    background-color: #fff3cd; /* Giallo chiaro */
-    color: #856404; /* Giallo scuro */
-    border: 1px solid #ffeeba;
-}
-.status-delivered {
-    background-color: #d4edda; /* Verde chiaro */
-    color: #155724; /* Verde scuro */
-    border: 1px solid #c3e6cb;
-}
-.status-cancelled {
-    background-color: #f8d7da; /* Rosso chiaro */
-    color: #721c24; /* Rosso scuro */
-    border: 1px solid #f5c6cb;
-}
+/* Assicura che gli stili precedenti per i badge siano rimossi */
 
 .go-to-shop-link {
     display: inline-block;

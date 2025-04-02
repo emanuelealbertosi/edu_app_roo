@@ -18,6 +18,10 @@
         <label for="available_until">Disponibile Fino Al:</label>
         <input type="datetime-local" id="available_until" v-model="quizData.available_until" />
       </div>
+      <div class="form-group">
+        <label for="points_on_completion">Punti al Completamento:</label>
+        <input type="number" id="points_on_completion" v-model.number="quizData.metadata.points_on_completion" min="0" />
+      </div>
 
       <!-- Aggiungere gestione errori -->
       <div v-if="error" class="error-message">{{ error }}</div>
@@ -71,8 +75,11 @@ interface QuizFormData {
   description: string | null;
   available_from: string | null;
   available_until: string | null;
-  // Aggiungere altri campi se necessario (es. metadata)
-} // Rinominiamo questa in QuizFormData per chiarezza
+  metadata: { // Aggiunto metadata
+    points_on_completion: number | null;
+    // Aggiungere altri metadati qui se necessario (es. difficulty, threshold)
+  };
+}
 
 const route = useRoute();
 const router = useRouter();
@@ -94,6 +101,9 @@ const quizData = reactive<QuizFormData>({
   description: null,
   available_from: null,
   available_until: null,
+  metadata: { // Inizializza metadata
+    points_on_completion: null
+  }
 });
 
 onMounted(async () => {
@@ -123,6 +133,8 @@ const loadQuizData = async (id: number) => {
     // Assicurati che i campi metadata, source_template etc. siano gestiti se necessario
     quizData.available_from = formatDateTimeForInput(fetchedQuiz.available_from);
     quizData.available_until = formatDateTimeForInput(fetchedQuiz.available_until);
+    // Carica i metadati esistenti
+    quizData.metadata.points_on_completion = fetchedQuiz.metadata?.points_on_completion ?? null;
   } catch (err: any) {
     console.error("Errore nel caricamento del quiz:", err);
     error.value = err.response?.data?.detail || err.message || 'Errore nel caricamento dei dati del quiz.';
@@ -156,8 +168,11 @@ const saveQuiz = async () => {
       description: quizData.description,
       available_from: quizData.available_from ? new Date(quizData.available_from).toISOString() : null,
       available_until: quizData.available_until ? new Date(quizData.available_until).toISOString() : null,
-      // Aggiungere metadata e source_template se gestiti nel form
-      // metadata: quizData.metadata && Object.keys(quizData.metadata).length > 0 ? quizData.metadata : {}, // Esempio se metadata fosse nel form
+      // Includi i metadati nel payload, assicurandoti che points_on_completion sia un numero o null
+      metadata: {
+          points_on_completion: quizData.metadata.points_on_completion === null || isNaN(quizData.metadata.points_on_completion) ? 0 : Number(quizData.metadata.points_on_completion)
+          // Aggiungere altri metadati qui se necessario
+      },
   };
 
   try {

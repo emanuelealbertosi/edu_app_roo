@@ -115,6 +115,7 @@ class PathwaySerializer(serializers.ModelSerializer):
 class StudentAnswerSerializer(serializers.ModelSerializer):
     question_text = serializers.CharField(source='question.text', read_only=True)
     question_type = serializers.CharField(source='question.question_type', read_only=True)
+    selected_answers = serializers.JSONField() # Definisci esplicitamente il campo JSON
 
     class Meta:
         model = StudentAnswer

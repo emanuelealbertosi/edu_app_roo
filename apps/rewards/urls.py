@@ -21,8 +21,7 @@ router.register(r'teacher/delivery', TeacherRewardDeliveryViewSet, basename='tea
 # Gli URL dell'API sono determinati automaticamente dal router.
 urlpatterns = [
     path('', include(router.urls)),
-    # URL specifico per le info aggregate del wallet nella dashboard (il prefisso 'student/' verrà aggiunto in config/urls.py)
-    path('dashboard/wallet/', StudentWalletInfoView.as_view(), name='student-dashboard-wallet'),
+    # Rimosso URL specifico per dashboard/wallet/, verrà gestito in config/urls.py
 ]
 
 # Nota: Gli URL generati saranno tipo:

@@ -94,7 +94,8 @@ class RewardViewSet(viewsets.ModelViewSet):
     - Studente: Lettura delle ricompense disponibili (gestito in endpoint separato 'shop').
     """
     serializer_class = RewardSerializer
-    permission_classes = [permissions.IsAuthenticated, IsRewardOwnerOrAdmin] # Aggiornato permesso
+    # Imposta permessi base, verranno specificati meglio in get_permissions
+    permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
         """
@@ -112,6 +113,22 @@ class RewardViewSet(viewsets.ModelViewSet):
             return Reward.objects.filter(teacher=user).select_related('teacher')
         # Studenti vedono le ricompense disponibili tramite l'endpoint 'shop'
         return Reward.objects.none()
+
+    def get_permissions(self):
+        """
+        Instantiates and returns the list of permissions that this view requires.
+        Applica permessi più specifici per azioni su oggetti esistenti.
+        """
+        if self.action in ['retrieve', 'update', 'partial_update', 'destroy']:
+            permission_classes = [permissions.IsAuthenticated, IsRewardOwnerOrAdmin]
+        elif self.action == 'create':
+             # Per creare, basta essere un docente autenticato (verificato in perform_create)
+            permission_classes = [permissions.IsAuthenticated, IsTeacherUser]
+        else:
+            # Per list o altre azioni custom a livello di lista, basta essere autenticato
+            # (il queryset gestirà la visibilità per docenti/admin)
+            permission_classes = [permissions.IsAuthenticated]
+        return [permission() for permission in permission_classes]
 
     def get_serializer_context(self):
         """ Aggiunge il docente al contesto per validazione studenti. """
@@ -192,6 +209,9 @@ class StudentShopViewSet(viewsets.ReadOnlyModelViewSet):
              return Reward.objects.none()
         teacher = student.teacher
 
+        # Ottieni gli ID delle ricompense già acquistate da questo studente
+        purchased_reward_ids = RewardPurchase.objects.filter(student=student).values_list('reward_id', flat=True)
+
         # Filtra le ricompense attive del docente dello studente
         return Reward.objects.filter(
             teacher=teacher,
@@ -200,7 +220,10 @@ class StudentShopViewSet(viewsets.ReadOnlyModelViewSet):
             # O disponibili a tutti O disponibili specificamente a questo studente
             models.Q(availability_type=Reward.AvailabilityType.ALL_STUDENTS) |
             models.Q(availability_type=Reward.AvailabilityType.SPECIFIC_STUDENTS, available_to_specific_students=student)
-        ).distinct() # distinct() per evitare duplicati se uno studente è in M2M e anche ALL
+        ).exclude(
+            # Escludi le ricompense già acquistate
+            id__in=purchased_reward_ids
+        ).distinct()
 
     @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated, IsStudent]) # Solo Studenti
     def purchase(self, request, pk=None):
@@ -305,7 +328,7 @@ class TeacherRewardDeliveryViewSet(viewsets.GenericViewSet):
         user = self.request.user
         return RewardPurchase.objects.filter(
             student__teacher=user, # Filtra per studenti del docente
-            reward__type=RewardTemplate.RewardType.REAL_WORLD, # Solo ricompense reali
+            # Rimosso filtro per tipo: mostra tutti i tipi in attesa
             status=RewardPurchase.PurchaseStatus.PURCHASED # Solo quelle non ancora consegnate
         ).select_related('student', 'reward')
 
@@ -327,8 +350,8 @@ class TeacherRewardDeliveryViewSet(viewsets.GenericViewSet):
         # Il permesso IsTeacherOfStudentForPurchase verifica l'appartenenza
         purchase = get_object_or_404(
             RewardPurchase.objects.filter(
-                student__teacher=request.user,
-                reward__type=RewardTemplate.RewardType.REAL_WORLD # Ancora necessario filtrare per tipo
+                student__teacher=request.user
+                # Rimosso filtro reward__type: permette di marcare qualsiasi tipo
             ),
             pk=pk
         )

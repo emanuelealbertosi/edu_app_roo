@@ -1,3 +1,4 @@
+import logging # Import logging
 from rest_framework import viewsets, permissions, status, serializers, generics # Import generics
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -29,6 +30,9 @@ from apps.users.permissions import IsAdminUser, IsTeacherUser, IsStudent, IsStud
 from apps.users.models import UserRole, Student, User # Import modelli utente e User
 from apps.rewards.models import Wallet, PointTransaction # Import Wallet e PointTransaction
 from .models import QuizAssignment, PathwayAssignment, QuizAttempt, PathwayProgress # Assicurati che siano importati
+
+# Get an instance of a logger
+logger = logging.getLogger(__name__)
 
 # --- ViewSets per Admin (Templates) ---
 class QuizTemplateViewSet(viewsets.ModelViewSet):
@@ -341,7 +345,7 @@ class AttemptViewSet(viewsets.GenericViewSet):
             return Response({'detail': 'Questo tentativo non è più in corso.'}, status=status.HTTP_400_BAD_REQUEST)
 
         # Ottieni tutte le domande del quiz ordinate
-        all_questions = attempt.quiz.questions.order_by('order')
+        all_questions = attempt.quiz.questions.prefetch_related('answer_options').order_by('order') # Aggiunto prefetch_related
         # Ottieni gli ID delle domande già risposte in questo tentativo
         answered_question_ids = set(attempt.student_answers.values_list('question_id', flat=True))
 
@@ -380,44 +384,53 @@ class AttemptViewSet(viewsets.GenericViewSet):
              return Response({'detail': 'Domanda non trovata in questo quiz.'}, status=status.HTTP_404_NOT_FOUND)
 
         # Validazione di selected_answers_data in base a question.question_type
+        logger.info(f"Attempt {pk} - Submit Answer - Raw request.data: {request.data}") # LOGGING
+        logger.info(f"Attempt {pk} - Submit Answer - Extracted selected_answers_data: {selected_answers_data}") # LOGGING
+        logger.info(f"Attempt {pk} - Submit Answer - Type of selected_answers_data: {type(selected_answers_data)}") # LOGGING
         validation_error = None
         valid_data_for_storage = {} # Dati validati da salvare
 
         q_type = question.question_type
         if q_type in [QuestionType.MULTIPLE_CHOICE_SINGLE, QuestionType.TRUE_FALSE]:
-            if not isinstance(selected_answers_data, dict) or 'selected_option_id' not in selected_answers_data:
-                validation_error = "Per questo tipo di domanda, 'selected_answers' deve essere un dizionario con chiave 'selected_option_id'."
+            # Modificato per aspettarsi 'answer_option_id'
+            if not isinstance(selected_answers_data, dict) or 'answer_option_id' not in selected_answers_data:
+                validation_error = "Per questo tipo di domanda, 'selected_answers' deve essere un dizionario con chiave 'answer_option_id'."
             else:
-                selected_id = selected_answers_data['selected_option_id']
+                selected_id = selected_answers_data['answer_option_id'] # Modificato per usare la chiave corretta
                 # Permetti None per deselezionare? Se sì, aggiungere 'or selected_id is None'
+                # Modificato messaggio di errore
                 if not isinstance(selected_id, int):
-                    validation_error = "'selected_option_id' deve essere un intero."
+                    validation_error = "'answer_option_id' deve essere un intero."
                 else:
                     # Verifica che l'opzione esista per questa domanda
+                    # Modificato messaggio di errore
                     if not question.answer_options.filter(pk=selected_id).exists():
-                        validation_error = f"L'opzione con ID {selected_id} non è valida per questa domanda."
+                        validation_error = f"L'opzione con ID {selected_id} ('answer_option_id') non è valida per questa domanda."
                     else:
                         # Dati validi per il salvataggio
-                        valid_data_for_storage = {'selected_option_id': selected_id}
+                        valid_data_for_storage = {'answer_option_id': selected_id} # Modificato per salvare la chiave corretta
 
         elif q_type == QuestionType.MULTIPLE_CHOICE_MULTIPLE:
-            if not isinstance(selected_answers_data, dict) or 'selected_option_ids' not in selected_answers_data:
-                validation_error = "Per questo tipo di domanda, 'selected_answers' deve essere un dizionario con chiave 'selected_option_ids'."
+            # Modificato per aspettarsi 'answer_option_ids'
+            if not isinstance(selected_answers_data, dict) or 'answer_option_ids' not in selected_answers_data:
+                validation_error = "Per questo tipo di domanda, 'selected_answers' deve essere un dizionario con chiave 'answer_option_ids'."
             else:
-                selected_ids = selected_answers_data['selected_option_ids']
+                selected_ids = selected_answers_data['answer_option_ids'] # Modificato per usare la chiave corretta
+                # Modificato messaggio di errore
                 if not isinstance(selected_ids, list) or not all(isinstance(i, int) for i in selected_ids):
-                    validation_error = "'selected_option_ids' deve essere una lista di interi."
+                    validation_error = "'answer_option_ids' deve essere una lista di interi."
                 else:
                     # Verifica che tutte le opzioni esistano per questa domanda
                     valid_option_ids = set(question.answer_options.values_list('id', flat=True))
                     submitted_ids_set = set(selected_ids)
                     if not submitted_ids_set.issubset(valid_option_ids):
                         invalid_ids = submitted_ids_set - valid_option_ids
-                        validation_error = f"Le seguenti opzioni non sono valide per questa domanda: {list(invalid_ids)}."
+                        # Modificato messaggio di errore
+                        validation_error = f"Le seguenti opzioni ('answer_option_ids') non sono valide per questa domanda: {list(invalid_ids)}."
                     else:
                         # Dati validi per il salvataggio (salva la lista)
                         # Ordina gli ID per consistenza, se importante
-                        valid_data_for_storage = {'selected_option_ids': sorted(list(submitted_ids_set))}
+                        valid_data_for_storage = {'answer_option_ids': sorted(list(submitted_ids_set))} # Modificato per salvare la chiave corretta
 
         elif q_type == QuestionType.FILL_BLANK:
             # CORRETTO: Aspettarsi 'answers' come lista
