@@ -1,0 +1,18 @@
+{
+  "extends": "@tsconfig/node20/tsconfig.json",
+  "include": [
+    "vite.config.ts",
+    "eslint.config.ts", // Assuming eslint.config.ts will be used
+    "playwright.config.ts" // Add playwright config file
+    // Add other Node-specific config files if needed (e.g., vitest.config.ts)
+  ],
+  "compilerOptions": {
+    "composite": true,
+    "noEmit": true,
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo",
+
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "types": ["node"]
+  }
+}

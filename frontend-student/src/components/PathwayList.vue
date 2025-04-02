@@ -7,6 +7,7 @@ const props = defineProps<{
   title: string;
   emptyMessage: string;
   loading?: boolean;
+  showResultLink?: boolean; // Nuova prop
 }>();
 
 const router = useRouter();
@@ -25,9 +26,17 @@ const formatDate = (dateString: string | null): string => {
   });
 };
 
-// Apre il percorso per visualizzare i dettagli o continuare
-const openPathway = (pathwayId: number) => {
-  router.push(`/pathway/${pathwayId}`);
+// Decide dove navigare quando si clicca su un percorso
+const navigateToPathway = (pathway: Pathway) => {
+  if (props.showResultLink && pathway.progress?.status === 'completed') { // Corretto &amp;&amp; -> &&
+    // Se dobbiamo mostrare il link ai risultati e il percorso è completo, naviga ai risultati
+    router.push({ name: 'PathwayResult', params: { pathwayId: pathway.id } });
+  } else {
+    // Altrimenti, naviga ai dettagli del percorso (per continuarlo o visualizzarlo)
+    // TODO: Creare la vista PathwayDetailsView se non esiste
+    // router.push({ name: 'pathway-details', params: { id: pathway.id } });
+    console.warn(`Navigazione a /pathway/${pathway.id} (dettagli) non ancora implementata o necessaria.`);
+  }
 };
 
 // Calcola e formatta la percentuale di completamento
@@ -79,7 +88,7 @@ const getProgressStatusClass = (pathway: Pathway): string => {
 
 <template>
   <div class="pathway-list-card dashboard-card">
-    <h2>{{ title }}</h2>
+    <h2><span class="card-icon">🗺️</span> {{ title }}</h2>
     
     <div v-if="loading" class="loading-indicator">
       <p>Caricamento in corso...</p>
@@ -90,7 +99,7 @@ const getProgressStatusClass = (pathway: Pathway): string => {
     </div>
     
     <div v-else class="pathway-list">
-      <div v-for="pathway in pathways" :key="pathway.id" class="pathway-item" @click="openPathway(pathway.id)">
+      <div v-for="pathway in pathways" :key="pathway.id" class="pathway-item" @click="navigateToPathway(pathway)">
         <div class="pathway-header">
           <h3>{{ pathway.title }}</h3>
           <span :class="['pathway-status', getProgressStatusClass(pathway)]">
@@ -129,6 +138,16 @@ const getProgressStatusClass = (pathway: Pathway): string => {
             Punti guadagnati: {{ pathway.progress.points_earned }}
           </div>
         </div>
+        
+        <!-- Link ai Risultati (visibile solo se showResultLink è true e il percorso è completo) -->
+        <router-link
+          v-if="showResultLink && pathway.progress?.status === 'completed'"
+          :to="{ name: 'PathwayResult', params: { pathwayId: pathway.id } }"
+          @click.stop
+          class="view-results-link"
+        >
+          Vedi Risultati
+        </router-link>
       </div>
     </div>
   </div>
@@ -136,7 +155,7 @@ const getProgressStatusClass = (pathway: Pathway): string => {
 
 <style scoped>
 .pathway-list-card {
-  margin-bottom: 1.5rem;
+  /* margin-bottom: 1.5rem; */ /* Rimosso: gestito dal gap del parent */
 }
 
 .pathway-list {
@@ -153,6 +172,8 @@ const getProgressStatusClass = (pathway: Pathway): string => {
   cursor: pointer;
   transition: transform 0.2s, box-shadow 0.2s;
   border-left: 4px solid #ddd;
+  position: relative; /* Necessario per posizionare il link */
+  padding-bottom: 3.5rem; /* Aggiungi spazio per il link */
 }
 
 .pathway-item:hover {
@@ -169,24 +190,27 @@ const getProgressStatusClass = (pathway: Pathway): string => {
 
 .pathway-status {
   font-size: 0.85rem;
-  padding: 0.25rem 0.5rem;
-  border-radius: 4px;
+  padding: 0.25rem 0.6rem; /* Leggermente più padding orizzontale */
+  border-radius: 12px; /* Più arrotondato */
   font-weight: 500;
 }
 
 .status-not-started {
   background-color: #e3f2fd;
   color: #1976d2;
+  border: 1px solid #bbdefb; /* Bordo leggero */
 }
 
 .status-in-progress {
   background-color: #fff8e1;
   color: #ff8f00;
+  border: 1px solid #ffecb3; /* Bordo leggero */
 }
 
 .status-completed {
   background-color: #e8f5e9;
   color: #388e3c;
+  border: 1px solid #c8e6c9; /* Bordo leggero */
 }
 
 .pathway-description {
@@ -218,6 +242,7 @@ const getProgressStatusClass = (pathway: Pathway): string => {
   height: 100%;
   background-color: #4caf50;
   border-radius: 4px;
+  transition: width 0.5s ease-out; /* Transizione per la barra */
 }
 
 .pathway-metadata {
@@ -239,5 +264,30 @@ const getProgressStatusClass = (pathway: Pathway): string => {
   padding: 1rem;
   text-align: center;
   color: #666;
+}
+
+.view-results-link {
+  position: absolute;
+  bottom: 1rem;
+  right: 1rem;
+  padding: 0.4rem 0.8rem;
+  background-color: #6c757d; /* Grigio scuro */
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9em;
+  text-decoration: none;
+  transition: background-color 0.2s;
+}
+
+.view-results-link:hover {
+  background-color: #5a6268;
+}
+
+.card-icon {
+    margin-right: 0.5rem;
+    font-size: 1em; /* Dimensione simile al titolo */
+    vertical-align: baseline;
 }
 </style>

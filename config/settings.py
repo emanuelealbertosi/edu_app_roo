@@ -57,6 +57,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework_simplejwt',
     'corsheaders',
+    'django_json_widget', # Added for better JSON editing in admin
     # (e.g., 'allauth', etc. - will be added later)
 
     # Local Apps
@@ -233,8 +234,12 @@ SIMPLE_JWT = {
 # CORS Configuration
 # https://github.com/adamchainz/django-cors-headers
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",  # Frontend Vue.js in development
+    "http://localhost:5173",  # Frontend Student in development
     "http://127.0.0.1:5173",
+    "http://localhost:5175",  # Frontend Teacher in development (old port?)
+    "http://127.0.0.1:5175",
+    "http://localhost:5174",  # Frontend Teacher in development (current port)
+    "http://127.0.0.1:5174",
 ]
 
 CORS_ALLOW_CREDENTIALS = True  # Permetti l'invio di cookies nelle richieste cross-origin

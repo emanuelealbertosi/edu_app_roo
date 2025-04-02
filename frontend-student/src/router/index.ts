@@ -51,11 +51,20 @@ const router = createRouter({
       props: true
     },
     {
-      path: '/quiz/:quizId/attempt/:attemptId',
-      name: 'quiz-attempt',
+      // Nuova rotta per iniziare un tentativo
+      path: '/quiz/:quizId/start',
+      name: 'quiz-start-attempt',
       component: () => import('../views/QuizAttemptView.vue'),
       meta: { requiresAuth: true },
-      props: true
+      props: route => ({ quizId: Number(route.params.quizId) }) // Passa solo quizId
+    },
+    {
+      // Rotta esistente (potrebbe servire per riprendere/visualizzare)
+      path: '/quiz/:quizId/attempt/:attemptId',
+      name: 'quiz-attempt',
+      component: () => import('../views/QuizAttemptView.vue'), // Usa la stessa vista per ora
+      meta: { requiresAuth: true },
+      props: true // Passa sia quizId che attemptId
     },
     {
       path: '/pathway/:id',
@@ -63,6 +72,29 @@ const router = createRouter({
       component: () => import('../views/PathwayDetailsView.vue'),
       meta: { requiresAuth: true },
       props: true
+    },
+    {
+      // Rotta per visualizzare i risultati di un tentativo
+      path: '/quiz/result/:attemptId',
+      name: 'QuizResult', // Nome usato in QuizAttemptView.vue
+      component: () => import('../views/QuizResultView.vue'),
+      meta: { requiresAuth: true },
+      props: true // Passa attemptId come prop
+    },
+     {
+      // Rotta per visualizzare i risultati di un percorso
+      path: '/pathway/result/:pathwayId',
+      name: 'PathwayResult',
+      component: () => import('../views/PathwayResultView.vue'),
+      meta: { requiresAuth: true },
+      props: true // Passa pathwayId come prop
+    },
+    {
+      // Rotta per il profilo studente
+      path: '/profile',
+      name: 'Profile',
+      component: () => import('../views/ProfileView.vue'),
+      meta: { requiresAuth: true }
     },
     // Rotta 404 per pagine non trovate
     {

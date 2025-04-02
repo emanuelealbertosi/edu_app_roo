@@ -2,6 +2,7 @@ from rest_framework import viewsets, permissions, status, serializers, generics 
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db import transaction, models, IntegrityError # Import IntegrityError
+from django.db.models import Max # Import Max
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.core.exceptions import PermissionDenied # Import PermissionDenied
@@ -169,7 +170,11 @@ class QuestionViewSet(viewsets.ModelViewSet):
         quiz = get_object_or_404(Quiz, pk=self.kwargs['quiz_pk'])
         if not isinstance(self.request.user, User) or quiz.teacher != self.request.user:
              raise PermissionDenied("Non puoi aggiungere domande a questo quiz.")
-        serializer.save(quiz=quiz)
+        # Calcola il prossimo ordine disponibile
+        last_order = Question.objects.filter(quiz=quiz).aggregate(Max('order'))['order__max']
+        next_order = 0 if last_order is None else last_order + 1
+        # Salva la domanda con il quiz e l'ordine calcolato
+        serializer.save(quiz=quiz, order=next_order)
 
 class AnswerOptionViewSet(viewsets.ModelViewSet):
      serializer_class = AnswerOptionSerializer

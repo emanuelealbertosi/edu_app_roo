@@ -1,4 +1,6 @@
 from django.contrib import admin
+from django.db import models # Import models
+from django_json_widget.widgets import JSONEditorWidget # Import the widget
 from .models import (
     QuizTemplate, QuestionTemplate, AnswerOptionTemplate,
     Quiz, Question, AnswerOption, Pathway, PathwayQuiz,
@@ -47,6 +49,9 @@ class QuizTemplateAdmin(admin.ModelAdmin):
     list_display = ('title', 'admin', 'created_at')
     search_fields = ('title', 'description', 'admin__username')
     inlines = [QuestionTemplateInline]
+    formfield_overrides = {
+        models.JSONField: {'widget': JSONEditorWidget},
+    }
 
 @admin.register(QuestionTemplate)
 class QuestionTemplateAdmin(admin.ModelAdmin):
@@ -54,6 +59,9 @@ class QuestionTemplateAdmin(admin.ModelAdmin):
     list_filter = ('question_type', 'quiz_template')
     search_fields = ('text', 'quiz_template__title')
     inlines = [AnswerOptionTemplateInline] # Mostra opzioni per MC/TF
+    formfield_overrides = {
+        models.JSONField: {'widget': JSONEditorWidget},
+    }
 
 @admin.register(Quiz)
 class QuizAdmin(admin.ModelAdmin):
@@ -62,6 +70,9 @@ class QuizAdmin(admin.ModelAdmin):
     search_fields = ('title', 'description', 'teacher__username')
     autocomplete_fields = ['teacher', 'source_template']
     inlines = [QuestionInline]
+    formfield_overrides = {
+        models.JSONField: {'widget': JSONEditorWidget},
+    }
 
 @admin.register(Question)
 class QuestionAdmin(admin.ModelAdmin):
@@ -69,6 +80,9 @@ class QuestionAdmin(admin.ModelAdmin):
     list_filter = ('question_type', 'quiz')
     search_fields = ('text', 'quiz__title')
     inlines = [AnswerOptionInline]
+    formfield_overrides = {
+        models.JSONField: {'widget': JSONEditorWidget},
+    }
 
 @admin.register(Pathway)
 class PathwayAdmin(admin.ModelAdmin):
@@ -76,6 +90,9 @@ class PathwayAdmin(admin.ModelAdmin):
     search_fields = ('title', 'description', 'teacher__username')
     autocomplete_fields = ['teacher']
     inlines = [PathwayQuizInline]
+    formfield_overrides = {
+        models.JSONField: {'widget': JSONEditorWidget},
+    }
 
 @admin.register(QuizAttempt)
 class QuizAttemptAdmin(admin.ModelAdmin):

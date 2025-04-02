@@ -1,4 +1,4 @@
-# Riepilogo Stato Avanzamento Progetto (1 Aprile 2025, ~06:27)
+# Riepilogo Stato Avanzamento Progetto (2 Aprile 2025, ~12:43)
 
 ## 1. Progettazione
 
@@ -7,7 +7,7 @@
 ## 2. Setup Progetto Django
 
 *   Creato ambiente virtuale (`.venv`).
-*   Installato Django e le dipendenze necessarie (`psycopg2-binary`, `python-dotenv`, `dj-database-url`, `djangorestframework`, `djangorestframework-simplejwt`, `drf-nested-routers`, `factory-boy`, `Faker`).
+*   Installato Django e le dipendenze necessarie (`psycopg2-binary`, `python-dotenv`, `dj-database-url`, `djangorestframework`, `djangorestframework-simplejwt`, `drf-nested-routers`, `factory-boy`, `Faker`, `django-json-widget`, `django-cors-headers`).
 *   Aggiunto `pytest` e `pytest-django` alle dipendenze e creato `pytest.ini`. Aggiornato `requirements.txt`.
 *   Inizializzato progetto Django (`config`, `manage.py`).
 *   Creata directory `apps` e aggiunto `apps/__init__.py`.
@@ -54,7 +54,8 @@
 
 ## 6. Interfaccia Admin
 
-*   Configurati i file `admin.py` per tutte le app (`users`, `rewards`, `education`) per registrare i modelli (inclusi quelli di assegnazione) e personalizzare la visualizzazione.
+*   Configurati i file `admin.py` per tutte le app (`users`, `rewards`, `education`) per registrare i modelli (inclusi quelli di assegnazione) e personalizzare la visualizzazione (inclusi `inlines` per gestione nidificata).
+*   Installato e configurato `django-json-widget` per migliorare l'editing dei campi `metadata` nell'admin.
 
 ## 7. Test Modelli e API
 
@@ -84,16 +85,14 @@
 ## 9. Stato Attuale
 
 *   Il server di sviluppo Django è in esecuzione (`python manage.py runserver`).
-*   L'interfaccia di amministrazione (`/admin/`) è accessibile.
+*   L'interfaccia di amministrazione (`/admin/`) è accessibile e migliorata con `django-json-widget`.
 *   Gli endpoint API per Admin/Docente e Studente sono funzionanti (secondo i test).
 *   La logica per il calcolo punteggio/punti per Quiz e Percorsi è implementata.
-*   Tutti i test (modelli e API) passano.
+*   Tutti i test backend (modelli e API) passano.
 *   Il codice è versionato su GitHub.
-
-## Prossimi Passi Previsti (vedi NEXT_STEPS.md)
-
-*   Completamento e raffinamento dei test API (per altre app o casi limite).
-*   Raffinamento generale del codice.
+*   Il database contiene dati di test generati dal comando `seed_test_data`.
+*   Il frontend studenti (`frontend-student`) è funzionante con le funzionalità principali implementate.
+*   Il frontend docenti (`frontend-teacher`) è stato inizializzato ed è in esecuzione (`npm run dev`). Le funzionalità base (visualizzazione studenti/quiz/percorsi/ricompense, CRUD base quiz/percorsi/ricompense, assegnazione, grading, sommario progressi) sono implementate. La gestione delle domande e opzioni è parzialmente implementata.
 
 ## 10. Raffinamento Codice
 
@@ -104,36 +103,32 @@
 
 ## 11. Frontend Studenti (Vue.js)
 
-*   Creato progetto Vue.js nella directory `frontend-student` utilizzando `npm create vue@latest` con supporto per:
-    *   TypeScript
-    *   JSX
-    *   Vue Router
-    *   Pinia (gestione stato)
-    *   Vitest (unit testing)
-    *   Playwright (e2e testing)
-    *   ESLint e Prettier
-*   Ripulito progetto Vue.js dai componenti e dalle viste di esempio.
-*   Installata libreria `axios` per la comunicazione con il backend.
-*   Implementata struttura base del frontend:
-    *   Creata directory `api` con file `config.ts` (configurazione axios) e `auth.ts` (servizi autenticazione).
-    *   Creato store Pinia `auth.ts` per gestione stato autenticazione.
-    *   Creato componente `LoginForm.vue` per il form di login degli studenti.
-    *   Creata vista `LoginView.vue` per la pagina di login.
-    *   Creata vista `DashboardView.vue` per la dashboard studente dopo login.
-    *   Configurato router con rotte protette e guardie di navigazione.
-*   Aggiunto supporto CORS al backend Django:
-    *   Installato `django-cors-headers` e aggiunto alle dipendenze in `requirements.txt`.
-    *   Configurato CORS in `settings.py` per permettere richieste dal frontend Vue.js.
-*   Testato il flusso di login frontend utilizzando un servizio mock (`mockAuth.ts`) e corretto `AuthService` per gestire la risposta.
-*   Ripristinato `AuthService` per utilizzare le chiamate API reali (`apiClient`) al backend Django.
-*   **Integrato Login Studente con Backend:**
-    *   Risolto problema `pin_hash` nell'interfaccia Admin Django creando un form personalizzato.
-    *   Allineato il frontend (form, store, API service) per usare `student_code` e `pin`.
-    *   Corretta la gestione della risposta API di login nello store Pinia.
-*   **Implementati Endpoint Backend per Dashboard:**
-    *   Creati serializer specifici (`StudentQuizDashboardSerializer`, `StudentPathwayDashboardSerializer`, `StudentWalletDashboardSerializer`).
-    *   Create view API (`StudentAssignedQuizzesView`, `StudentAssignedPathwaysView`, `StudentWalletInfoView`) per fornire dati aggregati.
-    *   Registrati i relativi URL sotto `/api/student/dashboard/`.
-*   **Abilitata Creazione Automatica Wallet:** Implementato segnale `post_save` per creare `Wallet` alla creazione di `Student`.
-*   **Corretto Wallet Mancante:** Creato manualmente il `Wallet` per lo studente esistente.
-*   **Dashboard Funzionante:** La dashboard studente ora carica correttamente i dati iniziali (quiz, percorsi, wallet) dal backend.
+*   Creato progetto Vue.js nella directory `frontend-student`.
+*   Implementata struttura base e funzionalità core (login, dashboard, svolgimento quiz, risultati, shop, profilo, acquisti, navigazione).
+*   Implementati test unitari (Vitest) e E2E (Playwright) per autenticazione.
+*   **Test E2E Svolgimento Quiz:** Tentativi iniziali falliti a causa di problemi di configurazione del server/porta e chiusura manuale delle finestre del browser. Test sospesi in favore di test manuali.
+
+## 12. Dati di Test
+
+*   Creato comando di management `seed_test_data` utilizzando le factory per popolare il database.
+*   Eseguito con successo il comando per avere dati di esempio disponibili.
+
+## 13. Frontend Docenti (Vue.js)
+
+*   Creata struttura base del progetto (`frontend-teacher`).
+*   Implementata logica di base per l'autenticazione dei docenti.
+*   Implementate viste base per Studenti, Quiz, Percorsi, Ricompense, Assegnazione, Grading, Progressi.
+*   Implementato CRUD base per Quiz, Percorsi, Ricompense.
+*   Implementata gestione base Domande (visualizzazione, creazione, eliminazione).
+*   Implementata gestione base Opzioni Risposta (visualizzazione, creazione, modifica, eliminazione).
+*   **Risolto Bug Opzioni MC-Single:** Corretta la logica in `AnswerOptionsEditor.vue` che impediva il salvataggio corretto dello stato `is_correct`. Funzionalità verificata manualmente.
+*   **Configurati Test E2E (Playwright):**
+    *   Implementati test E2E per login, visualizzazione studenti/quiz, CRUD base quiz/percorsi/ricompense.
+    *   **Debug Test E2E Domande/Opzioni:** Affrontati e risolti numerosi problemi (errori sintassi, cicli dipendenza, configurazione CORS, credenziali backend, import mancante). Il test specifico per domande/opzioni (`quiz.spec.ts`) è stato corretto ma presenta ancora instabilità/fallimenti intermittenti (possibili problemi di timing o selettori). Test sospesi in favore di test manuali.
+
+## Prossimi Passi Previsti (vedi NEXT_STEPS.md)
+
+*   Esecuzione test backend (pytest).
+*   Esecuzione test manuali (come da `test.md`).
+*   Completamento e raffinamento frontend docente.
+*   Test API dashboard studente.

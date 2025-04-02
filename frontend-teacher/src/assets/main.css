@@ -1,0 +1,21 @@
+/* Base styles will go here */
+/* You can copy base styles from frontend-student/src/assets/main.css later if needed */
+
+:root {
+  --color-background: #ffffff;
+  --color-text: #213547;
+  --color-border: #e2e8f0;
+  /* Add more variables as needed */
+}
+
+body {
+  margin: 0;
+  font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu,
+    Cantarell, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  font-size: 15px;
+  background-color: var(--color-background);
+  color: var(--color-text);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}

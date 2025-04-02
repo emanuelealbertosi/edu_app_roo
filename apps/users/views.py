@@ -1,8 +1,13 @@
 import logging # Import logging
-from rest_framework import viewsets, permissions, serializers
+from rest_framework import viewsets, permissions, serializers, generics
+from django.db import models # Importa models
+from django.db.models import Count, Sum, Q, OuterRef, Subquery
 from .models import User, Student, UserRole
-# Importa entrambi i serializer User
-from .serializers import UserSerializer, StudentSerializer, UserCreateSerializer
+# Importa tutti i serializer necessari
+from .serializers import UserSerializer, StudentSerializer, UserCreateSerializer, StudentProgressSummarySerializer
+# Importa modelli da altre app per le annotazioni
+from apps.education.models import QuizAttempt, PathwayProgress
+from apps.rewards.models import Wallet
 
 # Get an instance of a logger
 logger = logging.getLogger(__name__)
@@ -153,3 +158,62 @@ class StudentProtectedTestView(APIView):
     def get(self, request):
         # request.student è disponibile grazie a StudentJWTAuthentication
         return Response({"message": "Access granted", "student_id": request.student.pk})
+
+
+# --- Teacher Views ---
+
+class TeacherStudentProgressSummaryView(generics.ListAPIView):
+    """
+    Restituisce un sommario dei progressi per tutti gli studenti
+    associati al docente autenticato.
+    """
+    serializer_class = StudentProgressSummarySerializer
+    permission_classes = [permissions.IsAuthenticated, IsTeacherUser] # Solo Docenti
+
+    def get_queryset(self):
+        teacher = self.request.user
+
+        # Queryset base: studenti del docente
+        queryset = Student.objects.filter(teacher=teacher)
+
+        # Annotazioni per i dati aggregati
+        # Conteggio Quiz Completati (con successo, basato sulla soglia del quiz)
+        # Nota: Questo richiede un modo per definire/ottenere la soglia per ogni quiz.
+        # Per semplicità ora contiamo solo gli status COMPLETED.
+        # Una soluzione più precisa richiederebbe subquery più complesse o denormalizzazione.
+        completed_quizzes = QuizAttempt.objects.filter(
+            student=OuterRef('pk'),
+            status=QuizAttempt.AttemptStatus.COMPLETED
+            # Aggiungere filtro su score >= soglia se necessario e fattibile
+        ).values('student').annotate(count=Count('id')).values('count')
+
+        # Conteggio Percorsi Completati
+        completed_pathways = PathwayProgress.objects.filter(
+            student=OuterRef('pk'),
+            status=PathwayProgress.ProgressStatus.COMPLETED
+        ).values('student').annotate(count=Count('id')).values('count')
+
+        # Punti totali guadagnati (dal Wallet)
+        total_points = Wallet.objects.filter(
+            student=OuterRef('pk')
+        ).values('current_points') # Assumiamo che current_points rifletta il totale guadagnato - speso
+
+        queryset = queryset.annotate(
+            completed_quizzes_count=Subquery(completed_quizzes[:1], output_field=models.IntegerField()),
+            completed_pathways_count=Subquery(completed_pathways[:1], output_field=models.IntegerField()),
+            total_points_earned=Subquery(total_points[:1], output_field=models.IntegerField())
+        ).order_by('last_name', 'first_name')
+
+        # Imposta valori predefiniti a 0 se le subquery restituiscono None
+        # Questo si può fare anche nel serializer con default=0
+        # queryset = queryset.annotate(
+        #     completed_quizzes_count=Coalesce(F('completed_quizzes_count'), 0),
+        #     completed_pathways_count=Coalesce(F('completed_pathways_count'), 0),
+        #     total_points_earned=Coalesce(F('total_points_earned'), 0)
+        # )
+
+        return queryset
+
+# TODO: Aggiungere azione a StudentViewSet per i dettagli del progresso
+# @action(detail=True, methods=['get'], url_path='progress-details')
+# def progress_details(self, request, pk=None): ...

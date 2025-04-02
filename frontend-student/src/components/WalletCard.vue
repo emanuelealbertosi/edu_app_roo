@@ -31,7 +31,7 @@ const formatPointsChange = (pointsChange: number): string => {
 
 <template>
   <div class="wallet-card dashboard-card">
-    <h2>Il tuo Portafoglio</h2>
+    <h2><span class="card-icon">💰</span> Il tuo Portafoglio</h2>
     
     <div v-if="loading" class="loading-indicator">
       <p>Caricamento in corso...</p>
@@ -76,7 +76,7 @@ const formatPointsChange = (pointsChange: number): string => {
   border-radius: 8px;
   padding: 1.5rem;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  margin-bottom: 1.5rem;
+  /* margin-bottom: 1.5rem; */ /* Rimosso: gestito dal gap del parent */
 }
 
 .wallet-balance {
@@ -88,6 +88,7 @@ const formatPointsChange = (pointsChange: number): string => {
   background-color: #f8f9fa;
   padding: 1.5rem;
   border-radius: 8px;
+  border: 1px solid #eee; /* Aggiunto bordo leggero */
 }
 
 .balance-label {
@@ -97,15 +98,18 @@ const formatPointsChange = (pointsChange: number): string => {
 }
 
 .balance-value {
-  font-size: 3rem;
+  font-size: 2.5rem; /* Ridotta dimensione font */
   font-weight: bold;
-  color: #4caf50;
+  color: #007bff; /* Cambiato colore in blu primario */
 }
 
 .wallet-transactions h3 {
   font-size: 1.2rem;
   margin-bottom: 1rem;
   color: #333;
+  border-top: 1px dashed #eee; /* Separatore sopra le transazioni */
+  padding-top: 1rem;
+  margin-top: 1.5rem;
 }
 
 .transactions-list {
@@ -161,5 +165,11 @@ const formatPointsChange = (pointsChange: number): string => {
   padding: 1rem;
   text-align: center;
   color: #666;
+}
+
+.card-icon {
+    margin-right: 0.5rem;
+    font-size: 1.2em; /* Rende l'icona leggermente più grande del titolo */
+    vertical-align: middle; /* Allinea l'icona verticalmente */
 }
 </style>

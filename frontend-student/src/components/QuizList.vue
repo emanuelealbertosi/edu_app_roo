@@ -25,9 +25,10 @@ const formatDate = (dateString: string | null): string => {
   });
 };
 
-// Apre il quiz per iniziare un nuovo tentativo o continuare uno esistente
-const openQuiz = (quizId: number) => {
-  router.push(`/quiz/${quizId}`);
+// Inizia un nuovo tentativo per il quiz
+const startQuizAttempt = (quizId: number) => {
+  // Reindirizza alla rotta specifica per iniziare un tentativo
+  router.push({ name: 'quiz-start-attempt', params: { quizId } });
 };
 
 // Genera un'etichetta di stato per il tentativo più recente
@@ -65,7 +66,7 @@ const getStatusClass = (quiz: Quiz): string => {
 
 <template>
   <div class="quiz-list-card dashboard-card">
-    <h2>{{ title }}</h2>
+    <h2><span class="card-icon">📝</span> {{ title }}</h2>
     
     <div v-if="loading" class="loading-indicator">
       <p>Caricamento in corso...</p>
@@ -76,7 +77,7 @@ const getStatusClass = (quiz: Quiz): string => {
     </div>
     
     <div v-else class="quiz-list">
-      <div v-for="quiz in quizzes" :key="quiz.id" class="quiz-item" @click="openQuiz(quiz.id)">
+      <div v-for="quiz in quizzes" :key="quiz.id" class="quiz-item">
         <div class="quiz-header">
           <h3>{{ quiz.title }}</h3>
           <span :class="['quiz-status', getStatusClass(quiz)]">{{ getAttemptStatusLabel(quiz) }}</span>
@@ -107,6 +108,15 @@ const getStatusClass = (quiz: Quiz): string => {
             Disponibile fino a: {{ formatDate(quiz.available_until) }}
           </div>
         </div>
+        
+        <!-- Pulsante Inizia Quiz (visibile solo se showStartButton è true) -->
+        <button
+          v-if="showStartButton"
+          @click.stop="startQuizAttempt(quiz.id)"
+          class="start-quiz-button"
+        >
+          Inizia Quiz
+        </button>
       </div>
     </div>
   </div>
@@ -114,7 +124,7 @@ const getStatusClass = (quiz: Quiz): string => {
 
 <style scoped>
 .quiz-list-card {
-  margin-bottom: 1.5rem;
+  /* margin-bottom: 1.5rem; */ /* Rimosso: gestito dal gap del parent */
 }
 
 .quiz-list {
@@ -128,9 +138,12 @@ const getStatusClass = (quiz: Quiz): string => {
   border-radius: 8px;
   padding: 1rem;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  cursor: pointer;
+  /* Rimuovi cursor: pointer se non vuoi che l'intero item sia cliccabile */
+  /* cursor: pointer; */
   transition: transform 0.2s, box-shadow 0.2s;
   border-left: 4px solid #ddd;
+  position: relative; /* Necessario per posizionare il pulsante se si usa absolute */
+  padding-bottom: 4rem; /* Aggiungi spazio per il pulsante */
 }
 
 .quiz-item:hover {
@@ -147,29 +160,33 @@ const getStatusClass = (quiz: Quiz): string => {
 
 .quiz-status {
   font-size: 0.85rem;
-  padding: 0.25rem 0.5rem;
-  border-radius: 4px;
+  padding: 0.25rem 0.6rem; /* Leggermente più padding orizzontale */
+  border-radius: 12px; /* Più arrotondato */
   font-weight: 500;
 }
 
 .status-not-started {
   background-color: #e3f2fd;
   color: #1976d2;
+  border: 1px solid #bbdefb; /* Bordo leggero */
 }
 
 .status-in-progress {
   background-color: #fff8e1;
   color: #ff8f00;
+  border: 1px solid #ffecb3; /* Bordo leggero */
 }
 
 .status-pending {
-  background-color: #e8f5e9;
-  color: #388e3c;
+  background-color: #fff3e0; /* Leggermente diverso per pending */
+  color: #ef6c00;
+  border: 1px solid #ffe0b2; /* Bordo leggero */
 }
 
 .status-completed {
   background-color: #e8f5e9;
   color: #388e3c;
+  border: 1px solid #c8e6c9; /* Bordo leggero */
 }
 
 .quiz-description {
@@ -206,5 +223,29 @@ const getStatusClass = (quiz: Quiz): string => {
   padding: 1rem;
   text-align: center;
   color: #666;
+}
+
+.start-quiz-button {
+  position: absolute; /* O usa flexbox/grid sul container .quiz-item */
+  bottom: 1rem;
+  right: 1rem;
+  padding: 0.5rem 1rem;
+  background-color: var(--vt-c-indigo); /* Usa il colore primario */
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.start-quiz-button:hover {
+  background-color: #2c3e50; /* Scurisce leggermente all'hover */
+}
+
+.card-icon {
+    margin-right: 0.5rem;
+    font-size: 1em; /* Dimensione simile al titolo */
+    vertical-align: baseline;
 }
 </style>

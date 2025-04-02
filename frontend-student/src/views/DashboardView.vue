@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { onMounted, ref, computed } from 'vue'; // Aggiunto computed
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { useDashboardStore } from '@/stores/dashboard';
@@ -12,7 +12,7 @@ const dashboardStore = useDashboardStore();
 const router = useRouter();
 
 const isLoading = ref(true);
-
+const dashboardError = computed(() => dashboardStore.error); // Computed per l'errore
 onMounted(async () => {
   // Verifichiamo che l'utente sia autenticato quando la vista viene caricata
   const isAuthenticated = await authStore.checkAuth();
@@ -58,6 +58,12 @@ const goToShop = () => {
         </button>
       </div>
     </header>
+
+    <!-- Messaggio di errore generale -->
+    <div v-if="dashboardError &amp;&amp; !isLoading" class="error-message dashboard-error">
+      <p>{{ dashboardError }}</p>
+      <button @click="dashboardStore.loadDashboard" class="retry-button">Riprova Caricamento</button>
+    </div>
     
     <div v-if="isLoading" class="loading-container">
       <div class="loading-spinner"></div>
@@ -81,6 +87,7 @@ const goToShop = () => {
           title="Quiz Disponibili"
           emptyMessage="Non ci sono quiz disponibili al momento."
           :loading="dashboardStore.loading.quizzes"
+          :showStartButton="true"
         />
         
         <!-- Quiz in corso -->
@@ -113,6 +120,7 @@ const goToShop = () => {
           title="Percorsi Completati"
           emptyMessage="Non hai ancora completato nessun percorso."
           :loading="dashboardStore.loading.pathways"
+          :showResultLink="true"
         />
       </div>
     </div>
@@ -124,6 +132,8 @@ const goToShop = () => {
   padding: 2rem;
   max-width: 1200px;
   margin: 0 auto;
+  background-color: #f4f7f9; /* Leggero sfondo per l'area dashboard */
+  min-height: calc(100vh - 70px); /* Altezza minima (considerando navbar fissa) */
 }
 
 .dashboard-header {
@@ -134,7 +144,7 @@ const goToShop = () => {
   background-color: #f8f9fa;
   padding: 1.5rem;
   border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08); /* Ombra più leggera */
 }
 
 .user-info h1 {
@@ -172,7 +182,7 @@ const goToShop = () => {
   order: 2;
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 2rem; /* Aumentato gap tra le liste */
 }
 
 .dashboard-card {
@@ -180,7 +190,7 @@ const goToShop = () => {
   border-radius: 8px;
   padding: 1.5rem;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  margin-bottom: 1.5rem;
+  /* margin-bottom: 1.5rem; */ /* Rimosso: gestito dal gap del parent */
 }
 
 .shop-button {
@@ -241,4 +251,30 @@ button:hover {
     transform: rotate(360deg);
   }
 }
+
+/* Stili per messaggio errore dashboard */
+.error-message.dashboard-error {
+  margin-bottom: 2rem;
+  padding: 15px;
+  border-radius: 5px;
+  background-color: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+  text-align: center;
+}
+
+.retry-button {
+    margin-top: 10px;
+    padding: 5px 15px;
+    font-size: 0.9em;
+    cursor: pointer;
+    background-color: #6c757d;
+    color: white;
+    border: none;
+    border-radius: 3px;
+}
+.retry-button:hover {
+    background-color: #5a6268;
+}
+
 </style>

@@ -44,13 +44,17 @@ class Wallet(models.Model):
         if points_to_add <= 0:
             # Consider raising ValueError for consistency? For now, just return.
             return
-        self.current_points += points_to_add
+        # Use F() expression for atomic update
+        self.current_points = models.F('current_points') + points_to_add
+        self.save(update_fields=['current_points'])
+        self.refresh_from_db() # Reload the value after atomic update
+
+        # Create transaction *after* successful update
         PointTransaction.objects.create(
             wallet=self,
             points_change=points_to_add,
             reason=reason
         )
-        self.save()
 
     def subtract_points(self, points_to_subtract, reason):
         """
@@ -67,13 +71,17 @@ class Wallet(models.Model):
             raise ValueError("Points to subtract must be positive.")
         if self.current_points < points_to_subtract:
             raise ValueError("Insufficient points.")
-        self.current_points -= points_to_subtract
+        # Use F() expression for atomic update
+        self.current_points = models.F('current_points') - points_to_subtract
+        self.save(update_fields=['current_points'])
+        self.refresh_from_db() # Reload the value after atomic update
+
+        # Create transaction *after* successful update
         PointTransaction.objects.create(
             wallet=self,
             points_change=-points_to_subtract, # Negativo per sottrazione
             reason=reason
         )
-        self.save()
 
 
 class PointTransaction(models.Model):

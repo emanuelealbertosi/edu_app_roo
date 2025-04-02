@@ -1,224 +1,154 @@
 <script setup lang="ts">
-import { onMounted, ref, computed } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
-import { useAuthStore } from '@/stores/auth';
-import { useRewardsStore } from '@/stores/rewards';
-import { useDashboardStore } from '@/stores/dashboard';
-import type { Reward } from '@/api/rewards';
+import RewardsService, { type Reward } from '@/api/rewards';
+import { useAuthStore } from '@/stores/auth'; // Per info utente o punti?
+import { useDashboardStore } from '@/stores/dashboard'; // Per aggiornare i punti dopo l'acquisto
 
-const authStore = useAuthStore();
-const rewardsStore = useRewardsStore();
-const dashboardStore = useDashboardStore();
+// State
 const router = useRouter();
+const authStore = useAuthStore();
+const dashboardStore = useDashboardStore(); // Usiamo lo store della dashboard per i punti
 
+const availableRewards = ref<Reward[]>([]);
 const isLoading = ref(true);
-const activeTab = ref('all'); // 'all', 'digital', 'physical'
-const successMessage = ref('');
-const errorMessage = ref('');
+const error = ref<string | null>(null);
+const purchasingRewardId = ref<number | null>(null); // ID della ricompensa in corso di acquisto
+const purchaseError = ref<string | null>(null); // Errore specifico dell'acquisto
+const purchaseSuccessMessage = ref<string | null>(null); // Messaggio di successo per l'acquisto
 
-// Punti disponibili dal wallet
-const availablePoints = computed(() => dashboardStore.wallet?.current_points || 0);
+// Computed property per i punti correnti dello studente
+const currentPoints = computed(() => dashboardStore.wallet?.current_points ?? 0);
 
-// Filtra le ricompense in base alla tab attiva
-const filteredRewards = computed(() => {
-  if (activeTab.value === 'digital') {
-    return rewardsStore.digitalRewards;
-  } else if (activeTab.value === 'physical') {
-    return rewardsStore.realWorldRewards;
-  }
-  return rewardsStore.availableRewards;
-});
-
-// Verifica se l'utente ha abbastanza punti per acquistare una ricompensa
-const canAfford = (reward: Reward): boolean => {
-  return (dashboardStore.wallet?.current_points || 0) >= reward.cost_points;
-};
-
-onMounted(async () => {
-  // Verifichiamo che l'utente sia autenticato
-  const isAuthenticated = await authStore.checkAuth();
-  if (!isAuthenticated) {
-    router.push('/login');
-    return;
-  }
-  
+// Funzioni
+async function fetchAvailableRewards() {
   isLoading.value = true;
-  
+  error.value = null;
   try {
-    // Carichiamo le ricompense disponibili e le informazioni del wallet
-    // se non sono già state caricate
-    const loadRewardsPromise = rewardsStore.fetchAvailableRewards();
-    let loadWalletPromise;
-    
-    if (!dashboardStore.wallet) {
-      loadWalletPromise = dashboardStore.fetchWallet();
-    }
-    
-    await Promise.all([
-      loadRewardsPromise, 
-      loadWalletPromise
-    ].filter(Boolean));
-  } catch (error) {
-    console.error('Errore nel caricamento dei dati dello shop:', error);
-    errorMessage.value = 'Si è verificato un errore nel caricamento dello shop. Riprova più tardi.';
+    availableRewards.value = await RewardsService.getAvailableRewards();
+  } catch (err) {
+    console.error('Errore durante il recupero delle ricompense:', err);
+    error.value = "Impossibile caricare le ricompense disponibili. Riprova più tardi.";
   } finally {
     isLoading.value = false;
+  }
+}
+
+async function handlePurchase(reward: Reward) {
+  if (purchasingRewardId.value !== null) return; // Evita acquisti multipli contemporanei
+
+  if (currentPoints.value < reward.cost_points) {
+      purchaseError.value = "Non hai abbastanza punti per acquistare questa ricompensa.";
+      return;
+  }
+
+  // Chiedi conferma (opzionale ma consigliato)
+  if (!confirm(`Sei sicuro di voler acquistare "${reward.name}" per ${reward.cost_points} punti?`)) {
+      return;
+  }
+
+  purchasingRewardId.value = reward.id;
+  purchaseError.value = null; // Resetta errori/successi precedenti
+  purchaseSuccessMessage.value = null;
+  try {
+    const purchaseResult = await RewardsService.purchaseReward(reward.id);
+    console.log('Acquisto completato:', purchaseResult);
+    // Mostra un messaggio di successo integrato
+    purchaseSuccessMessage.value = `Ricompensa "${reward.name}" acquistata con successo!`;
+    // Cancella il messaggio dopo 5 secondi
+    setTimeout(() => { purchaseSuccessMessage.value = null; }, 5000);
+    
+    // Aggiorna i dati della dashboard (in particolare i punti nel wallet)
+    // Potrebbe essere ottimizzato aggiornando solo il wallet
+    await dashboardStore.loadDashboard(); 
+
+    // Opzionale: ricarica le ricompense se la disponibilità potrebbe cambiare dopo l'acquisto
+    // await fetchAvailableRewards(); 
+
+  } catch (err: any) {
+    console.error(`Errore durante l'acquisto della ricompensa ${reward.id}:`, err);
+    // Mostra un errore specifico se possibile (es. punti insufficienti dal backend)
+    if (err.response && err.response.data && err.response.data.detail) { // Corretto &amp;&amp;
+        purchaseError.value = err.response.data.detail;
+    } else {
+        purchaseError.value = "Errore durante l'acquisto. Riprova.";
+    }
+    // Cancella il messaggio di errore dopo 7 secondi
+    setTimeout(() => { purchaseError.value = null; }, 7000);
+  } finally {
+    purchasingRewardId.value = null;
+  }
+}
+
+// Lifecycle Hooks
+onMounted(() => {
+  fetchAvailableRewards();
+  // Assicurati che i dati del wallet siano caricati se non lo sono già
+  if (!dashboardStore.wallet) {
+      dashboardStore.loadWallet();
   }
 });
 
-// Gestisce l'acquisto di una ricompensa
-const purchaseReward = async (reward: Reward) => {
-  if (!canAfford(reward)) {
-    errorMessage.value = 'Non hai abbastanza punti per acquistare questa ricompensa.';
-    successMessage.value = '';
-    return;
-  }
-  
-  try {
-    isLoading.value = true;
-    errorMessage.value = '';
-    successMessage.value = '';
-    
-    // Acquista la ricompensa
-    await rewardsStore.purchaseReward(reward.id);
-    
-    // Aggiorna il saldo del wallet
-    await dashboardStore.fetchWallet();
-    
-    successMessage.value = `Hai acquistato con successo "${reward.name}" per ${reward.cost_points} punti!`;
-    
-    // Se è una ricompensa digitale, mostra eventuali informazioni aggiuntive
-    if (reward.type === 'digital' && reward.metadata.link) {
-      successMessage.value += ` Puoi accedere alla tua ricompensa qui: ${reward.metadata.link}`;
-    }
-  } catch (error) {
-    console.error('Errore nell\'acquisto della ricompensa:', error);
-    
-    if (error.response && error.response.status === 400) {
-      // Gestisci messaggi di errore specifici dal server
-      errorMessage.value = error.response.data.detail || 'Impossibile completare l\'acquisto. Verifica il tuo saldo punti.';
-    } else {
-      errorMessage.value = 'Si è verificato un errore durante l\'acquisto. Riprova più tardi.';
-    }
-  } finally {
-    isLoading.value = false;
-  }
-};
-
-// Cambia la tab attiva
-const setActiveTab = (tab: string) => {
-  activeTab.value = tab;
-};
-
-// Torna alla dashboard
-const goToDashboard = () => {
-  router.push('/dashboard');
-};
-
-// Vai alla cronologia acquisti
-const goToPurchaseHistory = () => {
-  router.push('/purchases');
-};
 </script>
 
 <template>
   <div class="shop-view">
     <header class="shop-header">
-      <div class="header-content">
-        <h1>Shop Ricompense</h1>
-        <div class="header-actions">
-          <button @click="goToDashboard" class="back-button">
-            <span class="button-icon">🏠</span> Torna alla Dashboard
-          </button>
-          <button @click="goToPurchaseHistory" class="history-button">
-            <span class="button-icon">📋</span> Cronologia Acquisti
-          </button>
-        </div>
+      <h1><span class="card-icon">🛍️</span> Negozio Ricompense</h1>
+      <div class="current-points">
+        Punti disponibili: <strong>{{ currentPoints }}</strong> ✨
       </div>
-      
-      <div class="points-display">
-        <span class="points-label">Punti Disponibili:</span>
-        <span class="points-value">{{ availablePoints }}</span>
-      </div>
+      <button @click="router.push('/dashboard')" class="back-button">Torna alla Dashboard</button>
     </header>
-    
-    <div v-if="isLoading" class="loading-container">
-      <div class="loading-spinner"></div>
-      <p>Caricamento in corso...</p>
+
+    <div v-if="isLoading" class="loading">
+      <p>Caricamento ricompense...</p>
+    </div>
+
+    <div v-if="error" class="error-message">
+      <p>{{ error }}</p>
     </div>
     
-    <div v-else class="shop-content">
-      <!-- Messaggi di successo o errore -->
-      <div v-if="successMessage" class="success-message">
-        {{ successMessage }}
-      </div>
-      
-      <div v-if="errorMessage" class="error-message">
-        {{ errorMessage }}
-      </div>
-      
-      <!-- Filtri per tipo di ricompensa -->
-      <div class="reward-filters">
-        <button 
-          @click="setActiveTab('all')" 
-          :class="['filter-button', { active: activeTab === 'all' }]"
-        >
-          Tutte
-        </button>
-        <button 
-          @click="setActiveTab('digital')" 
-          :class="['filter-button', { active: activeTab === 'digital' }]"
-        >
-          Digitali
-        </button>
-        <button 
-          @click="setActiveTab('physical')" 
-          :class="['filter-button', { active: activeTab === 'physical' }]"
-        >
-          Fisiche
-        </button>
-      </div>
-      
-      <!-- Lista ricompense -->
-      <div v-if="filteredRewards.length === 0" class="empty-rewards">
-        <p>Non ci sono ricompense disponibili in questa categoria al momento.</p>
-      </div>
-      
-      <div v-else class="rewards-grid">
-        <div 
-          v-for="reward in filteredRewards" 
-          :key="reward.id" 
-          class="reward-card"
-          :class="{ 'not-affordable': !canAfford(reward) }"
-        >
-          <div class="reward-header">
-            <h3>{{ reward.name }}</h3>
-            <span class="reward-type-badge" :class="`type-${reward.type}`">
-              {{ reward.type === 'digital' ? 'Digitale' : 'Fisica' }}
-            </span>
-          </div>
-          
-          <div v-if="reward.metadata.image_url" class="reward-image">
-            <img :src="reward.metadata.image_url" :alt="reward.name">
-          </div>
-          
+    <!-- Messaggio di successo acquisto -->
+    <div v-if="purchaseSuccessMessage" class="success-message purchase-feedback">
+      <p>{{ purchaseSuccessMessage }}</p>
+    </div>
+
+    <!-- Messaggio di errore acquisto -->
+    <div v-if="purchaseError" class="error-message purchase-feedback">
+      <p>{{ purchaseError }}</p>
+    </div>
+
+    <div v-if="!isLoading &amp;&amp; !error" class="rewards-grid">
+      <div v-for="reward in availableRewards" :key="reward.id" class="reward-card">
+        <img 
+          v-if="reward.metadata?.image_url" 
+          :src="reward.metadata.image_url" 
+          :alt="reward.name" 
+          class="reward-image"
+        />
+        <div v-else class="reward-image-placeholder">🎁</div>
+        
+        <div class="reward-info">
+          <h3>{{ reward.name }}</h3>
           <p class="reward-description">{{ reward.description }}</p>
-          
-          <div class="reward-footer">
-            <div class="reward-cost">
-              <span class="cost-label">Costo:</span>
-              <span class="cost-value">{{ reward.cost_points }} punti</span>
-            </div>
-            
-            <button 
-              @click="purchaseReward(reward)" 
-              class="purchase-button"
-              :disabled="!canAfford(reward) || isLoading"
-            >
-              {{ canAfford(reward) ? 'Acquista' : 'Punti insufficienti' }}
-            </button>
+          <p class="reward-type">Tipo: {{ reward.type === 'digital' ? 'Digitale' : 'Reale' }}</p>
+          <div class="reward-cost">
+            Costo: <strong>{{ reward.cost_points }}</strong> punti
           </div>
         </div>
+        
+        <button 
+          @click="handlePurchase(reward)" 
+          :disabled="purchasingRewardId === reward.id || currentPoints < reward.cost_points"
+          class="purchase-button"
+        >
+          {{ purchasingRewardId === reward.id ? 'Acquisto...' : 'Acquista' }}
+        </button>
+      </div>
+      
+      <div v-if="availableRewards.length === 0" class="empty-message">
+        <p>Non ci sono ricompense disponibili al momento.</p>
       </div>
     </div>
   </div>
@@ -226,280 +156,191 @@ const goToPurchaseHistory = () => {
 
 <style scoped>
 .shop-view {
-  padding: 2rem;
+  padding: 20px;
   max-width: 1200px;
   margin: 0 auto;
 }
 
 .shop-header {
-  background-color: #f8f9fa;
-  padding: 1.5rem;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  margin-bottom: 2rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.header-content {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  margin-bottom: 2rem;
+  background-color: #f8f9fa;
+  padding: 1rem 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-.header-content h1 {
+.shop-header h1 {
   margin: 0;
+  font-size: 1.8em;
   color: #333;
 }
 
-.header-actions {
-  display: flex;
-  gap: 1rem;
-}
-
-.points-display {
-  background-color: #4caf50;
-  color: white;
-  padding: 1rem;
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.points-label {
-  font-size: 1.2rem;
-  margin-right: 0.5rem;
-}
-
-.points-value {
-  font-size: 1.5rem;
-  font-weight: bold;
-}
-
-.back-button, .history-button {
-  padding: 0.75rem 1.5rem;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 1rem;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
+.current-points {
+  font-size: 1.1em;
+  background-color: #fff8e1;
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  color: #ff8f00;
+  font-weight: 500;
 }
 
 .back-button {
-  background-color: #2196f3; /* Blu */
-}
-
-.history-button {
-  background-color: #9c27b0; /* Viola */
-}
-
-.button-icon {
-  font-size: 1.2rem;
-}
-
-.reward-filters {
-  display: flex;
-  gap: 1rem;
-  margin-bottom: 1.5rem;
-}
-
-.filter-button {
-  padding: 0.5rem 1.5rem;
-  background-color: #f5f5f5;
+  background-color: #6c757d;
+  color: white;
   border: none;
+  padding: 0.6rem 1.2rem;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 1rem;
-  transition: background-color 0.2s;
+  font-size: 0.9em;
+}
+.back-button:hover {
+  background-color: #5a6268;
 }
 
-.filter-button.active {
-  background-color: var(--vt-c-indigo);
-  color: white;
+
+.loading, .error-message {
+  margin-top: 20px;
+  padding: 15px;
+  border-radius: 5px;
+  text-align: center;
+}
+
+.loading {
+  background-color: #e0e0e0;
+}
+
+.error-message {
+  background-color: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+}
+
+.success-message {
+  background-color: #d4edda; /* Verde chiaro */
+  color: #155724; /* Verde scuro */
+  border: 1px solid #c3e6cb;
+}
+
+.purchase-feedback {
+    margin-bottom: 1.5rem; /* Spazio sotto i messaggi di feedback */
+    /* Animazione fade-in/out potrebbe essere aggiunta qui */
 }
 
 .rewards-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 1.5rem;
+  margin-top: 2rem;
 }
 
 .reward-card {
   background-color: white;
   border-radius: 8px;
-  overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  transition: transform 0.2s, box-shadow 0.2s;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08); /* Ombra più leggera */
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  border-left: 4px solid; /* Aggiunto per colore tipo */
+  border-color: var(--reward-border-color, #ddd); /* Colore default */
 }
-
+/* Definisci colori per tipo */
+.reward-card[data-reward-type="digital"] {
+    --reward-border-color: #007bff; /* Blu */
+}
+.reward-card[data-reward-type="real_world_tracked"] {
+     --reward-border-color: #28a745; /* Verde */
+}
 .reward-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
-}
-
-.reward-card.not-affordable {
-  opacity: 0.7;
-}
-
-.reward-header {
-  padding: 1rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background-color: #f8f9fa;
-  border-bottom: 1px solid #eee;
-}
-
-.reward-header h3 {
-  margin: 0;
-  font-size: 1.2rem;
-}
-
-.reward-type-badge {
-  padding: 0.25rem 0.5rem;
-  border-radius: 4px;
-  font-size: 0.8rem;
-  font-weight: 500;
-}
-
-.type-digital {
-  background-color: #e3f2fd;
-  color: #1976d2;
-}
-
-.type-real_world_tracked {
-  background-color: #fff8e1;
-  color: #ff8f00;
+    transform: translateY(-5px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
 }
 
 .reward-image {
   width: 100%;
   height: 180px;
-  overflow: hidden;
+  object-fit: cover; /* Copre l'area senza distorcere */
+  background-color: #eee; /* Placeholder color */
+}
+.reward-image-placeholder {
+    width: 100%;
+    height: 180px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 4rem;
+    background-color: #f0f0f0;
+    color: #ccc;
 }
 
-.reward-image img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+.reward-info {
+  padding: 1rem 1rem 0.5rem 1rem; /* Ridotto padding inferiore */
+  flex-grow: 1; /* Fa espandere questa sezione */
+  display: flex;
+  flex-direction: column;
+}
+
+.reward-info h3 {
+  margin: 0 0 0.5rem 0;
+  color: #333;
 }
 
 .reward-description {
-  padding: 1rem;
-  flex-grow: 1;
+  font-size: 0.9em;
   color: #666;
+  margin-bottom: 0.8rem;
+  flex-grow: 1; /* Spinge il costo e il pulsante in basso */
 }
 
-.reward-footer {
-  padding: 1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  border-top: 1px solid #eee;
+.reward-type {
+    font-size: 0.8em;
+    color: #888;
+    margin-bottom: 0.5rem;
+    font-style: italic;
 }
 
 .reward-cost {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.cost-label {
-  color: #666;
-}
-
-.cost-value {
-  font-weight: bold;
-  color: #4caf50;
+  font-size: 1.1em;
+  color: #007bff;
+  margin-bottom: 1rem;
 }
 
 .purchase-button {
-  width: 100%;
-  padding: 0.75rem;
-  background-color: #4caf50;
+  background-color: #007bff;
   color: white;
   border: none;
-  border-radius: 4px;
+  padding: 0.8rem;
+  border-bottom-left-radius: 8px; /* Arrotonda solo gli angoli inferiori */
+  border-bottom-right-radius: 8px;
   cursor: pointer;
-  font-size: 1rem;
-  transition: background-color 0.2s;
-}
-
-.purchase-button:hover:not(:disabled) {
-  background-color: #388e3c;
+  font-size: 1em;
+  font-weight: bold;
+  transition: background-color 0.2s ease;
+  margin-top: 0.5rem; /* Ridotto margine sopra il pulsante */
 }
 
 .purchase-button:disabled {
-  background-color: #ccc;
+  background-color: #cccccc;
   cursor: not-allowed;
 }
 
-.success-message {
-  background-color: #e8f5e9;
-  color: #388e3c;
-  padding: 1rem;
-  border-radius: 4px;
-  margin-bottom: 1.5rem;
-  border-left: 4px solid #4caf50;
+.purchase-button:hover:not(:disabled) {
+  background-color: #0056b3;
 }
 
-.error-message {
-  background-color: #ffebee;
-  color: #d32f2f;
-  padding: 1rem;
-  border-radius: 4px;
-  margin-bottom: 1.5rem;
-  border-left: 4px solid #f44336;
-}
-
-.loading-container, .empty-rewards {
-  padding: 3rem;
+.empty-message {
+  grid-column: 1 / -1; /* Occupa tutta la larghezza della griglia */
   text-align: center;
+  padding: 2rem;
   color: #666;
 }
 
-.loading-spinner {
-  width: 40px;
-  height: 40px;
-  border: 4px solid rgba(0, 0, 0, 0.1);
-  border-left-color: var(--vt-c-indigo);
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin: 0 auto 1rem;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@media (max-width: 768px) {
-  .header-content {
-    flex-direction: column;
-    gap: 1rem;
-    align-items: flex-start;
-  }
-  
-  .header-actions {
-    width: 100%;
-    flex-direction: column;
-  }
-  
-  .reward-filters {
-    flex-wrap: wrap;
-  }
-  
-  .filter-button {
-    flex: 1;
-    min-width: 100px;
-  }
+.card-icon {
+    margin-right: 0.5rem;
+    font-size: 1em;
+    vertical-align: baseline;
 }
 </style>

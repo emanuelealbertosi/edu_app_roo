@@ -20,12 +20,20 @@ from apps.rewards.factories import (
 
 class WalletModelTests(TestCase):
 
-    def test_create_wallet(self):
-        """ Verifica la creazione di un Wallet tramite factory (e implicitamente lo Studente). """
-        wallet = WalletFactory(current_points=100)
-        self.assertIsNotNone(wallet.student)
-        self.assertEqual(wallet.current_points, 100)
-        self.assertEqual(str(wallet), f"Wallet for {wallet.student.full_name} (100 points)")
+    def test_create_wallet_via_signal(self):
+        """ Verifica la creazione automatica di un Wallet tramite segnale post_save di Student. """
+        student = StudentFactory() # Crea lo studente, il segnale dovrebbe creare il wallet
+        # Verifica che il wallet esista e sia associato
+        try:
+            wallet = Wallet.objects.get(student=student)
+            self.assertIsNotNone(wallet)
+            self.assertEqual(wallet.current_points, 0) # Il default è 0
+            self.assertEqual(str(wallet), f"Wallet for {student.full_name} (0 points)")
+            # Opzionale: modifica i punti se necessario per altri test
+            # wallet.current_points = 100
+            # wallet.save()
+        except Wallet.DoesNotExist:
+            self.fail("Wallet non creato automaticamente dal segnale per lo studente.")
 
     def test_wallet_student_unique(self):
         """
@@ -42,10 +50,13 @@ class WalletModelTests(TestCase):
 
     def test_add_points(self):
         """ Verifica il metodo add_points del Wallet. """
-        # Usa get_or_create per assicurare un solo wallet
-        wallet, _ = Wallet.objects.get_or_create(student=StudentFactory(), defaults={'current_points': 50})
+        student = StudentFactory()
+        wallet = student.wallet # Recupera il wallet creato dal segnale
+        # Imposta punti iniziali direttamente sul wallet recuperato
+        wallet.current_points = 50
+        wallet.save()
         wallet.add_points(30, "Test add")
-        wallet.refresh_from_db()
+        # refresh_from_db è già nel metodo add_points
         self.assertEqual(wallet.current_points, 80)
         self.assertEqual(wallet.transactions.count(), 1)
         transaction = wallet.transactions.first()
@@ -54,9 +65,13 @@ class WalletModelTests(TestCase):
 
     def test_add_zero_or_negative_points(self):
         """ Verifica che aggiungere 0 o punti negativi non cambi il saldo. """
-        wallet, _ = Wallet.objects.get_or_create(student=StudentFactory(), defaults={'current_points': 50})
-        wallet.add_points(0, "Test zero")
-        wallet.refresh_from_db()
+        student = StudentFactory()
+        wallet = student.wallet
+        wallet.current_points = 50
+        wallet.save()
+        wallet.add_points(0, "Test zero") # Metodo ora ritorna senza fare nulla
+        wallet.add_points(-10, "Test negative") # Metodo ora ritorna senza fare nulla
+        wallet.refresh_from_db() # Ricarica per sicurezza
         self.assertEqual(wallet.current_points, 50)
         self.assertEqual(wallet.transactions.count(), 0)
 
@@ -68,9 +83,12 @@ class WalletModelTests(TestCase):
 
     def test_subtract_points_sufficient(self):
         """ Verifica il metodo subtract_points con punti sufficienti. """
-        wallet, _ = Wallet.objects.get_or_create(student=StudentFactory(), defaults={'current_points': 100})
+        student = StudentFactory()
+        wallet = student.wallet
+        wallet.current_points = 100
+        wallet.save()
         wallet.subtract_points(40, "Test subtract")
-        wallet.refresh_from_db()
+        # refresh_from_db è già nel metodo subtract_points
         self.assertEqual(wallet.current_points, 60)
         self.assertEqual(wallet.transactions.count(), 1)
         transaction = wallet.transactions.first()
@@ -79,20 +97,27 @@ class WalletModelTests(TestCase):
 
     def test_subtract_points_insufficient(self):
         """ Verifica che subtract_points sollevi ValueError se i punti non bastano. """
-        wallet, _ = Wallet.objects.get_or_create(student=StudentFactory(), defaults={'current_points': 30})
+        student = StudentFactory()
+        wallet = student.wallet
+        wallet.current_points = 30
+        wallet.save()
         with self.assertRaisesRegex(ValueError, "Insufficient points."):
             wallet.subtract_points(40, "Test insufficient")
-        wallet.refresh_from_db()
+        wallet.refresh_from_db() # Ricarica per sicurezza
         self.assertEqual(wallet.current_points, 30) # Saldo invariato
         self.assertEqual(wallet.transactions.count(), 0) # Nessuna transazione creata
 
     def test_subtract_zero_or_negative_points(self):
         """ Verifica che sottrarre 0 o punti negativi sollevi ValueError. """
-        wallet, _ = Wallet.objects.get_or_create(student=StudentFactory(), defaults={'current_points': 50})
+        student = StudentFactory()
+        wallet = student.wallet
+        wallet.current_points = 50
+        wallet.save()
         with self.assertRaisesRegex(ValueError, "Points to subtract must be positive."):
             wallet.subtract_points(0, "Test zero subtract")
         with self.assertRaisesRegex(ValueError, "Points to subtract must be positive."):
             wallet.subtract_points(-10, "Test negative subtract")
+        wallet.refresh_from_db() # Ricarica per sicurezza
         self.assertEqual(wallet.current_points, 50)
         self.assertEqual(wallet.transactions.count(), 0)
 
@@ -635,17 +660,23 @@ class StudentShopAPITests(APITestCase):
         self.student2 = StudentFactory(teacher=self.teacher1) # Altro studente stesso docente
         self.student_t2 = StudentFactory(teacher=self.teacher2) # Studente altro docente
 
-        # Wallet per gli studenti (creati esplicitamente)
-        self.wallet1, _ = Wallet.objects.get_or_create(student=self.student1, defaults={'current_points': 200})
-        self.wallet2, _ = Wallet.objects.get_or_create(student=self.student2, defaults={'current_points': 30})
-        self.wallet_t2, _ = Wallet.objects.get_or_create(student=self.student_t2, defaults={'current_points': 500})
+        # Recupera wallet creato da segnale e aggiungi punti usando il metodo del modello
+        self.wallet1 = self.student1.wallet
+        self.wallet1.add_points(200, "Initial setup points") # Usa add_points
+        # add_points già fa refresh_from_db
+        self.assertEqual(self.wallet1.current_points, 200, "Wallet1 non ha 200 punti dopo add_points in setUp!")
 
-        # Ricompense
+        self.wallet2 = self.student2.wallet
+        self.wallet2.add_points(30, "Initial setup points") # Usa add_points
+
+        self.wallet_t2 = self.student_t2.wallet
+        self.wallet_t2.add_points(500, "Initial setup points") # Usa add_points
+
+        # Ricompense (create DOPO aver impostato i punti)
         self.reward_all_t1 = RewardFactory(teacher=self.teacher1, name="R All T1", cost_points=100, is_active=True)
-        # Passa la lista direttamente a available_to_specific_students
         self.reward_spec_t1_s1 = RewardFactory(
             teacher=self.teacher1, name="R Spec T1 S1", cost_points=50, is_active=True,
-            available_to_specific_students=[self.student1] # Rimosso specific_availability
+            available_to_specific_students=[self.student1]
         )
         self.reward_spec_t1_s2 = RewardFactory(
             teacher=self.teacher1, name="R Spec T1 S2", cost_points=20, is_active=True,
@@ -697,8 +728,14 @@ class StudentShopAPITests(APITestCase):
         # self.client.force_authenticate(user=self.student1_user) # Rimosso
         access_token = self._login_student(self.student1) # Usa login
         self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {access_token}') # Imposta token
+        # Verifica esplicita del saldo PRIMA della chiamata API
+        self.wallet1.refresh_from_db() # Assicura di leggere l'ultimo valore dal DB
         initial_points = self.wallet1.current_points
+        # L'asserzione qui ora dovrebbe passare se quella nel setUp ha funzionato
+        self.assertEqual(initial_points, 200, "Il saldo iniziale del wallet non è 200 prima dell'acquisto!")
+
         reward_cost = self.reward_all_t1.cost_points
+        self.assertLessEqual(reward_cost, initial_points, "Il costo della ricompensa supera i punti iniziali!")
 
         response = self.client.post(self.purchase_url(self.reward_all_t1.pk))
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
@@ -775,7 +812,10 @@ class StudentWalletAPITests(APITestCase):
     def setUp(self):
         self.teacher = UserFactory(role=UserRole.TEACHER)
         self.student = StudentFactory(teacher=self.teacher)
-        self.wallet, _ = Wallet.objects.get_or_create(student=self.student, defaults={'current_points': 150})
+        # Recupera wallet creato da segnale e imposta punti
+        self.wallet = self.student.wallet
+        self.wallet.current_points = 150
+        self.wallet.save()
         # Aggiungi alcune transazioni
         PointTransactionFactory(wallet=self.wallet, points_change=100, reason="Initial")
         PointTransactionFactory(wallet=self.wallet, points_change=75, reason="Quiz A")

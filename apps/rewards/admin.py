@@ -1,4 +1,6 @@
 from django.contrib import admin
+from django.db import models # Import models
+from django_json_widget.widgets import JSONEditorWidget # Import the widget
 from .models import (
     Wallet, PointTransaction, RewardTemplate, Reward,
     RewardStudentSpecificAvailability, RewardPurchase
@@ -30,6 +32,9 @@ class RewardAdmin(admin.ModelAdmin):
     search_fields = ('name', 'description', 'teacher__username')
     autocomplete_fields = ['teacher', 'template'] # Se si hanno molti template/docenti
     inlines = [RewardStudentSpecificAvailabilityInline] # Mostra la M2M inline
+    formfield_overrides = {
+        models.JSONField: {'widget': JSONEditorWidget},
+    }
 
     # Potremmo aggiungere logica per mostrare/nascondere l'inline in base a availability_type
     # def get_inlines(self, request, obj=None):
@@ -43,6 +48,9 @@ class RewardTemplateAdmin(admin.ModelAdmin):
     list_filter = ('scope', 'type', 'creator')
     search_fields = ('name', 'description', 'creator__username')
     autocomplete_fields = ['creator']
+    formfield_overrides = {
+        models.JSONField: {'widget': JSONEditorWidget},
+    }
 
 @admin.register(RewardPurchase)
 class RewardPurchaseAdmin(admin.ModelAdmin):

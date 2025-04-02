@@ -96,3 +96,24 @@ class StudentSerializer(serializers.ModelSerializer):
     # Potremmo aggiungere un metodo create o update per gestire logica specifica,
     # ad esempio assicurarsi che il docente che crea lo studente sia l'utente autenticato.
     # Questo di solito viene gestito nella ViewSet.
+
+
+# --- Serializer per Sommario Progressi Studente ---
+
+class StudentProgressSummarySerializer(serializers.Serializer):
+    """
+    Serializer per visualizzare un sommario dei progressi di uno studente.
+    Non è un ModelSerializer perché aggrega dati.
+    """
+    student_id = serializers.IntegerField(read_only=True, source='id') # ID dello studente
+    full_name = serializers.CharField(read_only=True)
+    username = serializers.CharField(read_only=True) # Aggiunto username per riferimento
+    # Campi aggregati (verranno calcolati nella view con annotazioni)
+    completed_quizzes_count = serializers.IntegerField(read_only=True, default=0)
+    completed_pathways_count = serializers.IntegerField(read_only=True, default=0)
+    total_points_earned = serializers.IntegerField(read_only=True, default=0) # Punti totali dal wallet
+    # Potremmo aggiungere altri campi aggregati se necessario
+    # last_activity_at = serializers.DateTimeField(read_only=True, allow_null=True)
+
+    # Nota: La view che usa questo serializer dovrà fornire un queryset
+    # annotato con i campi aggregati (completed_quizzes_count, etc.).
