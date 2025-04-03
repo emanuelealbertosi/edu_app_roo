@@ -41,7 +41,7 @@ const mockPurchase: RewardPurchase = {
     reward: mockRewards[0],
     points_spent: 50,
     purchased_at: new Date().toISOString(),
-    status: 'purchased',
+    status: 'PURCHASED', // Corretto
     delivered_at: null,
     delivery_notes: null,
 };

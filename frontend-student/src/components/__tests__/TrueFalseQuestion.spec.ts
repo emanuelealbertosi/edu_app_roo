@@ -7,7 +7,7 @@ import type { Question, TrueFalseAnswer } from '@/api/quiz';
 const mockQuestion: Question = {
   id: 3,
   text: 'Il sole gira intorno alla Terra.',
-  question_type: 'true_false',
+  question_type: 'TF', // Corretto
   order: 3,
   metadata: {},
   // answer_options non è usato per true_false

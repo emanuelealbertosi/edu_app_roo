@@ -30,8 +30,8 @@ const mockReward1: Reward = { id: 1, name: 'Adesivo', description: 'Desc1', type
 const mockReward2: Reward = { id: 2, name: 'Matita', description: 'Desc2', type: 'real_world_tracked', cost_points: 100, metadata: {}, is_active: true };
 
 const mockPurchases: RewardPurchase[] = [
-  { id: 10, reward: mockReward1, points_spent: 50, purchased_at: new Date(Date.now() - 86400000).toISOString(), status: 'delivered', delivered_at: new Date().toISOString(), delivery_notes: null }, // Ieri
-  { id: 11, reward: mockReward2, points_spent: 100, purchased_at: new Date().toISOString(), status: 'purchased', delivered_at: null, delivery_notes: null }, // Oggi
+  { id: 10, reward: mockReward1, points_spent: 50, purchased_at: new Date(Date.now() - 86400000).toISOString(), status: 'DELIVERED', delivered_at: new Date().toISOString(), delivery_notes: null }, // Ieri - Corretto
+  { id: 11, reward: mockReward2, points_spent: 100, purchased_at: new Date().toISOString(), status: 'PURCHASED', delivered_at: null, delivery_notes: null }, // Oggi - Corretto
 ];
 
 

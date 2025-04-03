@@ -48,10 +48,10 @@ const mockQuizAttempt: QuizAttempt = {
 };
 
 const mockQuestion1: Question = {
-    id: 10, text: 'Domanda 1 (MC Single)', question_type: 'multiple_choice_single', order: 1, metadata: {}, answer_options: [{id: 1, text: 'A', order: 1}]
+    id: 10, text: 'Domanda 1 (MC Single)', question_type: 'MC_SINGLE', order: 1, metadata: {}, answer_options: [{id: 1, text: 'A', order: 1}] // Corretto
 };
 const mockQuestion2: Question = {
-    id: 11, text: 'Domanda 2 (True/False)', question_type: 'true_false', order: 2, metadata: {}
+    id: 11, text: 'Domanda 2 (True/False)', question_type: 'TF', order: 2, metadata: {} // Corretto
 };
 const mockCompletedAttempt: AttemptDetails = {
     ...mockQuizAttempt,
@@ -61,7 +61,7 @@ const mockCompletedAttempt: AttemptDetails = {
     score: 0.8,
     points_earned: 10,
     questions: [mockQuestion1, mockQuestion2], // Aggiungi domande se necessario per la vista risultati
-    student_answers: [], // Aggiungi risposte se necessario
+    given_answers: [], // Corretto: usa 'given_answers'
 };
 
 

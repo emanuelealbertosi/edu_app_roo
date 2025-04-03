@@ -1,0 +1,74 @@
+# version: '3.8' # Obsoleto, rimosso
+
+services:
+  db:
+    image: postgres:15-alpine  # Immagine PostgreSQL leggera
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    env_file:
+      - .env  # Carica variabili d'ambiente dal file .env
+    environment:
+      # Assicurati che queste variabili siano definite nel tuo .env
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    # ports:
+      # - "5432:5432" # Esporre la porta solo se necessario accedere al DB dall'esterno dei container
+      # - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build: .  # Costruisce l'immagine usando il Dockerfile nella directory corrente
+    volumes:
+      - .:/app  # Monta il codice sorgente locale nel container per sviluppo live
+    ports:
+      - "8000:8000"  # Mappa la porta 8000 del container alla porta 8000 dell'host
+    env_file:
+      - .env  # Carica variabili d'ambiente dal file .env
+    environment:
+      # Assicurati che queste variabili siano definite nel tuo .env
+      - SECRET_KEY=${SECRET_KEY}
+      - DEBUG=${DEBUG}
+      - DATABASE_URL=${DATABASE_URL} # Django userà questa per connettersi al DB
+      - DJANGO_ALLOWED_HOSTS=${DJANGO_ALLOWED_HOSTS} # Es: localhost,127.0.0.1,[::1]
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS} # Es: http://localhost:5174,http://localhost:5175
+    depends_on:
+      db:
+        condition: service_healthy # Attende che il DB sia pronto
+    # Comando per eseguire migrazioni e avviare il server di sviluppo
+    # NOTA: Per produzione, usare un entrypoint script e Gunicorn/uWSGI
+    command: >
+      sh -c "python manage.py migrate &&
+             python manage.py create_initial_superuser &&
+             python manage.py runserver 0.0.0.0:8000"
+
+  frontend-student:
+    build:
+      context: ./frontend-student
+      dockerfile: Dockerfile
+      args:
+        # Point to the backend service within the Docker network
+        VITE_API_BASE_URL: http://web:8000/api
+    ports:
+      - "5175:80" # Map host port 5175 to container port 80 (Nginx default)
+    depends_on:
+      - web # Depends on the backend service
+
+  frontend-teacher:
+    build:
+      context: ./frontend-teacher
+      dockerfile: Dockerfile
+      args:
+        # Point to the backend service within the Docker network
+        VITE_API_BASE_URL: http://web:8000/api
+    ports:
+      - "5174:80" # Map host port 5174 to container port 80 (Nginx default)
+    depends_on:
+      - web # Depends on the backend service
+
+volumes:
+  postgres_data: # Volume nominato per persistere i dati del database

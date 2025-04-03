@@ -7,7 +7,7 @@ import type { Question, MultipleChoiceSingleAnswer } from '@/api/quiz';
 const mockQuestion: Question = {
   id: 1,
   text: 'Qual è la capitale dell\'Italia?',
-  question_type: 'multiple_choice_single',
+  question_type: 'MC_SINGLE', // Corretto
   order: 1,
   metadata: {},
   answer_options: [

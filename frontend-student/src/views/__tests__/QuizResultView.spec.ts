@@ -40,9 +40,9 @@ const mockAnswerOptions: AnswerOption[] = [
 ];
 
 const mockQuestions: Question[] = [
-  { id: 10, text: 'Domanda 1 (MC Single)', question_type: 'multiple_choice_single', order: 1, metadata: {}, answer_options: mockAnswerOptions },
-  { id: 11, text: 'Domanda 2 (True/False)', question_type: 'true_false', order: 2, metadata: {} },
-  { id: 12, text: 'Domanda 3 (Open Manual)', question_type: 'open_answer_manual', order: 3, metadata: {} },
+  { id: 10, text: 'Domanda 1 (MC Single)', question_type: 'MC_SINGLE', order: 1, metadata: {}, answer_options: mockAnswerOptions }, // Corretto
+  { id: 11, text: 'Domanda 2 (True/False)', question_type: 'TF', order: 2, metadata: {} }, // Corretto
+  { id: 12, text: 'Domanda 3 (Open Manual)', question_type: 'OPEN_MANUAL', order: 3, metadata: {} }, // Corretto
 ];
 
 const mockAttemptDetails: AttemptDetails = {
@@ -54,10 +54,10 @@ const mockAttemptDetails: AttemptDetails = {
   points_earned: 15,
   status: 'completed',
   questions: mockQuestions,
-  student_answers: [
-    { question_id: 10, selected_answers: { answer_option_id: 2 }, is_correct: true, score: null, answered_at: new Date().toISOString() }, // Risposta corretta
-    { question_id: 11, selected_answers: { is_true: false }, is_correct: false, score: null, answered_at: new Date().toISOString() }, // Risposta errata
-    { question_id: 12, selected_answers: { text: 'Risposta aperta' }, is_correct: null, score: null, answered_at: new Date().toISOString() }, // In attesa
+  given_answers: [ // Corretto: la proprietà è 'given_answers'
+    { id: 101, quiz_attempt: 50, question: 10, selected_answers: { answer_option_id: 2 }, is_correct: true, score: null, answered_at: new Date().toISOString() }, // Risposta corretta - Aggiunto id, quiz_attempt
+    { id: 102, quiz_attempt: 50, question: 11, selected_answers: { is_true: false }, is_correct: false, score: null, answered_at: new Date().toISOString() }, // Risposta errata - Aggiunto id, quiz_attempt
+    { id: 103, quiz_attempt: 50, question: 12, selected_answers: { text: 'Risposta aperta' }, is_correct: null, score: null, answered_at: new Date().toISOString() }, // In attesa - Aggiunto id, quiz_attempt
   ],
 };
 
@@ -156,7 +156,7 @@ describe('QuizResultView.vue', () => {
     expect(item3.find('.question-text strong').text()).toContain(mockQuestions[2].text);
     const answer3 = item3.find('.student-answer');
     expect(answer3.classes()).toContain('pending-answer');
-    expect(answer3.text()).toContain(`Tua Risposta: ${mockAttemptDetails.student_answers[2].selected_answers.text}`);
+    expect(answer3.text()).toContain(`Tua Risposta: ${mockAttemptDetails.given_answers[2].selected_answers.text}`); // Corretto: usa 'given_answers'
     expect(answer3.text()).toContain('Esito: In attesa di correzione');
   });
 

@@ -7,7 +7,7 @@ import type { Question, OpenAnswerManualAnswer } from '@/api/quiz';
 const mockQuestion: Question = {
   id: 5,
   text: 'Descrivi il ciclo dell\'acqua.',
-  question_type: 'open_answer_manual',
+  question_type: 'OPEN_MANUAL', // Corretto
   order: 5,
   metadata: {},
   // answer_options non è usato

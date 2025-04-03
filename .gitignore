@@ -65,7 +65,7 @@ media/
 static_root/ # O il nome della tua directory per collectstatic
 
 # Environments
-.env
+.env* # Ignora .env, .env.local, .env.docker, etc.
 .venv/
 env/
 venv/

@@ -49,7 +49,7 @@ describe('ProfileView.vue', () => {
     
     // Imposta stato iniziale store
     authStore.user = mockUser;
-    authStore.isAuthenticated = true; // Assicurati che sia autenticato
+    // authStore.isAuthenticated = true; // Rimosso: è read-only e dovrebbe derivare da authStore.user
     dashboardStore.wallet = mockWallet; // Inizia con wallet già caricato per alcuni test
 
     router.push('/profile'); 

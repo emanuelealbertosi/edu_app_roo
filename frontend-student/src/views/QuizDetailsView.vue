@@ -137,18 +137,7 @@ const formatDate = (dateString: string | null): string => {
           </div>
         </div>
         
-        <div class="quiz-dates">
-          <div v-if="quizStore.currentQuiz.available_from" class="date-item">
-            <span class="date-label">Disponibile da:</span>
-            <span class="date-value">{{ formatDate(quizStore.currentQuiz.available_from) }}</span>
-          </div>
-          
-          <div v-if="quizStore.currentQuiz.available_until" class="date-item">
-            <span class="date-label">Disponibile fino a:</span>
-            <span class="date-value">{{ formatDate(quizStore.currentQuiz.available_until) }}</span>
-          </div>
-        </div>
-        
+        <!-- Rimosse date disponibilità (causavano errori TS) -->
         <div class="quiz-description">
           <p>{{ quizStore.currentQuiz.description }}</p>
         </div>

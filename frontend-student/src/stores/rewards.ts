@@ -44,7 +44,7 @@ export const useRewardsStore = defineStore('rewards', {
     // Acquisti in attesa di consegna
     pendingDeliveries(state): RewardPurchase[] {
       return state.purchaseHistory.filter(purchase => 
-        purchase.status === 'purchased' && 
+        purchase.status === 'PURCHASED' &&
         purchase.reward.type === 'real_world_tracked'
       );
     },
@@ -52,7 +52,7 @@ export const useRewardsStore = defineStore('rewards', {
     // Acquisti già consegnati
     deliveredPurchases(state): RewardPurchase[] {
       return state.purchaseHistory.filter(purchase => 
-        purchase.status === 'delivered'
+        purchase.status === 'DELIVERED'
       );
     }
   },

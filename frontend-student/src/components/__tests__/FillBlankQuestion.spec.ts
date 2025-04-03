@@ -7,7 +7,7 @@ import type { Question, FillBlankAnswer } from '@/api/quiz';
 const mockQuestion: Question = {
   id: 4,
   text: 'La capitale della Francia è ___1___ e quella della Spagna è ___2___.',
-  question_type: 'fill_blank',
+  question_type: 'FILL_BLANK', // Corretto
   order: 4,
   metadata: {},
   // answer_options non è usato per fill_blank
@@ -16,7 +16,7 @@ const mockQuestion: Question = {
 const mockQuestionSingleBlank: Question = {
   id: 5,
   text: 'Completa la frase: ___1___.',
-  question_type: 'fill_blank',
+  question_type: 'FILL_BLANK', // Corretto
   order: 5,
   metadata: {},
 };

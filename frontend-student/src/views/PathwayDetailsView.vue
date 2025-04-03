@@ -110,10 +110,10 @@ const getQuizStatusLabel = (isCompleted: boolean, isAvailable: boolean) => {
           </div>
         </div>
         
-        <div v-if="pathwayStore.isPathwayCompleted && pathwayStore.currentPathway.progress.points_earned" class="points-earned">
+        <div v-if="pathwayStore.isPathwayCompleted && pathwayStore.currentPathway.progress?.points_earned" class="points-earned"> <!-- Aggiunto ?. -->
           <span class="points-icon">🏆</span>
           <span class="points-text">
-            Hai guadagnato {{ pathwayStore.currentPathway.progress.points_earned }} punti
+            Hai guadagnato {{ pathwayStore.currentPathway.progress?.points_earned }} punti <!-- Aggiunto ?. -->
             completando questo percorso!
           </span>
         </div>

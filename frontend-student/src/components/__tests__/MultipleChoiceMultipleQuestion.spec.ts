@@ -7,7 +7,7 @@ import type { Question, MultipleChoiceMultipleAnswer } from '@/api/quiz';
 const mockQuestion: Question = {
   id: 2,
   text: 'Quali sono città italiane?',
-  question_type: 'multiple_choice_multiple',
+  question_type: 'MC_MULTI', // Corretto
   order: 2,
   metadata: {},
   answer_options: [
