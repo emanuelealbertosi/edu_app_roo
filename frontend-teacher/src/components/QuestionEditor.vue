@@ -5,9 +5,22 @@
       <span class="text">{{ question.text }}</span>
       <span class="type">[{{ question.question_type_display }}]</span>
     </div>
+    <!-- Rimosso flex flex-col -->
     <div class="question-actions">
-      <button @click="editQuestion">Modifica</button>
-      <button @click="deleteQuestion" class="delete">Elimina</button>
+      <!-- Aggiunto block e mb-1 -->
+      <button
+        @click="editQuestion"
+        class="block bg-yellow-500 hover:bg-yellow-700 text-white font-bold py-1 px-2 rounded text-sm mb-1 w-full text-center"
+      >
+        Modifica
+      </button>
+      <!-- Aggiunto block -->
+      <button
+        @click="deleteQuestion"
+        class="delete block bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded text-sm w-full text-center"
+      >
+        Elimina
+      </button>
     </div>
     <!-- Qui potremmo mostrare/gestire le opzioni di risposta in futuro -->
   </li>
@@ -37,7 +50,7 @@ const deleteQuestion = () => {
 .question-editor {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: center; /* Manteniamo l'allineamento verticale centrato per il blocco azioni */
   margin-bottom: 10px;
   padding: 10px;
   border: 1px solid #eee;
@@ -47,7 +60,12 @@ const deleteQuestion = () => {
 
 .question-info {
   flex-grow: 1;
-  margin-right: 15px;
+  margin-right: 15px; /* Aumentato margine per dare più spazio ai bottoni */
+}
+
+.question-actions {
+    flex-shrink: 0; /* Impedisce al contenitore dei bottoni di restringersi */
+    width: 80px; /* Larghezza fissa per il contenitore dei bottoni */
 }
 
 .question-info .order {
@@ -61,19 +79,11 @@ const deleteQuestion = () => {
   margin-left: 5px;
 }
 
-.question-actions button {
-  margin-left: 5px;
-  padding: 3px 8px;
-  cursor: pointer;
-}
+/* Rimosso stile .question-actions button */
+/* .question-actions button { ... } */
 
-.question-actions button.delete {
-    background-color: #f44336; /* Red */
-    color: white;
-    border: none;
-}
-.question-actions button.delete:hover {
-    background-color: #d32f2f;
-}
+/* Rimosso stile .question-actions button.delete */
+/* .question-actions button.delete { ... } */
+/* .question-actions button.delete:hover { ... } */
 
 </style>

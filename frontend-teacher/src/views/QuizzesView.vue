@@ -3,8 +3,10 @@
     <h1>Gestione Quiz</h1>
     <p>Qui puoi visualizzare, creare e modificare i tuoi quiz.</p>
     <div class="actions">
-      <button @click="createNewQuiz" class="mr-2">Crea Nuovo Quiz</button>
-      <button @click="uploadFromFile">Carica da File</button>
+      <!-- Applicato stile Tailwind -->
+      <button @click="createNewQuiz" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded mr-2">Crea Nuovo Quiz</button>
+      <!-- Applicato stile Tailwind -->
+      <button @click="uploadFromFile" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">Carica da File</button>
     </div>
     <div v-if="isLoading" class="loading">Caricamento quiz...</div>
     <div v-else-if="error" class="error-message">
@@ -29,8 +31,10 @@
               <td>{{ quiz.description || '-' }}</td>
               <td>{{ new Date(quiz.created_at).toLocaleDateString() }}</td>
               <td>
-                <button @click="editQuiz(quiz.id)">Modifica</button>
-                <button @click="deleteQuiz(quiz.id)">Elimina</button>
+                <!-- Applicato stile Tailwind -->
+                <button @click="editQuiz(quiz.id)" class="bg-yellow-500 hover:bg-yellow-700 text-white font-bold py-1 px-2 rounded text-sm mr-2">Modifica</button>
+                <!-- Applicato stile Tailwind -->
+                <button @click="deleteQuiz(quiz.id)" class="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded text-sm">Elimina</button>
               </td>
             </tr>
           </tbody>
@@ -141,27 +145,12 @@ th {
   background-color: #f2f2f2;
 }
 
-td button {
-  margin-right: 5px;
-  padding: 3px 8px;
-  cursor: pointer;
-}
+/* Rimosso stile td button - gestito da Tailwind */
 
 .actions {
   margin-bottom: 20px;
 }
 
-.actions button {
-  padding: 8px 15px;
-  cursor: pointer;
-  background-color: #007bff; /* Blue */
-  color: white;
-  border: none;
-  border-radius: 4px;
-  margin-right: 8px; /* Aggiunge spazio tra i pulsanti */
-}
+/* Rimosso stile .actions button - gestito da Tailwind */
 
-.actions button:hover {
-  background-color: #0056b3;
-}
 </style>

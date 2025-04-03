@@ -58,7 +58,12 @@
     </div>
 
     <div class="form-actions">
-        <button @click="assignContent" :disabled="!canAssign || isAssigning">
+        <!-- Applicato stile Tailwind -->
+        <button
+            @click="assignContent"
+            :disabled="!canAssign || isAssigning"
+            class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+        >
             {{ isAssigning ? 'Assegnazione...' : 'Assegna Selezionati' }}
         </button>
         <div v-if="assignmentError" class="error-message">{{ assignmentError }}</div>
@@ -298,18 +303,9 @@ watch(selectedContentType, () => {
   margin-top: 20px;
 }
 
-.form-actions button {
-  padding: 10px 15px;
-  cursor: pointer;
-  border-radius: 4px;
-  border: none;
-  background-color: #2196F3; /* Blue */
-  color: white;
-}
-.form-actions button:disabled {
-  background-color: #aaa;
-  cursor: not-allowed;
-}
+/* Rimosso stile .form-actions button */
+/* .form-actions button { ... } */
+/* .form-actions button:disabled { ... } */
 
 .error-message {
   color: red;

@@ -1,6 +1,10 @@
 <template>
   <div class="quiz-form-view">
     <h1>{{ isEditing ? 'Modifica Quiz' : 'Crea Nuovo Quiz' }}</h1>
+    <!-- Messaggio di successo -->
+    <div v-if="successMessage" class="success-message bg-green-100 border-l-4 border-green-500 text-green-700 p-4 mb-4 rounded">
+        {{ successMessage }}
+    </div>
     <form @submit.prevent="saveQuiz">
       <div class="form-group">
         <label for="title">Titolo:</label>
@@ -32,10 +36,12 @@
       <div v-if="error" class="error-message">{{ error }}</div>
 
       <div class="form-actions">
-        <button type="submit" :disabled="isSaving">
+         <!-- Applicato stile Tailwind -->
+        <button type="submit" :disabled="isSaving" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded mr-2 disabled:opacity-50 disabled:cursor-not-allowed">
           {{ isSaving ? 'Salvataggio...' : 'Salva Quiz' }}
         </button>
-        <button type="button" @click="cancel">Annulla</button>
+         <!-- Applicato stile Tailwind -->
+        <button type="button" @click="cancel" class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">Annulla</button>
       </div>
     </form>
 
@@ -60,8 +66,9 @@
         <div v-else>
             <p>Nessuna domanda ancora aggiunta a questo quiz.</p>
         </div>
-        <!-- Pulsante Aggiungi Domanda (da implementare) -->
-        <button type="button" @click="addQuestion">Aggiungi Domanda</button>
+        <!-- Pulsante Aggiungi Domanda -->
+         <!-- Applicato stile Tailwind -->
+        <button type="button" @click="addQuestion" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded mt-4">Aggiungi Domanda</button>
     </div>
 
   </div>
@@ -70,7 +77,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, reactive } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { createQuiz, fetchQuizDetails, updateQuiz, type QuizPayload } from '@/api/quizzes';
+import { createQuiz, fetchQuizDetails, updateQuiz, type QuizPayload, type Quiz } from '@/api/quizzes'; // Importa anche Quiz type
 import { fetchQuestions, deleteQuestionApi, type Question } from '@/api/questions'; // Importa anche deleteQuestionApi
 import QuestionEditor from '@/components/QuestionEditor.vue'; // Importa il nuovo componente
 
@@ -95,6 +102,7 @@ const isEditing = computed(() => !!quizId.value);
 const isSaving = ref(false);
 const error = ref<string | null>(null); // Errore generale del form/quiz
 const isLoading = ref(false); // Stato caricamento dati quiz
+const successMessage = ref<string | null>(null); // Messaggio di successo
 
 // Stato per le domande
 const questions = ref<Question[]>([]);
@@ -115,7 +123,7 @@ const quizData = reactive<QuizFormData>({
 
 onMounted(async () => {
   const idParam = route.params.id;
-  if (idParam) {
+  if (idParam && idParam !== 'new') { // Controlla che non sia 'new'
     quizId.value = Number(idParam);
     if (!isNaN(quizId.value)) {
       // ID valido, carica dati quiz e domande
@@ -127,6 +135,9 @@ onMounted(async () => {
       error.value = "ID Quiz fornito nella URL non è valido.";
       quizId.value = null; // Resetta ID
     }
+  } else {
+      // Siamo in modalità creazione
+      quizId.value = null;
   }
 });
 
@@ -143,7 +154,10 @@ const loadQuizData = async (id: number) => {
     // Carica i metadati esistenti
     quizData.metadata.points_on_completion = fetchedQuiz.metadata?.points_on_completion ?? null;
     // Carica anche la soglia esistente, o usa il default 100 se non presente
-    quizData.metadata.completion_threshold_percent = fetchedQuiz.metadata?.completion_threshold_percent ?? 100.0;
+    // Converti da 0-1 a 0-100 se necessario (assumendo che l'API restituisca 0-1)
+    const threshold_api = fetchedQuiz.metadata?.completion_threshold;
+    quizData.metadata.completion_threshold_percent = threshold_api !== undefined && threshold_api !== null ? threshold_api * 100 : 100.0;
+
   } catch (err: any) {
     console.error("Errore nel caricamento del quiz:", err);
     error.value = err.response?.data?.detail || err.message || 'Errore nel caricamento dei dati del quiz.';
@@ -168,39 +182,60 @@ const loadQuestions = async (id: number) => {
 const saveQuiz = async () => {
   isSaving.value = true;
   error.value = null;
+  successMessage.value = null; // Resetta messaggio successo
 
-  // Prepara i dati da inviare (converti date se necessario)
   // Prepara il payload assicurandosi che metadata sia un oggetto valido
   // e convertendo le date nel formato ISO atteso dall'API
+  // Converti la soglia da % (0-100) a decimale (0-1) per l'API
+  const threshold_percent = quizData.metadata.completion_threshold_percent;
+  const completion_threshold = threshold_percent === null || isNaN(Number(threshold_percent)) ? 1.0 : Number(threshold_percent) / 100; // Default a 1 (100%) se non valido
+
   const payload: QuizPayload = {
       title: quizData.title,
       description: quizData.description,
       available_from: quizData.available_from ? new Date(quizData.available_from).toISOString() : null,
       available_until: quizData.available_until ? new Date(quizData.available_until).toISOString() : null,
-      // Includi i metadati nel payload, assicurandoti che points_on_completion sia un numero o null
       metadata: {
           points_on_completion: quizData.metadata.points_on_completion === null || isNaN(Number(quizData.metadata.points_on_completion)) ? 0 : Number(quizData.metadata.points_on_completion),
-          // Aggiungi anche la soglia al payload, assicurandoti che sia un numero valido o usa il default
-          completion_threshold_percent: quizData.metadata.completion_threshold_percent === null || isNaN(Number(quizData.metadata.completion_threshold_percent)) ? 100.0 : Number(quizData.metadata.completion_threshold_percent)
+          completion_threshold: completion_threshold, // Invia come decimale 0-1
           // Aggiungere altri metadati qui se necessario
       },
   };
 
   try {
+    let savedQuiz: Quiz | null = null;
     if (isEditing.value && quizId.value) {
-      // Usa Partial<QuizPayload> per l'aggiornamento parziale
-      await updateQuiz(quizId.value, payload);
+      savedQuiz = await updateQuiz(quizId.value, payload);
+      // Ricarica i dati dopo l'aggiornamento per mostrare eventuali cambiamenti fatti dal backend
+      await loadQuizData(quizId.value);
+      successMessage.value = "Quiz aggiornato con successo!";
     } else {
-      const newQuiz = await createQuiz(payload); // Usa la funzione API reale
-      // Opzionale: potresti voler navigare alla pagina di modifica del nuovo quiz
-      // router.push({ name: 'quiz-edit', params: { id: newQuiz.id } });
-      // Per ora, torniamo alla lista
+      savedQuiz = await createQuiz(payload); // Usa la funzione API reale
+      successMessage.value = "Quiz creato con successo! Ora puoi aggiungere domande.";
+      // Aggiorna l'URL e lo stato per riflettere la modalità di modifica senza ricaricare la pagina
+      quizId.value = savedQuiz.id;
+      router.replace({ name: 'quiz-edit', params: { id: savedQuiz.id.toString() } }); // Usa replace per non aggiungere alla history
+      // Carica le domande (saranno vuote)
+      await loadQuestions(savedQuiz.id);
     }
-    // Naviga indietro alla lista o alla vista dettaglio del quiz
-    router.push({ name: 'quizzes' });
+
+    // Nascondi il messaggio di successo dopo qualche secondo
+    setTimeout(() => {
+        successMessage.value = null;
+    }, 3000);
+
+    // Rimosso: router.push({ name: 'quizzes' });
   } catch (err: any) {
     console.error("Errore durante il salvataggio del quiz:", err);
-    error.value = err.response?.data?.detail || err.message || 'Errore durante il salvataggio del quiz.';
+    // Tenta di estrarre errori specifici dei campi se disponibili
+    if (err.response?.data && typeof err.response.data === 'object') {
+        const errorDetails = Object.entries(err.response.data)
+            .map(([key, value]) => `${key}: ${Array.isArray(value) ? value.join(', ') : value}`)
+            .join('; ');
+        error.value = `Errore salvataggio: ${errorDetails}`;
+    } else {
+        error.value = err.response?.data?.detail || err.message || 'Errore durante il salvataggio del quiz.';
+    }
   } finally {
     isSaving.value = false;
   }
@@ -254,12 +289,15 @@ const handleDeleteQuestion = async (questionId: number) => {
         return;
     }
 
+    questionsError.value = null; // Resetta errore precedente
     try {
         await deleteQuestionApi(quizId.value, questionId);
         // Ricarica l'elenco delle domande dal backend per riflettere il nuovo ordine
         await loadQuestions(quizId.value);
         console.log(`Domanda ${questionId} eliminata e lista domande ricaricata.`);
         // Mostra notifica successo (opzionale)
+        successMessage.value = `Domanda ${questionId} eliminata con successo.`;
+         setTimeout(() => { successMessage.value = null; }, 3000);
     } catch (err: any) {
         console.error(`Errore durante l'eliminazione della domanda ${questionId}:`, err);
         // Mostra errore all'utente
@@ -312,32 +350,22 @@ const handleDeleteQuestion = async (questionId: number) => {
   margin-top: 20px;
 }
 
-.form-actions button {
-  padding: 10px 15px;
-  margin-right: 10px;
-  cursor: pointer;
-  border-radius: 4px;
-  border: none;
-}
-
-.form-actions button[type="submit"] {
-  background-color: #4CAF50; /* Green */
-  color: white;
-}
-.form-actions button[type="submit"]:disabled {
-  background-color: #aaa;
-  cursor: not-allowed;
-}
-
-.form-actions button[type="button"] {
-  background-color: #f44336; /* Red */
-  color: white;
-}
+/* Stili per i bottoni ora gestiti da Tailwind nel template */
+/*
+.form-actions button { ... }
+.form-actions button[type="submit"] { ... }
+.form-actions button[type="submit"]:disabled { ... }
+.form-actions button[type="button"] { ... }
+*/
 
 .error-message {
   color: red;
   margin-top: 10px;
   font-weight: bold;
+}
+.success-message {
+  /* Stili Tailwind applicati direttamente nel template */
+  margin-bottom: 15px;
 }
 
 .questions-section {
@@ -355,9 +383,7 @@ const handleDeleteQuestion = async (questionId: number) => {
 /* Rimuovi lo stile li generico se non serve più altrove */
 /* .questions-section li { ... } */
 
-.questions-section button {
-    margin-top: 15px;
-    padding: 8px 12px;
-    cursor: pointer;
-}
+/* Stile bottone Aggiungi Domanda gestito da Tailwind */
+/* .questions-section button { ... } */
+
 </style>

@@ -1,18 +1,21 @@
 <template>
   <div class="question-form-view">
-    <h1>{{ isEditing ? &#39;Modifica Domanda&#39; : &#39;Aggiungi Nuova Domanda&#39; }}</h1>
+    <h1>{{ isEditing ? 'Modifica Domanda' : 'Aggiungi Nuova Domanda' }}</h1>
+    <div v-if="successMessage" class="success-message bg-green-100 border-l-4 border-green-500 text-green-700 p-4 mb-4 rounded">
+        {{ successMessage }}
+    </div>
     <div v-if="isLoading" class="loading">Caricamento dati domanda...</div>
     <div v-else-if="error" class="error-message">{{ error }}</div>
 
     <form v-else @submit.prevent="saveQuestion">
       <div class="form-group">
         <label for="text">Testo Domanda:</label>
-        <textarea id="text" v-model="textRef" required></textarea>
+        <textarea id="text" v-model="questionData.text" required></textarea>
       </div>
 
       <div class="form-group">
         <label for="question_type">Tipo Domanda:</label>
-        <select id="question_type" v-model="questionTypeRef" required>
+        <select id="question_type" v-model="questionData.question_type" required>
           <option disabled value="">Seleziona un tipo</option>
           <option v-for="qType in questionTypes" :key="qType.value" :value="qType.value">
             {{ qType.label }}
@@ -22,7 +25,7 @@
 
       <div class="form-group">
         <label for="order">Ordine:</label>
-        <input type="number" id="order" v-model.number="orderRef" required min="0" />
+        <input type="number" id="order" v-model.number="questionData.order" required min="0" />
       </div>
 
       <!-- TODO: Aggiungere gestione metadata (JSON editor?) -->
@@ -33,28 +36,28 @@
               :quiz-id="quizId!"
               :question-id="questionId!"
               :initial-options="initialAnswerOptions"
-              :question-type="questionTypeRef"
+              :question-type="questionData.question_type"
               @options-saved="handleOptionsSaved"
               @error="handleOptionsError"
-          />
+          ></AnswerOptionsEditor>
       </div>
 
       <div class="form-actions">
-        <button type="submit" :disabled="isSaving">
-          {{ isSaving ? &#39;Salvataggio...&#39; : (isEditing ? &#39;Salva Modifiche&#39; : &#39;Crea Domanda&#39;) }}
+        <button type="submit" :disabled="isSaving" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded mr-2 disabled:opacity-50 disabled:cursor-not-allowed">
+          {{ isSaving ? 'Salvataggio...' : (isEditing ? 'Salva Modifiche' : 'Crea Domanda') }}
         </button>
-        <button type="button" @click="goBack">Annulla</button>
+        <button type="button" @click="goBack" class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">Annulla</button>
       </div>
     </form>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, nextTick, watch, onMounted } from 'vue'; // Aggiunto onMounted
+import { ref, computed, nextTick, watch, onMounted, reactive } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { createQuestion, fetchQuestionDetails, updateQuestion, type QuestionPayload, fetchQuestions } from '@/api/questions';
 import AnswerOptionsEditor from '@/components/AnswerOptionsEditor.vue';
-import type { AnswerOption } from '@/api/questions';
+import type { AnswerOption, Question } from '@/api/questions';
 
 const route = useRoute();
 const router = useRouter();
@@ -65,17 +68,23 @@ const questionId = ref<number | null>(null);
 const isLoading = ref(false);
 const isSaving = ref(false);
 const error = ref<string | null>(null);
+const successMessage = ref<string | null>(null);
 
-// Form data refs
-const textRef = ref('');
-const questionTypeRef = ref('');
-const orderRef = ref(0);
-const metadataRef = ref<Record<string, any>>({});
+// Form data refs - Usiamo reactive per raggruppare i dati del form
+const questionData = reactive({
+    text: '',
+    question_type: '',
+    order: 0,
+    metadata: {} as Record<string, any>,
+});
 const initialAnswerOptions = ref<AnswerOption[]>([]);
 
 // --- Computed Properties ---
 const isEditing = computed(() => !!questionId.value);
-const showAnswerOptionsEditor = computed(() => isEditing.value); // Mostra sempre se in modifica
+// Mostra l'editor opzioni solo se in modifica E il tipo domanda le supporta
+const showAnswerOptionsEditor = computed(() =>
+    isEditing.value && questionId.value && typesWithOptions.includes(questionData.question_type)
+);
 
 // --- Constants ---
 const questionTypes = [
@@ -87,37 +96,76 @@ const questionTypes = [
 ];
 const typesWithOptions: string[] = ['MC_SINGLE', 'MC_MULTI', 'TF'];
 
-// --- Functions (definite prima dei watchers) ---
+// --- Functions ---
 
 const goBack = () => {
     if (quizId.value) {
+        // Torna alla vista di modifica del quiz
         router.push({ name: 'quiz-edit', params: { id: quizId.value.toString() } });
     } else {
+        // Fallback se quizId non è disponibile (improbabile ma sicuro)
         router.push({ name: 'quizzes' });
     }
 };
 
+// Funzione per caricare i dati della domanda specifica
 const loadQuestionData = async (qId: number, questId: number) => {
     isLoading.value = true;
     error.value = null;
     try {
-        console.log(`Fetching details for Quiz ${qId}, Question ${questId}`);
+        console.log(`[QuestionFormView] Fetching details for Quiz ${qId}, Question ${questId}`);
         const fetchedQuestion = await fetchQuestionDetails(qId, questId);
-        console.log("Fetched question data:", JSON.stringify(fetchedQuestion));
-        textRef.value = fetchedQuestion.text;
-        questionTypeRef.value = fetchedQuestion.question_type;
-        orderRef.value = fetchedQuestion.order;
-        metadataRef.value = fetchedQuestion.metadata || {};
+        console.log("[QuestionFormView] Fetched question data:", JSON.stringify(fetchedQuestion));
+        questionData.text = fetchedQuestion.text;
+        questionData.question_type = fetchedQuestion.question_type;
+        questionData.order = fetchedQuestion.order;
+        questionData.metadata = fetchedQuestion.metadata || {};
         initialAnswerOptions.value = fetchedQuestion.answer_options || [];
-        console.log(`Assigned text: "${textRef.value}"`);
+        console.log(`[QuestionFormView] Assigned text: "${questionData.text}"`);
         await nextTick();
     } catch (err: any) {
         console.error(`Errore caricamento domanda ${questId}:`, err);
         error.value = `Errore caricamento domanda: ${err.response?.data?.detail || err.message || 'Errore sconosciuto'}`;
+        questionData.text = '';
+        questionData.question_type = '';
+        questionData.order = 0;
+        questionData.metadata = {};
+        initialAnswerOptions.value = [];
     } finally {
         isLoading.value = false;
     }
 };
+
+// Funzione per resettare il form per la creazione
+const resetFormForCreation = async (qId: number, defaultOrderQuery: any) => {
+    questionData.text = '';
+    questionData.question_type = '';
+    questionData.metadata = {};
+    initialAnswerOptions.value = [];
+    questionId.value = null;
+
+    const defaultOrderParam = defaultOrderQuery;
+    console.log(`[QuestionFormView] Received defaultOrder query param: ${defaultOrderParam}`);
+    if (defaultOrderParam && !isNaN(Number(defaultOrderParam))) {
+        questionData.order = Number(defaultOrderParam);
+    } else {
+        console.warn("Parametro defaultOrder mancante o non valido, calcolando ordine...");
+        isLoading.value = true;
+        try {
+            // NOTA: fetchQuestions qui è solo per calcolare l'ordine, non per popolare la lista
+            const existingQuestions = await fetchQuestions(qId);
+            questionData.order = existingQuestions.length;
+        } catch (err) {
+            console.error(`Errore nel recupero domande per calcolare ordine default (Quiz ID: ${qId}):`, err);
+            error.value = "Impossibile calcolare l'ordine predefinito.";
+            questionData.order = 0;
+        } finally {
+            isLoading.value = false;
+        }
+    }
+     console.log(`[QuestionFormView] Order set to: ${questionData.order}`);
+};
+
 
 const saveQuestion = async () => {
     if (!quizId.value) {
@@ -127,34 +175,50 @@ const saveQuestion = async () => {
 
     isSaving.value = true;
     error.value = null;
+    successMessage.value = null;
 
     const payload: QuestionPayload = {
-        text: textRef.value,
-        question_type: questionTypeRef.value,
-        order: orderRef.value,
-        metadata: metadataRef.value && Object.keys(metadataRef.value).length > 0 ? metadataRef.value : {},
+        text: questionData.text,
+        question_type: questionData.question_type,
+        order: questionData.order,
+        metadata: questionData.metadata && Object.keys(questionData.metadata).length > 0 ? questionData.metadata : {},
     };
 
     try {
+        let savedQuestion: Question | null = null;
         if (isEditing.value && questionId.value) {
-            await updateQuestion(quizId.value, questionId.value, payload);
-            goBack(); // Torna indietro solo dopo update
+            savedQuestion = await updateQuestion(quizId.value, questionId.value, payload);
+            successMessage.value = "Domanda aggiornata con successo!";
+            // Ricarica i dati della domanda specifica dopo il salvataggio
+            await loadQuestionData(quizId.value, questionId.value);
         } else {
-            const newQuestion = await createQuestion(quizId.value, payload);
-            router.push({
+            savedQuestion = await createQuestion(quizId.value, payload);
+            successMessage.value = "Domanda creata con successo!";
+            // Aggiorna l'URL per riflettere la modalità modifica della nuova domanda
+            router.replace({
                 name: 'question-edit',
                 params: {
                     quizId: quizId.value.toString(),
-                    questionId: newQuestion.id.toString()
+                    questionId: savedQuestion.id.toString()
                 }
             });
-            // Non chiamare goBack() qui, la navigazione è già avvenuta
+            // Aggiorna lo stato locale per riflettere la nuova domanda
+            questionId.value = savedQuestion.id;
+            initialAnswerOptions.value = [];
         }
+
+        // Nascondi messaggio dopo timeout
+        setTimeout(() => { successMessage.value = null; }, 3000);
+
     } catch (err: any) {
         console.error("Errore durante il salvataggio della domanda:", err);
-        error.value = `Errore salvataggio domanda: ${err.response?.data?.detail || err.message || 'Errore sconosciuto'}`;
         if (err.response?.data && typeof err.response.data === 'object') {
-             console.log("Dettagli errore API:", err.response.data);
+             const errorDetails = Object.entries(err.response.data)
+                 .map(([key, value]) => `${key}: ${Array.isArray(value) ? value.join(', ') : value}`)
+                 .join('; ');
+             error.value = `Errore salvataggio: ${errorDetails}`;
+        } else {
+             error.value = `Errore salvataggio domanda: ${err.response?.data?.detail || err.message || 'Errore sconosciuto'}`;
         }
     } finally {
         isSaving.value = false;
@@ -164,20 +228,21 @@ const saveQuestion = async () => {
 const handleOptionsSaved = (savedOptions: AnswerOption[]) => {
     console.log("Opzioni salvate dal componente figlio:", savedOptions);
     initialAnswerOptions.value = savedOptions;
+    successMessage.value = "Opzioni salvate con successo.";
+    setTimeout(() => { successMessage.value = null; }, 2000);
 };
 
 const handleOptionsError = (errorMessage: string) => {
-    console.error("Errore dall&#39;editor opzioni:", errorMessage);
+    console.error("Errore dall'editor opzioni:", errorMessage);
     error.value = errorMessage;
 };
 
-// Funzione per processare i parametri della rotta e caricare/resettare i dati
+// --- Watchers e Lifecycle Hooks ---
 const processRouteParams = async (params: any, query: any) => {
-  console.log("[QuestionFormView] START processRouteParams - params:", JSON.stringify(params), "query:", JSON.stringify(query)); // Log dettagliato
-  const qIdParam = params.quizId;
+  console.log("[QuestionFormView] START processRouteParams - params:", JSON.stringify(params), "query:", JSON.stringify(query));
+  const qIdParam = params.quizId; // Corretto
   const questIdParam = params.questionId;
 
-  // Reset error and IDs
   error.value = null;
   let currentQuizId: number | null = null;
   let currentQuestionId: number | null = null;
@@ -190,14 +255,18 @@ const processRouteParams = async (params: any, query: any) => {
     } else {
       console.error("ID Quiz non valido (non numerico):", qIdParam);
       error.value = "ID Quiz fornito nella URL non è valido.";
+      quizId.value = null;
+      questionId.value = null;
       return;
     }
   } else {
       error.value = "ID Quiz mancante nella rotta.";
       console.error("ID Quiz mancante nella rotta.");
+      quizId.value = null;
+      questionId.value = null;
       return;
   }
-  quizId.value = currentQuizId; // Aggiorna ref solo dopo validazione
+  quizId.value = currentQuizId;
 
   // Gestisci questionId
   if (questIdParam) {
@@ -208,70 +277,50 @@ const processRouteParams = async (params: any, query: any) => {
     } else {
         console.error("ID Domanda non valido (non numerico):", questIdParam);
         error.value = "ID Domanda fornito nella URL non è valido.";
-        return;
+        questionId.value = null;
     }
   } else {
       currentQuestionId = null;
-      console.log("Question ID parsed as null (creation mode)");
+      console.log("Question ID not found in params (creation or quiz edit mode)");
   }
-  questionId.value = currentQuestionId; // Aggiorna ref solo dopo validazione
+  questionId.value = currentQuestionId;
 
-  // Determina se caricare dati o resettare per creazione
-  if (currentQuestionId) { // Modalità modifica
-    console.log(`Loading data for Quiz ${currentQuizId}, Question ${currentQuestionId}`);
-    await loadQuestionData(currentQuizId, currentQuestionId); // Ora loadQuestionData è definita
-  } else { // Modalità creazione
-    console.log(`Setting defaults for creation in Quiz ${currentQuizId}`);
-    // Resetta i dati del form
-    textRef.value = '';
-    questionTypeRef.value = '';
-    metadataRef.value = {};
-    initialAnswerOptions.value = [];
-    // Leggi l'ordine default dalla query
-    const defaultOrderParam = query.defaultOrder;
-    console.log(`[QuestionFormView] Received defaultOrder query param: ${defaultOrderParam}`); // Log the received param
-    if (defaultOrderParam && !isNaN(Number(defaultOrderParam))) {
-        orderRef.value = Number(defaultOrderParam);
-    } else {
-        // Fallback: calcola ordine basato sulle domande esistenti
-        console.warn("Parametro defaultOrder mancante o non valido, calcolando ordine...");
-        isLoading.value = true; // Mostra loading mentre calcoliamo
-        try {
-            // Assicurati che fetchQuestions sia importato
-            const existingQuestions = await fetchQuestions(currentQuizId);
-            orderRef.value = existingQuestions.length;
-        } catch (err) {
-            console.error(`Errore nel recupero domande per calcolare ordine default (Quiz ID: ${currentQuizId}):`, err);
-            error.value = "Impossibile calcolare l'ordine predefinito.";
-            orderRef.value = 0; // Fallback a 0 in caso di errore
-        } finally {
-            isLoading.value = false;
-        }
-    }
+  // --- Carica dati specifici ---
+  if (questionId.value && quizId.value) {
+    // === Modalità Modifica Domanda ===
+    console.log(`Loading specific question data for Quiz ${quizId.value}, Question ${questionId.value}`);
+    await loadQuestionData(quizId.value, questionId.value);
+    // Non carichiamo la lista completa delle domande qui, viene fatto da QuizFormView
+  } else if (quizId.value) {
+    // === Modalità Creazione Domanda ===
+    console.log(`Setting defaults for creation in Quiz ${quizId.value}`);
+    await resetFormForCreation(quizId.value, query.defaultOrder);
+    // Non carichiamo la lista completa delle domande qui
+  } else {
+      // === Stato Non Valido ===
+      console.error("Stato non valido: ID Quiz non valido o mancante.");
+      error.value = "Stato della rotta non valido.";
   }
 };
 
-// --- Watchers (definiti dopo le funzioni) ---
-
 // Watch per reagire ai cambiamenti dei parametri della rotta
-// Watch per reagire ai cambiamenti SUCCESSIVI dei parametri della rotta
 watch(
   () => route.params,
   async (newParams, oldParams) => {
-    // Esegui solo se i parametri rilevanti sono effettivamente cambiati e non è la chiamata iniziale
-    const relevantParamsChanged = (newParams?.quizId !== oldParams?.quizId) || (newParams?.questionId !== oldParams?.questionId);
-    if (relevantParamsChanged) {
+    const quizIdChanged = newParams?.quizId !== oldParams?.quizId;
+    const questionIdChanged = newParams?.questionId !== oldParams?.questionId;
+
+    if (quizIdChanged || questionIdChanged) {
         console.log("Route params changed AFTER mount, processing:", newParams);
         await processRouteParams(newParams, route.query);
     }
   },
-  { deep: true } // Rimosso immediate: true
+  { deep: true }
 );
 
 // onMounted per gestire il caricamento iniziale
 onMounted(() => {
-    console.log("[QuestionFormView] Component mounted. Initial route params:", JSON.stringify(route.params), "query:", JSON.stringify(route.query)); // Log dettagliato
-    // Ritarda leggermente l'esecuzione per assicurarsi che tutte le funzioni siano definite
+    console.log("[QuestionFormView] Component mounted. Initial route params:", JSON.stringify(route.params), "query:", JSON.stringify(route.query));
     nextTick(async () => {
         try {
             console.log("[QuestionFormView] Calling processRouteParams from onMounted...");
@@ -284,12 +333,9 @@ onMounted(() => {
     });
 });
 
-// Watcher per il tipo di domanda
-watch(questionTypeRef, (newType) => {
+// Watcher per il tipo di domanda (ora usa questionData.question_type)
+watch(() => questionData.question_type, (newType) => {
     console.log("Question type changed to:", newType);
-    if (!typesWithOptions.includes(newType)) {
-        initialAnswerOptions.value = [];
-    }
 });
 
 </script>
@@ -331,32 +377,22 @@ watch(questionTypeRef, (newType) => {
   margin-top: 20px;
 }
 
-.form-actions button {
-  padding: 10px 15px;
-  margin-right: 10px;
-  cursor: pointer;
-  border-radius: 4px;
-  border: none;
-}
-
-.form-actions button[type="submit"] {
-  background-color: #4CAF50; /* Green */
-  color: white;
-}
-.form-actions button[type="submit"]:disabled {
-  background-color: #aaa;
-  cursor: not-allowed;
-}
-
-.form-actions button[type="button"] {
-  background-color: #f44336; /* Red */
-  color: white;
-}
+/* Stili per i bottoni ora gestiti da Tailwind nel template */
+/*
+.form-actions button { ... }
+.form-actions button[type="submit"] { ... }
+.form-actions button[type="submit"]:disabled { ... }
+.form-actions button[type="button"] { ... }
+*/
 
 .error-message {
   color: red;
   margin-top: 10px;
   font-weight: bold;
+}
+.success-message {
+  /* Stili Tailwind applicati direttamente nel template */
+  margin-bottom: 15px;
 }
 
 .loading {

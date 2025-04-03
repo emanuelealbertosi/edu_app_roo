@@ -4,12 +4,14 @@
     <div v-if="isLoading" class="loading">Caricamento opzioni...</div>
     <div v-else-if="error" class="error-message">{{ error }}</div>
     <ul v-else class="options-list">
-      <li v-for="(option, index) in localOptions" :key="option.tempId || option.id">
+      <!-- Usiamo l'ID reale se disponibile, altrimenti il tempId come chiave -->
+      <li v-for="(option, index) in localOptions" :key="option.id || option.tempId">
         <input
           type="text"
           v-model="option.text"
           placeholder="Testo opzione"
-          @change="markAsChanged(index)"
+          @change="handleOptionChange(index)"
+          class="border rounded px-2 py-1 flex-grow"
         />
         <input
           :type="allowMultipleCorrect ? 'checkbox' : 'radio'"
@@ -17,31 +19,49 @@
           :checked="option.is_correct"
           @change="toggleCorrect(index)"
           :disabled="!option.text"
+          class="ml-2 cursor-pointer"
         />
-        <label>Corretta</label>
+        <label class="ml-1 mr-3 whitespace-nowrap">Corretta</label>
         <input
             type="number"
             v-model.number="option.order"
             min="0"
             placeholder="Ordine"
-            class="order-input"
-            @change="markAsChanged(index)"
+            class="order-input border rounded px-2 py-1 w-16"
+            @change="handleOptionChange(index)"
         />
-        <button type="button" @click="removeOption(index)" class="delete">Rimuovi</button>
+        <!-- Stile Tailwind per bottone Rimuovi -->
+        <button
+            type="button"
+            @click="removeOption(index)"
+            class="delete-button bg-red-500 hover:bg-red-700 text-white text-xs font-bold py-1 px-2 rounded ml-2"
+        >
+            Rimuovi
+        </button>
       </li>
     </ul>
-    <button type="button" @click="addOption">Aggiungi Opzione</button>
-    <button type="button" @click="saveOptions" :disabled="!hasChanges || isSaving">
-      {{ isSaving ? 'Salvataggio Opzioni...' : 'Salva Modifiche Opzioni' }}
+    <!-- Stile Tailwind per bottone Aggiungi -->
+    <button
+        type="button"
+        @click="addOption"
+        class="add-button bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-3 rounded mt-3"
+    >
+        Aggiungi Opzione
     </button>
-    <div v-if="saveError" class="error-message">{{ saveError }}</div>
+    <!-- Bottone Salva Modifiche Opzioni Rimosso -->
+    <!-- Messaggio di stato salvataggio -->
+     <span v-if="isSaving" class="ml-4 text-sm italic text-gray-600">Salvataggio...</span>
+     <span v-if="saveError" class="ml-4 text-sm font-semibold text-red-600">Errore: {{ saveError }}</span>
+     <span v-if="saveSuccess" class="ml-4 text-sm font-semibold text-green-600">Opzioni salvate!</span>
+
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, watch, defineProps, defineEmits, nextTick, computed } from 'vue'; // Aggiunto import computed
+import { ref, watch, defineProps, defineEmits, nextTick, computed, reactive } from 'vue'; // Aggiunto reactive
 import type { AnswerOption, AnswerOptionPayload } from '@/api/questions';
 import { createAnswerOption, updateAnswerOption, deleteAnswerOptionApi } from '@/api/questions';
+import { debounce } from 'lodash-es'; // Importa debounce
 
 // Interfaccia interna per gestire ID temporanei e stato modificato
 interface LocalAnswerOption extends Partial<AnswerOption> {
@@ -63,19 +83,31 @@ const props = defineProps<{
 
 const emit = defineEmits(['options-saved', 'error']);
 
+// Usiamo reactive per permettere modifiche dirette e reattività
 const localOptions = ref<LocalAnswerOption[]>([]);
 const isLoading = ref(false); // Potrebbe non servire se le opzioni sono caricate dal padre
 const error = ref<string | null>(null); // Errore caricamento iniziale (se applicabile)
 const saveError = ref<string | null>(null); // Errore durante il salvataggio
 const isSaving = ref(false);
-const hasChanges = ref(false);
+const saveSuccess = ref(false); // Flag per messaggio successo
+// hasChanges non è più necessario per abilitare il bottone, ma utile internamente
+// const hasChanges = ref(false);
 
 const allowMultipleCorrect = computed(() => props.questionType === 'MC_MULTI');
 
 // Funzione per inizializzare o resettare le opzioni locali
 const initializeOptions = (options: AnswerOption[]) => {
-    localOptions.value = options.map(opt => ({ ...opt, isChanged: false, isNew: false, isDeleted: false }));
-    hasChanges.value = false; // Resetta lo stato modificato
+    // Filtra le opzioni già marcate come eliminate se presenti nello stato precedente
+    const currentNonDeleted = localOptions.value.filter(opt => !opt.isDeleted).map(opt => opt.id);
+    localOptions.value = options
+        .filter(opt => currentNonDeleted.includes(opt.id) || !localOptions.value.some(lOpt => lOpt.id === opt.id)) // Mantieni solo quelle non marcate per eliminazione
+        .map(opt => reactive({ // Usa reactive per ogni opzione
+            ...opt,
+            isChanged: false,
+            isNew: false,
+            isDeleted: false
+        }));
+    // hasChanges.value = false; // Non più necessario per il bottone
 };
 
 // Guarda le opzioni iniziali passate come prop
@@ -88,7 +120,7 @@ const generateTempId = () => `temp_${Date.now()}_${Math.random().toString(36).su
 
 const addOption = () => {
   const newOrder = localOptions.value.length > 0 ? Math.max(...localOptions.value.map(o => o.order)) + 1 : 0;
-  localOptions.value.push({
+  const newOption = reactive<LocalAnswerOption>({ // Crea come oggetto reactive
     tempId: generateTempId(),
     text: '',
     is_correct: false,
@@ -97,122 +129,136 @@ const addOption = () => {
     isChanged: true, // Marcata come modificata perché nuova
     isDeleted: false,
   });
-  hasChanges.value = true;
+  localOptions.value.push(newOption);
+  // Non chiamiamo saveOptions qui, aspettiamo che l'utente inserisca il testo
 };
 
-const removeOption = (index: number) => {
+const removeOption = async (index: number) => {
   const option = localOptions.value[index];
   if (option.isNew) {
-    // Se è una nuova opzione non salvata, rimuovila direttamente
+    // Se è una nuova opzione non salvata, rimuovila direttamente dall'array locale
     localOptions.value.splice(index, 1);
-  } else {
-    // Altrimenti, marcala per l'eliminazione
-    option.isDeleted = true;
+  } else if (option.id) {
+    // Se è un'opzione esistente, marcala per l'eliminazione e chiamiamo l'API
+    option.isDeleted = true; // Marca logicamente
+    await saveOptions(); // Salva le modifiche (che includono l'eliminazione)
   }
-  hasChanges.value = true;
-  // Rimuovi visivamente l'opzione marcata per l'eliminazione
-  // Questo è opzionale, potresti volerla mostrare barrata
-  localOptions.value = localOptions.value.filter(opt => !opt.isDeleted);
 };
 
 const toggleCorrect = (index: number) => {
-  let changed = false; // Flag per tracciare se qualcosa è cambiato
   if (!allowMultipleCorrect.value) {
     // Radio button logic: Set only the clicked one to true
     localOptions.value.forEach((opt, i) => {
-      const shouldBeCorrect = (i === index);
-      if (opt.is_correct !== shouldBeCorrect) { // Controlla se lo stato cambia effettivamente
-          opt.is_correct = shouldBeCorrect;
-          if (!opt.isNew) { // Marca le opzioni esistenti come modificate se il loro stato è cambiato
-              opt.isChanged = true;
-              changed = true;
-          } else if (shouldBeCorrect) { // Marca una nuova opzione come modificata solo se diventa true
-              changed = true; // Impostare un nuovo radio a true è una modifica
-          }
-      }
+      opt.is_correct = (i === index);
+      if (i !== index) markAsChanged(i); // Marca gli altri come cambiati se il loro stato è cambiato
     });
-    // Assicura che l'opzione cliccata (se esistente) sia marcata come modificata
-    // per includerla nel ciclo di salvataggio, anche se il suo stato booleano non è cambiato
-    // (potrebbe essere già stata 'true' e l'utente ci ha cliccato di nuovo)
-    if (!localOptions.value[index].isNew) {
-        markAsChanged(index); // Usa la funzione helper per marcare e impostare hasChanges
-    } else if (changed) {
-        // Se una nuova opzione è diventata true, assicurati che hasChanges sia true
-        hasChanges.value = true;
-    }
-
   } else {
     // Checkbox logic: Toggle the clicked one
     localOptions.value[index].is_correct = !localOptions.value[index].is_correct;
-    markAsChanged(index); // Marca questa specifica come modificata
   }
+  markAsChanged(index); // Marca quella cliccata come cambiata
+  debouncedSaveOptions(); // Salva automaticamente con debounce
 };
 
 const markAsChanged = (index: number) => {
-    if (!localOptions.value[index].isNew) { // Non marcare come 'changed' se è già 'new'
+    if (index < localOptions.value.length && !localOptions.value[index].isNew) { // Controllo esistenza indice
         localOptions.value[index].isChanged = true;
     }
-    hasChanges.value = true;
+    // hasChanges.value = true; // Non più necessario per il bottone
 };
 
+// Funzione chiamata quando testo o ordine cambiano
+const handleOptionChange = (index: number) => {
+    markAsChanged(index);
+    debouncedSaveOptions(); // Salva automaticamente con debounce
+};
+
+// Funzione di salvataggio con debounce per evitare chiamate API troppo frequenti
+const debouncedSaveOptions = debounce(async () => {
+    await saveOptions();
+}, 1000); // Aspetta 1 secondo dopo l'ultima modifica prima di salvare
+
 const saveOptions = async () => {
+  if (isSaving.value) return; // Evita salvataggi concorrenti
+
   isSaving.value = true;
   saveError.value = null;
+  saveSuccess.value = false;
   const promises = [];
-  const finalOptions: AnswerOption[] = []; // Lista delle opzioni dopo il salvataggio
+  const optionsToKeepLocally: LocalAnswerOption[] = []; // Opzioni da mantenere dopo il salvataggio
 
-  for (const option of localOptions.value) {
-    const payload: AnswerOptionPayload = {
-        text: option.text,
-        is_correct: option.is_correct,
-        order: option.order,
-    };
+  // Filtra prima le opzioni valide (con testo)
+  const validOptions = localOptions.value.filter(opt => opt.text.trim() || opt.isDeleted);
 
+  for (const option of validOptions) {
+    // Se è marcata per eliminazione e ha un ID, eliminala
     if (option.isDeleted && option.id) {
-      // Elimina opzione esistente
-      promises.push(deleteAnswerOptionApi(props.quizId, props.questionId, option.id));
-    } else if (option.isNew && !option.isDeleted) {
-      // Crea nuova opzione
+      promises.push(
+          deleteAnswerOptionApi(props.quizId, props.questionId, option.id)
+            .catch(err => { // Cattura errore specifico per questa promise
+                console.error(`Errore eliminazione opzione ${option.id}:`, err);
+                throw err; // Rilancia per bloccare Promise.all
+            })
+      );
+      // Non aggiungerla a optionsToKeepLocally
+    }
+    // Se è nuova, non eliminata e ha testo, creala
+    else if (option.isNew && !option.isDeleted && option.text.trim()) {
+      const payload: AnswerOptionPayload = { text: option.text, is_correct: option.is_correct, order: option.order };
       promises.push(
           createAnswerOption(props.quizId, props.questionId, payload)
-            .then(savedOption => finalOptions.push(savedOption)) // Aggiungi l'opzione salvata
+            .then(savedOption => {
+                // Aggiorna l'opzione locale con i dati reali (ID) e resetta stati
+                Object.assign(option, { ...savedOption, isNew: false, isChanged: false, tempId: undefined });
+                optionsToKeepLocally.push(option); // Mantienila
+            })
+            .catch(err => {
+                console.error(`Errore creazione opzione '${option.text}':`, err);
+                optionsToKeepLocally.push(option); // Mantieni l'opzione locale anche se fallisce la creazione per ora
+                throw err;
+            })
       );
-    } else if (option.isChanged && option.id && !option.isDeleted) {
-      // Aggiorna opzione esistente
+    }
+    // Se è cambiata, ha un ID, non è eliminata e ha testo, aggiornala
+    else if (option.isChanged && option.id && !option.isDeleted && option.text.trim()) {
+      const payload: AnswerOptionPayload = { text: option.text, is_correct: option.is_correct, order: option.order };
       promises.push(
           updateAnswerOption(props.quizId, props.questionId, option.id, payload)
-            .then(savedOption => finalOptions.push(savedOption)) // Aggiungi l'opzione salvata
+            .then(savedOption => {
+                // Aggiorna l'opzione locale e resetta stato
+                Object.assign(option, { ...savedOption, isChanged: false });
+                optionsToKeepLocally.push(option); // Mantienila
+            })
+            .catch(err => {
+                console.error(`Errore aggiornamento opzione ${option.id}:`, err);
+                optionsToKeepLocally.push(option); // Mantieni l'opzione locale
+                throw err;
+            })
       );
-    } else if (option.id && !option.isDeleted) {
-        // Opzione non modificata, aggiungila alla lista finale
-        finalOptions.push(option as AnswerOption);
     }
-  }
-
-  // Gestione opzioni marcate per eliminazione ma non ancora processate (se non filtrate prima)
-  const optionsToDelete = props.initialOptions.filter(initialOpt =>
-    localOptions.value.find(localOpt => localOpt.id === initialOpt.id && localOpt.isDeleted)
-  );
-  for (const option of optionsToDelete) {
-      if (option.id) {
-          promises.push(deleteAnswerOptionApi(props.quizId, props.questionId, option.id));
-      }
+    // Se non è cambiata, non è nuova, non è eliminata, mantienila
+    else if (!option.isNew && !option.isChanged && !option.isDeleted && option.id) {
+        optionsToKeepLocally.push(option);
+    }
+    // Ignora opzioni nuove senza testo o marcate per eliminazione senza ID
   }
 
 
   try {
     await Promise.all(promises);
-    // Riordina finalOptions per sicurezza, anche se l'API dovrebbe restituirle ordinate
-    finalOptions.sort((a, b) => a.order - b.order);
-    // Emetti evento con le opzioni aggiornate (o ricarica dal padre)
-    emit('options-saved', finalOptions);
-    // Resetta lo stato locale basandosi sulle opzioni salvate
-    initializeOptions(finalOptions);
+    // Riordina le opzioni rimaste per sicurezza
+    optionsToKeepLocally.sort((a, b) => a.order - b.order);
+    // Aggiorna l'array locale solo con le opzioni mantenute/aggiornate/create
+    localOptions.value = optionsToKeepLocally.map(opt => reactive(opt)); // Assicura reattività
+    emit('options-saved', localOptions.value.filter(opt => !!opt.id)); // Emetti solo quelle con ID
     console.log("Opzioni salvate con successo.");
+    saveSuccess.value = true; // Mostra messaggio successo
+    setTimeout(() => saveSuccess.value = false, 2000); // Nascondi dopo 2 sec
   } catch (err: any) {
     console.error("Errore durante il salvataggio delle opzioni:", err);
     saveError.value = `Errore salvataggio opzioni: ${err.response?.data?.detail || err.message || 'Errore sconosciuto'}`;
     emit('error', saveError.value); // Notifica il padre dell'errore
+     // Non resettare le opzioni locali in caso di errore per permettere correzione
   } finally {
     isSaving.value = false;
   }
@@ -239,52 +285,18 @@ const saveOptions = async () => {
   gap: 10px; /* Spazio tra gli elementi */
 }
 
-.options-list input[type="text"] {
-  flex-grow: 1; /* Occupa lo spazio rimanente */
-  padding: 6px;
-  border: 1px solid #ccc;
-  border-radius: 3px;
-}
+/* Stili input gestiti da Tailwind */
+/* .options-list input[type="text"] { ... } */
+/* .options-list input[type="radio"], .options-list input[type="checkbox"] { ... } */
+/* .options-list label { ... } */
+/* .options-list .order-input { ... } */
 
-.options-list input[type="radio"],
-.options-list input[type="checkbox"] {
-  margin-left: 5px;
-  cursor: pointer;
-}
-.options-list label {
-    margin-left: -5px; /* Avvicina label a checkbox/radio */
-    margin-right: 10px;
-    white-space: nowrap;
-}
+/* Stile bottone Rimuovi gestito da Tailwind */
+/* .options-list button.delete { ... } */
+/* .options-list button.delete:hover { ... } */
 
-.options-list .order-input {
-    width: 60px; /* Larghezza fissa per ordine */
-    padding: 6px;
-    border: 1px solid #ccc;
-    border-radius: 3px;
-}
-
-
-.options-list button.delete {
-  background-color: #f44336;
-  color: white;
-  border: none;
-  border-radius: 3px;
-  padding: 4px 8px;
-  cursor: pointer;
-  font-size: 0.8em;
-}
-.options-list button.delete:hover {
-    background-color: #d32f2f;
-}
-
-
-button {
-  margin-top: 10px;
-  padding: 6px 12px;
-  cursor: pointer;
-  margin-right: 10px;
-}
+/* Stile bottone Aggiungi gestito da Tailwind */
+/* button { ... } */
 
 .error-message {
   color: red;

@@ -19,8 +19,20 @@
           <div class="grading-actions">
             <!-- Form/pulsanti per assegnare punteggio/correttezza -->
             <p>Form valutazione da implementare</p>
-            <button @click="gradeAnswer(answer.id, true, 1)">Corretta (1pt)</button>
-            <button @click="gradeAnswer(answer.id, false, 0)">Errata (0pt)</button>
+            <!-- Applicato stile Tailwind -->
+            <button
+                @click="gradeAnswer(answer.id, true, 1)"
+                class="bg-green-500 hover:bg-green-700 text-white font-bold py-1 px-2 rounded text-sm mr-2"
+            >
+                Corretta (1pt)
+            </button>
+            <!-- Applicato stile Tailwind -->
+            <button
+                @click="gradeAnswer(answer.id, false, 0)"
+                class="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded text-sm"
+            >
+                Errata (0pt)
+            </button>
           </div>
         </li>
       </ul>
@@ -74,6 +86,7 @@ const gradeAnswer = async (answerId: number, isCorrect: boolean, score: number |
     const answerIndex = pendingAnswers.value.findIndex(a => a.id === answerId);
     // TODO: Aggiungere uno stato di caricamento per riga se necessario
 
+    error.value = null; // Resetta errore generale prima di provare
     try {
         await apiClient.post(`/education/teacher/grading/${answerId}/grade/`, {
             is_correct: isCorrect,
@@ -138,10 +151,7 @@ const gradeAnswer = async (answerId: number, isCorrect: boolean, score: number |
     min-width: 150px;
     text-align: right;
 }
-.grading-actions button {
-    margin-left: 5px;
-    margin-top: 5px;
-    padding: 5px 10px;
-    cursor: pointer;
-}
+/* Rimosso stile .grading-actions button */
+/* .grading-actions button { ... } */
+
 </style>

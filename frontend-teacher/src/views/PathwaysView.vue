@@ -3,7 +3,8 @@
     <h1>Gestione Percorsi Educativi</h1>
     <p>Qui puoi visualizzare, creare e modificare i tuoi percorsi educativi.</p>
     <div class="actions">
-      <button @click="createNewPathway">Crea Nuovo Percorso</button>
+      <!-- Applicato stile Tailwind -->
+      <button @click="createNewPathway" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">Crea Nuovo Percorso</button>
     </div>
 
     <div v-if="isLoading" class="loading">Caricamento percorsi...</div>
@@ -26,8 +27,10 @@
             <td>{{ pathway.description || '-' }}</td>
             <td>{{ new Date(pathway.created_at).toLocaleDateString() }}</td>
             <td>
-              <button @click="editPathway(pathway.id)">Modifica</button>
-              <button @click="deletePathway(pathway.id)" class="delete">Elimina</button>
+              <!-- Applicato stile Tailwind -->
+              <button @click="editPathway(pathway.id)" class="bg-yellow-500 hover:bg-yellow-700 text-white font-bold py-1 px-2 rounded text-sm mr-2">Modifica</button>
+              <!-- Applicato stile Tailwind -->
+              <button @click="deletePathway(pathway.id)" class="delete bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded text-sm">Elimina</button>
             </td>
           </tr>
         </tbody>
@@ -96,17 +99,10 @@ const deletePathway = async (id: number) => {
 .actions {
   margin-bottom: 20px;
 }
-.actions button {
-  padding: 8px 15px;
-  cursor: pointer;
-  background-color: #4CAF50;
-  color: white;
-  border: none;
-  border-radius: 4px;
-}
-.actions button:hover {
-  background-color: #45a049;
-}
+/* Rimosso stile .actions button */
+/* .actions button { ... } */
+/* .actions button:hover { ... } */
+
 .loading, .error-message, .no-pathways {
   margin-top: 20px;
   font-style: italic;
@@ -132,17 +128,9 @@ th, td {
 th {
   background-color: #f2f2f2;
 }
-td button {
-  margin-right: 5px;
-  padding: 3px 8px;
-  cursor: pointer;
-}
-td button.delete {
-    background-color: #f44336;
-    color: white;
-    border: none;
-}
-td button.delete:hover {
-    background-color: #d32f2f;
-}
+/* Rimosso stile td button */
+/* td button { ... } */
+/* Rimosso stile td button.delete */
+/* td button.delete { ... } */
+/* td button.delete:hover { ... } */
 </style>

@@ -17,7 +17,12 @@
         <p><strong>Costo:</strong> {{ purchase.points_spent }} punti</p>
         <div class="delivery-actions">
           <textarea v-model="deliveryNotes[purchase.id]" placeholder="Note sulla consegna (opzionale)"></textarea>
-          <button @click="markAsDelivered(purchase.id)" :disabled="isDelivering[purchase.id]">
+          <!-- Applicato stile Tailwind -->
+          <button
+            @click="markAsDelivered(purchase.id)"
+            :disabled="isDelivering[purchase.id]"
+            class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+          >
             {{ isDelivering[purchase.id] ? 'Consegna...' : 'Segna come Consegnato' }}
           </button>
         </div>
@@ -60,7 +65,7 @@ async function loadPendingDeliveries() {
 
 async function markAsDelivered(purchaseId: number) {
   isDelivering[purchaseId] = true;
-  error.value = null; // Resetta errore precedente specifico per questa azione?
+  error.value = null; // Resetta errore generale prima di provare
   try {
     await markRewardAsDelivered(purchaseId, deliveryNotes[purchaseId] || null);
     // Rimuovi dalla lista locale o ricarica la lista
@@ -130,16 +135,7 @@ function formatDate(dateString: string | null): string {
   border: 1px solid #ccc;
   border-radius: 3px;
 }
-.delivery-actions button {
-  padding: 8px 12px;
-  cursor: pointer;
-  background-color: #28a745;
-  color: white;
-  border: none;
-  border-radius: 4px;
-}
-.delivery-actions button:disabled {
-  background-color: #aaa;
-  cursor: not-allowed;
-}
+/* Rimosso stile .delivery-actions button */
+/* .delivery-actions button { ... } */
+/* .delivery-actions button:disabled { ... } */
 </style>
