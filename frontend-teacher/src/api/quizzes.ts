@@ -93,6 +93,34 @@ export const deleteQuizApi = async (quizId: number): Promise<void> => {
         throw error;
     }
 };
+/**
+ * Carica un file (PDF, DOCX, MD) per creare automaticamente un quiz.
+ * @param file Il file da caricare.
+ * @param title Il titolo del nuovo quiz.
+ * @returns I dati del quiz creato.
+ */
+export const uploadQuiz = async (file: File, title: string): Promise<Quiz> => {
+    // Usiamo FormData per inviare il file
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('title', title);
+
+    try {
+        // L'URL per l'azione custom è /education/quizzes/upload/
+        const response: AxiosResponse<Quiz> = await apiClient.post('/education/quizzes/upload/', formData, {
+            headers: {
+                // Importante per l'upload di file con axios
+                'Content-Type': 'multipart/form-data',
+            },
+        });
+        return response.data;
+    } catch (error) {
+        console.error('Errore durante l\'upload del quiz:', error);
+        // Potresti voler gestire errori specifici restituiti dal backend (es. 400 Bad Request)
+        throw error;
+    }
+};
 
 // Potresti aggiungere qui altre funzioni API relative ai quiz in futuro
+// es. gestione domande, assegnazione studenti, etc.
 // es. gestione domande, assegnazione studenti, etc.

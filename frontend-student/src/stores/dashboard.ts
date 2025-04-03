@@ -32,10 +32,13 @@ export const useDashboardStore = defineStore('dashboard', {
     availableQuizzes(state): Quiz[] {
       const now = new Date();
       return state.quizzes.filter(quiz => {
-        // Escludi se l'ultimo tentativo è completato
-        if (quiz.latest_attempt?.status === 'COMPLETED') { // Corretto valore status
-            return false;
+        // Escludi se l'ultimo tentativo è COMPLETED (superato) o PENDING_GRADING.
+        // Se è FAILED o IN_PROGRESS (o non esiste tentativo), il quiz rimane disponibile (se le date lo permettono).
+        const lastStatus = quiz.latest_attempt?.status;
+        if (lastStatus === 'COMPLETED' || lastStatus === 'PENDING_GRADING') {
+             return false;
         }
+        // Se lo stato è 'FAILED' o 'IN_PROGRESS' o non c'è un tentativo, procedi con i controlli data.
 
         const availableFrom = quiz.available_from ? new Date(quiz.available_from) : null;
         const availableUntil = quiz.available_until ? new Date(quiz.available_until) : null;
@@ -53,19 +56,18 @@ export const useDashboardStore = defineStore('dashboard', {
       });
     },
     
-    // Quiz completati
+    // Quiz completati (solo quelli superati)
     completedQuizzes(state): Quiz[] {
-      return state.quizzes.filter(quiz => 
-        quiz.latest_attempt && 
-        quiz.latest_attempt.status === 'COMPLETED' // Corretto valore status
+      return state.quizzes.filter(quiz =>
+        quiz.latest_attempt?.status === 'COMPLETED' // Mostra solo quelli passati
       );
     },
     
-    // Quiz in corso o in attesa di correzione
-    inProgressQuizzes(state): Quiz[] {
-      return state.quizzes.filter(quiz => 
-        quiz.latest_attempt && 
-        ['in_progress', 'pending_manual_grading'].includes(quiz.latest_attempt.status)
+    // Quiz in corso, falliti o in attesa di correzione
+    inProgressOrFailedQuizzes(state): Quiz[] {
+      return state.quizzes.filter(quiz =>
+        quiz.latest_attempt &&
+        ['IN_PROGRESS', 'PENDING_GRADING', 'FAILED'].includes(quiz.latest_attempt.status) // Includi FAILED qui
       );
     },
     

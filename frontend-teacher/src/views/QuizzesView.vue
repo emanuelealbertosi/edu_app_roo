@@ -3,7 +3,8 @@
     <h1>Gestione Quiz</h1>
     <p>Qui puoi visualizzare, creare e modificare i tuoi quiz.</p>
     <div class="actions">
-      <button @click="createNewQuiz">Crea Nuovo Quiz</button>
+      <button @click="createNewQuiz" class="mr-2">Crea Nuovo Quiz</button>
+      <button @click="uploadFromFile">Carica da File</button>
     </div>
     <div v-if="isLoading" class="loading">Caricamento quiz...</div>
     <div v-else-if="error" class="error-message">
@@ -94,7 +95,11 @@ const deleteQuiz = async (id: number) => {
 };
 
 const createNewQuiz = () => {
-  router.push({ name: 'quiz-new' }); // Naviga alla rotta di creazione (da definire)
+  router.push({ name: 'quiz-new' }); // Naviga alla rotta di creazione manuale
+};
+
+const uploadFromFile = () => {
+  router.push({ name: 'quiz-upload' }); // Naviga alla nuova rotta di upload
 };
 </script>
 
@@ -149,13 +154,14 @@ td button {
 .actions button {
   padding: 8px 15px;
   cursor: pointer;
-  background-color: #4CAF50; /* Green */
+  background-color: #007bff; /* Blue */
   color: white;
   border: none;
   border-radius: 4px;
+  margin-right: 8px; /* Aggiunge spazio tra i pulsanti */
 }
 
 .actions button:hover {
-  background-color: #45a049;
+  background-color: #0056b3;
 }
 </style>

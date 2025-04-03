@@ -31,7 +31,13 @@ const router = createRouter({
       meta: { requiresAuth: true }
     },
     {
-      path: '/quizzes/new', // Rotta per creare un nuovo quiz
+      path: '/quizzes/upload', // Rotta per caricare un quiz da file
+      name: 'quiz-upload',
+      component: () => import('../views/QuizUploadView.vue'), // Usa la nuova vista
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/quizzes/new', // Rotta per creare un nuovo quiz (manualmente)
       name: 'quiz-new',
       component: () => import('../views/QuizFormView.vue'),
       meta: { requiresAuth: true }

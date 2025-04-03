@@ -7,8 +7,8 @@
         <input type="text" id="title" v-model="quizData.title" required />
       </div>
       <div class="form-group">
-        <label for="description">Descrizione:</label>
-        <textarea id="description" v-model="quizData.description"></textarea>
+        <label for="description">Descrizione (Opzionale):</label>
+        <textarea id="description" v-model="quizData.description"></textarea> <!-- Rimosso 'required' se presente -->
       </div>
       <div class="form-group">
         <label for="available_from">Disponibile Dal:</label>
@@ -20,7 +20,12 @@
       </div>
       <div class="form-group">
         <label for="points_on_completion">Punti al Completamento:</label>
-        <input type="number" id="points_on_completion" v-model.number="quizData.metadata.points_on_completion" min="0" />
+        <input type="number" id="points_on_completion" v-model.number="quizData.metadata.points_on_completion" min="0" class="form-input" />
+      </div>
+      <div class="form-group">
+        <label for="completion_threshold_percent">Soglia Completamento (%):</label>
+        <input type="number" id="completion_threshold_percent" v-model.number="quizData.metadata.completion_threshold_percent" min="0" max="100" step="0.1" class="form-input" />
+        <p class="form-help-text">Percentuale minima (0-100) per considerare il quiz superato. Default: 100%.</p>
       </div>
 
       <!-- Aggiungere gestione errori -->
@@ -77,7 +82,8 @@ interface QuizFormData {
   available_until: string | null;
   metadata: { // Aggiunto metadata
     points_on_completion: number | null;
-    // Aggiungere altri metadati qui se necessario (es. difficulty, threshold)
+    completion_threshold_percent: number | null; // Aggiunto campo soglia
+    // Aggiungere altri metadati qui se necessario (es. difficulty)
   };
 }
 
@@ -102,7 +108,8 @@ const quizData = reactive<QuizFormData>({
   available_from: null,
   available_until: null,
   metadata: { // Inizializza metadata
-    points_on_completion: null
+    points_on_completion: null,
+    completion_threshold_percent: 100.0 // Impostato default a 100.0
   }
 });
 
@@ -135,6 +142,8 @@ const loadQuizData = async (id: number) => {
     quizData.available_until = formatDateTimeForInput(fetchedQuiz.available_until);
     // Carica i metadati esistenti
     quizData.metadata.points_on_completion = fetchedQuiz.metadata?.points_on_completion ?? null;
+    // Carica anche la soglia esistente, o usa il default 100 se non presente
+    quizData.metadata.completion_threshold_percent = fetchedQuiz.metadata?.completion_threshold_percent ?? 100.0;
   } catch (err: any) {
     console.error("Errore nel caricamento del quiz:", err);
     error.value = err.response?.data?.detail || err.message || 'Errore nel caricamento dei dati del quiz.';
@@ -170,7 +179,9 @@ const saveQuiz = async () => {
       available_until: quizData.available_until ? new Date(quizData.available_until).toISOString() : null,
       // Includi i metadati nel payload, assicurandoti che points_on_completion sia un numero o null
       metadata: {
-          points_on_completion: quizData.metadata.points_on_completion === null || isNaN(quizData.metadata.points_on_completion) ? 0 : Number(quizData.metadata.points_on_completion)
+          points_on_completion: quizData.metadata.points_on_completion === null || isNaN(Number(quizData.metadata.points_on_completion)) ? 0 : Number(quizData.metadata.points_on_completion),
+          // Aggiungi anche la soglia al payload, assicurandoti che sia un numero valido o usa il default
+          completion_threshold_percent: quizData.metadata.completion_threshold_percent === null || isNaN(Number(quizData.metadata.completion_threshold_percent)) ? 100.0 : Number(quizData.metadata.completion_threshold_percent)
           // Aggiungere altri metadati qui se necessario
       },
   };
@@ -245,9 +256,9 @@ const handleDeleteQuestion = async (questionId: number) => {
 
     try {
         await deleteQuestionApi(quizId.value, questionId);
-        // Rimuovi la domanda dalla lista locale
-        questions.value = questions.value.filter(q => q.id !== questionId);
-        console.log(`Domanda ${questionId} eliminata.`);
+        // Ricarica l'elenco delle domande dal backend per riflettere il nuovo ordine
+        await loadQuestions(quizId.value);
+        console.log(`Domanda ${questionId} eliminata e lista domande ricaricata.`);
         // Mostra notifica successo (opzionale)
     } catch (err: any) {
         console.error(`Errore durante l'eliminazione della domanda ${questionId}:`, err);
@@ -277,12 +288,19 @@ const handleDeleteQuestion = async (questionId: number) => {
 
 .form-group input[type="text"],
 .form-group textarea,
-.form-group input[type="datetime-local"] {
+.form-group input[type="datetime-local"],
+.form-group input[type="number"].form-input { /* Applica stile anche agli input number */
   width: 100%;
   padding: 8px;
   border: 1px solid #ccc;
   border-radius: 4px;
   box-sizing: border-box; /* Include padding and border in element's total width and height */
+}
+
+.form-help-text {
+    font-size: 0.8rem;
+    color: #666;
+    margin-top: 4px;
 }
 
 .form-group textarea {

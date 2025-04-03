@@ -141,7 +141,7 @@ class Quiz(models.Model):
         verbose_name=_('Source Template')
     )
     title = models.CharField(_('Title'), max_length=255)
-    description = models.TextField(_('Description'), blank=True)
+    description = models.TextField(_('Description'), blank=True, null=True) # Aggiunto null=True
     metadata = models.JSONField(
         _('Metadata'),
         default=dict,
@@ -160,6 +160,31 @@ class Quiz(models.Model):
 
     def __str__(self):
         return self.title
+
+    def get_max_possible_score(self) -> float:
+        """
+        Calcola il punteggio massimo possibile per questo quiz.
+        Assume:
+        - 1 punto per MC_SINGLE, MC_MULTI, TF, FILL_BLANK (a meno che specificato diversamente in metadata).
+        - Punteggio definito in metadata['max_score'] per OPEN_MANUAL.
+        Restituisce un float per gestire potenziali punteggi frazionari futuri.
+        """
+        total_max_score = 0.0
+        for question in self.questions.all():
+            if question.question_type == QuestionType.OPEN_ANSWER_MANUAL:
+                # Per domande manuali, usa 'max_score' dai metadati, default a 1 se non presente
+                max_score = float(question.metadata.get('max_score', 1.0))
+                total_max_score += max_score
+            elif question.question_type == QuestionType.FILL_BLANK:
+                 # Per fill_blank, conta il numero di risposte corrette attese, default a 1
+                 num_blanks = len(question.metadata.get('correct_answers', [1])) # Default a 1 blank se non specificato
+                 points_per_blank = float(question.metadata.get('points_per_blank', 1.0)) # Default 1 punto per blank
+                 total_max_score += num_blanks * points_per_blank
+            else:
+                # Per MC e TF, usa 'points_per_correct_answer', default a 1.0
+                points = float(question.metadata.get('points_per_correct_answer', 1.0))
+                total_max_score += points
+        return total_max_score
 
 
 class Question(models.Model):
@@ -288,7 +313,8 @@ class QuizAttempt(models.Model):
     class AttemptStatus(models.TextChoices):
         IN_PROGRESS = 'IN_PROGRESS', _('In Progress')
         PENDING_GRADING = 'PENDING', _('Pending Manual Grading')
-        COMPLETED = 'COMPLETED', _('Completed')
+        COMPLETED = 'COMPLETED', _('Completed (Passed)') # Chiarito che COMPLETED implica superato
+        FAILED = 'FAILED', _('Completed (Failed)') # Nuovo stato per tentativi non superati
 
     student = models.ForeignKey(
         Student,

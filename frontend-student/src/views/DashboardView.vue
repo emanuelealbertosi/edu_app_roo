@@ -90,12 +90,13 @@ const goToShop = () => {
           :showStartButton="true"
         />
 
-        <!-- Quiz in corso -->
+        <!-- Quiz in corso, falliti o in attesa di correzione -->
         <QuizList
-          :quizzes="dashboardStore.inProgressQuizzes"
-          title="Quiz in Corso"
-          emptyMessage="Non hai quiz in corso al momento."
+          :quizzes="dashboardStore.inProgressOrFailedQuizzes"
+          title="Quiz da Continuare o Ritentare"
+          emptyMessage="Non hai quiz in corso o da ritentare."
           :loading="dashboardStore.loading.quizzes"
+          :showStartButton="true"
         />
 
         <!-- Percorsi in corso -->
