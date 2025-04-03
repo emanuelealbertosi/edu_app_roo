@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
-import { computed } from 'vue';
+import { computed, nextTick } from 'vue'; // Importa nextTick
 import { useAuthStore } from '@/stores/auth';
 
 const authStore = useAuthStore();
@@ -10,27 +10,25 @@ const route = useRoute();
 // Nasconde la navbar nella pagina di login
 const showNavbar = computed(() => route.name !== 'login');
 
-const handleLogout = async () => {
-  await authStore.logout();
-  router.push('/login');
+const handleLogout = () => { // Rimosso async e nextTick
+  authStore.logout(); // Lo store ora gestisce il redirect
 };
 </script>
 
 <template>
-  <header v-if="showNavbar" class="main-navbar">
-    <nav>
-      <RouterLink to="/dashboard" class="nav-link">Dashboard</RouterLink>
-      <RouterLink to="/shop" class="nav-link">Shop</RouterLink>
-      <RouterLink to="/profile" class="nav-link">Profilo</RouterLink>
-      <RouterLink to="/purchases" class="nav-link">Acquisti</RouterLink>
-      <!-- <RouterLink to="/purchases" class="nav-link">Acquisti</RouterLink> -->
+  <header v-if="showNavbar" class="fixed top-0 left-0 w-full bg-purple-800 text-white shadow-md z-10 p-4 flex justify-between items-center">
+    <nav class="flex gap-6">
+      <RouterLink to="/dashboard" class="py-1 hover:text-amber-300 border-b-2 border-transparent router-link-exact-active:border-amber-300 transition-colors duration-200">Dashboard</RouterLink>
+      <RouterLink to="/shop" class="py-1 hover:text-amber-300 border-b-2 border-transparent router-link-exact-active:border-amber-300 transition-colors duration-200">Shop</RouterLink>
+      <RouterLink to="/profile" class="py-1 hover:text-amber-300 border-b-2 border-transparent router-link-exact-active:border-amber-300 transition-colors duration-200">Profilo</RouterLink>
+      <RouterLink to="/purchases" class="py-1 hover:text-amber-300 border-b-2 border-transparent router-link-exact-active:border-amber-300 transition-colors duration-200">Acquisti</RouterLink>
     </nav>
-    <div class="user-actions">
-       <span class="user-greeting">Ciao, {{ authStore.userFullName }}!</span>
-       <button @click="handleLogout" class="logout-button-nav">Logout</button>
+    <div class="flex items-center gap-4">
+       <span class="text-sm text-purple-200 hidden md:inline">Ciao, {{ authStore.userFullName }}!</span>
+       <button @click="handleLogout" class="bg-red-600 hover:bg-red-700 text-white text-sm font-medium py-2 px-4 rounded transition-colors duration-200">Logout</button>
     </div>
   </header>
-  <main class="main-content">
+  <main class="pt-24 px-4 md:px-8">
     <RouterView v-slot="{ Component }">
       <transition name="fade" mode="out-in">
         <component :is="Component" />
@@ -40,101 +38,16 @@ const handleLogout = async () => {
 </template>
 
 <style scoped>
-.main-navbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1rem 2rem;
-  background-color: #333; /* Sfondo scuro per la navbar */
-  color: white;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-  position: fixed; /* Rende la navbar fissa */
-  top: 0;
-  left: 0;
-  width: 100%;
-  z-index: 1000; /* Assicura che sia sopra altri elementi */
+/* Stili specifici del componente App.vue che non sono coperti da Tailwind o richiedono override */
+
+/* Stile per il link attivo (Tailwind non ha una classe diretta per router-link-exact-active, quindi lo manteniamo qui o usiamo JS per aggiungere una classe) */
+.router-link-exact-active {
+  /* Rimuoviamo @apply per ora, potrebbe causare problemi in scoped style */
+  /* Gli stili base sono già nel template, questo serviva per la classe automatica di Vue Router */
+  /* Potremmo dover aggiungere logica JS per applicare classi dinamicamente se necessario */
 }
 
-.main-navbar nav {
-  display: flex;
-  gap: 1.5rem;
-}
-
-.nav-link {
-  color: #eee;
-  text-decoration: none;
-  font-weight: 500;
-  padding: 0.5rem 0;
-  border-bottom: 2px solid transparent;
-  transition: color 0.2s, border-bottom-color 0.2s;
-}
-
-.nav-link:hover,
-.nav-link.router-link-exact-active { /* Stile per il link attivo */
-  color: white;
-  border-bottom-color: #007bff; /* Colore primario per sottolineatura */
-}
-
-.user-actions {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-}
-
-.user-greeting {
-    font-size: 0.9em;
-    color: #ccc;
-}
-
-.logout-button-nav {
-  background-color: #dc3545; /* Rosso */
-  color: white;
-  border: none;
-  padding: 0.5rem 1rem;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.9em;
-  transition: background-color 0.2s;
-}
-
-.logout-button-nav:hover {
-  background-color: #c82333; /* Rosso più scuro */
-}
-
-/* Aggiunge un po' di padding al contenuto principale per non sovrapporsi alla navbar fissa (se fosse fissa) */
-.main-content {
-  /* Aggiunge padding pari all'altezza stimata della navbar + un po' di margine */
-  /* Calcolare l'altezza esatta potrebbe richiedere JS o essere approssimato */
-  padding-top: calc(2rem + 32px + 1rem); /* padding navbar + altezza stimata testo/bottoni + margine extra */
-  /* Alternativa più semplice: altezza fissa */
-  /* padding-top: 70px; */
-}
-
-/* Media Query per schermi piccoli */
-@media (max-width: 768px) {
-  .main-navbar {
-    padding: 0.8rem 1rem; /* Riduci padding */
-    flex-direction: column; /* Impila elementi verticalmente */
-    align-items: flex-start; /* Allinea a sinistra */
-  }
-  .main-navbar nav {
-      gap: 1rem; /* Riduci gap link */
-      margin-bottom: 0.5rem; /* Spazio sotto i link */
-      flex-wrap: wrap; /* Manda a capo i link se non ci stanno */
-  }
-   .user-actions {
-       width: 100%; /* Occupa tutta la larghezza */
-       justify-content: space-between; /* Spinge saluto e logout ai lati */
-   }
-   .user-greeting {
-       /* Potrebbe essere nascosto su schermi molto piccoli se necessario */
-       /* display: none; */
-   }
-   .main-content {
-       /* Potrebbe essere necessario aggiustare il padding-top */
-       padding-top: calc(1.6rem + 60px + 1rem); /* Altezza navbar stimata maggiore */
-   }
-}
+/* Stili per la transizione fade (mantenuti come prima) */
 
 /* Stili per la transizione fade */
 .fade-enter-active,

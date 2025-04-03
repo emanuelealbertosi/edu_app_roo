@@ -34,10 +34,10 @@ watch(() => props.question.id, () => {
 </script>
 
 <template>
-  <div class="open-answer-manual-question">
+  <div class="open-answer-manual-question mt-4">
     <textarea
       v-model="answerText"
-      class="answer-textarea"
+      class="answer-textarea w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-150 ease-in-out text-base"
       placeholder="Scrivi qui la tua risposta..."
       rows="5"
       :aria-label="'Risposta per la domanda: ' + question.text"
@@ -46,23 +46,8 @@ watch(() => props.question.id, () => {
 </template>
 
 <style scoped>
-.open-answer-manual-question {
-  margin-top: 15px;
-}
-
+/* Stili specifici se necessari */
 .answer-textarea {
-  width: 100%;
-  padding: 10px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  font-size: 1em;
-  line-height: 1.5;
-  resize: vertical; /* Permette il ridimensionamento verticale */
-}
-
-.answer-textarea:focus {
-  outline: none;
-  border-color: #007bff;
-  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+  resize: vertical; /* Manteniamo il resize verticale */
 }
 </style>

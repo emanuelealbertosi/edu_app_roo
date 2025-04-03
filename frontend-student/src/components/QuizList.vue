@@ -63,6 +63,22 @@ const getStatusClass = (quiz: Quiz): string => {
   }
 };
 
+// Determina la classe CSS per il BORDO sinistro in base allo stato
+const getStatusBorderClass = (quiz: Quiz): string => {
+  if (!quiz.latest_attempt) return 'border-status-not-started'; // Usa la classe definita nello <style>
+
+  switch (quiz.latest_attempt.status) {
+    case 'in_progress':
+      return 'border-status-in-progress';
+    case 'pending_manual_grading':
+      return 'border-status-pending';
+    case 'completed':
+      return 'border-status-completed';
+    default:
+      return 'border-status-not-started'; // Default a grigio
+  }
+};
+
 // Determina se il pulsante "Inizia Quiz" debba essere mostrato
 const shouldShowStartButton = (quiz: Quiz): boolean => {
   const now = new Date();
@@ -94,48 +110,48 @@ const shouldShowStartButton = (quiz: Quiz): boolean => {
 </script>
 
 <template>
-  <div class="quiz-list-card dashboard-card">
-    <h2><span class="card-icon">📝</span> {{ title }}</h2>
-    
-    <div v-if="loading" class="loading-indicator">
-      <p>Caricamento in corso...</p>
+  <div class="quiz-list-card bg-white rounded-lg shadow-md p-6">
+    <h2 class="text-xl font-bold text-purple-700 mb-4 flex items-center"><span class="text-2xl mr-2">📝</span> {{ title }}</h2>
+
+    <div v-if="loading" class="loading-indicator text-center py-4 text-gray-500">
+      <p>Caricamento quiz...</p>
     </div>
-    
-    <div v-else-if="quizzes.length === 0" class="empty-message">
+
+    <div v-else-if="quizzes.length === 0" class="empty-message text-center py-4 text-gray-500">
       <p>{{ emptyMessage }}</p>
     </div>
     
-    <div v-else class="quiz-list">
-      <div v-for="quiz in quizzes" :key="quiz.id" class="quiz-item">
-        <div class="quiz-header">
-          <h3>{{ quiz.title }}</h3>
-          <span :class="['quiz-status', getStatusClass(quiz)]">{{ getAttemptStatusLabel(quiz) }}</span>
+    <div v-else class="quiz-list space-y-4">
+      <div v-for="quiz in quizzes" :key="quiz.id" class="quiz-item bg-gray-50 rounded-lg p-4 shadow border-l-4 relative pb-16 hover:shadow-lg transition-shadow duration-200" :class="getStatusBorderClass(quiz)">
+        <div class="quiz-header flex justify-between items-center mb-2">
+          <h3 class="font-semibold text-lg text-gray-800">{{ quiz.title }}</h3>
+          <span :class="['quiz-status text-xs font-medium px-3 py-1 rounded-full', getStatusClass(quiz)]">{{ getAttemptStatusLabel(quiz) }}</span>
         </div>
         
-        <p class="quiz-description">{{ quiz.description }}</p>
-        
-        <div class="quiz-metadata">
-          <div v-if="quiz.metadata.difficulty" class="quiz-difficulty">
+        <p class="quiz-description text-gray-600 text-sm mb-3 line-clamp-2">{{ quiz.description }}</p>
+
+        <div class="quiz-metadata flex flex-wrap gap-2 text-xs mb-3">
+          <div v-if="quiz.metadata.difficulty" class="quiz-difficulty bg-gray-200 text-gray-700 px-2 py-1 rounded">
             Difficoltà: {{ quiz.metadata.difficulty }}
           </div>
-          
-          <div v-if="quiz.metadata.subject" class="quiz-subject">
+
+          <div v-if="quiz.metadata.subject" class="quiz-subject bg-gray-200 text-gray-700 px-2 py-1 rounded">
             Materia: {{ quiz.metadata.subject }}
           </div>
-          
-          <div v-if="quiz.metadata.points_on_completion" class="quiz-points">
+
+          <div v-if="quiz.metadata.points_on_completion" class="quiz-points bg-yellow-100 text-yellow-800 px-2 py-1 rounded">
             Punti: {{ quiz.metadata.points_on_completion }}
           </div>
         </div>
         
         <!-- Nascondi le date se il quiz è completato -->
-        <div v-if="quiz.latest_attempt?.status !== 'COMPLETED'" class="quiz-dates">
+        <div v-if="quiz.latest_attempt?.status !== 'COMPLETED'" class="quiz-dates flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
           <div v-if="quiz.available_from" class="quiz-available-from">
-            Disponibile da: {{ formatDate(quiz.available_from) }}
+            <span class="font-medium">Da:</span> {{ formatDate(quiz.available_from) }}
           </div>
-          
+
           <div v-if="quiz.available_until" class="quiz-available-until">
-            Disponibile fino a: {{ formatDate(quiz.available_until) }}
+             <span class="font-medium">Fino a:</span> {{ formatDate(quiz.available_until) }}
           </div>
         </div>
         
@@ -143,9 +159,9 @@ const shouldShowStartButton = (quiz: Quiz): boolean => {
         <button
           v-if="shouldShowStartButton(quiz)"
           @click.stop="startQuizAttempt(quiz.id)"
-          class="start-quiz-button"
+          class="start-quiz-button absolute bottom-4 right-4 bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg shadow transition-colors duration-200"
         >
-          Inizia Quiz
+          Inizia Quiz ▶
         </button>
       </div>
     </div>
@@ -153,129 +169,38 @@ const shouldShowStartButton = (quiz: Quiz): boolean => {
 </template>
 
 <style scoped>
-.quiz-list-card {
-  /* margin-bottom: 1.5rem; */ /* Rimosso: gestito dal gap del parent */
-}
-
-.quiz-list {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.quiz-item {
-  background-color: white;
-  border-radius: 8px;
-  padding: 1rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  /* Rimuovi cursor: pointer se non vuoi che l'intero item sia cliccabile */
-  /* cursor: pointer; */
-  transition: transform 0.2s, box-shadow 0.2s;
-  border-left: 4px solid #ddd;
-  position: relative; /* Necessario per posizionare il pulsante se si usa absolute */
-  padding-bottom: 4rem; /* Aggiungi spazio per il pulsante */
-}
-
-.quiz-item:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-}
-
-.quiz-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 0.5rem;
-}
-
-.quiz-status {
-  font-size: 0.85rem;
-  padding: 0.25rem 0.6rem; /* Leggermente più padding orizzontale */
-  border-radius: 12px; /* Più arrotondato */
-  font-weight: 500;
-}
-
-.status-not-started {
-  background-color: #e3f2fd;
-  color: #1976d2;
-  border: 1px solid #bbdefb; /* Bordo leggero */
-}
-
-.status-in-progress {
-  background-color: #fff8e1;
-  color: #ff8f00;
-  border: 1px solid #ffecb3; /* Bordo leggero */
-}
-
-.status-pending {
-  background-color: #fff3e0; /* Leggermente diverso per pending */
-  color: #ef6c00;
-  border: 1px solid #ffe0b2; /* Bordo leggero */
-}
-
-.status-completed {
-  background-color: #e8f5e9;
-  color: #388e3c;
-  border: 1px solid #c8e6c9; /* Bordo leggero */
-}
-
-.quiz-description {
-  color: #666;
-  margin-bottom: 1rem;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.quiz-metadata {
-  display: flex;
-  gap: 1rem;
-  font-size: 0.85rem;
-  margin-bottom: 0.5rem;
-}
-
-.quiz-metadata > div {
-  background-color: #f5f5f5;
-  padding: 0.25rem 0.5rem;
-  border-radius: 4px;
-}
-
-.quiz-dates {
-  display: flex;
-  gap: 1rem;
-  font-size: 0.75rem;
-  color: #666;
-}
-
+/* Stili specifici rimasti (loading, empty message) o che richiedono override */
 .loading-indicator,
 .empty-message {
-  padding: 1rem;
-  text-align: center;
-  color: #666;
+  /* Stili Tailwind applicati direttamente nel template */
 }
 
-.start-quiz-button {
-  position: absolute; /* O usa flexbox/grid sul container .quiz-item */
-  bottom: 1rem;
-  right: 1rem;
-  padding: 0.5rem 1rem;
-  background-color: var(--vt-c-indigo); /* Usa il colore primario */
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-weight: 500;
-  transition: background-color 0.2s;
+/* Aggiungiamo classi Tailwind direttamente nel template per gli stati,
+   ma potremmo definire colori specifici qui se necessario */
+.status-not-started {
+  @apply bg-gray-200 text-gray-700;
+}
+.status-in-progress {
+  @apply bg-yellow-100 text-yellow-800;
+}
+.status-pending {
+   @apply bg-orange-100 text-orange-800; /* Colore diverso per pending */
+}
+.status-completed {
+   @apply bg-green-100 text-green-800;
 }
 
-.start-quiz-button:hover {
-  background-color: #2c3e50; /* Scurisce leggermente all'hover */
-}
+/* Classi per il bordo sinistro in base allo stato */
+.border-status-not-started { @apply border-l-gray-400; }
+.border-status-in-progress { @apply border-l-yellow-500; }
+.border-status-pending { @apply border-l-orange-500; }
+.border-status-completed { @apply border-l-green-500; }
 
-.card-icon {
-    margin-right: 0.5rem;
-    font-size: 1em; /* Dimensione simile al titolo */
-    vertical-align: baseline;
+/* Stile per troncare la descrizione (alternativa a line-clamp se non supportato ovunque) */
+.quiz-description {
+  /* display: -webkit-box; */
+  /* -webkit-line-clamp: 2; */
+  /* -webkit-box-orient: vertical; */
+  /* overflow: hidden; */
 }
 </style>

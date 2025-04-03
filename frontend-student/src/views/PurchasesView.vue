@@ -47,174 +47,68 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="purchases-view">
-    <header class="purchases-header">
-      <h1>📜 Storico Acquisti</h1>
-      <!-- Il pulsante indietro è ora nella navbar principale in App.vue -->
-      <!-- <button @click="router.push('/dashboard')" class="back-button">Torna alla Dashboard</button> -->
+  <div class="purchases-view container mx-auto px-4 py-8">
+    <header class="purchases-header mb-8">
+      <h1 class="text-3xl font-bold text-gray-800 flex items-center"><span class="text-4xl mr-3">📜</span> Storico Acquisti</h1>
     </header>
 
-    <div v-if="isLoading" class="loading">
+    <div v-if="isLoading" class="loading text-center py-10 text-gray-500">
       <p>Caricamento storico...</p>
     </div>
 
-    <div v-if="error" class="error-message">
+    <div v-if="error" class="error-message bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6 rounded flex justify-between items-center" role="alert">
       <p>{{ error }}</p>
-      <button @click="fetchPurchaseHistory" class="retry-button">Riprova</button>
+      <button @click="fetchPurchaseHistory" class="retry-button bg-red-600 hover:bg-red-700 text-white text-sm font-medium py-1 px-3 rounded">Riprova</button>
     </div>
 
-    <div v-if="!isLoading &amp;&amp; !error" class="purchases-list-container">
-      <table v-if="purchaseHistory.length > 0" class="purchases-table">
-        <thead>
-          <tr>
-            <th>Ricompensa</th>
-            <th>Costo (Punti)</th>
-            <th>Data Acquisto</th>
-            <th>Stato</th>
-            <th>Data Consegna</th>
+    <div v-if="!isLoading && !error" class="purchases-list-container bg-white p-6 rounded-lg shadow-md">
+      <table v-if="purchaseHistory.length > 0" class="purchases-table w-full">
+        <thead class="hidden md:table-header-group">
+          <tr class="bg-gray-100">
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ricompensa</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Costo (Punti)</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data Acquisto</th>
+            <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Stato</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data Consegna</th>
           </tr>
         </thead>
-        <tbody>
-          <tr v-for="purchase in purchaseHistory" :key="purchase.id">
-            <td data-label="Ricompensa">{{ purchase.reward.name }}</td>
-            <td data-label="Costo" class="points-spent">{{ purchase.points_spent }}</td>
-            <td data-label="Data Acquisto">{{ formatDate(purchase.purchased_at) }}</td>
-            <td data-label="Stato" class="status-cell">
-              <span v-if="purchase.status === 'PURCHASED'" title="Acquistato (In attesa di consegna)">⏳</span> <!-- Corretto valore status -->
-              <span v-else-if="purchase.status === 'DELIVERED'" title="Consegnato">✅</span> <!-- Corretto valore status -->
-              <span v-else-if="purchase.status === 'CANCELLED'" title="Annullato">❌</span> <!-- Corretto valore status -->
-              <span v-else>{{ purchase.status }}</span> <!-- Fallback -->
+        <tbody class="text-sm text-gray-700">
+          <tr v-for="purchase in purchaseHistory" :key="purchase.id" class="border-b border-gray-200 md:border-none">
+            <td data-label="Ricompensa" class="px-4 py-3 whitespace-nowrap">{{ purchase.reward.name }}</td>
+            <td data-label="Costo" class="points-spent px-4 py-3 whitespace-nowrap font-semibold">{{ purchase.points_spent }}</td>
+            <td data-label="Data Acquisto" class="px-4 py-3 whitespace-nowrap">{{ formatDate(purchase.purchased_at) }}</td>
+            <td data-label="Stato" class="status-cell px-4 py-3 text-center">
+              <span v-if="purchase.status === 'PURCHASED'" title="Acquistato (In attesa di consegna)" class="text-2xl">⏳</span>
+              <span v-else-if="purchase.status === 'DELIVERED'" title="Consegnato" class="text-2xl">✅</span>
+              <span v-else-if="purchase.status === 'CANCELLED'" title="Annullato" class="text-2xl">❌</span>
+              <span v-else class="text-xs italic">{{ purchase.status }}</span>
             </td>
-            <td data-label="Data Consegna">{{ formatDate(purchase.delivered_at) }}</td>
+            <td data-label="Data Consegna" class="px-4 py-3 whitespace-nowrap">{{ formatDate(purchase.delivered_at) }}</td>
           </tr>
         </tbody>
       </table>
       
-      <div v-else class="empty-message">
-        <p>Non hai ancora effettuato nessun acquisto.</p>
-        <router-link to="/shop" class="go-to-shop-link">Vai allo Shop</router-link>
+      <div v-else class="empty-message text-center py-10 text-gray-500">
+        <p class="mb-4">Non hai ancora effettuato nessun acquisto.</p>
+        <router-link to="/shop" class="go-to-shop-link inline-block bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg shadow transition-colors duration-200">Vai allo Shop</router-link>
       </div>
     </div>
   </div>
 </template>
 
 <style scoped>
-.purchases-view {
-  padding: 20px;
-  max-width: 1000px;
-  margin: 0 auto;
-}
-
-.purchases-header {
-  display: flex;
-  justify-content: space-between; /* Sposta il titolo a sinistra */
-  align-items: center;
-  margin-bottom: 2rem;
-  /* Rimuoviamo lo sfondo qui se la navbar è globale */
-  /* background-color: #f8f9fa; */
-  /* padding: 1rem 1.5rem; */
-  /* border-radius: 8px; */
-  /* box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); */
-}
-
-.purchases-header h1 {
-  margin: 0;
-  font-size: 1.8em;
-  color: #333;
-}
-
-/* Stile rimosso per il back-button, ora è nella navbar */
-
+/* Stili specifici rimasti (loading, error, empty, retry) o che richiedono override */
 .loading, .error-message, .empty-message {
-  margin-top: 20px;
-  padding: 15px;
-  border-radius: 5px;
-  text-align: center;
+  /* Stili Tailwind applicati direttamente nel template */
 }
-
-.loading {
-  background-color: #e0e0e0;
-}
-
-.error-message {
-  background-color: #f8d7da;
-  color: #721c24;
-  border: 1px solid #f5c6cb;
-}
-
 .retry-button {
-    margin-top: 10px;
-    padding: 5px 15px;
-    font-size: 0.9em;
-    cursor: pointer;
-    background-color: #6c757d;
-    color: white;
-    border: none;
-    border-radius: 3px;
+  /* Stili Tailwind applicati direttamente nel template */
 }
-.retry-button:hover {
-    background-color: #5a6268;
-}
-
-.empty-message {
-    background-color: #e9ecef;
-    color: #6c757d;
-}
-
-.purchases-list-container {
-    margin-top: 1.5rem;
-    background-color: white;
-    padding: 1.5rem;
-    border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.purchases-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 1rem;
-}
-
-.purchases-table th,
-.purchases-table td {
-  padding: 12px 15px;
-  text-align: left;
-  border-bottom: 1px solid #eee;
-}
-
-.purchases-table th {
-  background-color: #f8f9fa;
-  font-weight: 600;
-  color: #333;
-}
-
-.purchases-table tbody tr:hover {
-  background-color: #f5f5f5;
-}
-
-.points-spent {
-    font-weight: bold;
-    /* color: #dc3545; */ /* Assicura che il colore rosso sia rimosso */
-}
-.status-cell span {
-    font-size: 1.5em; /* Rende le icone più grandi */
-    vertical-align: middle;
-}
-/* Assicura che gli stili precedenti per i badge siano rimossi */
-
 .go-to-shop-link {
-    display: inline-block;
-    margin-top: 1rem;
-    padding: 0.6rem 1.2rem;
-    background-color: #007bff;
-    color: white;
-    text-decoration: none;
-    border-radius: 4px;
-    transition: background-color 0.2s;
+   /* Stili Tailwind applicati direttamente nel template */
 }
-.go-to-shop-link:hover {
-    background-color: #0056b3;
-}
+
+/* Manteniamo gli stili per la tabella responsiva */
 
 /* Responsive Table Styles */
 @media (max-width: 768px) {

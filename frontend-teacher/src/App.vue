@@ -6,92 +6,34 @@ const authStore = useAuthStore();
 </script>
 
 <template>
-  <header>
-    <div class="wrapper">
-      <h1>Teacher Portal</h1>
-      <nav v-if="authStore.isAuthenticated">
-        <RouterLink :to="{ name: 'dashboard' }">Dashboard</RouterLink>
-        <RouterLink :to="{ name: 'students' }">Studenti</RouterLink>
-        <RouterLink :to="{ name: 'quizzes' }">Quiz</RouterLink>
-        <RouterLink :to="{ name: 'pathways' }">Percorsi</RouterLink>
-        <RouterLink :to="{ name: 'rewards' }">Ricompense</RouterLink>
-        <RouterLink :to="{ name: 'assign' }">Assegna</RouterLink>
-        <RouterLink :to="{ name: 'grading' }">Valutazioni</RouterLink>
-        <RouterLink :to="{ name: 'delivery' }">Consegne</RouterLink> <!-- Aggiunto link Consegne -->
-        <RouterLink :to="{ name: 'student-progress' }">Progressi</RouterLink>
-        <button @click="authStore.logout">Logout</button>
+  <header class="fixed top-0 left-0 w-full bg-purple-800 text-white shadow-md z-10 p-4 flex justify-between items-center">
+    <div class="wrapper flex justify-between items-center w-full">
+      <h1 class="text-xl font-semibold">Teacher Portal</h1>
+      <nav v-if="authStore.isAuthenticated" class="flex items-center space-x-4 text-sm">
+        <RouterLink :to="{ name: 'dashboard' }" class="py-1 hover:text-amber-300 border-b-2 border-transparent router-link-exact-active:border-amber-300 transition-colors duration-200">Dashboard</RouterLink>
+        <RouterLink :to="{ name: 'students' }" class="py-1 hover:text-amber-300 border-b-2 border-transparent router-link-exact-active:border-amber-300 transition-colors duration-200">Studenti</RouterLink>
+        <RouterLink :to="{ name: 'quizzes' }" class="py-1 hover:text-amber-300 border-b-2 border-transparent router-link-exact-active:border-amber-300 transition-colors duration-200">Quiz</RouterLink>
+        <RouterLink :to="{ name: 'pathways' }" class="py-1 hover:text-amber-300 border-b-2 border-transparent router-link-exact-active:border-amber-300 transition-colors duration-200">Percorsi</RouterLink>
+        <RouterLink :to="{ name: 'rewards' }" class="py-1 hover:text-amber-300 border-b-2 border-transparent router-link-exact-active:border-amber-300 transition-colors duration-200">Ricompense</RouterLink>
+        <RouterLink :to="{ name: 'assign' }" class="py-1 hover:text-amber-300 border-b-2 border-transparent router-link-exact-active:border-amber-300 transition-colors duration-200">Assegna</RouterLink>
+        <RouterLink :to="{ name: 'grading' }" class="py-1 hover:text-amber-300 border-b-2 border-transparent router-link-exact-active:border-amber-300 transition-colors duration-200">Valutazioni</RouterLink>
+        <RouterLink :to="{ name: 'delivery' }" class="py-1 hover:text-amber-300 border-b-2 border-transparent router-link-exact-active:border-amber-300 transition-colors duration-200">Consegne</RouterLink>
+        <RouterLink :to="{ name: 'student-progress' }" class="py-1 hover:text-amber-300 border-b-2 border-transparent router-link-exact-active:border-amber-300 transition-colors duration-200">Progressi</RouterLink>
+        <button @click="authStore.logout" class="ml-4 bg-red-600 hover:bg-red-700 text-white text-sm font-medium py-2 px-4 rounded transition-colors duration-200">Logout</button>
       </nav>
     </div>
   </header>
 
-  <main>
-    <RouterView :key="$route.fullPath" /> <!-- Riaggiunta key per forzare ricreazione -->
+  <main class="pt-24 px-4 md:px-8">
+    <RouterView :key="$route.fullPath" />
   </main>
 </template>
 
 <style scoped>
-header {
-  line-height: 1.5;
-  max-height: 100vh;
-  padding: 1rem;
-  border-bottom: 1px solid var(--color-border);
-  display: flex; /* Use flexbox for layout */
-  justify-content: space-between; /* Space out title and nav */
-  align-items: center; /* Align items vertically */
+/* Stile per il link attivo */
+.router-link-exact-active {
+  @apply border-amber-300 text-amber-300; /* Stile studenti */
 }
 
-.wrapper {
-  display: flex;
-  align-items: center;
-  width: 100%; /* Ensure wrapper takes full width */
-}
-
-nav {
-  margin-left: auto; /* Push nav to the right */
-  font-size: 1rem;
-  text-align: right; /* Align nav items to the right */
-}
-
-nav a, nav button {
-  display: inline-block;
-  padding: 0 1rem;
-  border-left: 1px solid var(--color-border);
-  color: var(--color-text); /* Use theme color */
-  text-decoration: none;
-}
-
-nav a:first-of-type {
-  border: 0;
-}
-
-nav a.router-link-exact-active {
-  color: var(--color-text); /* Or a different color for active link */
-  font-weight: bold;
-}
-
-nav button {
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-size: inherit; /* Match link font size */
-  color: var(--color-text); /* Match link color */
-}
-
-nav button:hover {
-  background-color: hsla(160, 100%, 37%, 0.2); /* Subtle hover effect */
-}
-
-
-main {
-  padding: 1rem;
-}
-
-h1 {
-  font-weight: 500;
-  font-size: 1.8rem;
-  /* Removed position relative and top */
-  margin: 0; /* Remove default margin */
-}
-
-/* Add more base styles if needed */
+/* Eventuali altri stili specifici */
 </style>

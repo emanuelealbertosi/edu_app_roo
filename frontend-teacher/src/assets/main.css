@@ -1,3 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 /* Base styles will go here */
 /* You can copy base styles from frontend-student/src/assets/main.css later if needed */
 

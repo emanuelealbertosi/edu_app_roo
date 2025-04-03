@@ -92,62 +92,63 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="shop-view">
-    <header class="shop-header">
-      <h1><span class="card-icon">🛍️</span> Negozio Ricompense</h1>
-      <div class="current-points">
-        Punti disponibili: <strong>{{ currentPoints }}</strong> ✨
+  <div class="shop-view container mx-auto px-4 py-8">
+    <header class="shop-header bg-white p-4 md:p-6 rounded-lg shadow-md mb-8 flex flex-col md:flex-row justify-between items-center gap-4">
+      <h1 class="text-2xl md:text-3xl font-bold text-purple-800 flex items-center"><span class="text-3xl md:text-4xl mr-3">🛍️</span> Negozio Ricompense</h1>
+      <div class="current-points bg-yellow-100 text-yellow-800 text-lg font-semibold px-4 py-2 rounded-full shadow-sm">
+        Punti: <strong class="text-xl">{{ currentPoints }}</strong> ✨
       </div>
-      <button @click="router.push('/dashboard')" class="back-button">Torna alla Dashboard</button>
+      <button @click="router.push('/dashboard')" class="back-button bg-gray-500 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-lg shadow transition-colors duration-200">Torna alla Dashboard</button>
     </header>
 
-    <div v-if="isLoading" class="loading">
+    <div v-if="isLoading" class="loading text-center py-10 text-gray-500">
       <p>Caricamento ricompense...</p>
+      {/* TODO: Spinner */}
     </div>
 
-    <div v-if="error" class="error-message">
+    <div v-if="error" class="error-message bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6 rounded" role="alert">
       <p>{{ error }}</p>
     </div>
     
     <!-- Messaggio di successo acquisto -->
-    <div v-if="purchaseSuccessMessage" class="success-message purchase-feedback">
+    <div v-if="purchaseSuccessMessage" class="success-message purchase-feedback bg-green-100 border-l-4 border-green-500 text-green-700 p-4 mb-6 rounded" role="alert">
       <p>{{ purchaseSuccessMessage }}</p>
     </div>
 
-    <!-- Messaggio di errore acquisto -->
-    <div v-if="purchaseError" class="error-message purchase-feedback">
+    <div v-if="purchaseError" class="error-message purchase-feedback bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6 rounded" role="alert">
       <p>{{ purchaseError }}</p>
     </div>
 
-    <div v-if="!isLoading &amp;&amp; !error" class="rewards-grid">
-      <div v-for="reward in availableRewards" :key="reward.id" class="reward-card">
-        <img 
-          v-if="reward.metadata?.image_url" 
-          :src="reward.metadata.image_url" 
-          :alt="reward.name" 
-          class="reward-image"
+    <div v-if="!isLoading && !error" class="rewards-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+      <div v-for="reward in availableRewards" :key="reward.id" class="reward-card bg-white rounded-lg shadow-lg overflow-hidden flex flex-col border-t-4" :class="reward.type === 'digital' ? 'border-blue-500' : 'border-green-500'">
+        <img
+          v-if="reward.metadata?.image_url"
+          :src="reward.metadata.image_url"
+          :alt="reward.name"
+          class="reward-image w-full h-48 object-cover"
         />
-        <div v-else class="reward-image-placeholder">🎁</div>
+        <div v-else class="reward-image-placeholder w-full h-48 flex items-center justify-center bg-gray-200 text-gray-400 text-5xl">🎁</div>
         
-        <div class="reward-info">
-          <h3>{{ reward.name }}</h3>
-          <p class="reward-description">{{ reward.description }}</p>
-          <p class="reward-type">Tipo: {{ reward.type === 'digital' ? 'Digitale' : 'Reale' }}</p>
-          <div class="reward-cost">
+        <div class="reward-info p-4 flex flex-col flex-grow">
+          <h3 class="text-lg font-semibold text-gray-800 mb-1">{{ reward.name }}</h3>
+          <p class="reward-description text-sm text-gray-600 mb-3 flex-grow">{{ reward.description }}</p>
+          <p class="reward-type text-xs italic text-gray-500 mb-2">Tipo: {{ reward.type === 'digital' ? 'Digitale' : 'Reale' }}</p>
+          <div class="reward-cost text-lg font-bold text-indigo-600 mb-3">
             Costo: <strong>{{ reward.cost_points }}</strong> punti
           </div>
         </div>
         
-        <button 
-          @click="handlePurchase(reward)" 
+        <button
+          @click="handlePurchase(reward)"
           :disabled="purchasingRewardId === reward.id || currentPoints < reward.cost_points"
-          class="purchase-button"
+          class="purchase-button w-full bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white font-bold py-3 px-4 transition-colors duration-200 mt-auto"
+          :class="{ 'opacity-50 cursor-not-allowed': purchasingRewardId === reward.id || currentPoints < reward.cost_points }"
         >
           {{ purchasingRewardId === reward.id ? 'Acquisto...' : 'Acquista' }}
         </button>
       </div>
       
-      <div v-if="availableRewards.length === 0" class="empty-message">
+      <div v-if="availableRewards.length === 0" class="empty-message col-span-full text-center py-10 text-gray-500">
         <p>Non ci sono ricompense disponibili al momento.</p>
       </div>
     </div>
@@ -155,192 +156,5 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.shop-view {
-  padding: 20px;
-  max-width: 1200px;
-  margin: 0 auto;
-}
-
-.shop-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 2rem;
-  background-color: #f8f9fa;
-  padding: 1rem 1.5rem;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.shop-header h1 {
-  margin: 0;
-  font-size: 1.8em;
-  color: #333;
-}
-
-.current-points {
-  font-size: 1.1em;
-  background-color: #fff8e1;
-  padding: 0.5rem 1rem;
-  border-radius: 20px;
-  color: #ff8f00;
-  font-weight: 500;
-}
-
-.back-button {
-  background-color: #6c757d;
-  color: white;
-  border: none;
-  padding: 0.6rem 1.2rem;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.9em;
-}
-.back-button:hover {
-  background-color: #5a6268;
-}
-
-
-.loading, .error-message {
-  margin-top: 20px;
-  padding: 15px;
-  border-radius: 5px;
-  text-align: center;
-}
-
-.loading {
-  background-color: #e0e0e0;
-}
-
-.error-message {
-  background-color: #f8d7da;
-  color: #721c24;
-  border: 1px solid #f5c6cb;
-}
-
-.success-message {
-  background-color: #d4edda; /* Verde chiaro */
-  color: #155724; /* Verde scuro */
-  border: 1px solid #c3e6cb;
-}
-
-.purchase-feedback {
-    margin-bottom: 1.5rem; /* Spazio sotto i messaggi di feedback */
-    /* Animazione fade-in/out potrebbe essere aggiunta qui */
-}
-
-.rewards-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 1.5rem;
-  margin-top: 2rem;
-}
-
-.reward-card {
-  background-color: white;
-  border-radius: 8px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08); /* Ombra più leggera */
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-  border-left: 4px solid; /* Aggiunto per colore tipo */
-  border-color: var(--reward-border-color, #ddd); /* Colore default */
-}
-/* Definisci colori per tipo */
-.reward-card[data-reward-type="digital"] {
-    --reward-border-color: #007bff; /* Blu */
-}
-.reward-card[data-reward-type="real_world_tracked"] {
-     --reward-border-color: #28a745; /* Verde */
-}
-.reward-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
-}
-
-.reward-image {
-  width: 100%;
-  height: 180px;
-  object-fit: cover; /* Copre l'area senza distorcere */
-  background-color: #eee; /* Placeholder color */
-}
-.reward-image-placeholder {
-    width: 100%;
-    height: 180px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 4rem;
-    background-color: #f0f0f0;
-    color: #ccc;
-}
-
-.reward-info {
-  padding: 1rem 1rem 0.5rem 1rem; /* Ridotto padding inferiore */
-  flex-grow: 1; /* Fa espandere questa sezione */
-  display: flex;
-  flex-direction: column;
-}
-
-.reward-info h3 {
-  margin: 0 0 0.5rem 0;
-  color: #333;
-}
-
-.reward-description {
-  font-size: 0.9em;
-  color: #666;
-  margin-bottom: 0.8rem;
-  flex-grow: 1; /* Spinge il costo e il pulsante in basso */
-}
-
-.reward-type {
-    font-size: 0.8em;
-    color: #888;
-    margin-bottom: 0.5rem;
-    font-style: italic;
-}
-
-.reward-cost {
-  font-size: 1.1em;
-  color: #007bff;
-  margin-bottom: 1rem;
-}
-
-.purchase-button {
-  background-color: #007bff;
-  color: white;
-  border: none;
-  padding: 0.8rem;
-  border-bottom-left-radius: 8px; /* Arrotonda solo gli angoli inferiori */
-  border-bottom-right-radius: 8px;
-  cursor: pointer;
-  font-size: 1em;
-  font-weight: bold;
-  transition: background-color 0.2s ease;
-  margin-top: 0.5rem; /* Ridotto margine sopra il pulsante */
-}
-
-.purchase-button:disabled {
-  background-color: #cccccc;
-  cursor: not-allowed;
-}
-
-.purchase-button:hover:not(:disabled) {
-  background-color: #0056b3;
-}
-
-.empty-message {
-  grid-column: 1 / -1; /* Occupa tutta la larghezza della griglia */
-  text-align: center;
-  padding: 2rem;
-  color: #666;
-}
-
-.card-icon {
-    margin-right: 0.5rem;
-    font-size: 1em;
-    vertical-align: baseline;
-}
+/* Rimuoviamo tutti gli stili precedenti */
 </style>

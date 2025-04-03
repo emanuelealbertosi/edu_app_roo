@@ -43,18 +43,18 @@ const goToShop = () => {
 </script>
 
 <template>
-  <div class="dashboard">
-    <header class="dashboard-header">
-      <div class="user-info">
-        <h1>Dashboard Studente</h1>
-        <p>Benvenuto, <strong>{{ authStore.userFullName }}</strong>!</p>
+  <div class="dashboard bg-gray-100 p-4 md:p-8 min-h-screen">
+    <header class="dashboard-header bg-white p-6 rounded-lg shadow-md mb-8 flex flex-col md:flex-row justify-between items-center">
+      <div class="user-info mb-4 md:mb-0 text-center md:text-left">
+        <h1 class="text-2xl font-bold text-purple-800 mb-1">Dashboard Studente</h1>
+        <p class="text-gray-600">Benvenuto, <strong class="font-semibold">{{ authStore.userFullName }}</strong>!</p>
       </div>
-      <div class="header-actions">
-        <button @click="goToShop" class="shop-button">
-          <span class="button-icon">🛒</span> Shop Ricompense
+      <div class="header-actions flex gap-4">
+        <button @click="goToShop" class="shop-button bg-green-500 hover:bg-green-600 text-white font-medium py-2 px-5 rounded-lg shadow flex items-center gap-2 transition-colors duration-200">
+          <span class="text-xl">🛒</span> Shop Ricompense
         </button>
-        <button @click="handleLogout" class="logout-button">
-          <span class="button-icon">🚪</span> Logout
+        <button @click="handleLogout" class="logout-button bg-red-500 hover:bg-red-600 text-white font-medium py-2 px-5 rounded-lg shadow flex items-center gap-2 transition-colors duration-200">
+          <span class="text-xl">🚪</span> Logout
         </button>
       </div>
     </header>
@@ -65,14 +65,14 @@ const goToShop = () => {
       <button @click="dashboardStore.loadDashboard" class="retry-button">Riprova Caricamento</button>
     </div>
     
-    <div v-if="isLoading" class="loading-container">
+    <div v-if="isLoading" class="loading-container flex flex-col items-center justify-center p-12 text-center">
       <div class="loading-spinner"></div>
-      <p>Caricamento in corso...</p>
+      <p class="mt-4 text-gray-600">Caricamento in corso...</p>
     </div>
-    
-    <div v-else class="dashboard-content">
+
+    <div v-else class="dashboard-content grid grid-cols-1 lg:grid-cols-3 gap-8">
       <!-- Sezione wallet -->
-      <div class="wallet-section">
+      <div class="wallet-section lg:col-span-1">
         <WalletCard
           :wallet="dashboardStore.wallet"
           :loading="dashboardStore.loading.wallet"
@@ -80,7 +80,7 @@ const goToShop = () => {
       </div>
       
       <!-- Sezione quiz e percorsi -->
-      <div class="educational-content">
+      <div class="educational-content lg:col-span-2 flex flex-col gap-8">
         <!-- Quiz disponibili -->
         <QuizList
           :quizzes="dashboardStore.availableQuizzes"
@@ -89,7 +89,7 @@ const goToShop = () => {
           :loading="dashboardStore.loading.quizzes"
           :showStartButton="true"
         />
-        
+
         <!-- Quiz in corso -->
         <QuizList
           :quizzes="dashboardStore.inProgressQuizzes"
@@ -97,7 +97,7 @@ const goToShop = () => {
           emptyMessage="Non hai quiz in corso al momento."
           :loading="dashboardStore.loading.quizzes"
         />
-        
+
         <!-- Percorsi in corso -->
         <PathwayList
           :pathways="dashboardStore.inProgressPathways"
@@ -105,7 +105,7 @@ const goToShop = () => {
           emptyMessage="Non hai percorsi in corso al momento."
           :loading="dashboardStore.loading.pathways"
         />
-        
+
         <!-- Quiz completati -->
         <QuizList
           :quizzes="dashboardStore.completedQuizzes"
@@ -113,7 +113,7 @@ const goToShop = () => {
           emptyMessage="Non hai ancora completato nessun quiz."
           :loading="dashboardStore.loading.quizzes"
         />
-        
+
         <!-- Percorsi completati -->
         <PathwayList
           :pathways="dashboardStore.completedPathways"
@@ -128,103 +128,9 @@ const goToShop = () => {
 </template>
 
 <style scoped>
-.dashboard {
-  padding: 2rem;
-  max-width: 1200px;
-  margin: 0 auto;
-  background-color: #f4f7f9; /* Leggero sfondo per l'area dashboard */
-  min-height: calc(100vh - 70px); /* Altezza minima (considerando navbar fissa) */
-}
-
-.dashboard-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 2rem;
-  background-color: #f8f9fa;
-  padding: 1.5rem;
-  border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08); /* Ombra più leggera */
-}
-
-.user-info h1 {
-  margin: 0 0 0.5rem 0;
-  color: #333;
-}
-
-.user-info p {
-  margin: 0;
-  color: #666;
-}
-
-.header-actions {
-  display: flex;
-  gap: 1rem;
-}
-
-.dashboard-content {
-  display: grid;
-  grid-template-columns: 1fr 2fr;
-  gap: 2rem;
-}
-
-@media (max-width: 992px) {
-  .dashboard-content {
-    grid-template-columns: 1fr;
-  }
-}
-
-.wallet-section {
-  order: 1;
-}
-
-.educational-content {
-  order: 2;
-  display: flex;
-  flex-direction: column;
-  gap: 2rem; /* Aumentato gap tra le liste */
-}
-
-.dashboard-card {
-  background-color: white;
-  border-radius: 8px;
-  padding: 1.5rem;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  /* margin-bottom: 1.5rem; */ /* Rimosso: gestito dal gap del parent */
-}
-
-.shop-button {
-  background-color: #4caf50; /* Verde */
-  padding: 0.75rem 1.5rem;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 1rem;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.logout-button {
-  background-color: #f44336; /* Rosso */
-  padding: 0.75rem 1.5rem;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 1rem;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-button:hover {
-  opacity: 0.9;
-}
-
-.button-icon {
-  font-size: 1.2rem;
+/* Stili specifici rimasti (loading spinner, errore) */
+.loading-container {
+  /* Stili Tailwind applicati direttamente nel template */
 }
 
 .loading-container {

@@ -36,26 +36,40 @@ watch(() => props.question.id, () => {
 </script>
 
 <template>
-  <div class="true-false-question">
-    <ul class="options-list">
+  <div class="true-false-question mt-4">
+    <ul class="options-list grid grid-cols-2 gap-4"> {/* Usa grid per affiancare */}
       <li class="option-item">
-        <label>
+        <label
+          :class="[
+            'block w-full p-6 md:p-8 rounded-lg shadow cursor-pointer transition-all duration-200 text-center font-bold text-xl md:text-2xl',
+            'bg-blue-500 text-white', // Colore per Vero
+            selectedValue === 'true' ? 'ring-4 ring-offset-2 ring-black' : 'hover:opacity-90 hover:shadow-md'
+          ]"
+        >
           <input
             type="radio"
             :name="'question_' + question.id"
             value="true"
             v-model="selectedValue"
+            class="sr-only"
           />
           <span class="option-text">Vero</span>
         </label>
       </li>
       <li class="option-item">
-        <label>
+        <label
+          :class="[
+            'block w-full p-6 md:p-8 rounded-lg shadow cursor-pointer transition-all duration-200 text-center font-bold text-xl md:text-2xl',
+            'bg-red-500 text-white', // Colore per Falso
+            selectedValue === 'false' ? 'ring-4 ring-offset-2 ring-black' : 'hover:opacity-90 hover:shadow-md'
+          ]"
+        >
           <input
             type="radio"
             :name="'question_' + question.id"
             value="false"
             v-model="selectedValue"
+            class="sr-only"
           />
           <span class="option-text">Falso</span>
         </label>
@@ -65,47 +79,8 @@ watch(() => props.question.id, () => {
 </template>
 
 <style scoped>
-.true-false-question {
-  margin-top: 15px;
-}
-
-.options-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex; /* Mette Vero e Falso sulla stessa riga */
-  gap: 20px; /* Spazio tra le opzioni */
-}
-
-.option-item {
-  padding: 10px;
-  border: 1px solid #eee;
-  border-radius: 4px;
-  background-color: #fff;
-  cursor: pointer;
-  transition: background-color 0.2s ease;
-  flex: 1; /* Fa occupare lo spazio disponibile */
-  text-align: center; /* Centra il testo */
-}
-
-.option-item:hover {
-  background-color: #f0f0f0;
-}
-
+/* Stili specifici se necessari */
 .option-item label {
-  display: flex;
-  align-items: center;
-  justify-content: center; /* Centra input e testo */
-  cursor: pointer;
-  width: 100%;
-}
-
-.option-item input[type="radio"] {
-  margin-right: 8px;
-  accent-color: #007bff;
-}
-
-.option-text {
-  font-weight: bold;
+  user-select: none;
 }
 </style>

@@ -84,39 +84,53 @@ const getProgressStatusClass = (pathway: Pathway): string => {
       return '';
   }
 };
+
+// Determina la classe CSS per il BORDO sinistro in base allo stato
+const getProgressBorderClass = (pathway: Pathway): string => {
+  if (!pathway.progress) return 'border-status-not-started'; // Usa la classe definita nello <style>
+
+  switch (pathway.progress.status) {
+    case 'in_progress':
+      return 'border-status-in-progress';
+    case 'completed':
+      return 'border-status-completed';
+    default:
+      return 'border-status-not-started'; // Default a grigio
+  }
+};
 </script>
 
 <template>
-  <div class="pathway-list-card dashboard-card">
-    <h2><span class="card-icon">🗺️</span> {{ title }}</h2>
-    
-    <div v-if="loading" class="loading-indicator">
-      <p>Caricamento in corso...</p>
+  <div class="pathway-list-card bg-white rounded-lg shadow-md p-6">
+    <h2 class="text-xl font-bold text-teal-700 mb-4 flex items-center"><span class="text-2xl mr-2">🗺️</span> {{ title }}</h2>
+
+    <div v-if="loading" class="loading-indicator text-center py-4 text-gray-500">
+      <p>Caricamento percorsi...</p>
     </div>
-    
-    <div v-else-if="pathways.length === 0" class="empty-message">
+
+    <div v-else-if="pathways.length === 0" class="empty-message text-center py-4 text-gray-500">
       <p>{{ emptyMessage }}</p>
     </div>
     
-    <div v-else class="pathway-list">
-      <div v-for="pathway in pathways" :key="pathway.id" class="pathway-item" @click="navigateToPathway(pathway)">
-        <div class="pathway-header">
-          <h3>{{ pathway.title }}</h3>
-          <span :class="['pathway-status', getProgressStatusClass(pathway)]">
+    <div v-else class="pathway-list space-y-4">
+      <div v-for="pathway in pathways" :key="pathway.id" class="pathway-item bg-gray-50 rounded-lg p-4 shadow border-l-4 relative pb-16 hover:shadow-lg transition-shadow duration-200 cursor-pointer" :class="getProgressBorderClass(pathway)" @click="navigateToPathway(pathway)">
+        <div class="pathway-header flex justify-between items-center mb-2">
+          <h3 class="font-semibold text-lg text-gray-800">{{ pathway.title }}</h3>
+          <span :class="['pathway-status text-xs font-medium px-3 py-1 rounded-full', getProgressStatusClass(pathway)]">
             {{ getProgressStatusLabel(pathway) }}
           </span>
         </div>
         
-        <p class="pathway-description">{{ pathway.description }}</p>
-        
-        <div class="pathway-progress-container">
-          <div class="pathway-progress-label">Progresso: {{ calculateProgress(pathway) }}</div>
-          <div class="pathway-progress-bar">
-            <div 
-              class="pathway-progress-fill" 
+        <p class="pathway-description text-gray-600 text-sm mb-3 line-clamp-2">{{ pathway.description }}</p>
+
+        <div class="pathway-progress-container mb-3">
+          <div class="pathway-progress-label text-sm font-medium text-gray-700 mb-1">Progresso: {{ calculateProgress(pathway) }}</div>
+          <div class="pathway-progress-bar w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
+            <div
+              class="pathway-progress-fill bg-teal-500 h-2.5 rounded-full transition-all duration-500 ease-out"
               :style="{
-                width: pathway.progress && pathway.progress.status === 'completed' 
-                  ? '100%' 
+                width: pathway.progress && pathway.progress.status === 'completed'
+                  ? '100%'
                   : pathway.progress && pathway.progress.last_completed_quiz_order !== null
                     ? `${Math.round((pathway.progress.last_completed_quiz_order + 1) * 20)}%`
                     : '0%'
@@ -125,17 +139,17 @@ const getProgressStatusClass = (pathway: Pathway): string => {
           </div>
         </div>
         
-        <div class="pathway-metadata">
-          <div v-if="pathway.metadata.points_on_completion" class="pathway-points">
+        <div class="pathway-metadata flex flex-wrap gap-2 text-xs">
+          <div v-if="pathway.metadata.points_on_completion" class="pathway-points bg-yellow-100 text-yellow-800 px-2 py-1 rounded">
             Punti: {{ pathway.metadata.points_on_completion }}
           </div>
-          
-          <div v-if="pathway.progress && pathway.progress.completed_at" class="pathway-completed-at">
-            Completato il: {{ formatDate(pathway.progress.completed_at) }}
+
+          <div v-if="pathway.progress && pathway.progress.completed_at" class="pathway-completed-at bg-gray-200 text-gray-700 px-2 py-1 rounded">
+            Completato: {{ formatDate(pathway.progress.completed_at) }}
           </div>
-          
-          <div v-if="pathway.progress && pathway.progress.points_earned" class="pathway-points-earned">
-            Punti guadagnati: {{ pathway.progress.points_earned }}
+
+          <div v-if="pathway.progress && pathway.progress.points_earned" class="pathway-points-earned bg-green-100 text-green-800 px-2 py-1 rounded">
+            Guadagnati: {{ pathway.progress.points_earned }}
           </div>
         </div>
         
@@ -144,7 +158,7 @@ const getProgressStatusClass = (pathway: Pathway): string => {
           v-if="showResultLink && pathway.progress?.status === 'completed'"
           :to="{ name: 'PathwayResult', params: { pathwayId: pathway.id } }"
           @click.stop
-          class="view-results-link"
+          class="view-results-link absolute bottom-4 right-4 bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-medium py-1.5 px-3 rounded-md shadow transition-colors duration-200"
         >
           Vedi Risultati
         </router-link>
@@ -154,140 +168,33 @@ const getProgressStatusClass = (pathway: Pathway): string => {
 </template>
 
 <style scoped>
-.pathway-list-card {
-  /* margin-bottom: 1.5rem; */ /* Rimosso: gestito dal gap del parent */
-}
-
-.pathway-list {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.pathway-item {
-  background-color: white;
-  border-radius: 8px;
-  padding: 1rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  cursor: pointer;
-  transition: transform 0.2s, box-shadow 0.2s;
-  border-left: 4px solid #ddd;
-  position: relative; /* Necessario per posizionare il link */
-  padding-bottom: 3.5rem; /* Aggiungi spazio per il link */
-}
-
-.pathway-item:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-}
-
-.pathway-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 0.5rem;
-}
-
-.pathway-status {
-  font-size: 0.85rem;
-  padding: 0.25rem 0.6rem; /* Leggermente più padding orizzontale */
-  border-radius: 12px; /* Più arrotondato */
-  font-weight: 500;
-}
-
-.status-not-started {
-  background-color: #e3f2fd;
-  color: #1976d2;
-  border: 1px solid #bbdefb; /* Bordo leggero */
-}
-
-.status-in-progress {
-  background-color: #fff8e1;
-  color: #ff8f00;
-  border: 1px solid #ffecb3; /* Bordo leggero */
-}
-
-.status-completed {
-  background-color: #e8f5e9;
-  color: #388e3c;
-  border: 1px solid #c8e6c9; /* Bordo leggero */
-}
-
-.pathway-description {
-  color: #666;
-  margin-bottom: 1rem;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.pathway-progress-container {
-  margin: 1rem 0;
-}
-
-.pathway-progress-label {
-  font-size: 0.9rem;
-  margin-bottom: 0.25rem;
-}
-
-.pathway-progress-bar {
-  height: 8px;
-  background-color: #e0e0e0;
-  border-radius: 4px;
-  overflow: hidden;
-}
-
-.pathway-progress-fill {
-  height: 100%;
-  background-color: #4caf50;
-  border-radius: 4px;
-  transition: width 0.5s ease-out; /* Transizione per la barra */
-}
-
-.pathway-metadata {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  font-size: 0.85rem;
-  margin-top: 0.5rem;
-}
-
-.pathway-metadata > div {
-  background-color: #f5f5f5;
-  padding: 0.25rem 0.5rem;
-  border-radius: 4px;
-}
-
+/* Stili specifici rimasti (loading, empty message) o che richiedono override */
 .loading-indicator,
 .empty-message {
-  padding: 1rem;
-  text-align: center;
-  color: #666;
+  /* Stili Tailwind applicati direttamente nel template */
 }
 
-.view-results-link {
-  position: absolute;
-  bottom: 1rem;
-  right: 1rem;
-  padding: 0.4rem 0.8rem;
-  background-color: #6c757d; /* Grigio scuro */
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.9em;
-  text-decoration: none;
-  transition: background-color 0.2s;
+/* Classi per lo status badge */
+.status-not-started {
+  @apply bg-gray-200 text-gray-700;
+}
+.status-in-progress {
+  @apply bg-yellow-100 text-yellow-800;
+}
+.status-completed {
+   @apply bg-green-100 text-green-800;
 }
 
-.view-results-link:hover {
-  background-color: #5a6268;
-}
+/* Classi per il bordo sinistro in base allo stato */
+.border-status-not-started { @apply border-l-gray-400; }
+.border-status-in-progress { @apply border-l-yellow-500; }
+.border-status-completed { @apply border-l-green-500; }
 
-.card-icon {
-    margin-right: 0.5rem;
-    font-size: 1em; /* Dimensione simile al titolo */
-    vertical-align: baseline;
+/* Stile per troncare la descrizione */
+.pathway-description {
+  /* display: -webkit-box; */
+  /* -webkit-line-clamp: 2; */
+  /* -webkit-box-orient: vertical; */
+  /* overflow: hidden; */
 }
 </style>

@@ -20,7 +20,8 @@ const formatDate = (dateString: string): string => {
 
 // Ottiene la classe CSS per la transazione in base al segno (positivo/negativo)
 const getTransactionClass = (pointsChange: number): string => {
-  return pointsChange >= 0 ? 'transaction-positive' : 'transaction-negative';
+  // Le classi Tailwind verranno applicate direttamente nel template o nello <style scoped>
+  return pointsChange >= 0 ? 'text-green-600 bg-green-100' : 'text-red-600 bg-red-100';
 };
 
 // Formatta il cambiamento di punti con segno
@@ -30,37 +31,37 @@ const formatPointsChange = (pointsChange: number): string => {
 </script>
 
 <template>
-  <div class="wallet-card dashboard-card">
-    <h2><span class="card-icon">💰</span> Il tuo Portafoglio</h2>
-    
-    <div v-if="loading" class="loading-indicator">
-      <p>Caricamento in corso...</p>
+  <div class="wallet-card bg-white rounded-lg shadow-md p-6">
+    <h2 class="text-xl font-bold text-indigo-700 mb-4 flex items-center"><span class="text-2xl mr-2">💰</span> Il tuo Portafoglio</h2>
+
+    <div v-if="loading" class="loading-indicator text-center py-4 text-gray-500">
+      <p>Caricamento portafoglio...</p>
     </div>
     
-    <div v-else-if="!wallet" class="empty-message">
+    <div v-else-if="!wallet" class="empty-message text-center py-4 text-red-500"> {/* Stile errore */}
       <p>Impossibile caricare le informazioni del portafoglio.</p>
     </div>
-    
+
     <div v-else>
-      <div class="wallet-balance">
-        <div class="balance-label">Punti disponibili:</div>
-        <div class="balance-value">{{ wallet.current_points }}</div>
+      <div class="wallet-balance bg-indigo-50 p-6 rounded-lg mb-6 text-center border border-indigo-100">
+        <div class="balance-label text-lg text-indigo-800 mb-1">Punti disponibili</div>
+        <div class="balance-value text-5xl font-bold text-indigo-600">{{ wallet.current_points }}</div>
       </div>
       
       <div class="wallet-transactions">
-        <h3>Transazioni recenti</h3>
-        
-        <div v-if="wallet.recent_transactions.length === 0" class="empty-transactions">
+        <h3 class="text-lg font-semibold text-gray-700 mb-3 pt-4 border-t border-gray-200">Transazioni recenti</h3>
+
+        <div v-if="wallet.recent_transactions.length === 0" class="empty-transactions text-center py-4 text-gray-500">
           <p>Nessuna transazione recente.</p>
         </div>
         
-        <div v-else class="transactions-list">
-          <div v-for="transaction in wallet.recent_transactions" :key="transaction.id" class="transaction-item">
-            <div class="transaction-info">
-              <div class="transaction-reason">{{ transaction.reason }}</div>
-              <div class="transaction-date">{{ formatDate(transaction.timestamp) }}</div>
+        <div v-else class="transactions-list space-y-3">
+          <div v-for="transaction in wallet.recent_transactions" :key="transaction.id" class="transaction-item flex justify-between items-center bg-gray-50 p-3 rounded-md border-l-4" :class="transaction.points_change >= 0 ? 'border-green-400' : 'border-red-400'">
+            <div class="transaction-info flex-1 mr-2">
+              <div class="transaction-reason text-sm font-medium text-gray-800 mb-0.5">{{ transaction.reason }}</div>
+              <div class="transaction-date text-xs text-gray-500">{{ formatDate(transaction.timestamp) }}</div>
             </div>
-            <div :class="['transaction-amount', getTransactionClass(transaction.points_change)]">
+            <div :class="['transaction-amount text-lg font-bold px-2 py-0.5 rounded', getTransactionClass(transaction.points_change)]">
               {{ formatPointsChange(transaction.points_change) }}
             </div>
           </div>
@@ -71,92 +72,21 @@ const formatPointsChange = (pointsChange: number): string => {
 </template>
 
 <style scoped>
-.wallet-card {
-  background-color: white;
-  border-radius: 8px;
-  padding: 1.5rem;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  /* margin-bottom: 1.5rem; */ /* Rimosso: gestito dal gap del parent */
+/* Stili specifici rimasti (loading, empty messages) o che richiedono override */
+.loading-indicator,
+.empty-message,
+.empty-transactions {
+  /* Stili Tailwind applicati direttamente nel template */
 }
 
-.wallet-balance {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
-  margin-bottom: 1.5rem;
-  background-color: #f8f9fa;
-  padding: 1.5rem;
-  border-radius: 8px;
-  border: 1px solid #eee; /* Aggiunto bordo leggero */
-}
-
-.balance-label {
-  font-size: 1.2rem;
-  color: #666;
-  margin-bottom: 0.5rem;
-}
-
-.balance-value {
-  font-size: 2.5rem; /* Ridotta dimensione font */
-  font-weight: bold;
-  color: #007bff; /* Cambiato colore in blu primario */
-}
-
-.wallet-transactions h3 {
-  font-size: 1.2rem;
-  margin-bottom: 1rem;
-  color: #333;
-  border-top: 1px dashed #eee; /* Separatore sopra le transazioni */
-  padding-top: 1rem;
-  margin-top: 1.5rem;
-}
-
-.transactions-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.transaction-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.75rem;
-  background-color: #f8f9fa;
-  border-radius: 6px;
-  border-left: 3px solid #ddd;
-}
-
-.transaction-info {
-  flex: 1;
-}
-
-.transaction-reason {
-  font-weight: 500;
-  margin-bottom: 0.25rem;
-}
-
-.transaction-date {
-  font-size: 0.8rem;
-  color: #666;
-}
-
-.transaction-amount {
-  font-weight: bold;
-  font-size: 1.1rem;
-  padding: 0.25rem 0.5rem;
-  border-radius: 4px;
-}
-
+/* Definiamo le classi per i colori delle transazioni se vogliamo essere più specifici
+   o se le classi Tailwind dirette non bastano.
+   Al momento, le classi Tailwind sono applicate direttamente nel template. */
 .transaction-positive {
-  color: #4caf50;
-  background-color: rgba(76, 175, 80, 0.1);
+  /* @apply text-green-600 bg-green-100; */
 }
-
 .transaction-negative {
-  color: #f44336;
-  background-color: rgba(244, 67, 54, 0.1);
+  /* @apply text-red-600 bg-red-100; */
 }
 
 .loading-indicator,

@@ -21,7 +21,7 @@ const handleSubmit = async () => {
     await authStore.login(studentCode.value, pin.value); // Usa i nuovi ref
     // Reindirizzo alla dashboard o homepage dopo il login
     router.push('/dashboard');
-  } catch (error) {
+  } catch (error: any) { // Aggiunto : any per tipizzare l'errore
     console.error('Login failed:', error);
     // Gestione degli errori specifici
     if (error.response) {
@@ -51,16 +51,16 @@ const handleSubmit = async () => {
 </script>
 
 <template>
-  <form @submit.prevent="handleSubmit" class="login-form">
-    <h2>Accedi</h2>
-    
+  <form @submit.prevent="handleSubmit" class="login-form bg-white bg-opacity-90 p-8 rounded-lg shadow-xl w-full max-w-sm">
+    <h2 class="text-2xl font-bold text-center text-gray-800 mb-6">Accedi</h2>
+
     <!-- Messaggio di errore -->
-    <div v-if="errorMessage" class="error-message">
-      {{ errorMessage }}
+    <div v-if="errorMessage" class="error-message bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4 rounded" role="alert">
+      <p>{{ errorMessage }}</p>
     </div>
     
-    <div class="form-group">
-      <label for="studentCode">Codice Studente:</label> <!-- Etichetta cambiata -->
+    <div class="form-group mb-4">
+      <label for="studentCode" class="block text-gray-700 text-sm font-bold mb-2">Codice Studente:</label>
       <input
         type="text"
         id="studentCode"
@@ -68,11 +68,12 @@ const handleSubmit = async () => {
         required
         :disabled="isLoading"
         autocomplete="username"
+        class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:bg-gray-200"
       />
     </div>
     
-    <div class="form-group">
-      <label for="pin">PIN:</label> <!-- Etichetta cambiata -->
+    <div class="form-group mb-6">
+      <label for="pin" class="block text-gray-700 text-sm font-bold mb-2">PIN:</label>
       <input
         type="password"
         id="pin"
@@ -80,13 +81,15 @@ const handleSubmit = async () => {
         required
         :disabled="isLoading"
         autocomplete="current-password"
+        class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:bg-gray-200"
       />
     </div>
     
     <button
       type="submit"
       :disabled="isLoading"
-      :class="{ 'loading': isLoading }"
+      class="w-full bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white font-bold py-3 px-4 rounded-lg focus:outline-none focus:shadow-outline transition-colors duration-200"
+      :class="{ 'opacity-50 cursor-not-allowed': isLoading }"
     >
       {{ isLoading ? 'Accesso in corso...' : 'Accedi' }}
     </button>
@@ -94,61 +97,5 @@ const handleSubmit = async () => {
 </template>
 
 <style scoped>
-.login-form {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  padding: 2rem;
-  border: 1px solid #ccc;
-  border-radius: 8px;
-  background-color: #f9f9f9;
-  max-width: 400px;
-  margin: auto;
-}
-
-.form-group {
-  display: flex;
-  flex-direction: column;
-}
-
-label {
-  margin-bottom: 0.5rem;
-  font-weight: bold;
-}
-
-input {
-  padding: 0.5rem;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-}
-
-button {
-  padding: 0.75rem;
-  background-color: var(--vt-c-indigo); /* Usa un colore dal tema di default di Vue */
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 1rem;
-}
-
-button:hover {
-  opacity: 0.9;
-}
-</style>
-
-<style scoped>
-.error-message {
-  background-color: #ffebee;
-  color: #b71c1c;
-  padding: 0.75rem;
-  border-radius: 4px;
-  border-left: 4px solid #f44336;
-  margin-bottom: 1rem;
-}
-
-button.loading {
-  background-color: #9fa8da;
-  cursor: not-allowed;
-}
+/* Rimuoviamo tutti gli stili precedenti */
 </style>

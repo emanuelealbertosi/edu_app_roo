@@ -31,18 +31,36 @@ watch(() => props.question.id, () => {
   selectedOptionId.value = null;
 });
 
+// Funzione helper per assegnare colori stile Kahoot
+const getOptionBgColor = (index: number): string => {
+  const colors = [
+    'bg-red-500 text-white',
+    'bg-blue-500 text-white',
+    'bg-yellow-400 text-gray-900', // Giallo richiede testo scuro
+    'bg-green-500 text-white',
+  ];
+  return colors[index % colors.length];
+};
+
 </script>
 
 <template>
-  <div class="multiple-choice-single-question">
-    <ul class="options-list">
-      <li v-for="option in question.answer_options" :key="option.id" class="option-item">
-        <label>
+  <div class="multiple-choice-single-question mt-4">
+    <ul class="options-list grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+      <li v-for="(option, index) in question.answer_options" :key="option.id" class="option-item">
+        <label
+          :class="[
+            'block w-full p-4 md:p-6 rounded-lg shadow cursor-pointer transition-all duration-200 text-center font-semibold text-lg md:text-xl',
+            getOptionBgColor(index), // Colore di sfondo dinamico
+            selectedOptionId === option.id ? 'ring-4 ring-offset-2 ring-black' : 'hover:opacity-90 hover:shadow-md' // Stile selezionato/hover
+          ]"
+        >
           <input
             type="radio"
             :name="'question_' + question.id"
             :value="option.id"
             v-model="selectedOptionId"
+            class="sr-only"
           />
           <span class="option-text">{{ option.text }}</span>
         </label>
@@ -52,43 +70,9 @@ watch(() => props.question.id, () => {
 </template>
 
 <style scoped>
-.multiple-choice-single-question {
-  margin-top: 15px;
-}
-
-.options-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-.option-item {
-  margin-bottom: 10px;
-  padding: 10px;
-  border: 1px solid #eee;
-  border-radius: 4px;
-  background-color: #fff;
-  cursor: pointer;
-  transition: background-color 0.2s ease;
-}
-
-.option-item:hover {
-  background-color: #f0f0f0;
-}
-
+/* Stili specifici se necessari, altrimenti Tailwind gestisce tutto */
 .option-item label {
-  display: flex;
-  align-items: center;
-  cursor: pointer;
-  width: 100%;
-}
-
-.option-item input[type="radio"] {
-  margin-right: 10px;
-  accent-color: #007bff; /* Colora il radio button */
-}
-
-.option-text {
-  flex-grow: 1;
+  /* Assicura che il testo sia selezionabile */
+  user-select: none;
 }
 </style>

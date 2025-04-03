@@ -94,18 +94,21 @@ watch(() => props.question.id, () => {
 </script>
 
 <template>
-  <div class="fill-blank-question">
-    <p class="question-text-with-blanks">
+  <div class="fill-blank-question mt-4">
+    <p class="question-text-with-blanks text-lg leading-relaxed"> {/* Aggiunto leading-relaxed per interlinea */}
       <template v-for="(part, index) in questionParts" :key="index">
-        <span v-if="part.type === 'text'">{{ part.content }}</span>
-        <input
-          v-else-if="part.type === 'input'"
-          type="text"
-          class="blank-input"
-          v-model="blankAnswers[part.content.toString()]"
-          :placeholder="'#' + part.content"
-          :aria-label="'Risposta per spazio ' + part.content"
-        />
+        <template v-if="part.type === 'text'">
+           <span class="align-baseline">{{ part.content }}</span>
+        </template>
+        <template v-else-if="part.type === 'input'">
+           <input
+             type="text"
+             class="blank-input bg-transparent border-b border-gray-500 focus:border-blue-500 focus:border-b-2 outline-none px-2 py-1 mx-1 text-center text-lg align-baseline w-24 md:w-32"
+             v-model="blankAnswers[part.content.toString()]"
+             :placeholder="'#' + part.content"
+             :aria-label="'Risposta per spazio ' + part.content"
+           />
+        </template>
       </template>
     </p>
     <!-- Mostra un elenco degli input se il testo è complesso (opzionale) -->
@@ -125,29 +128,13 @@ watch(() => props.question.id, () => {
 </template>
 
 <style scoped>
-.fill-blank-question {
-  margin-top: 15px;
-}
+/* Stili specifici rimasti o che richiedono override */
 
-.question-text-with-blanks {
-  line-height: 1.8; /* Aumenta l'interlinea per far spazio agli input */
-  font-size: 1.1em; /* Mantieni la dimensione del testo della domanda */
-}
-
+/* Assicura che gli input non abbiano sfondi strani in alcuni browser */
 .blank-input {
-  border: none;
-  border-bottom: 1px solid #888;
-  background-color: transparent;
-  padding: 2px 5px;
-  margin: 0 3px; /* Piccolo margine laterale */
-  font-size: 1em; /* Dimensione simile al testo circostante */
-  min-width: 80px; /* Larghezza minima per l'input */
-  text-align: center;
-}
-
-.blank-input:focus {
-  outline: none;
-  border-bottom: 2px solid #007bff;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
 }
 
 /* Stili per l'elenco separato (opzionale) */

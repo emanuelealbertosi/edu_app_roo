@@ -176,29 +176,30 @@ function updateUserAnswer(answer: Answer | null) {
 </script>
 
 <template>
-  <div class="quiz-attempt-view">
-    <h1>Svolgimento Quiz</h1>
+  <div class="quiz-attempt-view container mx-auto px-4 py-8 max-w-3xl">
+    <h1 class="text-3xl font-bold text-center text-purple-800 mb-6">Svolgimento Quiz</h1>
 
-    <div v-if="isLoading && !attempt" class="loading">
+    <div v-if="isLoading && !attempt" class="loading bg-blue-100 border border-blue-200 text-blue-700 px-4 py-3 rounded relative text-center mb-6">
       <p>Avvio del tentativo...</p>
-      <!-- Aggiungere uno spinner o indicatore di caricamento -->
+      {/* TODO: Aggiungere uno spinner Tailwind */}
     </div>
 
-    <div v-if="error" class="error-message">
-      <p>{{ error }}</p>
+    <div v-if="error" class="error-message bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6" role="alert">
+      <strong class="font-bold">Errore!</strong>
+      <span class="block sm:inline"> {{ error }}</span>
     </div>
 
-    <div v-if="attempt && !isLoading">
-      <h2>{{ attempt.quiz.title }}</h2>
-      <p>{{ attempt.quiz.description }}</p>
+    <div v-if="attempt && !isLoading" class="bg-white p-6 rounded-lg shadow-lg">
+      <h2 class="text-2xl font-semibold text-gray-800 mb-2">{{ attempt.quiz.title }}</h2>
+      <p class="text-gray-600 mb-6">{{ attempt.quiz.description }}</p>
 
-      <div v-if="isLoading && currentQuestion === null" class="loading">
+      <div v-if="isLoading && currentQuestion === null" class="loading bg-gray-100 text-gray-600 px-4 py-3 rounded text-center mb-6">
         <p>Caricamento domanda...</p>
       </div>
 
-      <div v-if="currentQuestion" class="question-container">
-        <h3>Domanda {{ currentQuestion.order + 1 }}</h3> <!-- Aggiunto +1 per partire da 1 -->
-        <p class="question-text">{{ currentQuestion.text }}</p>
+      <div v-if="currentQuestion" class="question-container bg-purple-50 border border-purple-200 p-6 rounded-lg mb-6">
+        <h3 class="text-lg font-semibold text-purple-700 mb-3">Domanda {{ currentQuestion.order + 1 }}</h3>
+        <p class="question-text text-gray-800 text-lg mb-5">{{ currentQuestion.text }}</p>
 
         <!-- Renderizza dinamicamente il componente domanda corretto -->
         <div class="answer-area">
@@ -214,15 +215,23 @@ function updateUserAnswer(answer: Answer | null) {
           </div>
         </div>
 
-        <button @click="submitAnswerHandler" :disabled="isSubmitting || !userAnswer">
+        <button
+          @click="submitAnswerHandler"
+          :disabled="isSubmitting || !userAnswer"
+          class="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white font-bold py-3 px-4 rounded-lg shadow transition-colors duration-200"
+        >
           {{ isSubmitting ? 'Invio...' : 'Invia Risposta' }}
         </button>
       </div>
 
-      <div v-else-if="!isLoading && !error">
-        <p>Hai risposto a tutte le domande!</p>
-        <button @click="completeAttemptHandler" :disabled="isCompleting">
-          {{ isCompleting ? 'Completamento...' : 'Completa Quiz e Vedi Risultati' }}
+      <div v-else-if="!isLoading && !error" class="text-center mt-8">
+        <p class="text-xl text-green-600 font-semibold mb-4">Hai risposto a tutte le domande!</p>
+        <button
+          @click="completeAttemptHandler"
+          :disabled="isCompleting"
+          class="bg-green-500 hover:bg-green-600 disabled:bg-gray-400 text-white font-bold py-3 px-6 rounded-lg shadow transition-colors duration-200"
+        >
+          {{ isCompleting ? 'Completamento...' : 'Completa Quiz e Vedi Risultati 🎉' }}
         </button>
       </div>
 
@@ -231,68 +240,16 @@ function updateUserAnswer(answer: Answer | null) {
 </template>
 
 <style scoped>
-.quiz-attempt-view {
-  padding: 20px;
-  max-width: 800px;
-  margin: 0 auto;
-}
-
+/* Stili specifici rimasti o che richiedono override */
 .loading, .error-message {
-  margin-top: 20px;
-  padding: 15px;
-  border-radius: 5px;
-}
-
-.loading {
-  background-color: #e0e0e0;
-  text-align: center;
-}
-
-.error-message {
-  background-color: #f8d7da;
-  color: #721c24;
-  border: 1px solid #f5c6cb;
-}
-
-.question-container {
-  margin-top: 30px;
-  padding: 20px;
-  border: 1px solid #ccc;
-  border-radius: 8px;
-  background-color: #f9f9f9;
-}
-
-.question-text {
-  font-size: 1.1em;
-  margin-bottom: 20px;
+  /* Stili Tailwind applicati direttamente nel template */
 }
 
 .answer-area {
-  margin-bottom: 20px;
-  /* Stili specifici verranno definiti nei componenti figlio */
+  /* Questo spazio conterrà i componenti delle domande specifiche */
+  /* Potremmo aggiungere un margine inferiore qui se necessario universalmente */
+   margin-bottom: 1.5rem; /* Esempio: 24px */
 }
 
-button {
-  padding: 10px 20px;
-  font-size: 1em;
-  cursor: pointer;
-  background-color: #007bff;
-  color: white;
-  border: none;
-  border-radius: 5px;
-  transition: background-color 0.3s ease;
-}
-
-button:disabled {
-  background-color: #cccccc;
-  cursor: not-allowed;
-}
-
-button:hover:not(:disabled) {
-  background-color: #0056b3;
-}
-
-h1, h2, h3 {
-    color: #333;
-}
+/* Eventuali altri stili specifici non coperti da Tailwind */
 </style>
