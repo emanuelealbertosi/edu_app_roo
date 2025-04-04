@@ -1,6 +1,8 @@
 <script setup lang="ts">
+import { computed } from 'vue'; // Import computed
 import { useRouter } from 'vue-router';
 import type { Pathway } from '@/api/dashboard';
+import { watch } from 'vue'; // Import watch
 
 const props = defineProps<{
   pathways: Pathway[];
@@ -10,12 +12,18 @@ const props = defineProps<{
   showResultLink?: boolean; // Nuova prop
 }>();
 
+// Log props when they change
+watch(() => props.pathways, (newPathways) => {
+  console.log(`[PathwayList] Prop 'pathways' updated for title "${props.title}":`, JSON.stringify(newPathways));
+}, { immediate: true, deep: true });
+
+
 const router = useRouter();
 
 // Formatta la data in un formato più leggibile
 const formatDate = (dateString: string | null): string => {
-  if (!dateString) return 'Non specificata';
-  
+  if (!dateString) return 'N/D';
+
   const date = new Date(dateString);
   return date.toLocaleDateString('it-IT', {
     day: '2-digit',
@@ -26,59 +34,68 @@ const formatDate = (dateString: string | null): string => {
   });
 };
 
-// Decide dove navigare quando si clicca su un percorso
-const navigateToPathway = (pathway: Pathway) => {
-  if (props.showResultLink && pathway.progress?.status === 'completed') { // Corretto &amp;&amp; -> &&
-    // Se dobbiamo mostrare il link ai risultati e il percorso è completo, naviga ai risultati
+// Decide dove navigare quando si clicca su un pulsante del percorso
+const navigateToPathwayAction = (pathway: Pathway) => {
+  // Se il percorso è completo e dobbiamo mostrare il link ai risultati, naviga lì
+  if (props.showResultLink && pathway.latest_progress?.status === 'COMPLETED') {
     router.push({ name: 'PathwayResult', params: { pathwayId: pathway.id } });
-  } else {
-    // Altrimenti, naviga ai dettagli del percorso (per continuarlo o visualizzarlo)
-    // TODO: Creare la vista PathwayDetailsView se non esiste
-    // router.push({ name: 'pathway-details', params: { id: pathway.id } });
-    console.warn(`Navigazione a /pathway/${pathway.id} (dettagli) non ancora implementata o necessaria.`);
+  }
+  // Se il percorso è in corso o non iniziato, naviga alla vista dettagli/svolgimento
+  else if (!pathway.latest_progress || pathway.latest_progress.status === 'IN_PROGRESS') {
+    // Naviga alla vista di svolgimento del percorso
+    router.push({ name: 'PathwayAttempt', params: { pathwayId: pathway.id } });
   }
 };
 
-// Calcola e formatta la percentuale di completamento
-const calculateProgress = (pathway: Pathway): string => {
-  if (!pathway.progress) return '0%';
-  
-  if (pathway.progress.status === 'completed') {
-    return '100%';
+// Calcola la percentuale di completamento in modo accurato
+const calculateCompletionPercentage = (pathway: Pathway): number => {
+  if (!pathway.latest_progress || !pathway.quiz_details || pathway.quiz_details.length === 0) {
+    return 0;
   }
-  
-  // Se abbiamo informazioni sull'ultimo quiz completato, calcoliamo una percentuale approssimativa
-  if (pathway.progress.last_completed_quiz_order !== null && pathway.progress.last_completed_quiz_order >= 0) {
-    // In un'implementazione reale, dovremmo conoscere il numero totale di quiz nel percorso
-    // Qui assumiamo che last_completed_quiz_order sia 0-based e ci siano 5 quiz in totale
-    return `${Math.round((pathway.progress.last_completed_quiz_order + 1) * 20)}%`;
-  }
-  
-  return 'In corso';
+  // Assicurati che completed_orders sia un array
+  const completedOrders = Array.isArray(pathway.latest_progress.completed_orders)
+                          ? pathway.latest_progress.completed_orders
+                          : [];
+  const completedCount = completedOrders.length;
+  const totalCount = pathway.quiz_details.length;
+  return Math.round((completedCount / totalCount) * 100);
 };
+
+// Formatta la percentuale per la visualizzazione
+const formatProgressPercentage = (pathway: Pathway): string => {
+    if (!pathway.latest_progress) return '0%';
+    if (pathway.latest_progress.status === 'COMPLETED') return '100%';
+    // Usa la funzione di calcolo accurata
+    return `${calculateCompletionPercentage(pathway)}%`;
+};
+
 
 // Genera un'etichetta di stato per il progresso del percorso
 const getProgressStatusLabel = (pathway: Pathway): string => {
-  if (!pathway.progress) return 'Non iniziato';
-  
-  switch (pathway.progress.status) {
-    case 'in_progress':
+  // Corretto: usa latest_progress
+  if (!pathway.latest_progress) return 'Non iniziato';
+
+  // Corretto: usa latest_progress
+  switch (pathway.latest_progress.status) {
+    case 'IN_PROGRESS': // Usa stato corretto
       return 'In corso';
-    case 'completed':
+    case 'COMPLETED': // Usa stato corretto
       return 'Completato';
     default:
-      return pathway.progress.status;
+      return pathway.latest_progress.status;
   }
 };
 
 // Determina la classe CSS per lo stato del progresso
 const getProgressStatusClass = (pathway: Pathway): string => {
-  if (!pathway.progress) return 'status-not-started';
-  
-  switch (pathway.progress.status) {
-    case 'in_progress':
+  // Corretto: usa latest_progress
+  if (!pathway.latest_progress) return 'status-not-started';
+
+  // Corretto: usa latest_progress
+  switch (pathway.latest_progress.status) {
+    case 'IN_PROGRESS': // Usa stato corretto
       return 'status-in-progress';
-    case 'completed':
+    case 'COMPLETED': // Usa stato corretto
       return 'status-completed';
     default:
       return '';
@@ -87,12 +104,14 @@ const getProgressStatusClass = (pathway: Pathway): string => {
 
 // Determina la classe CSS per il BORDO sinistro in base allo stato
 const getProgressBorderClass = (pathway: Pathway): string => {
-  if (!pathway.progress) return 'border-status-not-started'; // Usa la classe definita nello <style>
+  // Corretto: usa latest_progress
+  if (!pathway.latest_progress) return 'border-status-not-started'; // Usa la classe definita nello <style>
 
-  switch (pathway.progress.status) {
-    case 'in_progress':
+  // Corretto: usa latest_progress
+  switch (pathway.latest_progress.status) {
+    case 'IN_PROGRESS': // Usa stato corretto
       return 'border-status-in-progress';
-    case 'completed':
+    case 'COMPLETED': // Usa stato corretto
       return 'border-status-completed';
     default:
       return 'border-status-not-started'; // Default a grigio
@@ -111,51 +130,56 @@ const getProgressBorderClass = (pathway: Pathway): string => {
     <div v-else-if="pathways.length === 0" class="empty-message text-center py-4 text-gray-500">
       <p>{{ emptyMessage }}</p>
     </div>
-    
+
     <div v-else class="pathway-list space-y-4">
-      <div v-for="pathway in pathways" :key="pathway.id" class="pathway-item bg-gray-50 rounded-lg p-4 shadow border-l-4 relative pb-16 hover:shadow-lg transition-shadow duration-200 cursor-pointer" :class="getProgressBorderClass(pathway)" @click="navigateToPathway(pathway)">
+      <!-- Rimosso @click dalla card principale -->
+      <div v-for="pathway in pathways" :key="pathway.id" class="pathway-item bg-gray-50 rounded-lg p-4 shadow border-l-4 relative pb-16 hover:shadow-lg transition-shadow duration-200" :class="getProgressBorderClass(pathway)">
+        <!-- DEBUG LOG: Rendering pathway: {{ JSON.stringify(pathway) }} -->
         <div class="pathway-header flex justify-between items-center mb-2">
           <h3 class="font-semibold text-lg text-gray-800">{{ pathway.title }}</h3>
           <span :class="['pathway-status text-xs font-medium px-3 py-1 rounded-full', getProgressStatusClass(pathway)]">
             {{ getProgressStatusLabel(pathway) }}
           </span>
         </div>
-        
+
         <p class="pathway-description text-gray-600 text-sm mb-3 line-clamp-2">{{ pathway.description }}</p>
 
         <div class="pathway-progress-container mb-3">
-          <div class="pathway-progress-label text-sm font-medium text-gray-700 mb-1">Progresso: {{ calculateProgress(pathway) }}</div>
+          <!-- Usa la funzione formattata -->
+          <div class="pathway-progress-label text-sm font-medium text-gray-700 mb-1">Progresso: {{ formatProgressPercentage(pathway) }}</div>
           <div class="pathway-progress-bar w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
             <div
               class="pathway-progress-fill bg-teal-500 h-2.5 rounded-full transition-all duration-500 ease-out"
-              :style="{
-                width: pathway.progress && pathway.progress.status === 'completed'
-                  ? '100%'
-                  : pathway.progress && pathway.progress.last_completed_quiz_order !== null
-                    ? `${Math.round((pathway.progress.last_completed_quiz_order + 1) * 20)}%`
-                    : '0%'
-              }"
-            ></div>
+              :style="{ width: calculateCompletionPercentage(pathway) + '%' }"
+              ></div>
           </div>
         </div>
-        
         <div class="pathway-metadata flex flex-wrap gap-2 text-xs">
           <div v-if="pathway.metadata.points_on_completion" class="pathway-points bg-yellow-100 text-yellow-800 px-2 py-1 rounded">
             Punti: {{ pathway.metadata.points_on_completion }}
           </div>
 
-          <div v-if="pathway.progress && pathway.progress.completed_at" class="pathway-completed-at bg-gray-200 text-gray-700 px-2 py-1 rounded">
-            Completato: {{ formatDate(pathway.progress.completed_at) }}
+          <div v-if="pathway.latest_progress && pathway.latest_progress.completed_at" class="pathway-completed-at bg-gray-200 text-gray-700 px-2 py-1 rounded">
+            Completato: {{ formatDate(pathway.latest_progress.completed_at) }}
           </div>
 
-          <div v-if="pathway.progress && pathway.progress.points_earned" class="pathway-points-earned bg-green-100 text-green-800 px-2 py-1 rounded">
-            Guadagnati: {{ pathway.progress.points_earned }}
+          <div v-if="pathway.latest_progress && pathway.latest_progress.points_earned" class="pathway-points-earned bg-green-100 text-green-800 px-2 py-1 rounded">
+            Guadagnati: {{ pathway.latest_progress.points_earned }}
           </div>
         </div>
-        
+
+        <!-- Bottone Inizia/Continua -->
+        <button
+          v-if="!pathway.latest_progress || pathway.latest_progress.status === 'IN_PROGRESS'"
+          @click.stop="navigateToPathwayAction(pathway)"
+          class="start-continue-link absolute bottom-4 right-4 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium py-1.5 px-3 rounded-md shadow transition-colors duration-200"
+        >
+          {{ pathway.latest_progress ? 'Continua Percorso' : 'Inizia Percorso' }}
+        </button>
+
         <!-- Link ai Risultati (visibile solo se showResultLink è true e il percorso è completo) -->
         <router-link
-          v-if="showResultLink && pathway.progress?.status === 'completed'"
+          v-if="showResultLink && pathway.latest_progress?.status === 'COMPLETED'"
           :to="{ name: 'PathwayResult', params: { pathwayId: pathway.id } }"
           @click.stop
           class="view-results-link absolute bottom-4 right-4 bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-medium py-1.5 px-3 rounded-md shadow transition-colors duration-200"

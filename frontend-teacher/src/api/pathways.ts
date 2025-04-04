@@ -121,16 +121,13 @@ export const addQuizToPathway = async (pathwayId: number, quizId: number, order:
  * Se l'azione custom non esiste, questa funzione fallirà.
  */
 export const removeQuizFromPathway = async (pathwayId: number, pathwayQuizId: number): Promise<void> => {
-     // pathwayQuizId è l'ID della relazione M2M (PathwayQuiz), non del Quiz stesso.
+    // pathwayQuizId è l'ID della relazione M2M (PathwayQuiz), non del Quiz stesso.
     try {
-        // Assumiamo un'azione custom 'remove-quiz' che accetta l'ID della relazione M2M
-        // await apiClient.post(`/education/pathways/${pathwayId}/remove-quiz/`, { pathway_quiz_id: pathwayQuizId });
-        // OPPURE, se l'API permette DELETE sull'endpoint della relazione (non standard con nested routers):
-        // await apiClient.delete(`/education/pathways/${pathwayId}/quizzes/${pathwayQuizId}/`); // Questo probabilmente non funziona
-        console.warn(`API per rimuovere quiz da percorso (relazione ID ${pathwayQuizId}) non implementata o endpoint non standard.`);
-        throw new Error("API per rimuovere quiz da percorso non implementata.");
+        // Chiama l'azione custom 'remove_quiz' implementata nel backend
+        // L'URL è /api/education/pathways/{pathwayId}/remove-quiz/{pathwayQuizId}/
+        await apiClient.delete(`/education/pathways/${pathwayId}/remove-quiz/${pathwayQuizId}/`);
     } catch (error) {
         console.error(`Errore durante la rimozione del quiz (relazione ID ${pathwayQuizId}) dal percorso ${pathwayId}:`, error);
-        throw error;
+        throw error; // Rilancia l'errore per gestirlo nel componente Vue
     }
 };

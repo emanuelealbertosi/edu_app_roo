@@ -90,6 +90,14 @@ const router = createRouter({
       props: true // Passa pathwayId come prop
     },
     {
+      // Rotta per iniziare o continuare un percorso
+      path: '/pathway/:pathwayId/attempt',
+      name: 'PathwayAttempt', // Nome usato in PathwayList.vue
+      component: () => import('../views/PathwayAttemptView.vue'),
+      meta: { requiresAuth: true },
+      props: route => ({ pathwayId: Number(route.params.pathwayId) })
+    },
+    {
       // Rotta per il profilo studente
       path: '/profile',
       name: 'Profile',

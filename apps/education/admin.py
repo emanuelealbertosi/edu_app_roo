@@ -119,21 +119,27 @@ class PathwayProgressAdmin(admin.ModelAdmin):
     list_filter = ('status', 'pathway', 'student__teacher')
     search_fields = ('student__first_name', 'student__last_name', 'pathway__title')
     autocomplete_fields = ['student', 'pathway']
-    readonly_fields = ('started_at', 'completed_at', 'last_completed_quiz_order')
+    # Aggiunto completed_orders ai readonly se non si vuole modificarlo manualmente
+    readonly_fields = ('started_at', 'completed_at', 'last_completed_quiz_order', 'completed_orders') 
     list_select_related = ('student', 'pathway')
+    formfield_overrides = {
+        models.JSONField: {'widget': JSONEditorWidget}, # Aggiunto per completed_orders
+    }
 
 @admin.register(QuizAssignment)
 class QuizAssignmentAdmin(admin.ModelAdmin):
-    list_display = ('student', 'quiz', 'assigned_by', 'assigned_at', 'due_date')
-    list_filter = ('assigned_at', 'due_date', 'quiz__teacher') # Filtra per docente del quiz
+    # Rimosso 'due_date' da list_display e list_filter
+    list_display = ('student', 'quiz', 'assigned_by', 'assigned_at') 
+    list_filter = ('assigned_at', 'quiz__teacher') # Filtra per docente del quiz
     search_fields = ('student__first_name', 'student__last_name', 'quiz__title', 'assigned_by__username')
     autocomplete_fields = ['student', 'quiz', 'assigned_by']
     list_select_related = ('student', 'quiz', 'assigned_by')
 
 @admin.register(PathwayAssignment)
 class PathwayAssignmentAdmin(admin.ModelAdmin):
-    list_display = ('student', 'pathway', 'assigned_by', 'assigned_at', 'due_date')
-    list_filter = ('assigned_at', 'due_date', 'pathway__teacher')
+    # Rimosso 'due_date' da list_display e list_filter
+    list_display = ('student', 'pathway', 'assigned_by', 'assigned_at') 
+    list_filter = ('assigned_at', 'pathway__teacher')
     search_fields = ('student__first_name', 'student__last_name', 'pathway__title', 'assigned_by__username')
     autocomplete_fields = ['student', 'pathway', 'assigned_by']
     list_select_related = ('student', 'pathway', 'assigned_by')

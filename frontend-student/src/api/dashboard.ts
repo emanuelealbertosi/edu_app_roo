@@ -24,6 +24,15 @@ export interface Quiz {
   } | null;
 }
 
+// Interfaccia per i dettagli dei quiz all'interno di un percorso
+export interface PathwayQuizDetail {
+    id: number;
+    quiz_id: number;
+    quiz_title: string;
+    order: number;
+}
+
+// Interfaccia aggiornata per Pathway
 export interface Pathway {
   id: number;
   title: string;
@@ -32,11 +41,15 @@ export interface Pathway {
     points_on_completion?: number;
     [key: string]: any;
   };
-  progress?: {
+  quiz_details: PathwayQuizDetail[]; // Aggiunto: dettagli dei quiz nel percorso
+  latest_progress?: {
+    id: number; // Aggiunto ID del progresso
     status: string;
     last_completed_quiz_order: number | null;
+    completed_orders: number[]; // Aggiunto: lista ordini completati
+    started_at: string; // Aggiunto started_at
     completed_at: string | null;
-    points_earned: number | null;
+    points_earned: number | null; // Mantenuto se presente in SimplePathwayProgressSerializer
   } | null;
 }
 

@@ -66,6 +66,7 @@ onMounted(() => {
         <thead class="hidden md:table-header-group">
           <tr class="bg-gray-100">
             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ricompensa</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Descrizione</th> <!-- Aggiunto Header -->
             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Costo (Punti)</th>
             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data Acquisto</th>
             <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Stato</th>
@@ -74,7 +75,8 @@ onMounted(() => {
         </thead>
         <tbody class="text-sm text-gray-700">
           <tr v-for="purchase in purchaseHistory" :key="purchase.id" class="border-b border-gray-200 md:border-none">
-            <td data-label="Ricompensa" class="px-4 py-3 whitespace-nowrap">{{ purchase.reward.name }}</td>
+            <td data-label="Ricompensa" class="px-4 py-3 whitespace-nowrap font-semibold">{{ purchase.reward.name }}</td>
+            <td data-label="Descrizione" class="px-4 py-3">{{ purchase.reward.description || '-' }}</td> <!-- Aggiunta Cella Descrizione -->
             <td data-label="Costo" class="points-spent px-4 py-3 whitespace-nowrap font-semibold">{{ purchase.points_spent }}</td>
             <td data-label="Data Acquisto" class="px-4 py-3 whitespace-nowrap">{{ formatDate(purchase.purchased_at) }}</td>
             <td data-label="Stato" class="status-cell px-4 py-3 text-center">
@@ -132,6 +134,9 @@ onMounted(() => {
     border-bottom: none; /* Rimuove la linea inferiore di default */
     padding-top: 8px;
     padding-bottom: 8px;
+    /* Aggiunto per gestire meglio il wrap della descrizione */
+    white-space: normal; 
+    word-break: break-word;
   }
    .purchases-table td:last-child {
        border-bottom: 0; /* Nessun bordo per l'ultimo elemento */

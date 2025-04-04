@@ -5,7 +5,8 @@ from .views import (
     QuizViewSet, QuestionViewSet, AnswerOptionViewSet, PathwayViewSet,
     StudentDashboardViewSet, StudentQuizAttemptViewSet, TeacherGradingViewSet,
     AttemptViewSet, # Importa la nuova viewset
-    StudentAssignedQuizzesView, StudentAssignedPathwaysView # Importa le nuove view
+    StudentAssignedQuizzesView, StudentAssignedPathwaysView, # Importa le nuove view
+    PathwayAttemptDetailView # Importa la nuova view per i dettagli del tentativo percorso
 )
 
 # Router principale per le risorse top-level dell'app education
@@ -46,12 +47,19 @@ urlpatterns = [
     # URLs specifici per la dashboard studente (il prefisso 'student/' verrà aggiunto in config/urls.py)
     path('dashboard/quizzes/', StudentAssignedQuizzesView.as_view(), name='student-dashboard-quizzes'),
     path('dashboard/pathways/', StudentAssignedPathwaysView.as_view(), name='student-dashboard-pathways'),
+
+    # URL per ottenere i dettagli di un tentativo di percorso (per lo studente)
+    # Il prefisso 'student/' verrà aggiunto in config/urls.py
+    path('pathways/<int:pk>/attempt/', PathwayAttemptDetailView.as_view(), name='student-pathway-attempt-detail'),
+
+    # Include i router annidati
     path('', include(quiz_templates_router.urls)),
     path('', include(question_templates_router.urls)),
     path('', include(quizzes_router.urls)),
     path('', include(questions_router.urls)),
-    # URL per Student Dashboard (non basato su router standard)
-    path('student/dashboard/', StudentDashboardViewSet.as_view({'get': 'list'}), name='student-dashboard'),
+
+    # URL per Student Dashboard (non basato su router standard) - Rimosso perché gestito da view specifiche sopra
+    # path('student/dashboard/', StudentDashboardViewSet.as_view({'get': 'list'}), name='student-dashboard'),
 ]
 
 # Esempi URL generati:
@@ -65,7 +73,11 @@ urlpatterns = [
 # /api/education/quizzes/{quiz_pk}/questions/
 # /api/education/quizzes/{quiz_pk}/questions/{pk}/
 # /api/education/quizzes/{quiz_pk}/questions/{question_pk}/options/
-# /api/education/quizzes/{quiz_pk}/attempts/start-attempt/  <- Corretto da StudentQuizAttemptViewSet
+# /api/education/quizzes/{quiz_pk}/attempts/start-attempt/
 # /api/education/pathways/
+# /api/education/pathways/{pk}/
+# /api/education/pathways/{pk}/attempt/  <- NUOVO URL per studente
 # /api/education/teacher/grading/pending/
 # /api/education/teacher/grading/{pk}/grade/
+# /api/education/dashboard/quizzes/
+# /api/education/dashboard/pathways/

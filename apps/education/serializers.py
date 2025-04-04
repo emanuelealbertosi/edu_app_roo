@@ -14,10 +14,10 @@ from .models import (
     QuizTemplate, QuestionTemplate, AnswerOptionTemplate,
     Quiz, Question, AnswerOption, Pathway, PathwayQuiz,
     QuizAttempt, StudentAnswer, PathwayProgress, QuestionType,
-    QuizAssignment # Importa QuizAssignment per la view
+    QuizAssignment, PathwayAssignment # Importa Assignment mancanti
 )
 from apps.users.serializers import UserSerializer, StudentSerializer # Per info utente/studente
-from apps.users.models import User # Aggiunto per associazione docente
+from apps.users.models import User, Student # Aggiunto per associazione docente e studente
 from .models import QuizAttempt # Assicurati che QuizAttempt sia importato
 
 logger = logging.getLogger(__name__)
@@ -397,10 +397,11 @@ class QuizUploadSerializer(serializers.Serializer):
 class PathwayQuizSerializer(serializers.ModelSerializer):
     """ Serializer per la relazione M2M Pathway-Quiz (usato nested in Pathway). """
     quiz_title = serializers.CharField(source='quiz.title', read_only=True)
+    quiz_id = serializers.IntegerField(source='quiz.id', read_only=True) # Aggiunto ID quiz
 
     class Meta:
         model = PathwayQuiz
-        fields = ['id', 'quiz', 'quiz_title', 'order']
+        fields = ['id', 'quiz_id', 'quiz_title', 'order'] # Aggiunto quiz_id
 
 
 class PathwaySerializer(serializers.ModelSerializer):
@@ -475,7 +476,8 @@ class PathwayProgressSerializer(serializers.ModelSerializer):
         model = PathwayProgress
         fields = [
             'id', 'student', 'student_info', 'pathway', 'pathway_title',
-            'last_completed_quiz_order', 'started_at', 'completed_at', 'status', 'status_display'
+            'last_completed_quiz_order', 'completed_orders', # Aggiunto completed_orders
+            'started_at', 'completed_at', 'status', 'status_display'
         ]
         read_only_fields = fields # Il progresso è gestito internamente
 
@@ -494,30 +496,75 @@ class StudentQuizDashboardSerializer(QuizSerializer):
     Serializer per i Quiz nella dashboard studente.
     Include informazioni sull'ultimo tentativo dello studente.
     """
-    latest_attempt = SimpleQuizAttemptSerializer(read_only=True) # Campo per l'ultimo tentativo
-    attempts_count = serializers.IntegerField(read_only=True) # Campo per il numero di tentativi
+    # Modificato: Usa SerializerMethodField per gestire la logica
+    latest_attempt = serializers.SerializerMethodField()
+    attempts_count = serializers.SerializerMethodField()
 
     class Meta(QuizSerializer.Meta): # Eredita Meta da QuizSerializer
-        # Aggiungi i nuovi campi a quelli esistenti
         fields = QuizSerializer.Meta.fields + ['latest_attempt', 'attempts_count']
-        read_only_fields = fields # Tutto è read-only in questo contesto
+        read_only_fields = QuizSerializer.Meta.read_only_fields + ['latest_attempt', 'attempts_count']
+
+    def get_latest_attempt(self, obj):
+        """Recupera l'ultimo tentativo del quiz per lo studente corrente."""
+        # Accede ai tentativi prefetched dalla view
+        student_attempts = getattr(obj, 'student_attempts_for_quiz', None)
+        if student_attempts:
+             # Poiché sono ordinati per -started_at nella view, il primo è l'ultimo
+             latest_attempt = student_attempts[0]
+             return SimpleQuizAttemptSerializer(latest_attempt).data
+        return None
+
+    def get_attempts_count(self, obj):
+        """Conta quanti tentativi ha fatto lo studente per questo quiz."""
+        # Accede ai tentativi prefetched dalla view
+        student_attempts = getattr(obj, 'student_attempts_for_quiz', None)
+        return len(student_attempts) if student_attempts else 0
 
 
 class SimplePathwayProgressSerializer(serializers.ModelSerializer):
-    """ Serializer semplificato per il progresso del percorso, usato nella dashboard. """
+    """ Serializer semplificato per l'ultimo progresso, usato nella dashboard. """
     class Meta:
         model = PathwayProgress
-        fields = ['status', 'last_completed_quiz_order', 'completed_at', 'points_earned'] # Aggiunto points_earned
+        # Rimosso 'points_earned' perché non esiste nel modello base
+        # Aggiunto 'completed_orders'
+        fields = ['id', 'status', 'last_completed_quiz_order', 'completed_orders', 'started_at', 'completed_at']
         read_only_fields = fields
 
 class StudentPathwayDashboardSerializer(PathwaySerializer):
     """
     Serializer per i Percorsi nella dashboard studente.
-    Include informazioni sul progresso dello studente.
+    Include informazioni sull'ultimo progresso dello studente.
     """
-    progress = SimplePathwayProgressSerializer(read_only=True) # Campo per il progresso
+    # Modificato: Usa SerializerMethodField per gestire la logica
+    latest_progress = serializers.SerializerMethodField()
 
     class Meta(PathwaySerializer.Meta): # Eredita Meta da PathwaySerializer
-        # Aggiungi il nuovo campo a quelli esistenti
-        fields = PathwaySerializer.Meta.fields + ['progress']
-        read_only_fields = fields # Tutto è read-only in questo contesto
+        fields = PathwaySerializer.Meta.fields + ['latest_progress']
+        read_only_fields = PathwaySerializer.Meta.read_only_fields + ['latest_progress']
+
+    def get_latest_progress(self, obj):
+        """Recupera l'ultimo progresso del percorso per lo studente corrente."""
+        # Accede ai progressi prefetched dalla view
+        student_progresses = getattr(obj, 'student_progresses_for_pathway', None)
+        if student_progresses:
+             # Poiché sono ordinati per -started_at nella view, il primo è l'ultimo
+             latest_progress = student_progresses[0]
+             return SimplePathwayProgressSerializer(latest_progress).data
+        return None
+
+# --- Serializer per lo Svolgimento del Percorso ---
+
+class NextPathwayQuizSerializer(serializers.ModelSerializer):
+    """ Serializer per rappresentare il prossimo quiz da svolgere in un percorso. """
+    class Meta:
+        model = Quiz
+        fields = ['id', 'title', 'description'] # Campi essenziali del quiz
+
+class PathwayAttemptDetailSerializer(PathwaySerializer):
+    """ Serializer per i dettagli di un tentativo di percorso per lo studente. """
+    progress = PathwayProgressSerializer(read_only=True) # Dettagli del progresso attuale
+    next_quiz = NextPathwayQuizSerializer(read_only=True) # Dettagli del prossimo quiz
+
+    class Meta(PathwaySerializer.Meta): # Eredita da PathwaySerializer
+        fields = PathwaySerializer.Meta.fields + ['progress', 'next_quiz']
+        read_only_fields = PathwaySerializer.Meta.read_only_fields + ['progress', 'next_quiz']

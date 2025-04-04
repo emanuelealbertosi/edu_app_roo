@@ -1,4 +1,4 @@
-# Riepilogo Stato Avanzamento Progetto (3 Aprile 2025, ~16:00)
+# Riepilogo Stato Avanzamento Progetto (3 Aprile 2025, ~18:10)
 
 ## 1. Progettazione
 
@@ -7,7 +7,7 @@
 ## 2. Setup Progetto Django
 
 *   Creato ambiente virtuale (`.venv`).
-*   Installato Django e le dipendenze necessarie (`psycopg2-binary`, `python-dotenv`, `dj-database-url`, `djangorestframework`, `djangorestframework-simplejwt`, `drf-nested-routers`, `factory-boy`, `Faker`, `django-json-widget`, `django-cors-headers`, `PyPDF2`, `python-docx`, `markdown`).
+*   Installato Django e le dipendenze necessarie (`psycopg2-binary`, `python-dotenv`, `dj-database-url`, `djangorestframework`, `djangorestframework-simplejwt`, `drf-nested-routers`, `factory-boy`, `Faker`, `django-json-widget`, `django-cors-headers`, `PyPDF2`, `python-docx`, `markdown`, `lodash-es`, `@types/lodash-es`).
 *   Aggiunto `pytest` e `pytest-django` alle dipendenze e creato `pytest.ini`. Aggiornato `requirements.txt`.
 *   Inizializzato progetto Django (`config`, `manage.py`).
 *   Creata directory `apps` e aggiunto `apps/__init__.py`.
@@ -59,6 +59,7 @@
     *   Aggiunta azione `upload_quiz` a `QuizViewSet`.
 *   **Corretto riordinamento domande:** Implementata logica in `QuestionViewSet.perform_destroy` per aggiornare l'ordine delle domande successive dopo un'eliminazione.
 *   **Resa descrizione quiz opzionale:** Modificato modello `Quiz` (`null=True`) e `QuizSerializer` (`extra_kwargs`).
+*   **Corretto errore 500 dashboard studente (percorsi):** Risolto `AttributeError` in `StudentAssignedPathwaysView` correggendo il `related_name` in `prefetch_related` da `progress` a `progresses`.
 
 ## 6. Interfaccia Admin
 
@@ -79,7 +80,7 @@
 *   **Aggiunti test API mancanti per `education`:** Coperti tutti i tipi di domanda in `submit_answer` e casi limite per grading manuale.
 *   **Corretti tutti i fallimenti nei test API dell'app `users`:** Abilitato e corretto test creazione utente API.
 *   **Corretti tutti i fallimenti nei test API dell'app `rewards`:** Risolti problemi con factory (Wallet, Reward, RewardTemplate, RewardPurchase), permessi (IsRewardOwnerOrAdmin, IsRewardTemplateOwnerOrAdmin), autenticazione studente e gestione ProtectedError.
-*   **Tutti i test (295) ora passano.**
+*   **Tutti i test (295) ora passano.** (Nota: Da riverificare dopo le ultime modifiche UI/backend)
 
 ## 8. Controllo Versione
 
@@ -96,11 +97,10 @@
 *   L'interfaccia di amministrazione (`/admin/`) è accessibile e migliorata con `django-json-widget`.
 *   Gli endpoint API per Admin/Docente e Studente sono funzionanti (secondo i test).
 *   La logica per il calcolo punteggio/punti per Quiz e Percorsi è implementata.
-*   Tutti i test backend (modelli e API) passano.
 *   Il codice è versionato su GitHub.
 *   Il database contiene dati di test generati dal comando `seed_test_data`.
-*   Il frontend studenti (`frontend-student`) è funzionante con le funzionalità principali implementate e **stile base Tailwind CSS applicato**. **Corretti numerosi bug relativi a:** visualizzazione quiz disponibili/completati/falliti, avvio tentativi, gestione tipi domanda, invio risposte, visualizzazione risultati (stato, numerazione), logout, shop (URL, aggiornamento dopo acquisto), storico acquisti (URL, visualizzazione stato con icone), **problema reindirizzamento logout**.
-*   Il frontend docenti (`frontend-teacher`) è stato inizializzato ed è in esecuzione (`npm run dev`). Le funzionalità base (visualizzazione studenti/quiz/percorsi/ricompense, CRUD base quiz/percorsi/ricompense, assegnazione, grading, sommario progressi) sono implementate. La gestione delle domande e opzioni è parzialmente implementata. **Corretti bug relativi a:** creazione ricompense (permessi, validazione), logout. **Implementata vista "Consegne"** per gestire ricompense acquistate. **Applicato stile base Tailwind CSS** coerente con frontend studenti. **Implementata funzionalità di upload quiz da file (PDF, DOCX, MD)**. **Aggiunto campo soglia completamento** al form quiz. **Corretto riordinamento domande** dopo eliminazione. **Resa descrizione quiz opzionale**. **Aggiunto interceptor 401** per gestire token scaduti.
+*   Il frontend studenti (`frontend-student`) è funzionante con le funzionalità principali implementate e **stile base Tailwind CSS applicato**. **Corretti numerosi bug relativi a:** visualizzazione quiz disponibili/completati/falliti, avvio tentativi, gestione tipi domanda, invio risposte, visualizzazione risultati (stato, numerazione), logout, shop (URL, aggiornamento dopo acquisto), storico acquisti (URL, visualizzazione stato con icone, **aggiunta descrizione ricompensa**), **problema reindirizzamento logout**. **Risolto errore 500 visualizzazione percorsi**.
+*   Il frontend docenti (`frontend-teacher`) è stato inizializzato ed è in esecuzione (`npm run dev`). Le funzionalità base (visualizzazione studenti/quiz/percorsi/ricompense, CRUD base quiz/percorsi/ricompense, assegnazione, grading, sommario progressi) sono implementate. La gestione delle domande e opzioni è parzialmente implementata. **Corretti bug relativi a:** creazione ricompense (permessi, validazione), logout. **Implementata vista "Consegne"** per gestire ricompense acquistate. **Applicato stile base Tailwind CSS** coerente con frontend studenti (incluso stile bottoni nelle viste principali e componenti). **Implementata funzionalità di upload quiz da file (PDF, DOCX, MD)**. **Aggiunto campo soglia completamento** al form quiz. **Corretto riordinamento domande** dopo eliminazione. **Resa descrizione quiz opzionale**. **Aggiunto interceptor 401** per gestire token scaduti. **Implementato salvataggio automatico opzioni risposta**. **Modificato comportamento salvataggio quiz** per rimanere sulla pagina. **Risolto problema visualizzazione domande** dopo modifica/navigazione.
 
 ## 10. Raffinamento Codice
 
@@ -119,6 +119,8 @@
 *   **Configurato Tailwind CSS v3:** Installato e configurato Tailwind, risolti problemi iniziali di applicazione stili.
 *   **Applicato stile base:** Applicate classi Tailwind alle viste principali e ai componenti per uno stile "Kahoot-like".
 *   **Corretto bug logout:** Risolto problema di reindirizzamento dopo il logout refattorizzando lo store di autenticazione.
+*   **Aggiunta descrizione ricompensa allo storico acquisti.**
+*   **Risolto errore 500 visualizzazione percorsi.**
 
 ## 12. Dati di Test
 
@@ -139,11 +141,14 @@
     *   **Debug Test E2E Domande/Opzioni:** Affrontati e risolti numerosi problemi. Test sospesi in favore di test manuali.
 *   **Aggiunto campo "Punti al Completamento" e "Soglia Completamento (%)"** al form dei quiz.
 *   **Configurato Tailwind CSS v3:** Installato e configurato Tailwind.
-*   **Applicato stile base:** Applicate classi Tailwind al layout principale e alla vista Login per coerenza con frontend studenti.
+*   **Applicato stile base:** Applicate classi Tailwind al layout principale e alla vista Login per coerenza con frontend studenti. **Applicato stile Tailwind ai bottoni nelle viste principali e componenti.**
 *   **Implementata funzionalità upload quiz da file:** Aggiunto componente, vista, rotta e funzione API. Aggiunto indicatore di caricamento.
 *   **Corretto riordinamento domande:** Aggiornata vista `QuizFormView` per ricaricare domande dopo eliminazione.
 *   **Resa descrizione quiz opzionale:** Rimosso `required` dal frontend.
 *   **Aggiunto interceptor 401:** Gestisce token scaduti/invalidi reindirizzando al login.
+*   **Implementato salvataggio automatico opzioni risposta.**
+*   **Modificato comportamento salvataggio quiz** per rimanere sulla pagina.
+*   **Risolto problema visualizzazione domande** dopo modifica/navigazione.
 
 ## 14. Dockerizzazione (Tentativo Iniziale)
 

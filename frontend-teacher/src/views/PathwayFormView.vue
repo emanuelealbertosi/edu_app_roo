@@ -13,8 +13,14 @@
         <label for="description">Descrizione:</label>
         <textarea id="description" v-model="pathwayData.description"></textarea>
       </div>
+<div class="form-group">
+  <label for="points_on_completion">Punti al Completamento Percorso:</label>
+  <!-- Usa la computed property per v-model -->
+  <input type="number" id="points_on_completion" v-model.number="pointsOnCompletion" min="0" placeholder="Es: 50" />
+  <small>Punti assegnati allo studente al primo completamento del percorso.</small>
+</div>
 
-      <!-- TODO: Aggiungere gestione metadata -->
+<!-- TODO: Aggiungere gestione altri metadata se necessario -->
 
       <div class="form-actions">
         <button type="submit" :disabled="isSaving">
@@ -100,7 +106,27 @@ const pathwayData = reactive<PathwayFormData>({
 // Calcola i quiz ordinati per visualizzazione
 const sortedQuizDetails = computed(() => {
     // Clona l'array prima di ordinarlo per non mutare l'originale reattivo direttamente
+    // Clona l'array prima di ordinarlo per non mutare l'originale reattivo direttamente
     return [...pathwayData.quiz_details].sort((a, b) => a.order - b.order);
+});
+
+// Computed property per gestire points_on_completion nei metadata
+const pointsOnCompletion = computed({
+  get: () => pathwayData.metadata?.points_on_completion ?? null, // Restituisce null se non definito
+  set: (value) => {
+    // Assicurati che metadata esista
+    if (!pathwayData.metadata) {
+      pathwayData.metadata = {};
+    }
+    // Aggiorna o rimuovi la proprietà
+    if (value === null || value === '' || isNaN(Number(value))) {
+      // Se il valore è nullo, vuoto o non un numero, rimuovi la chiave o impostala a null
+      // delete pathwayData.metadata.points_on_completion; // Opzione 1: rimuovi
+      pathwayData.metadata.points_on_completion = null; // Opzione 2: imposta a null
+    } else {
+      pathwayData.metadata.points_on_completion = Number(value); // Imposta il valore numerico
+    }
+  }
 });
 
 onMounted(async () => {
@@ -227,18 +253,18 @@ const removeQuiz = async (pathwayQuizId: number) => {
         return;
     }
 
-    // TODO: Implementare chiamata API `removeQuizFromPathway` quando disponibile nel backend
-    // Per ora, simuliamo la rimozione locale e mostriamo un avviso.
-    console.warn(`Simulazione rimozione relazione quiz ID ${pathwayQuizId}. API backend richiesta.`);
-    pathwayData.quiz_details.splice(indexToRemove, 1);
-    // try {
-    //     await removeQuizFromPathway(pathwayId.value, pathwayQuizId);
-    //     pathwayData.quiz_details.splice(indexToRemove, 1); // Rimuovi solo dopo successo API
-    //     console.log(`Quiz (relazione ${pathwayQuizId}) rimosso dal percorso.`);
-    // } catch (err: any) {
-    //     console.error(`Errore rimozione quiz (relazione ${pathwayQuizId}):`, err);
-    //     error.value = `Errore rimozione quiz: ${err.message || 'Errore sconosciuto'}`;
-    // }
+    // Chiama l'API per rimuovere la relazione quiz-percorso
+    try {
+        await removeQuizFromPathway(pathwayId.value, pathwayQuizId);
+        // Rimuovi dalla lista locale SOLO dopo successo API
+        pathwayData.quiz_details.splice(indexToRemove, 1);
+        console.log(`Quiz (relazione ${pathwayQuizId}) rimosso dal percorso ${pathwayId.value}.`);
+        // Potresti voler mostrare un messaggio di successo all'utente
+    } catch (err: any) {
+        console.error(`Errore rimozione quiz (relazione ${pathwayQuizId}) dal percorso ${pathwayId.value}:`, err);
+        // Mostra l'errore all'utente (potresti usare una variabile ref dedicata per gli errori di questa sezione)
+        addQuizError.value = `Errore rimozione quiz: ${err.response?.data?.detail || err.message || 'Errore sconosciuto'}`;
+    }
 };
 
 </script>

@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import PathwayService, { type PathwayDetails } from '@/api/pathway';
+import PathwayService, { type PathwayAttemptDetails } from '@/api/pathway'; // Importa il tipo corretto
 
 // State
 const route = useRoute();
 const router = useRouter();
-const pathwayDetails = ref<PathwayDetails | null>(null);
+const pathwayDetails = ref<PathwayAttemptDetails | null>(null); // Usa il tipo corretto
 const isLoading = ref(true);
 const error = ref<string | null>(null);
 
@@ -22,13 +22,22 @@ async function fetchPathwayResults() {
   isLoading.value = true;
   error.value = null;
   try {
-    pathwayDetails.value = await PathwayService.getPathwayDetails(pathwayId.value);
+    const rawData = await PathwayService.getPathwayAttemptDetails(pathwayId.value); // Chiama la funzione corretta
+    console.log('[PathwayResultView] Raw data received:', JSON.stringify(rawData)); // Log raw data
+    pathwayDetails.value = rawData;
+    console.log('[PathwayResultView] Data assigned to pathwayDetails.value'); // Log after assignment
     // Potremmo aggiungere un controllo qui per assicurarsi che il percorso sia effettivamente completato
-    // if (pathwayDetails.value?.progress?.status !== 'completed') {
+    // if (pathwayDetails.value?.progress?.status !== 'COMPLETED') { // Usa stato corretto
     //   // Forse reindirizzare altrove o mostrare un messaggio diverso?
     // }
-  } catch (err) {
-    console.error(`Errore durante il recupero dei risultati per il percorso ${pathwayId.value}:`, err);
+  } catch (err) { // Error is caught here
+    console.error(`[PathwayResultView] Error in try block for pathway ${pathwayId.value}:`, err); // Log error object
+    // Also log specific properties if available
+    if (err instanceof Error) {
+        console.error('[PathwayResultView] Error name:', err.name);
+        console.error('[PathwayResultView] Error message:', err.message);
+        console.error('[PathwayResultView] Error stack:', err.stack);
+    }
     error.value = "Impossibile caricare i risultati del percorso. Riprova più tardi.";
   } finally {
     isLoading.value = false;
@@ -63,13 +72,13 @@ onMounted(() => {
       <p>{{ error }}</p>
     </div>
 
-    <div v-if="pathwayDetails &amp;&amp; !isLoading" class="results-container">
+    <div v-if="pathwayDetails && !isLoading" class="results-container">
       <h2>{{ pathwayDetails.title }}</h2>
       <p><strong>Descrizione:</strong> {{ pathwayDetails.description }}</p>
       
-      <div v-if="pathwayDetails.progress" class="summary-scores" 
-           :class="{ 'completed': pathwayDetails.progress.status === 'completed', 'in-progress': pathwayDetails.progress.status !== 'completed' }">
-          <p><strong>Stato:</strong> {{ pathwayDetails.progress.status === 'completed' ? 'Completato' : 'In Corso' }}</p>
+      <div v-if="pathwayDetails.progress" class="summary-scores"
+           :class="{ 'completed': pathwayDetails.progress.status === 'COMPLETED', 'in-progress': pathwayDetails.progress.status !== 'COMPLETED' }">
+         <p><strong>Stato:</strong> {{ pathwayDetails.progress.status === 'COMPLETED' ? 'Completato' : 'In Corso' }}</p>
           <p v-if="pathwayDetails.progress.completed_at"><strong>Completato il:</strong> {{ formatDate(pathwayDetails.progress.completed_at) }}</p>
           <p><strong>Punti Guadagnati:</strong> {{ pathwayDetails.progress.points_earned ?? 0 }}</p>
       </div>
@@ -80,20 +89,23 @@ onMounted(() => {
       <!-- Opzionale: Elenco dei quiz nel percorso e il loro stato -->
       <h3>Quiz nel Percorso</h3>
       <ul class="quiz-list-in-pathway">
-        <li v-for="quiz in pathwayDetails.quizzes" :key="quiz.id" 
-            :class="{ 'quiz-completed': quiz.is_completed, 'quiz-available': quiz.is_available, 'quiz-locked': !quiz.is_available }">
-          <span class="quiz-order">{{ quiz.order }}.</span>
-          <span class="quiz-title">{{ quiz.title }}</span>
+        <!-- Modificato per iterare su quiz_details e usare i dati corretti -->
+        <li v-for="quizDetail in pathwayDetails.quiz_details" :key="quizDetail.quiz_id"
+            :class="{ 'quiz-completed': pathwayDetails.progress?.completed_orders?.includes(quizDetail.order) }">
+          <span class="quiz-order">{{ quizDetail.order + 1 }}.</span>
+          <span class="quiz-title">{{ quizDetail.quiz_title }}</span>
           <span class="quiz-status-indicator">
-            {{ quiz.is_completed ? '✔ Completato' : (quiz.is_available ? 'Disponibile' : 'Bloccato') }}
+             {{ pathwayDetails.progress?.completed_orders?.includes(quizDetail.order) ? '✔ Completato' : 'Non Completato' }}
           </span>
-          <!-- Potremmo aggiungere un link per vedere i risultati del singolo quiz se completato -->
-          <router-link 
-             v-if="quiz.is_completed &amp;&amp; quiz.attempt_id" 
-             :to="{ name: 'QuizResult', params: { attemptId: quiz.attempt_id } }"
+          <!-- TODO: Aggiungere link ai risultati del singolo quiz se necessario,
+                     richiede di recuperare l'attempt_id corretto per questo quiz
+                     all'interno di questo percorso -->
+          <!-- <router-link
+             v-if="pathwayDetails.progress?.completed_orders?.includes(quizDetail.order) && getAttemptIdForQuiz(quizDetail.quiz_id)"
+             :to="{ name: 'QuizResult', params: { attemptId: getAttemptIdForQuiz(quizDetail.quiz_id) } }"
              class="view-quiz-results-link">
              Vedi Risultati Quiz
-          </router-link>
+          </router-link> -->
         </li>
       </ul>
 

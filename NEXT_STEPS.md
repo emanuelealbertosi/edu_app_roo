@@ -1,6 +1,6 @@
 # Prossimi Passi per lo Sviluppo
 
-*(Stato al 3 Aprile 2025, ~16:00)*
+*(Stato al 3 Aprile 2025, ~18:10)*
 
 ## Priorità Immediata
 
@@ -9,16 +9,12 @@
     *   **Azione:** Analizzare la configurazione di `vue-tsc`, `tsconfig.json`, `eslint.config.ts` e l'ambiente di build Docker. Verificare possibili conflitti o errori di interpretazione del template Vue.
 
 2.  **Eseguire Test Backend (Pytest):**
-    *   **Obiettivo:** Assicurarsi che le recenti modifiche (upload quiz, stato FAILED, riordino domande, descrizione opzionale) non abbiano introdotto regressioni nel backend.
-    *   **Azione:** Lanciare `pytest` nella root del progetto (nell'ambiente locale).
+    *   **Obiettivo:** Assicurarsi che le recenti modifiche (upload quiz, stato FAILED, riordino domande, descrizione opzionale, correzioni API dashboard studente) non abbiano introdotto regressioni nel backend.
+    *   **Azione:** Lanciare `pytest` nella root del progetto (nell'ambiente locale). Correggere eventuali fallimenti.
 
 3.  **Eseguire Test Manuali:**
-    *   **Obiettivo:** Verificare manualmente le funzionalità chiave dei frontend docente e studente (in esecuzione locale), come descritto in `test.md`, includendo le nuove funzionalità e correzioni.
-    *   **Azione:** Seguire i passaggi definiti in `test.md`. Verificare in particolare:
-        *   Upload quiz da file (PDF, DOCX, MD).
-        *   Riordinamento domande dopo eliminazione (frontend docente).
-        *   Corretta visualizzazione stato quiz `FAILED` (frontend studente).
-        *   Creazione quiz senza descrizione (frontend docente).
+    *   **Obiettivo:** Verificare manualmente le funzionalità chiave dei frontend docente e studente (in esecuzione locale), come descritto in `test.md`, includendo le nuove funzionalità e correzioni (stile bottoni, auto-salvataggio opzioni, no redirect salvataggio quiz, visualizzazione percorsi studente).
+    *   **Azione:** Seguire i passaggi definiti in `test.md`.
 
 4.  **Risolvere Problema Indicatore Caricamento Upload Quiz:**
     *   **Obiettivo:** Investigare perché l'indicatore di caricamento in `QuizUploadForm.vue` rimane visibile dopo il completamento dell'upload, nonostante i log indichino che `isLoading` è `false`.
@@ -27,7 +23,7 @@
 ## Frontend Docente
 
 5.  **Applicare Stile Tailwind (Coerente con Studenti):**
-    *   **Priorità Alta:** Applicare classi Tailwind alle restanti viste e componenti del frontend docenti (Dashboard, Studenti, Quiz, Percorsi, Ricompense, Assegna, Valutazioni, Consegne, Progressi, Upload Quiz) per allineare lo stile a quello degli studenti.
+    *   **Priorità Alta:** Applicare classi Tailwind alle restanti viste e componenti del frontend docenti (es. Dashboard, Studenti, form specifici, tabelle) per allineare lo stile a quello degli studenti. (Parzialmente completato con stile bottoni).
 
 6.  **Completare Gestione Domande/Opzioni:**
     *   **Priorità Alta:** Implementare la gestione dei metadati per le domande (es. risposte corrette per FillBlank, punteggio max per OpenManual).
@@ -46,7 +42,7 @@
 ## Frontend Studente
 
 9.  **Test Frontend Studente:**
-    *   **Priorità Bassa:** Scrivere test E2E (Playwright) per i flussi principali (svolgimento quiz, shop, acquisti, storico).
+    *   **Priorità Bassa:** Scrivere test E2E (Playwright) per i flussi principali (svolgimento quiz, shop, acquisti, storico, visualizzazione percorsi).
 
 ## Backend
 

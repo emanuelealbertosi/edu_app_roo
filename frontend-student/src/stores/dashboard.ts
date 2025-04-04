@@ -74,16 +74,16 @@ export const useDashboardStore = defineStore('dashboard', {
     // Percorsi completati
     completedPathways(state): Pathway[] {
       return state.pathways.filter(pathway => 
-        pathway.progress && 
-        pathway.progress.status === 'completed'
+        pathway.latest_progress && 
+        pathway.latest_progress.status === 'COMPLETED' // Usa lo stato corretto dal backend
       );
     },
     
-    // Percorsi in corso
+    // Percorsi in corso O NON INIZIATI
     inProgressPathways(state): Pathway[] {
       return state.pathways.filter(pathway => 
-        pathway.progress && 
-        pathway.progress.status === 'in_progress'
+        // Include percorsi senza progress (non iniziati) O quelli con stato IN_PROGRESS
+        !pathway.latest_progress || pathway.latest_progress.status === 'IN_PROGRESS' 
       );
     }
   },
@@ -122,7 +122,9 @@ export const useDashboardStore = defineStore('dashboard', {
     async fetchPathways() {
       this.loading.pathways = true;
       try {
-        this.pathways = await DashboardService.getAssignedPathways();
+        const fetchedPathways = await DashboardService.getAssignedPathways();
+        console.log('[DashboardStore] Fetched Pathways:', JSON.stringify(fetchedPathways)); // LOG Aggiunto
+        this.pathways = fetchedPathways;
       } catch (error) {
         console.error('Error in fetchPathways:', error);
         this.error = 'Errore nel caricamento dei percorsi';
