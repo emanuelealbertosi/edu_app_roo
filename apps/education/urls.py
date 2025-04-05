@@ -6,7 +6,10 @@ from .views import (
     StudentDashboardViewSet, StudentQuizAttemptViewSet, TeacherGradingViewSet,
     AttemptViewSet, # Importa la nuova viewset
     StudentAssignedQuizzesView, StudentAssignedPathwaysView, # Importa le nuove view
-    PathwayAttemptDetailView # Importa la nuova view per i dettagli del tentativo percorso
+    PathwayAttemptDetailView, # Importa la nuova view per i dettagli del tentativo percorso
+    # Nuovi ViewSet per Template Percorsi
+    PathwayTemplateViewSet, PathwayQuizTemplateViewSet, TeacherQuizTemplateViewSet,
+    TeacherQuestionTemplateViewSet, TeacherAnswerOptionTemplateViewSet # Aggiungo i nuovi ViewSet nidificati
 )
 
 # Router principale per le risorse top-level dell'app education
@@ -18,6 +21,8 @@ router.register(r'attempts', AttemptViewSet, basename='attempt') # Gestione Tent
 # Endpoint specifici Studente/Docente
 # router.register(r'student/dashboard', StudentDashboardViewSet, basename='student-dashboard') # Usare APIView semplice? -> Usiamo path diretto sotto
 router.register(r'teacher/grading', TeacherGradingViewSet, basename='teacher-grading') # Gestione Correzioni (Docente)
+router.register(r'pathway-templates', PathwayTemplateViewSet, basename='pathway-template') # Gestione Template Percorsi (Docente)
+router.register(r'teacher/quiz-templates', TeacherQuizTemplateViewSet, basename='teacher-quiz-template') # Gestione Template Quiz (Docente)
 
 # --- Router Annidati ---
 
@@ -39,6 +44,19 @@ quizzes_router.register(r'attempts', StudentQuizAttemptViewSet, basename='quiz-a
 questions_router = routers.NestedDefaultRouter(quizzes_router, r'questions', lookup='question')
 questions_router.register(r'options', AnswerOptionViewSet, basename='question-options')
 
+# /pathway-templates/{pathway_template_pk}/quiz-templates/
+pathway_templates_router = routers.NestedDefaultRouter(router, r'pathway-templates', lookup='pathway_template')
+pathway_templates_router.register(r'quiz-templates', PathwayQuizTemplateViewSet, basename='pathway-template-quiz-templates')
+# Router nidificati per i template quiz del docente
+# /teacher/quiz-templates/{quiz_template_pk}/questions/
+teacher_quiz_templates_router = routers.NestedDefaultRouter(router, r'teacher/quiz-templates', lookup='quiz_template')
+teacher_quiz_templates_router.register(r'questions', TeacherQuestionTemplateViewSet, basename='teacher-quiz-template-questions')
+
+# /teacher/quiz-templates/{quiz_template_pk}/questions/{question_template_pk}/options/
+teacher_question_templates_router = routers.NestedDefaultRouter(teacher_quiz_templates_router, r'questions', lookup='question_template')
+teacher_question_templates_router.register(r'options', TeacherAnswerOptionTemplateViewSet, basename='teacher-question-template-options')
+
+
 
 # Combina tutti gli URL
 urlpatterns = [
@@ -57,6 +75,9 @@ urlpatterns = [
     path('', include(question_templates_router.urls)),
     path('', include(quizzes_router.urls)),
     path('', include(questions_router.urls)),
+    path('', include(pathway_templates_router.urls)),
+    path('', include(teacher_quiz_templates_router.urls)),
+    path('', include(teacher_question_templates_router.urls)),
 
     # URL per Student Dashboard (non basato su router standard) - Rimosso perché gestito da view specifiche sopra
     # path('student/dashboard/', StudentDashboardViewSet.as_view({'get': 'list'}), name='student-dashboard'),

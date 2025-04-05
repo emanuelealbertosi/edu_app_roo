@@ -1,59 +1,61 @@
 # Prossimi Passi per lo Sviluppo
 
-*(Stato al 3 Aprile 2025, ~18:10)*
+*(Stato al 5 Aprile 2025, ~07:10)*
 
 ## Priorità Immediata
 
-1.  **Risolvere Problemi Build Docker Frontend Docente:**
-    *   **Obiettivo:** Investigare e risolvere gli errori TypeScript persistenti (specialmente in `QuestionFormView.vue`) e i problemi con le dipendenze di linting/typing (`@eslint/js`, `eslint-config-prettier`) che impediscono il build Docker di `frontend-teacher`. Rimuovere il workaround dallo script `build` in `package.json` una volta risolto.
-    *   **Azione:** Analizzare la configurazione di `vue-tsc`, `tsconfig.json`, `eslint.config.ts` e l'ambiente di build Docker. Verificare possibili conflitti o errori di interpretazione del template Vue.
-
-2.  **Eseguire Test Backend (Pytest):**
-    *   **Obiettivo:** Assicurarsi che le recenti modifiche (upload quiz, stato FAILED, riordino domande, descrizione opzionale, correzioni API dashboard studente) non abbiano introdotto regressioni nel backend.
+1.  **Eseguire Test Backend (Pytest):**
+    *   **Obiettivo:** Assicurarsi che il refactoring dei template, l'aggiunta dell'upload template e le correzioni ai serializer di assegnazione non abbiano introdotto regressioni. Aggiornare/creare test per coprire le nuove funzionalità (upload template, assegnazione da template).
     *   **Azione:** Lanciare `pytest` nella root del progetto (nell'ambiente locale). Correggere eventuali fallimenti.
 
-3.  **Eseguire Test Manuali:**
-    *   **Obiettivo:** Verificare manualmente le funzionalità chiave dei frontend docente e studente (in esecuzione locale), come descritto in `test.md`, includendo le nuove funzionalità e correzioni (stile bottoni, auto-salvataggio opzioni, no redirect salvataggio quiz, visualizzazione percorsi studente).
-    *   **Azione:** Seguire i passaggi definiti in `test.md`.
+2.  **Eseguire Test Manuali (Nuovo Flusso Docente):**
+    *   **Obiettivo:** Verificare manualmente il nuovo flusso di lavoro del docente: creazione/gestione template quiz (incluso upload da file) e percorsi, gestione domande/opzioni template (con salvataggio automatico), assegnazione da template, visualizzazione istanze assegnate. Aggiornare `test.md` per includere i passaggi di upload.
+    *   **Azione:** Seguire i passaggi aggiornati in `test.md`.
 
-4.  **Risolvere Problema Indicatore Caricamento Upload Quiz:**
-    *   **Obiettivo:** Investigare perché l'indicatore di caricamento in `QuizUploadForm.vue` rimane visibile dopo il completamento dell'upload, nonostante i log indichino che `isLoading` è `false`.
-    *   **Azione:** Analizzare i log della console del browser durante l'upload. Verificare se l'errore nel rendering del `<router-link>` (ora commentato) impedisce l'aggiornamento dell'UI. Ripristinare e correggere il `<router-link>` se necessario.
+3.  **Risolvere Problema Indicatore Caricamento Upload Quiz (Se Persistente):**
+    *   **Obiettivo:** Verificare se il problema con l'indicatore di caricamento in `QuizUploadForm.vue` (nel frontend docente, per i quiz concreti) è ancora presente e risolverlo.
+    *   **Azione:** Testare l'upload, analizzare console e correggere se necessario.
 
 ## Frontend Docente
 
-5.  **Applicare Stile Tailwind (Coerente con Studenti):**
-    *   **Priorità Alta:** Applicare classi Tailwind alle restanti viste e componenti del frontend docenti (es. Dashboard, Studenti, form specifici, tabelle) per allineare lo stile a quello degli studenti. (Parzialmente completato con stile bottoni).
+4.  **Raffinamento Editor Domande/Opzioni Template:**
+    *   **Priorità Alta:** Implementare la gestione completa dei metadati per le domande template (es. risposte corrette per FillBlank, punteggio max per OpenManual) in `QuestionTemplateFormView.vue`. (Nota: L'input manuale JSON è stato rimosso, serve un'interfaccia dedicata per tipo).
+    *   **Priorità Media:** Migliorare l'interfaccia per l'ordinamento di domande e opzioni template.
+    *   **Priorità Bassa:** Raffinare UI/UX generale dell'editor (`TemplateQuestionEditor`, `TemplateAnswerOptionsEditor`).
 
-6.  **Completare Gestione Domande/Opzioni:**
-    *   **Priorità Alta:** Implementare la gestione dei metadati per le domande (es. risposte corrette per FillBlank, punteggio max per OpenManual).
-    *   **Priorità Media:** Migliorare l'interfaccia per l'ordinamento di domande e opzioni (se non già robusta).
-    *   **Priorità Bassa:** Raffinare UI/UX dell'editor domande/opzioni.
+5.  **Raffinamento Viste Istanze Assegnate:**
+    *   **Priorità Media:** Migliorare le viste `AssignedQuizzesView.vue` e `AssignedPathwaysView.vue` (es. aggiungere filtri, paginazione, link ai dettagli studente/tentativi).
+    *   **Priorità Media:** Implementare la vista dettagli (read-only?) per le istanze quiz/percorsi assegnati.
 
-7.  **Completare Funzionalità Core:**
+6.  **Completare Funzionalità Core (Restanti):**
     *   **Priorità Media:** Implementare l'UI per la selezione degli studenti specifici per le Ricompense.
     *   **Priorità Media:** Implementare la visualizzazione dettagliata dei progressi degli studenti (oltre al sommario).
-    *   **Priorità Bassa:** Completare la gestione dei Quiz/Percorsi nei Percorsi (es. rimozione, modifica ordine più intuitiva).
+
+7.  **Applicare Stile Tailwind (Coerente):**
+    *   **Priorità Media:** Completare l'applicazione dello stile Tailwind alle viste e componenti restanti per coerenza.
 
 8.  **Test Frontend Docente:**
-    *   **Priorità Media:** Scrivere test unitari (Vitest) per i componenti principali.
-    *   **Priorità Bassa:** Riprendere e stabilizzare i test E2E (Playwright), specialmente per il flusso domande/opzioni, una volta che le funzionalità sono complete e stabili.
-
-## Frontend Studente
-
-9.  **Test Frontend Studente:**
-    *   **Priorità Bassa:** Scrivere test E2E (Playwright) per i flussi principali (svolgimento quiz, shop, acquisti, storico, visualizzazione percorsi).
+    *   **Priorità Media:** Scrivere test unitari (Vitest) per i nuovi componenti e viste (template, upload template, istanze assegnate).
+    *   **Priorità Bassa:** Riprendere e stabilizzare i test E2E (Playwright) per coprire il nuovo flusso template.
 
 ## Backend
 
-10. **Raffinamento Upload Quiz:**
-    *   **Priorità Media:** Migliorare il parsing del testo per gestire diversi formati di domande/opzioni e tentare di identificare il tipo di domanda corretto (non solo MC_SINGLE/OPEN_MANUAL).
-    *   **Priorità Media:** Gestire l'estrazione e l'impostazione delle risposte corrette (se indicate nel file, es. con asterisco).
+9.  **Test API Refactoring Template e Upload:**
+    *   **Priorità Alta:** Scrivere test API specifici per i nuovi endpoint (`TeacherQuizTemplateViewSet` e relativi endpoint nidificati, inclusa azione `upload_template`), creazione istanze da template nelle azioni di assegnazione (`assign_student`, `assign_student_pathway`).
 
-11. **Completare Test API:**
-    *   **Priorità Bassa:** Scrivere test API per gli endpoint della dashboard studente (`/api/student/dashboard/...`).
-    *   **Priorità Media:** Scrivere test API per la nuova azione `upload_quiz`.
+10. **Raffinamento Upload Quiz/Template (Se Necessario):**
+    *   **Priorità Bassa:** Migliorare ulteriormente il parsing del testo se emergono problemi con formati diversi.
 
-12. **Raffinamento Generale:**
-    *   **Priorità Bassa:** Valutare l'implementazione di `GlobalSetting` se necessario.
-    *   **Priorità Bassa:** Valutare l'implementazione di gruppi di studenti per assegnazioni/disponibilità.
+11. **Raffinamento Generale:**
+    *   **Priorità Bassa:** Valutare l'implementazione di `GlobalSetting` o gruppi di studenti se necessario.
+
+## Frontend Studente
+
+12. **Test Frontend Studente:**
+    *   **Priorità Bassa:** Scrivere test E2E (Playwright) per i flussi principali (incluso storico acquisti).
+
+## Dockerizzazione (Priorità Abbassata)
+
+13. **Risolvere Problemi Build Docker Frontend Docente:**
+    *   **Obiettivo:** Investigare e risolvere gli errori TypeScript e di dipendenze che impediscono il build Docker di `frontend-teacher`. Rimuovere il workaround dallo script `build`.
+    *   **Azione:** Analizzare configurazioni e ambiente Docker (può essere posticipato).

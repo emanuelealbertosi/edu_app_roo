@@ -28,14 +28,27 @@ class QuestionType(models.TextChoices):
 
 # --- Template Models (Created by Admin) ---
 
+from django.db.models import Q, CheckConstraint # Import Q e CheckConstraint
+
 class QuizTemplate(models.Model):
-    """ Template per un Quiz, creato dall'Admin. """
+    """ Template per un Quiz, creato da Admin (globale) o Docente (locale). """
     admin = models.ForeignKey(
         settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE, # O SET_NULL?
-        related_name='created_quiz_templates',
-        limit_choices_to={'role': 'ADMIN'}, # Assicura che sia un Admin
-        verbose_name=_('Admin Creator')
+        on_delete=models.SET_NULL, # Meglio SET_NULL se l'admin viene eliminato
+        related_name='admin_created_quiz_templates', # Nome più specifico
+        limit_choices_to={'role': 'ADMIN'},
+        verbose_name=_('Admin Creator'),
+        null=True, # Rendi opzionale
+        blank=True
+    )
+    teacher = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL, # Meglio SET_NULL se il docente viene eliminato
+        related_name='teacher_created_quiz_templates', # Nome specifico
+        limit_choices_to={'role': 'TEACHER'},
+        verbose_name=_('Teacher Creator'),
+        null=True, # Rendi opzionale
+        blank=True
     )
     title = models.CharField(_('Title'), max_length=255)
     description = models.TextField(_('Description'), blank=True)
@@ -51,6 +64,18 @@ class QuizTemplate(models.Model):
         verbose_name = _('Quiz Template')
         verbose_name_plural = _('Quiz Templates')
         ordering = ['title']
+        constraints = [
+            CheckConstraint(
+                check=Q(admin__isnull=False) | Q(teacher__isnull=False),
+                name='quiz_template_creator_check',
+                violation_error_message=_('Un template di quiz deve avere un Admin o un Docente creatore.')
+            ),
+             CheckConstraint(
+                check=~(Q(admin__isnull=False) & Q(teacher__isnull=False)),
+                name='quiz_template_single_creator_check',
+                violation_error_message=_('Un template di quiz non può avere sia un Admin che un Docente creatore.')
+            )
+        ]
 
     def __str__(self):
         return self.title
@@ -120,6 +145,71 @@ class AnswerOptionTemplate(models.Model):
 
     def __str__(self):
         return f"Opt{self.order}: {self.text[:50]}... ({self.question_template})"
+
+class PathwayTemplate(models.Model):
+    """ Template per un Percorso Educativo, creato da Admin o Docente?
+        Per ora assumiamo Docente, come per Quiz/Pathway concreti,
+        ma potrebbe essere esteso ad Admin. """
+    # Se si vuole permettere anche agli Admin di creare template globali:
+    # creator = models.ForeignKey(
+    #     settings.AUTH_USER_MODEL,
+    #     on_delete=models.CASCADE,
+    #     related_name='created_pathway_templates',
+    #     # limit_choices_to={'role__in': ['ADMIN', 'TEACHER']}, # Se entrambi
+    #     limit_choices_to={'role': 'TEACHER'}, # Per ora solo Docente
+    #     verbose_name=_('Creator')
+    # )
+    teacher = models.ForeignKey( # Manteniamo 'teacher' per coerenza con Pathway
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='created_pathway_templates',
+        limit_choices_to={'role': 'TEACHER'},
+        verbose_name=_('Teacher')
+    )
+    title = models.CharField(_('Title'), max_length=255)
+    description = models.TextField(_('Description'), blank=True)
+    quiz_templates = models.ManyToManyField(
+        QuizTemplate,
+        through='PathwayQuizTemplate', # Specifica il modello intermedio
+        related_name='pathway_templates',
+        verbose_name=_('Quiz Templates')
+    )
+    metadata = models.JSONField(
+        _('Metadata'),
+        default=dict,
+        blank=True,
+        help_text=_('E.g., points_on_completion. Example: {"points_on_completion": 50}')
+    )
+    created_at = models.DateTimeField(_('Created At'), auto_now_add=True)
+
+    class Meta:
+        verbose_name = _('Pathway Template')
+        verbose_name_plural = _('Pathway Templates')
+        ordering = ['title']
+
+    def __str__(self):
+        return f"[Template] {self.title}"
+
+
+class PathwayQuizTemplate(models.Model):
+    """ Modello intermedio per la relazione M2M tra PathwayTemplate e QuizTemplate. """
+    pathway_template = models.ForeignKey(PathwayTemplate, on_delete=models.CASCADE)
+    quiz_template = models.ForeignKey(QuizTemplate, on_delete=models.CASCADE) # Collega a QuizTemplate
+    order = models.PositiveIntegerField(
+        _('Order'),
+        help_text=_('Order of the quiz template within the pathway template.')
+    )
+
+    class Meta:
+        verbose_name = _('Pathway Quiz Template')
+        verbose_name_plural = _('Pathway Quiz Templates')
+        ordering = ['pathway_template', 'order']
+        unique_together = ('pathway_template', 'order') # Unico ordine per template percorso
+        # unique_together = ('pathway_template', 'quiz_template') # Un template quiz può apparire una sola volta? Probabilmente sì.
+
+    def __str__(self):
+        return f"{self.pathway_template.title} - Step {self.order}: {self.quiz_template.title}"
+
 
 
 # --- Concrete Models (Created/Managed by Teacher) ---
@@ -264,6 +354,14 @@ class Pathway(models.Model):
     )
     title = models.CharField(_('Title'), max_length=255)
     description = models.TextField(_('Description'), blank=True)
+    source_template = models.ForeignKey(
+        PathwayTemplate,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='pathways_from_template',
+        verbose_name=_('Source Template')
+    )
     quizzes = models.ManyToManyField(
         Quiz,
         through='PathwayQuiz', # Specifica il modello intermedio
@@ -799,6 +897,7 @@ class QuizAssignment(models.Model):
         verbose_name=_('Assigned By')
     )
     assigned_at = models.DateTimeField(_('Assigned At'), auto_now_add=True)
+    due_date = models.DateTimeField(_('Due Date'), null=True, blank=True, help_text=_('Optional deadline for the quiz assignment.'))
 
     class Meta:
         verbose_name = _('Quiz Assignment')
@@ -826,6 +925,7 @@ class PathwayAssignment(models.Model):
     pathway = models.ForeignKey(
         Pathway,
         on_delete=models.CASCADE,
+        null=True, # Permetti NULL a livello di DB
         related_name='assignments',
         verbose_name=_('Pathway')
     )

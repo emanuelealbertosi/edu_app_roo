@@ -25,9 +25,9 @@ const router = createRouter({
       meta: { requiresAuth: true }
     },
     {
-      path: '/quizzes',
-      name: 'quizzes',
-      component: () => import('../views/QuizzesView.vue'), // Lazy load
+      path: '/quiz-templates', // Aggiornato path
+      name: 'quiz-templates', // Aggiornato nome rotta
+      component: () => import('../views/QuizTemplatesView.vue'), // Usa nuova vista elenco template
       meta: { requiresAuth: true }
     },
     {
@@ -37,31 +37,36 @@ const router = createRouter({
       meta: { requiresAuth: true }
     },
     {
-      path: '/quizzes/new', // Rotta per creare un nuovo quiz (manualmente)
-      name: 'quiz-new',
-      component: () => import('../views/QuizFormView.vue'),
+      path: '/quiz-templates/new', // Aggiornato path
+      name: 'quiz-template-new', // Aggiornato nome rotta
+      component: () => import('../views/QuizTemplateFormView.vue'), // Usa nuova vista form template
       meta: { requiresAuth: true }
     },
     {
-      path: '/quizzes/:id/edit', // Rotta per modificare un quiz esistente
-      name: 'quiz-edit',
-      component: () => import('../views/QuizFormView.vue'),
-      props: true, // Passa i parametri della rotta (es. :id) come props al componente
+      path: '/quiz-templates/:id/edit', // Aggiornato path
+      name: 'quiz-template-edit', // Aggiornato nome rotta
+      component: () => import('../views/QuizTemplateFormView.vue'), // Usa nuova vista form template
+      props: true,
+      meta: { requiresAuth: true },
+    }, // Aggiungo la virgola necessaria qui
+    // --- Rotte per Domande Template (Nidificate sotto Quiz Templates) ---
+    {
+      // Rotta per creare una nuova domanda per un template specifico
+      path: '/quiz-templates/:templateId/questions/new',
+      name: 'quiz-template-question-new',
+      component: () => import('../views/QuestionTemplateFormView.vue'), // Usa la nuova vista form
+      props: route => ({ templateId: Number(route.params.templateId) }), // Passa templateId come prop
       meta: { requiresAuth: true }
     },
-    // Rotte annidate per le domande di un quiz
     {
-      path: '/quizzes/:quizId/questions/new', // Crea nuova domanda per un quiz
-      name: 'question-new',
-      component: () => import('../views/QuestionFormView.vue'),
-      props: true, // Passa quizId
-      meta: { requiresAuth: true }
-    },
-    {
-      path: '/quizzes/:quizId/questions/:questionId/edit', // Modifica domanda esistente
-      name: 'question-edit',
-      component: () => import('../views/QuestionFormView.vue'),
-      props: true, // Passa quizId e questionId
+      // Rotta per modificare una domanda template esistente
+      path: '/quiz-templates/:templateId/questions/:questionId/edit',
+      name: 'quiz-template-question-edit',
+      component: () => import('../views/QuestionTemplateFormView.vue'), // Usa la nuova vista form
+      props: route => ({
+        templateId: Number(route.params.templateId),
+        questionId: Number(route.params.questionId) // Passa entrambi gli ID
+      }),
       meta: { requiresAuth: true }
     },
     {
@@ -70,60 +75,92 @@ const router = createRouter({
       component: () => import('../views/PathwaysView.vue'),
       meta: { requiresAuth: true }
     },
-    {
+    { // Aggiungo { mancante
       path: '/pathways/new',
       name: 'pathway-new',
       component: () => import('../views/PathwayFormView.vue'),
       meta: { requiresAuth: true }
-    },
-    {
+    }, // Chiudo correttamente l'oggetto /pathways/new
+    { // Apro l'oggetto per /pathways/:id/edit
       path: '/pathways/:id/edit',
       name: 'pathway-edit',
       component: () => import('../views/PathwayFormView.vue'),
       props: true,
       meta: { requiresAuth: true }
+    }, // Aggiungo la virgola mancante
+    { // Oggetto per /pathway-templates
+      path: '/pathway-templates',
+      name: 'pathway-templates',
+      component: () => import('../views/PathwayTemplatesView.vue'), // Nuova vista elenco
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/pathway-templates/new',
+      name: 'pathway-template-new',
+      component: () => import('../views/PathwayTemplateFormView.vue'), // Nuova vista form
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/pathway-templates/:id/edit',
+      name: 'pathway-template-edit',
+      component: () => import('../views/PathwayTemplateFormView.vue'), // Nuova vista form
+      props: true, // Passa :id come prop
+      meta: { requiresAuth: true },
     },
     {
       path: '/rewards',
       name: 'rewards',
       component: () => import('../views/RewardsView.vue'),
-      meta: { requiresAuth: true }
+      meta: { requiresAuth: true },
     },
     {
       path: '/rewards/new',
       name: 'reward-new',
       component: () => import('../views/RewardFormView.vue'),
-      meta: { requiresAuth: true }
+      meta: { requiresAuth: true },
     },
     {
       path: '/rewards/:id/edit',
       name: 'reward-edit',
       component: () => import('../views/RewardFormView.vue'),
       props: true,
-      meta: { requiresAuth: true }
+      meta: { requiresAuth: true },
     },
     {
       path: '/assign',
       name: 'assign',
       component: () => import('../views/AssignmentView.vue'),
-      meta: { requiresAuth: true }
+      meta: { requiresAuth: true },
     },
     {
       path: '/grading',
       name: 'grading',
       component: () => import('../views/GradingView.vue'),
-      meta: { requiresAuth: true }
+      meta: { requiresAuth: true },
     },
     {
       path: '/student-progress',
       name: 'student-progress',
       component: () => import('../views/StudentProgressView.vue'),
-      meta: { requiresAuth: true }
+      meta: { requiresAuth: true },
     },
     {
       path: '/delivery', // Rotta per la consegna ricompense
       name: 'delivery',
       component: () => import('../views/DeliveryView.vue'),
+      meta: { requiresAuth: true },
+    },
+    // --- Rotte per Istanze Assegnate ---
+    {
+      path: '/assigned-quizzes',
+      name: 'assigned-quizzes',
+      component: () => import('../views/AssignedQuizzesView.vue'), // Nuova vista
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/assigned-pathways',
+      name: 'assigned-pathways',
+      component: () => import('../views/AssignedPathwaysView.vue'), // Nuova vista
       meta: { requiresAuth: true }
     }
     // Add other teacher routes here later (e.g., student-progress-detail)

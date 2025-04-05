@@ -12,8 +12,11 @@ const authStore = useAuthStore();
       <nav v-if="authStore.isAuthenticated" class="flex items-center space-x-4 text-sm">
         <RouterLink :to="{ name: 'dashboard' }" class="py-1 hover:text-amber-300 border-b-2 border-transparent router-link-exact-active:border-amber-300 transition-colors duration-200">Dashboard</RouterLink>
         <RouterLink :to="{ name: 'students' }" class="py-1 hover:text-amber-300 border-b-2 border-transparent router-link-exact-active:border-amber-300 transition-colors duration-200">Studenti</RouterLink>
-        <RouterLink :to="{ name: 'quizzes' }" class="py-1 hover:text-amber-300 border-b-2 border-transparent router-link-exact-active:border-amber-300 transition-colors duration-200">Quiz</RouterLink>
-        <RouterLink :to="{ name: 'pathways' }" class="py-1 hover:text-amber-300 border-b-2 border-transparent router-link-exact-active:border-amber-300 transition-colors duration-200">Percorsi</RouterLink>
+        <RouterLink :to="{ name: 'quiz-templates' }" class="py-1 hover:text-amber-300 border-b-2 border-transparent router-link-exact-active:border-amber-300 transition-colors duration-200">Quiz Templates</RouterLink> <!-- Aggiornato nome rotta e testo -->
+        <RouterLink :to="{ name: 'pathway-templates' }" class="py-1 hover:text-amber-300 border-b-2 border-transparent router-link-exact-active:border-amber-300 transition-colors duration-200">Template Percorsi</RouterLink>
+        <!-- Link alle istanze assegnate -->
+        <RouterLink :to="{ name: 'assigned-quizzes' }" class="py-1 hover:text-amber-300 border-b-2 border-transparent router-link-exact-active:border-amber-300 transition-colors duration-200">Quiz Assegnati</RouterLink>
+        <RouterLink :to="{ name: 'assigned-pathways' }" class="py-1 hover:text-amber-300 border-b-2 border-transparent router-link-exact-active:border-amber-300 transition-colors duration-200">Percorsi Assegnati</RouterLink>
         <RouterLink :to="{ name: 'rewards' }" class="py-1 hover:text-amber-300 border-b-2 border-transparent router-link-exact-active:border-amber-300 transition-colors duration-200">Ricompense</RouterLink>
         <RouterLink :to="{ name: 'assign' }" class="py-1 hover:text-amber-300 border-b-2 border-transparent router-link-exact-active:border-amber-300 transition-colors duration-200">Assegna</RouterLink>
         <RouterLink :to="{ name: 'grading' }" class="py-1 hover:text-amber-300 border-b-2 border-transparent router-link-exact-active:border-amber-300 transition-colors duration-200">Valutazioni</RouterLink>

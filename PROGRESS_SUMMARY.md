@@ -1,4 +1,4 @@
-# Riepilogo Stato Avanzamento Progetto (3 Aprile 2025, ~18:10)
+# Riepilogo Stato Avanzamento Progetto (5 Aprile 2025, ~07:00)
 
 ## 1. Progettazione
 
@@ -24,11 +24,18 @@
 
 *   Definiti tutti i modelli del database come da piano nei rispettivi file `models.py`.
 *   Risolto problema iniziale con le migrazioni resettando le cartelle `migrations` e il database PostgreSQL.
-*   Create e applicate con successo tutte le migrazioni (inclusi campi studente, modelli assegnazione) per le app `users`, `rewards`, `education` al database PostgreSQL.
+*   Create e applicate con successo tutte le migrazioni iniziali (inclusi campi studente, modelli assegnazione) per le app `users`, `rewards`, `education` al database PostgreSQL.
 *   Aggiunta property `is_authenticated` al modello `Student` per tentare di risolvere problemi con i permessi DRF.
 *   Aggiunto campo `first_correct_completion` al modello `PathwayProgress` e creata/applicata relativa migrazione.
 *   Aggiunto stato `FAILED` al modello `QuizAttempt` e applicata relativa migrazione.
 *   Reso il campo `description` del modello `Quiz` opzionale (`null=True`) e applicata relativa migrazione.
+*   **Refactoring Template:**
+    *   Aggiunti modelli `PathwayTemplate` e `PathwayQuizTemplate` per gestire template di percorsi.
+    *   Aggiunto campo `source_template` al modello `Pathway`.
+    *   Modificato modello `QuizTemplate` per aggiungere campo `teacher` (opzionale) e rendere `admin` opzionale, con vincoli per assicurare almeno un creatore.
+    *   Create e applicate migrazioni `0007` e `0008` per l'app `education` per riflettere queste modifiche.
+*   **Correzione Assegnazione Percorsi:** Modificato modello `PathwayAssignment` per permettere `null=True` sul campo `pathway` e applicata migrazione `0009`.
+*   **Correzione Assegnazione Quiz:** Aggiunto campo `due_date` al modello `QuizAssignment` e applicata migrazione `0010`.
 
 ## 5. Autenticazione e API Base
 
@@ -60,10 +67,23 @@
 *   **Corretto riordinamento domande:** Implementata logica in `QuestionViewSet.perform_destroy` per aggiornare l'ordine delle domande successive dopo un'eliminazione.
 *   **Resa descrizione quiz opzionale:** Modificato modello `Quiz` (`null=True`) e `QuizSerializer` (`extra_kwargs`).
 *   **Corretto errore 500 dashboard studente (percorsi):** Risolto `AttributeError` in `StudentAssignedPathwaysView` correggendo il `related_name` in `prefetch_related` da `progress` a `progresses`.
+*   **Refactoring Template API:**
+    *   Aggiunti Serializer (`PathwayTemplateSerializer`, `PathwayQuizTemplateSerializer`, `QuizAssignmentSerializer`, `PathwayAssignmentSerializer`) per gestire i template e l'assegnazione da template.
+    *   Aggiunti ViewSet (`PathwayTemplateViewSet`, `PathwayQuizTemplateViewSet`, `TeacherQuizTemplateViewSet`, `TeacherQuestionTemplateViewSet`, `TeacherAnswerOptionTemplateViewSet`) per il CRUD dei template e delle loro domande/opzioni da parte del docente.
+    *   Modificata logica di assegnazione in `QuizViewSet` e `PathwayViewSet` per creare istanze concrete (`Quiz`, `Pathway`) a partire dai template quando viene fornito `quiz_template_id` o `pathway_template_id`.
+    *   Aggiornati URL (`apps/education/urls.py`) per includere i nuovi endpoint per i template gestiti dai docenti.
+    *   Aggiornato `PathwaySerializer` per includere `source_template`.
+*   **Implementata creazione template quiz da file:**
+    *   Creato `QuizTemplateUploadSerializer` per gestire upload e parsing (PDF, DOCX, MD) per i template.
+    *   Aggiunta azione `upload_template` a `TeacherQuizTemplateViewSet`.
+*   **Corretta validazione assegnazione da template:**
+    *   Risolto errore `400 Bad Request` per l'assegnazione di percorsi da template (modificato modello `PathwayAssignment`, usato serializer dedicato `PathwayAssignActionSerializer`, corretta view `assign_student_pathway`).
+    *   Risolto errore `400 Bad Request` per l'assegnazione di quiz da template (usato serializer dedicato `QuizAssignActionSerializer`, corretta view `assign_student`).
+    *   Risolti `IndentationError` e `NameError` in `serializers.py` emersi durante le correzioni.
 
 ## 6. Interfaccia Admin
 
-*   Configurati i file `admin.py` per tutte le app (`users`, `rewards`, `education`) per registrare i modelli (inclusi quelli di assegnazione) e personalizzare la visualizzazione (inclusi `inlines` per gestione nidificata).
+*   Configurati i file `admin.py` per tutte le app (`users`, `rewards`, `education`) per registrare i modelli (inclusi quelli di assegnazione e template) e personalizzare la visualizzazione (inclusi `inlines` per gestione nidificata).
 *   Installato e configurato `django-json-widget` per migliorare l'editing dei campi `metadata` nell'admin.
 
 ## 7. Test Modelli e API
@@ -80,7 +100,7 @@
 *   **Aggiunti test API mancanti per `education`:** Coperti tutti i tipi di domanda in `submit_answer` e casi limite per grading manuale.
 *   **Corretti tutti i fallimenti nei test API dell'app `users`:** Abilitato e corretto test creazione utente API.
 *   **Corretti tutti i fallimenti nei test API dell'app `rewards`:** Risolti problemi con factory (Wallet, Reward, RewardTemplate, RewardPurchase), permessi (IsRewardOwnerOrAdmin, IsRewardTemplateOwnerOrAdmin), autenticazione studente e gestione ProtectedError.
-*   **Tutti i test (295) ora passano.** (Nota: Da riverificare dopo le ultime modifiche UI/backend)
+*   **Tutti i test (295) ora passano.** (Nota: Da riverificare dopo refactoring template e aggiunta upload)
 
 ## 8. Controllo Versione
 
@@ -95,19 +115,27 @@
 
 *   Il server di sviluppo Django è in esecuzione (`python manage.py runserver`).
 *   L'interfaccia di amministrazione (`/admin/`) è accessibile e migliorata con `django-json-widget`.
-*   Gli endpoint API per Admin/Docente e Studente sono funzionanti (secondo i test).
+*   Gli endpoint API per Admin/Docente e Studente sono funzionanti.
 *   La logica per il calcolo punteggio/punti per Quiz e Percorsi è implementata.
 *   Il codice è versionato su GitHub.
 *   Il database contiene dati di test generati dal comando `seed_test_data`.
-*   Il frontend studenti (`frontend-student`) è funzionante con le funzionalità principali implementate e **stile base Tailwind CSS applicato**. **Corretti numerosi bug relativi a:** visualizzazione quiz disponibili/completati/falliti, avvio tentativi, gestione tipi domanda, invio risposte, visualizzazione risultati (stato, numerazione), logout, shop (URL, aggiornamento dopo acquisto), storico acquisti (URL, visualizzazione stato con icone, **aggiunta descrizione ricompensa**), **problema reindirizzamento logout**. **Risolto errore 500 visualizzazione percorsi**.
-*   Il frontend docenti (`frontend-teacher`) è stato inizializzato ed è in esecuzione (`npm run dev`). Le funzionalità base (visualizzazione studenti/quiz/percorsi/ricompense, CRUD base quiz/percorsi/ricompense, assegnazione, grading, sommario progressi) sono implementate. La gestione delle domande e opzioni è parzialmente implementata. **Corretti bug relativi a:** creazione ricompense (permessi, validazione), logout. **Implementata vista "Consegne"** per gestire ricompense acquistate. **Applicato stile base Tailwind CSS** coerente con frontend studenti (incluso stile bottoni nelle viste principali e componenti). **Implementata funzionalità di upload quiz da file (PDF, DOCX, MD)**. **Aggiunto campo soglia completamento** al form quiz. **Corretto riordinamento domande** dopo eliminazione. **Resa descrizione quiz opzionale**. **Aggiunto interceptor 401** per gestire token scaduti. **Implementato salvataggio automatico opzioni risposta**. **Modificato comportamento salvataggio quiz** per rimanere sulla pagina. **Risolto problema visualizzazione domande** dopo modifica/navigazione.
+*   Il frontend studenti (`frontend-student`) è funzionante con le funzionalità principali implementate e stile base Tailwind CSS applicato.
+*   Il frontend docenti (`frontend-teacher`) è stato **refattorizzato** per adottare il flusso basato sui template:
+    *   Le sezioni "Quiz Templates" e "Template Percorsi" gestiscono ora i template.
+    *   La sezione "Assegna" permette di assegnare contenuti solo a partire dai template.
+    *   Sono state aggiunte le sezioni "Quiz Assegnati" e "Percorsi Assegnati" per visualizzare le istanze concrete.
+    *   È stato implementato l'editor per domande e opzioni all'interno dei template quiz.
+    *   Il client API, il router e la navigazione sono stati aggiornati.
+    *   **Aggiunta funzionalità upload template quiz da file.**
+    *   **Corretta gestione domande/opzioni template (visualizzazione e salvataggio automatico).**
+    *   **Corretti errori di sintassi HTML.**
 
 ## 10. Raffinamento Codice
 
 *   Rimosse istruzioni `print()` di debug dai file `views.py` e `models.py` delle app `education`, `users`, `rewards`.
 *   Chiariti commenti sulla logica di calcolo del punteggio e assegnazione punti in `apps/education/models.py`.
 *   Aggiunti/Migliorati docstring e `help_text` nei modelli delle app `education`, `users`, `rewards`.
-*   Aggiunto logging di base per errori/eccezioni nei metodi dei modelli e delle view (incluso logging DEBUG per stato quiz).
+*   Aggiunto logging di base per errori/eccezioni nei metodi dei modelli e delle view (incluso logging DEBUG per stato quiz e validazione serializer assegnazione).
 
 ## 11. Frontend Studenti (Vue.js)
 
@@ -121,63 +149,31 @@
 *   **Corretto bug logout:** Risolto problema di reindirizzamento dopo il logout refattorizzando lo store di autenticazione.
 *   **Aggiunta descrizione ricompensa allo storico acquisti.**
 *   **Risolto errore 500 visualizzazione percorsi.**
+*   **Risolto problema caricamento pagina storico acquisti** (richiesto riavvio server Vite).
 
 ## 12. Dati di Test
 
 *   Creato comando di management `seed_test_data` utilizzando le factory per popolare il database.
 *   Eseguito con successo il comando per avere dati di esempio disponibili.
 
-## 13. Frontend Docenti (Vue.js)
+## 13. Frontend Docenti (Vue.js) - Post Refactoring
 
-*   Creata struttura base del progetto (`frontend-teacher`).
-*   Implementata logica di base per l'autenticazione dei docenti.
-*   Implementate viste base per Studenti, Quiz, Percorsi, Ricompense, Assegnazione, Grading, Progressi.
-*   Implementato CRUD base per Quiz, Percorsi, Ricompense.
-*   Implementata gestione base Domande (visualizzazione, creazione, eliminazione).
-*   Implementata gestione base Opzioni Risposta (visualizzazione, creazione, modifica, eliminazione).
-*   **Risolto Bug Opzioni MC-Single:** Corretta la logica in `AnswerOptionsEditor.vue` che impediva il salvataggio corretto dello stato `is_correct`. Funzionalità verificata manually.
-*   **Configurati Test E2E (Playwright):**
-    *   Implementati test E2E per login, visualizzazione studenti/quiz, CRUD base quiz/percorsi/ricompense.
-    *   **Debug Test E2E Domande/Opzioni:** Affrontati e risolti numerosi problemi. Test sospesi in favore di test manuali.
-*   **Aggiunto campo "Punti al Completamento" e "Soglia Completamento (%)"** al form dei quiz.
-*   **Configurato Tailwind CSS v3:** Installato e configurato Tailwind.
-*   **Applicato stile base:** Applicate classi Tailwind al layout principale e alla vista Login per coerenza con frontend studenti. **Applicato stile Tailwind ai bottoni nelle viste principali e componenti.**
-*   **Implementata funzionalità upload quiz da file:** Aggiunto componente, vista, rotta e funzione API. Aggiunto indicatore di caricamento.
-*   **Corretto riordinamento domande:** Aggiornata vista `QuizFormView` per ricaricare domande dopo eliminazione.
-*   **Resa descrizione quiz opzionale:** Rimosso `required` dal frontend.
-*   **Aggiunto interceptor 401:** Gestisce token scaduti/invalidi reindirizzando al login.
-*   **Implementato salvataggio automatico opzioni risposta.**
-*   **Modificato comportamento salvataggio quiz** per rimanere sulla pagina.
-*   **Risolto problema visualizzazione domande** dopo modifica/navigazione.
+*   **Refactoring Flusso Template:** Completato. Le viste principali ora gestiscono template, l'assegnazione parte da template, le istanze sono visualizzate separatamente.
+*   **Editor Domande/Opzioni Template:** Implementato (`TemplateQuestionEditor`, `TemplateAnswerOptionsEditor`, viste e API integrate).
+*   **Funzionalità Precedenti:** Mantenute (upload quiz, gestione ricompense, consegne, grading, progressi, stile Tailwind, interceptor 401, etc.).
+*   **Correzioni UI/UX:** Rimossa textarea metadati da form domande, corretto salvataggio automatico opzioni, corretti errori HTML.
 
-## 14. Dockerizzazione (Tentativo Iniziale)
+## 14. Dockerizzazione (Tentativo Iniziale - In Sospeso)
 
-*   Creato `Dockerfile` per il backend Django.
-*   Creato `docker-compose.yml` per orchestrare i servizi (web, db).
-*   Configurato `.env` per l'ambiente Docker (puntando al servizio `db`, aggiungendo `ALLOWED_HOSTS`, `CORS_ORIGINS`).
-*   Risolto errore di sintassi `ports` in `docker-compose.yml`.
-*   Risolto `ModuleNotFoundError: No module named 'django_json_widget'` aggiungendo la dipendenza a `requirements.txt` e ricostruendo l'immagine web.
-*   Implementato comando di management custom (`create_initial_superuser`) per creare l'admin all'avvio del container leggendo credenziali da variabili d'ambiente.
-*   Aggiornato `docker-compose.yml` per eseguire il comando `create_initial_superuser`.
-*   Creati `Dockerfile` multi-stage e file `nginx.conf` per i frontend (`frontend-student`, `frontend-teacher`).
-*   Aggiornato `docker-compose.yml` per includere i servizi frontend, passando l'URL del backend come argomento di build.
-*   **Problemi Build Frontend Docker:**
-    *   Risolti numerosi errori TypeScript nei file di test e sorgenti di `frontend-student` (tipi errati, proprietà mancanti/errate, assegnazione a read-only).
-    *   Aggiunte dipendenze di sviluppo mancanti (`@eslint/js`, `eslint-config-prettier`, `typescript-eslint`, `@types/eslint__js`, `@types/eslint-config-prettier`) a `frontend-teacher/package.json`.
-    *   **Errore persistente:** Il build di `frontend-teacher` continua a fallire a causa di errori TypeScript nel template di `QuestionFormView.vue` e potenzialmente per problemi con le dipendenze di linting/typing nell'ambiente Docker.
-    *   **Workaround applicato:** Modificato lo script `build` in `frontend-teacher/package.json` per saltare il `type-check` e permettere il build (soluzione temporanea).
-*   **Rollback a Esecuzione Locale:** A causa dei problemi persistenti con il build Docker dei frontend, si è deciso di tornare temporaneamente all'esecuzione locale dei server.
-*   Creati file `.env.local` e `.env.docker` per facilitare il passaggio tra ambienti.
-*   Aggiornato `.gitignore` per ignorare i file `.env.*`.
-*   Ripristinato `.env` per l'esecuzione locale.
-*   Avviati i server di sviluppo locali per backend e frontend.
+*   Creati `Dockerfile` e `docker-compose.yml` iniziali.
+*   Affrontati problemi di build frontend (TypeScript, dipendenze).
+*   **Rollback a Esecuzione Locale:** Mantenuto per ora a causa dei problemi Docker.
 
 ## Prossimi Passi Previsti (vedi NEXT_STEPS.md)
 
-*   Investigare e risolvere gli errori di build Docker per `frontend-teacher`.
-*   Esecuzione test backend (pytest).
-*   Esecuzione test manuali (come da `test.md`).
-*   Completamento e raffinamento frontend docente (es. UI selezione studenti specifici per ricompense, applicazione stile alle restanti viste).
-*   Verifica assegnazione punti quiz (assicurarsi che `points_on_completion` > 0 nei metadati).
-*   Raffinamento parsing quiz da file (gestione tipi domanda diversi da MC, gestione risposte corrette).
-*   Risolvere problema rendering `router-link` in `QuizUploadForm.vue`.
+*   Aggiornare `NEXT_STEPS.md` e `test.md`.
+*   Eseguire test backend (pytest) per coprire il refactoring dei template e l'upload.
+*   Eseguire test manuali completi sul nuovo flusso docente (incluso upload template).
+*   Risolvere eventuali bug emersi dai test.
+*   Raffinare UI/UX (es. editor domande/opzioni template, viste istanze assegnate).
+*   (Opzionale) Riprendere la Dockerizzazione.

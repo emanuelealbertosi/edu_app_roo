@@ -4,35 +4,46 @@
 
     <div class="content-selection">
       <div class="form-group">
-        <label for="content-type">Tipo Contenuto:</label>
-        <select id="content-type" v-model="selectedContentType">
-          <option value="quiz">Quiz</option>
-          <option value="pathway">Percorso</option>
+        <label for="content-type">Tipo Contenuto da Assegnare:</label>
+        <select id="content-type" v-model="selectedContentType" class="w-full p-2 border rounded">
+          <option value="quiz">Template Quiz</option>
+          <option value="pathway">Template Percorso</option>
         </select>
       </div>
 
-      <div class="form-group" v-if="selectedContentType === 'quiz'">
-        <label for="quiz-select">Seleziona Quiz:</label>
-        <select id="quiz-select" v-model="selectedContentId" :disabled="isLoadingQuizzes">
-          <option disabled value="">{{ isLoadingQuizzes ? 'Caricamento...' : 'Seleziona un Quiz' }}</option>
-          <option v-for="quiz in availableQuizzes" :key="quiz.id" :value="quiz.id">
-            {{ quiz.title }}
-          </option>
-        </select>
-        <div v-if="quizzesError" class="error-message small">{{ quizzesError }}</div>
+      <!-- Rimosso blocco v-if="assignmentMode === 'existing'" -->
+
+      <!-- Selezione Template (ora sempre visibile in base a selectedContentType) -->
+      <div>
+         <div class="form-group" v-if="selectedContentType === 'quiz'">
+          <label for="quiz-template-select">Seleziona Template Quiz:</label>
+          <select id="quiz-template-select" v-model="selectedTemplateId" :disabled="isLoadingQuizTemplates" class="w-full p-2 border rounded">
+            <option disabled value="">{{ isLoadingQuizTemplates ? 'Caricamento...' : 'Seleziona un Template Quiz' }}</option>
+            <option v-for="template in availableQuizTemplates" :key="template.id" :value="template.id">
+              {{ template.title }}
+            </option>
+          </select>
+          <div v-if="quizTemplatesError" class="error-message small">{{ quizTemplatesError }}</div>
+        </div>
+
+        <div class="form-group" v-if="selectedContentType === 'pathway'">
+          <label for="pathway-template-select">Seleziona Template Percorso:</label>
+          <select id="pathway-template-select" v-model="selectedTemplateId" :disabled="isLoadingPathwayTemplates" class="w-full p-2 border rounded">
+             <option disabled value="">{{ isLoadingPathwayTemplates ? 'Caricamento...' : 'Seleziona un Template Percorso' }}</option>
+             <option v-for="template in availablePathwayTemplates" :key="template.id" :value="template.id">
+              {{ template.title }}
+            </option>
+          </select>
+           <div v-if="pathwayTemplatesError" class="error-message small">{{ pathwayTemplatesError }}</div>
+        </div>
       </div>
 
-      <div class="form-group" v-if="selectedContentType === 'pathway'">
-        <label for="pathway-select">Seleziona Percorso:</label>
-        <select id="pathway-select" v-model="selectedContentId" :disabled="isLoadingPathways">
-           <option disabled value="">{{ isLoadingPathways ? 'Caricamento...' : 'Seleziona un Percorso' }}</option>
-           <option v-for="pathway in availablePathways" :key="pathway.id" :value="pathway.id">
-            {{ pathway.title }}
-          </option>
-        </select>
-         <div v-if="pathwaysError" class="error-message small">{{ pathwaysError }}</div>
-      </div>
-    </div>
+      <!-- Aggiunta Data Scadenza (solo per Quiz) -->
+       <div class="form-group mt-4" v-if="selectedContentType === 'quiz'">
+           <label for="due-date">Data Scadenza (Opzionale):</label>
+           <input type="datetime-local" id="due-date" v-model="dueDate" class="w-full p-2 border rounded" />
+       </div>
+
 
     <div class="student-selection">
       <h2>Seleziona Studenti</h2>
@@ -71,18 +82,24 @@
     </div>
 
   </div>
+  <!-- Aggiunto tag di chiusura mancante -->
+</div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from 'vue';
 import { fetchStudents, type Student } from '@/api/students';
-import { fetchQuizzes, type Quiz } from '@/api/quizzes';
-import { fetchPathways, type Pathway } from '@/api/pathways';
-import axios from 'axios'; // Per le chiamate API di assegnazione
+// Importa API per contenuti esistenti e template
+import { fetchQuizzes, fetchTeacherQuizTemplates, assignQuizToStudent, type Quiz, type QuizTemplate, type AssignQuizPayload, type QuizAssignmentResponse } from '@/api/quizzes'; // Usa fetchTeacherQuizTemplates
+import { fetchPathways, fetchPathwayTemplates, assignPathwayToStudent, type Pathway, type PathwayTemplate, type AssignPathwayPayload, type PathwayAssignmentResponse } from '@/api/pathways';
+// Rimosso import axios non più necessario per assignApiCall
 
 // --- Stato Selezione Contenuto ---
 const selectedContentType = ref<'quiz' | 'pathway'>('quiz');
-const selectedContentId = ref<number | ''>('');
+const selectedContentId = ref<number | ''>(''); // Non più usato per la selezione primaria
+// const assignmentMode = ref<'existing' | 'template'>('existing'); // Rimosso
+const selectedTemplateId = ref<number | ''>(''); // ID del template selezionato
+const dueDate = ref<string | null>(null); // Data di scadenza per i quiz
 
 // --- Stato Caricamento Contenuti ---
 const availableQuizzes = ref<Quiz[]>([]);
@@ -91,6 +108,12 @@ const quizzesError = ref<string | null>(null);
 const availablePathways = ref<Pathway[]>([]);
 const isLoadingPathways = ref(false);
 const pathwaysError = ref<string | null>(null);
+const availableQuizTemplates = ref<QuizTemplate[]>([]);
+const isLoadingQuizTemplates = ref(false);
+const quizTemplatesError = ref<string | null>(null);
+const availablePathwayTemplates = ref<PathwayTemplate[]>([]);
+const isLoadingPathwayTemplates = ref(false);
+const pathwayTemplatesError = ref<string | null>(null);
 
 // --- Stato Caricamento Studenti ---
 const availableStudents = ref<Student[]>([]);
@@ -147,89 +170,112 @@ onMounted(() => {
   loadQuizzes();
   loadPathways();
   loadStudents();
+  loadQuizTemplates(); // Carica anche i template
+  loadPathwayTemplates(); // Carica anche i template
 });
+
+// --- Logica Caricamento Template ---
+const loadQuizTemplates = async () => {
+ isLoadingQuizTemplates.value = true;
+ quizTemplatesError.value = null;
+ try {
+   availableQuizTemplates.value = await fetchTeacherQuizTemplates(); // Usa la funzione corretta
+ } catch (err) {
+   quizTemplatesError.value = 'Errore caricamento template quiz.';
+   console.error(err);
+ } finally {
+   isLoadingQuizTemplates.value = false;
+ }
+};
+
+const loadPathwayTemplates = async () => {
+ isLoadingPathwayTemplates.value = true;
+ pathwayTemplatesError.value = null;
+ try {
+   availablePathwayTemplates.value = await fetchPathwayTemplates();
+ } catch (err) {
+   pathwayTemplatesError.value = 'Errore caricamento template percorsi.';
+   console.error(err);
+ } finally {
+   isLoadingPathwayTemplates.value = false;
+ }
+};
+
 
 // --- Logica Selezione Studenti ---
 const allStudentsSelected = computed(() =>
-    availableStudents.value.length > 0 &&
-    selectedStudentIds.value.length === availableStudents.value.length
+   availableStudents.value.length > 0 &&
+   selectedStudentIds.value.length === availableStudents.value.length
 );
 
 const toggleSelectAllStudents = (event: Event) => {
-    const target = event.target as HTMLInputElement;
-    if (target.checked) {
-        selectedStudentIds.value = availableStudents.value.map(s => s.id);
-    } else {
-        selectedStudentIds.value = [];
-    }
+   const target = event.target as HTMLInputElement;
+   if (target.checked) {
+       selectedStudentIds.value = availableStudents.value.map(s => s.id);
+   } else {
+       selectedStudentIds.value = [];
+   }
 };
 
 // --- Logica Assegnazione ---
-const canAssign = computed(() =>
-    selectedContentId.value !== '' && selectedStudentIds.value.length > 0
-);
+const canAssign = computed(() => {
+    // Ora dipende solo da selectedTemplateId e selectedStudentIds
+    return selectedTemplateId.value !== '' && selectedStudentIds.value.length > 0;
+});
 
-import apiClient from '@/api/config'; // Importa apiClient
-// Funzione helper per chiamare l'API di assegnazione
-const assignApiCall = async (url: string, studentId: number) => {
-    // Usa direttamente apiClient importato da config.ts
-    // Assicurati che apiClient sia importato correttamente
-    // import apiClient from '@/api/config'; // Aggiungi questo import se manca
-    try {
-        await apiClient.post(url, { student_id: studentId });
-        return { success: true, studentId };
-    } catch (error: unknown) {
-        let errorMessage = `Errore assegnazione a studente ${studentId}`;
-        if (axios.isAxiosError(error)) {
-            errorMessage += `: ${error.response?.data?.detail || error.response?.data?.status || error.message}`;
-        } else if (error instanceof Error) {
-            errorMessage += `: ${error.message}`;
-        }
-        console.error(errorMessage);
-        return { success: false, studentId, error: errorMessage };
-    }
-};
+// Rimosso helper assignApiCall non più necessario
 
 
 const assignContent = async () => {
-  if (!canAssign.value) return;
+ if (!canAssign.value) return;
 
-  isAssigning.value = true;
-  assignmentError.value = null;
-  assignmentSuccess.value = null;
+ isAssigning.value = true;
+ assignmentError.value = null;
+ assignmentSuccess.value = null;
 
-  const contentId = selectedContentId.value;
-  const studentsToAssign = [...selectedStudentIds.value]; // Copia l'array
-  let baseUrl = '';
+ const studentsToAssign = [...selectedStudentIds.value]; // Copia l'array
+ let successfulAssignments = 0;
+ const failedAssignmentsInfo: { studentId: number; error: string }[] = [];
 
-  if (selectedContentType.value === 'quiz') {
-    baseUrl = `/education/quizzes/${contentId}/assign-student/`;
-  } else if (selectedContentType.value === 'pathway') {
-    baseUrl = `/education/pathways/${contentId}/assign-student/`;
-  } else {
-    assignmentError.value = "Tipo di contenuto non valido.";
-    isAssigning.value = false;
-    return;
-  }
+ for (const studentId of studentsToAssign) {
+   try {
+     if (selectedContentType.value === 'quiz') {
+       const payload: AssignQuizPayload = {
+         student: studentId, // Usa 'student' come chiave, atteso dal serializer
+         due_date: dueDate.value || null, // Includi data scadenza
+         quiz_template_id: selectedTemplateId.value as number // Assegna sempre da template
+       };
+       await assignQuizToStudent(payload); // Chiamata API dentro if
+       successfulAssignments++;
+     } else if (selectedContentType.value === 'pathway') {
+       const payload: AssignPathwayPayload = {
+         student: studentId, // Usa 'student' come chiave, atteso dal serializer
+         pathway_template_id: selectedTemplateId.value as number // Assegna sempre da template
+       };
+       await assignPathwayToStudent(payload); // Chiamata API dentro else if
+       successfulAssignments++;
+     }
+   } catch (error: any) { // Catch è correttamente dentro il for loop ora
+       let errorMessage = `Studente ${studentId}: ${error.response?.data?.detail || error.response?.data?.status || error.message || 'Errore sconosciuto'}`;
+       console.error(`Errore assegnazione a studente ${studentId}:`, error);
+       failedAssignmentsInfo.push({ studentId, error: errorMessage });
+   }
+ } // Fine ciclo for
 
-  const results = await Promise.all(
-      studentsToAssign.map(studentId => assignApiCall(baseUrl, studentId))
-  );
+ isAssigning.value = false;
 
-  const successfulAssignments = results.filter(r => r.success).length;
-  const failedAssignments = results.filter(r => !r.success);
-
-  if (failedAssignments.length > 0) {
-      assignmentError.value = `Errore durante l'assegnazione a ${failedAssignments.length} studenti. Controlla la console per i dettagli.`;
-      // Potresti voler mostrare gli ID specifici o i messaggi di errore
-  }
-  if (successfulAssignments > 0) {
-      assignmentSuccess.value = `Contenuto assegnato con successo a ${successfulAssignments} studenti.`;
-      // Resetta la selezione studenti dopo successo?
-      // selectedStudentIds.value = [];
-  }
-
-  isAssigning.value = false;
+ if (failedAssignmentsInfo.length > 0) {
+     // Mostra un errore generale e dettagli in console o in un'area dedicata
+     assignmentError.value = `Errore durante l'assegnazione a ${failedAssignmentsInfo.length} studenti. Dettagli: ${failedAssignmentsInfo.map((f: any) => f.error).join('; ')}`; // Aggiunto tipo any a f
+ }
+ if (successfulAssignments > 0) {
+     assignmentSuccess.value = `Contenuto assegnato con successo a ${successfulAssignments} studenti.`;
+     // Resetta selezione dopo successo
+     selectedStudentIds.value = [];
+     // selectedContentId.value = ''; // Non più necessario
+     selectedTemplateId.value = ''; // Resetta solo il template
+     dueDate.value = null; // Resetta data scadenza
+ }
 
   // Resetta i messaggi dopo qualche secondo
   setTimeout(() => {
@@ -240,8 +286,12 @@ const assignContent = async () => {
 
 // Resetta l'ID contenuto quando cambia il tipo
 watch(selectedContentType, () => {
-    selectedContentId.value = '';
+    // selectedContentId.value = ''; // Non più necessario
+    selectedTemplateId.value = ''; // Resetta solo il template
+    dueDate.value = null; // Resetta data scadenza
 });
+
+// Rimosso watch per assignmentMode
 
 </script>
 

@@ -14,7 +14,7 @@ from .models import (
     QuizTemplate, QuestionTemplate, AnswerOptionTemplate,
     Quiz, Question, AnswerOption, Pathway, PathwayQuiz,
     QuizAttempt, StudentAnswer, PathwayProgress, QuestionType,
-    QuizAssignment, PathwayAssignment # Importa i modelli Assignment
+    QuizAssignment, PathwayAssignment, PathwayTemplate, PathwayQuizTemplate # Importa i modelli Assignment e Template Percorsi
 )
 from .serializers import (
     QuizTemplateSerializer, QuestionTemplateSerializer, AnswerOptionTemplateSerializer,
@@ -25,7 +25,10 @@ from .serializers import (
     QuizUploadSerializer, # Aggiunto QuizUploadSerializer
     SimpleQuizAttemptSerializer, # Importa SimpleQuizAttemptSerializer
     PathwayAttemptDetailSerializer, # Importa il serializer per la nuova view
-    NextPathwayQuizSerializer # Aggiunto import mancante
+    NextPathwayQuizSerializer, # Aggiunto import mancante
+    # Nuovi Serializer per Template Percorsi e Assegnazioni
+    PathwayTemplateSerializer, PathwayQuizTemplateSerializer,
+    QuizAssignmentSerializer, PathwayAssignmentSerializer
 )
 from .permissions import (
     IsAdminOrReadOnly, IsQuizTemplateOwnerOrAdmin, IsQuizOwnerOrAdmin, IsPathwayOwnerOrAdmin, # Updated IsPathwayOwner -> IsPathwayOwnerOrAdmin
@@ -77,6 +80,215 @@ class AnswerOptionTemplateViewSet(viewsets.ModelViewSet):
          question_template = get_object_or_404(QuestionTemplate, pk=self.kwargs['question_template_pk'])
          serializer.save(question_template=question_template)
 
+# ViewSet per Template Percorsi (simile a QuizTemplateViewSet)
+class PathwayTemplateViewSet(viewsets.ModelViewSet):
+    """ API endpoint per i Pathway Templates (Docente). """
+    serializer_class = PathwayTemplateSerializer
+    # Chi può creare/modificare template di percorso? Per ora solo Docenti.
+    permission_classes = [permissions.IsAuthenticated, IsTeacherUser] # O aggiungere IsAdminUser?
+
+    def get_queryset(self):
+        user = self.request.user
+        if isinstance(user, User) and user.is_admin:
+            # Se decidiamo che Admin può vedere/gestire tutti i template
+            # return PathwayTemplate.objects.all().select_related('teacher')
+            # Per ora, Admin non gestisce template percorsi, solo Docenti
+             return PathwayTemplate.objects.filter(teacher=user).select_related('teacher') # Admin vede solo i propri? O nessuno?
+        elif isinstance(user, User) and user.is_teacher:
+            return PathwayTemplate.objects.filter(teacher=user).select_related('teacher')
+        return PathwayTemplate.objects.none()
+
+    def perform_create(self, serializer):
+        if not isinstance(self.request.user, User) or not self.request.user.is_teacher:
+             raise serializers.ValidationError("Solo i Docenti possono creare template di percorsi.")
+        serializer.save(teacher=self.request.user)
+
+
+# ViewSet per gestire i QuizTemplate dentro un PathwayTemplate (simile a PathwayQuizViewSet)
+class PathwayQuizTemplateViewSet(viewsets.ModelViewSet):
+    """ API endpoint per gestire i QuizTemplate all'interno di un PathwayTemplate. """
+    serializer_class = PathwayQuizTemplateSerializer
+    permission_classes = [permissions.IsAuthenticated, IsTeacherUser] # Solo Docenti proprietari del PathwayTemplate
+
+    def get_queryset(self):
+        # Filtra per il pathway template specificato nell'URL
+        pathway_template = get_object_or_404(PathwayTemplate, pk=self.kwargs['pathway_template_pk'])
+        # Verifica ownership
+        if pathway_template.teacher != self.request.user and not self.request.user.is_admin: # Admin può vedere? Per ora no.
+             raise DRFPermissionDenied("Non hai accesso a questo template di percorso.")
+        return PathwayQuizTemplate.objects.filter(pathway_template=pathway_template).select_related('quiz_template')
+
+    def perform_create(self, serializer):
+        pathway_template = get_object_or_404(PathwayTemplate, pk=self.kwargs['pathway_template_pk'])
+        if pathway_template.teacher != self.request.user:
+             raise DRFPermissionDenied("Non puoi aggiungere quiz a questo template di percorso.")
+
+        quiz_template_id = self.request.data.get('quiz_template_id')
+        order = self.request.data.get('order')
+
+        if not quiz_template_id or order is None:
+            raise ValidationError({'detail': 'quiz_template_id e order sono richiesti.'})
+
+        quiz_template = get_object_or_404(QuizTemplate, pk=quiz_template_id) # Admin può usare qualsiasi template? Sì.
+
+        try:
+            order = int(order)
+            if order < 0: raise ValueError()
+        except (ValueError, TypeError):
+            raise ValidationError({'order': 'L\'ordine deve essere un intero non negativo.'})
+
+        # Verifica ordine esistente
+        existing_entry = PathwayQuizTemplate.objects.filter(
+            pathway_template=pathway_template,
+            order=order
+        ).first()
+        if existing_entry:
+             raise ValidationError({'order': f'L\'ordine {order} è già utilizzato dal template quiz "{existing_entry.quiz_template.title}".'})
+
+        # Verifica se il quiz template è già nel percorso template
+        existing_link = PathwayQuizTemplate.objects.filter(
+            pathway_template=pathway_template,
+            quiz_template=quiz_template
+        ).first()
+        if existing_link:
+             raise ValidationError({'quiz_template_id': 'Questo template di quiz è già presente nel percorso.'})
+
+        serializer.save(pathway_template=pathway_template, quiz_template=quiz_template, order=order)
+
+    # Potrebbe servire un perform_update per gestire il cambio di 'order'
+    # Potrebbe servire un perform_destroy per riordinare dopo eliminazione
+
+# --- ViewSet per Docenti (Template Quiz) ---
+class TeacherQuizTemplateViewSet(viewsets.ModelViewSet):
+    """ API endpoint per i Quiz Templates gestiti dai Docenti. """
+    serializer_class = QuizTemplateSerializer
+    permission_classes = [permissions.IsAuthenticated, IsTeacherUser] # Solo Docenti
+
+    def get_queryset(self):
+        """ Filtra i template per mostrare solo quelli creati dal docente loggato. """
+        user = self.request.user
+        # Assicurati che l'utente sia un docente
+        if isinstance(user, User) and user.is_teacher:
+            return QuizTemplate.objects.filter(teacher=user)
+        return QuizTemplate.objects.none() # Restituisce vuoto se non è un docente
+
+    def perform_create(self, serializer):
+        """ Associa automaticamente il docente creatore. """
+        # Non è necessario controllare di nuovo il ruolo qui perché IsTeacherUser lo fa già
+        serializer.save(teacher=self.request.user)
+
+    # Le azioni per QuestionTemplate e AnswerOptionTemplate devono essere gestite
+    # tramite router annidati specifici per questo ViewSet se necessario,
+    # oppure si può decidere che la gestione delle domande avvenga solo
+    # dopo la creazione del template, modificando il template esistente.
+
+    @action(detail=False, methods=['post'], url_path='upload', permission_classes=[permissions.IsAuthenticated, IsTeacherUser], parser_classes=[parsers.MultiPartParser, parsers.FormParser])
+    def upload_template(self, request, *args, **kwargs):
+        """
+        Permette a un docente di caricare un file (PDF, DOCX, MD) per creare un QuizTemplate.
+        Richiede 'file' e 'title' nei dati della richiesta (form-data).
+        """
+        # Importa il nuovo serializer qui o all'inizio del file
+        from .serializers import QuizTemplateUploadSerializer
+
+        serializer = QuizTemplateUploadSerializer(data=request.data, context={'request': request})
+        if serializer.is_valid():
+            try:
+                # Il metodo create del serializer gestisce l'estrazione, il parsing e la creazione del template
+                template_data = serializer.save() # .save() chiama .create()
+                # Restituisce i dati del template creato (formattati da QuizTemplateSerializer dentro QuizTemplateUploadSerializer)
+                return Response(template_data, status=status.HTTP_201_CREATED)
+            except ValidationError as e:
+                # Se il serializer.create solleva ValidationError (es. parsing fallito, testo vuoto)
+                logger.warning(f"Errore di validazione durante upload template da utente {request.user.id}: {e.detail}")
+                return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
+            except Exception as e:
+                # Cattura altri errori imprevisti durante la creazione
+                logger.error(f"Errore imprevisto durante l'upload del template da utente {request.user.id}: {e}", exc_info=True)
+                return Response({"detail": "Errore interno durante la creazione del template dal file."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        else:
+            # Errori di validazione del serializer (es. file mancante, titolo mancante, tipo file errato)
+            logger.warning(f"Errore di validazione dati upload template da utente {request.user.id}: {serializer.errors}")
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    # Per ora, questo ViewSet gestisce solo il CRUD del QuizTemplate stesso.
+# --- ViewSets Nidificati per Docenti (Gestione Domande/Opzioni Template Quiz) ---
+
+class TeacherQuestionTemplateViewSet(viewsets.ModelViewSet):
+    """ API endpoint per le Question Templates gestite da Docenti nel contesto di un loro QuizTemplate. """
+    serializer_class = QuestionTemplateSerializer
+    permission_classes = [permissions.IsAuthenticated, IsTeacherUser] # Solo Docenti
+
+    def get_queryset(self):
+        """ Filtra le domande per il template specificato e verifica ownership. """
+        quiz_template = get_object_or_404(QuizTemplate, pk=self.kwargs['quiz_template_pk'])
+        # Verifica che il docente loggato sia il proprietario del template
+        if quiz_template.teacher != self.request.user:
+             raise DRFPermissionDenied("Non hai accesso a questo template di quiz.")
+        return QuestionTemplate.objects.filter(quiz_template=quiz_template).order_by('order')
+
+    def perform_create(self, serializer):
+        """ Associa la domanda al template corretto e calcola l'ordine. """
+        quiz_template = get_object_or_404(QuizTemplate, pk=self.kwargs['quiz_template_pk'])
+        if quiz_template.teacher != self.request.user:
+             raise DRFPermissionDenied("Non puoi aggiungere domande a questo template di quiz.")
+        # Calcola il prossimo ordine disponibile
+        last_order = QuestionTemplate.objects.filter(quiz_template=quiz_template).aggregate(Max('order'))['order__max']
+        next_order = 1 if last_order is None else last_order + 1
+        serializer.save(quiz_template=quiz_template, order=next_order)
+
+    @transaction.atomic
+    def perform_destroy(self, instance):
+        """ Elimina la domanda template e riordina le successive. """
+        quiz_template = instance.quiz_template
+        # Verifica ownership prima di eliminare (doppio controllo)
+        if quiz_template.teacher != self.request.user:
+             raise DRFPermissionDenied("Non puoi eliminare domande da questo template di quiz.")
+
+        deleted_order = instance.order
+        instance.delete()
+
+        # Riordina le domande template successive
+        questions_to_reorder = QuestionTemplate.objects.filter(
+            quiz_template=quiz_template,
+            order__gt=deleted_order
+        ).order_by('order')
+        updated_count = questions_to_reorder.update(order=F('order') - 1)
+        logger.info(f"Riordinate {updated_count} domande nel template quiz {quiz_template.id} dopo eliminazione ordine {deleted_order}.")
+
+
+class TeacherAnswerOptionTemplateViewSet(viewsets.ModelViewSet):
+     """ API endpoint per le Answer Option Templates gestite da Docenti. """
+     serializer_class = AnswerOptionTemplateSerializer
+     permission_classes = [permissions.IsAuthenticated, IsTeacherUser] # Solo Docenti
+
+     def get_queryset(self):
+         """ Filtra le opzioni per la domanda template specificata e verifica ownership. """
+         question_template = get_object_or_404(QuestionTemplate, pk=self.kwargs['question_template_pk'])
+         # Verifica ownership tramite il quiz template padre
+         if question_template.quiz_template.teacher != self.request.user:
+              raise DRFPermissionDenied("Non hai accesso a questa domanda template.")
+         return AnswerOptionTemplate.objects.filter(question_template=question_template).order_by('order')
+
+     def perform_create(self, serializer):
+         """ Associa l'opzione alla domanda template corretta e calcola l'ordine. """
+         question_template = get_object_or_404(QuestionTemplate, pk=self.kwargs['question_template_pk'])
+         if question_template.quiz_template.teacher != self.request.user:
+              raise DRFPermissionDenied("Non puoi aggiungere opzioni a questa domanda template.")
+         # Calcola il prossimo ordine disponibile
+         last_order = AnswerOptionTemplate.objects.filter(question_template=question_template).aggregate(Max('order'))['order__max']
+         next_order = 1 if last_order is None else last_order + 1
+         serializer.save(question_template=question_template, order=next_order)
+
+     def perform_destroy(self, instance):
+         """ Elimina l'opzione template. """
+         # Verifica ownership prima di eliminare
+         if instance.question_template.quiz_template.teacher != self.request.user:
+              raise DRFPermissionDenied("Non puoi eliminare opzioni da questa domanda template.")
+         instance.delete()
+
+
+
+
 
 # --- ViewSets per Docenti (Contenuti Concreti) ---
 class QuizViewSet(viewsets.ModelViewSet):
@@ -112,42 +324,98 @@ class QuizViewSet(viewsets.ModelViewSet):
              raise serializers.ValidationError("Solo i Docenti possono creare quiz.")
         serializer.save(teacher=self.request.user)
 
-    @action(detail=False, methods=['post'], url_path='create-from-template', permission_classes=[permissions.IsAuthenticated, IsTeacherUser])
-    def create_from_template(self, request):
-        template_id = request.data.get('template_id')
-        if not template_id:
-            return Response({'template_id': 'Questo campo è richiesto.'}, status=status.HTTP_400_BAD_REQUEST)
-
-        template = get_object_or_404(QuizTemplate, pk=template_id)
-        new_quiz = None
-
+    # --- Funzioni Helper per Creazione da Template ---
+    def _create_quiz_instance_from_template(self, template: QuizTemplate, teacher: User, title_override: str = None) -> Quiz:
+        """
+        Crea una nuova istanza di Quiz (con domande e opzioni) a partire da un QuizTemplate.
+        """
         try:
             with transaction.atomic():
                 new_quiz = Quiz.objects.create(
-                    teacher=request.user,
+                    teacher=teacher,
                     source_template=template,
-                    title=request.data.get('title', template.title),
+                    title=title_override or template.title, # Usa override se fornito
                     description=template.description,
-                    metadata=template.metadata
+                    # Copia i metadati, ma potremmo volerli modificare/filtrare
+                    metadata=template.metadata.copy() if template.metadata else {}
                 )
-                for q_template in template.question_templates.prefetch_related('answer_option_templates').all():
-                    new_question = Question.objects.create(
+                questions_to_create = []
+                options_to_create_map = {} # Mappa: q_template.id -> lista di opzioni da creare
+
+                for q_template in template.question_templates.prefetch_related('answer_option_templates').order_by('order'):
+                    new_question = Question(
                         quiz=new_quiz,
                         text=q_template.text,
                         question_type=q_template.question_type,
                         order=q_template.order,
-                        metadata=q_template.metadata
+                        metadata=q_template.metadata.copy() if q_template.metadata else {}
                     )
-                    for opt_template in q_template.answer_option_templates.all():
-                        AnswerOption.objects.create(
-                            question=new_question,
-                            text=opt_template.text,
-                            is_correct=opt_template.is_correct,
-                            order=opt_template.order
-                        )
+                    questions_to_create.append(new_question)
+                    # Prepara le opzioni per il bulk create dopo aver creato le domande
+                    options_to_create_map[q_template.id] = []
+                    for opt_template in q_template.answer_option_templates.order_by('order'):
+                         options_to_create_map[q_template.id].append(
+                             AnswerOption(
+                                 # question sarà impostato dopo la creazione delle domande
+                                 text=opt_template.text,
+                                 is_correct=opt_template.is_correct,
+                                 order=opt_template.order
+                             )
+                         )
+
+                # Crea le domande in blocco
+                created_questions = Question.objects.bulk_create(questions_to_create)
+
+                # Mappa per recuperare le domande create e associare le opzioni
+                created_question_map = {q.order: q for q in created_questions}
+                options_final_list = []
+
+                # Associa le opzioni alle domande appena create
+                for q_template_id, options_list in options_to_create_map.items():
+                    # Trova la domanda corrispondente basandosi sull'ordine (assumendo che l'ordine sia preservato)
+                    # Questo è un punto debole se l'ordine non è garantito o unico durante la creazione.
+                    # Un approccio più robusto potrebbe usare un identificatore temporaneo.
+                    q_template_order = QuestionTemplate.objects.get(id=q_template_id).order # Recupera l'ordine originale
+                    newly_created_question = created_question_map.get(q_template_order)
+
+                    if newly_created_question:
+                        for option in options_list:
+                            option.question = newly_created_question
+                            options_final_list.append(option)
+                    else:
+                         logger.warning(f"Impossibile trovare la domanda creata corrispondente al template Q ID {q_template_id} per il quiz {new_quiz.id}")
+
+
+                # Crea le opzioni in blocco
+                if options_final_list:
+                    AnswerOption.objects.bulk_create(options_final_list)
+
+                logger.info(f"Creata istanza Quiz ID {new_quiz.id} da Template ID {template.id} per Docente {teacher.id}")
+                return new_quiz
+        except Exception as e:
+            logger.error(f"Errore atomico durante creazione Quiz da template {template.id}: {e}", exc_info=True)
+            # Rilancia l'eccezione per far fallire la richiesta API esterna
+            raise
+
+
+    # L'azione create_from_template ora usa l'helper
+    @action(detail=False, methods=['post'], url_path='create-from-template', permission_classes=[permissions.IsAuthenticated, IsTeacherUser])
+    def create_from_template(self, request):
+        template_id = request.data.get('template_id')
+        title_override = request.data.get('title') # Titolo opzionale per l'istanza
+
+        if not template_id:
+            return Response({'template_id': 'Questo campo è richiesto.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        template = get_object_or_404(QuizTemplate, pk=template_id)
+
+        try:
+            new_quiz = self._create_quiz_instance_from_template(template, request.user, title_override)
             serializer = self.get_serializer(new_quiz)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         except Exception as e:
+            # L'helper ora rilancia l'eccezione
+            logger.error(f"Fallimento creazione Quiz da template {template_id} per utente {request.user.id}: {e}", exc_info=True)
             return Response({'detail': f'Errore durante la creazione da template: {e}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     # --- Azioni Specifiche Docente ---
@@ -178,25 +446,62 @@ class QuizViewSet(viewsets.ModelViewSet):
             logger.warning(f"Errore di validazione dati upload quiz da utente {request.user.id}: {serializer.errors}")
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    @action(detail=True, methods=['post'], url_path='assign-student', permission_classes=[permissions.IsAuthenticated, IsQuizOwnerOrAdmin]) # Removed permissions. prefix
-    def assign_student(self, request, pk=None):
-        quiz = self.get_object()
-        student_id = request.data.get('student_id')
-        if not student_id:
-             return Response({'student_id': 'ID studente richiesto.'}, status=status.HTTP_400_BAD_REQUEST)
+    # Modificata per usare QuizAssignmentSerializer e gestire creazione da template
+    @action(detail=False, methods=['post'], url_path='assign-student', permission_classes=[permissions.IsAuthenticated, IsTeacherUser])
+    def assign_student(self, request):
+        """Assegna un Quiz a uno studente, creandolo da un template."""
+        # Usa il serializer specifico per l'azione di assegnazione da template
+        from .serializers import QuizAssignActionSerializer, QuizAssignmentSerializer # Importa entrambi
+        action_serializer = QuizAssignActionSerializer(data=request.data, context={'request': request})
 
-        student = get_object_or_404(Student, pk=student_id, teacher=request.user)
+        if action_serializer.is_valid():
+            quiz_template_id = action_serializer.validated_data.get('quiz_template_id')
+            student = action_serializer.validated_data.get('student')
+            due_date = action_serializer.validated_data.get('due_date')
 
-        assignment, created = QuizAssignment.objects.get_or_create(
-            quiz=quiz,
-            student=student,
-            defaults={'assigned_by': request.user}
-        )
+            quiz_to_assign = None
+            template = get_object_or_404(QuizTemplate, pk=quiz_template_id)
 
-        if created:
-            return Response({'status': 'Quiz assegnato con successo.'}, status=status.HTTP_201_CREATED)
+            # Verifica ownership del template (o se è admin)
+            if not request.user.is_admin and template.teacher != request.user and template.admin != request.user:
+                raise DRFPermissionDenied("Non puoi usare questo template di quiz.")
+
+            # Crea l'istanza Quiz dal template
+            try:
+                quiz_to_assign = self._create_quiz_instance_from_template(template, request.user)
+            except Exception as e:
+                logger.error(f"Fallimento creazione Quiz da template {quiz_template_id} durante assegnazione a studente {student.id}: {e}", exc_info=True)
+                return Response({'detail': f'Errore durante la creazione del quiz dal template: {e}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+            # Verifica se l'assegnazione esiste già
+            existing_assignment = QuizAssignment.objects.filter(quiz=quiz_to_assign, student=student).first()
+            if existing_assignment:
+                # Potremmo aggiornare la due_date qui se volessimo
+                # existing_assignment.due_date = due_date
+                # existing_assignment.save()
+                serializer = QuizAssignmentSerializer(existing_assignment, context={'request': request})
+                return Response({'status': 'Quiz già assegnato a questo studente.', 'assignment': serializer.data}, status=status.HTTP_200_OK)
+
+            # Crea la nuova assegnazione
+            try:
+                assignment = QuizAssignment.objects.create(
+                    quiz=quiz_to_assign,
+                    student=student,
+                    assigned_by=request.user,
+                    due_date=due_date
+                )
+                serializer = QuizAssignmentSerializer(assignment, context={'request': request})
+                return Response({'status': 'Quiz assegnato con successo.', 'assignment': serializer.data}, status=status.HTTP_201_CREATED)
+            except IntegrityError:
+                # Gestisce race condition
+                logger.warning(f"Race condition rilevata durante assegnazione quiz {quiz_to_assign.id} a studente {student.id}")
+                existing_assignment = QuizAssignment.objects.get(quiz=quiz_to_assign, student=student)
+                serializer = QuizAssignmentSerializer(existing_assignment, context={'request': request})
+                return Response({'status': 'Quiz già assegnato a questo studente (race condition).', 'assignment': serializer.data}, status=status.HTTP_200_OK)
         else:
-            return Response({'status': 'Quiz già assegnato a questo studente.'}, status=status.HTTP_200_OK)
+            # Logga errori di validazione del serializer dell'azione
+            logger.error(f"Errore validazione QuizAssignActionSerializer: {action_serializer.errors}")
+            return Response(action_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 from django.db.models import F # Assicurati che F sia importato all'inizio del file
 
@@ -301,8 +606,63 @@ class PathwayViewSet(viewsets.ModelViewSet):
              raise serializers.ValidationError("Solo i Docenti possono creare percorsi.")
         serializer.save(teacher=self.request.user)
 
-    @action(detail=True, methods=['post'], url_path='add-quiz', permission_classes=[permissions.IsAuthenticated, IsPathwayOwnerOrAdmin]) # Updated permission
+    # --- Funzione Helper per Creazione Pathway da Template ---
+    def _create_pathway_instance_from_template(self, template: PathwayTemplate, teacher: User, quiz_creator_func, title_override: str = None) -> Pathway:
+        """
+        Crea una nuova istanza di Pathway (con Quiz interni) a partire da un PathwayTemplate.
+        Richiede una funzione (`quiz_creator_func`) per creare le istanze Quiz dai QuizTemplate.
+        """
+        try:
+            with transaction.atomic():
+                new_pathway = Pathway.objects.create(
+                    teacher=teacher,
+                    source_template=template,
+                    title=title_override or template.title,
+                    description=template.description,
+                    metadata=template.metadata.copy() if template.metadata else {}
+                )
+
+                pathway_quiz_links = []
+                # Itera sui template di quiz associati al template di percorso, ordinati
+                for pq_template in template.pathwayquiztemplate_set.select_related('quiz_template').order_by('order'):
+                    quiz_template = pq_template.quiz_template
+                    # Crea l'istanza Quiz usando la funzione helper passata
+                    # Passiamo il teacher corretto (quello che sta creando il percorso)
+                    try:
+                         new_quiz_instance = quiz_creator_func(quiz_template, teacher) # Non passiamo title_override qui
+                         if not new_quiz_instance:
+                              raise Exception(f"La funzione di creazione quiz non ha restituito un'istanza per il template {quiz_template.id}")
+                    except Exception as quiz_creation_error:
+                         logger.error(f"Errore durante la creazione dell'istanza Quiz (template ID {quiz_template.id}) per il Pathway (template ID {template.id}): {quiz_creation_error}", exc_info=True)
+                         # Rilancia l'errore per interrompere la transazione atomica
+                         raise Exception(f"Impossibile creare il quiz '{quiz_template.title}' dal template.") from quiz_creation_error
+
+                    # Crea l'oggetto per il modello through M2M
+                    pathway_quiz_links.append(
+                        PathwayQuiz(
+                            pathway=new_pathway,
+                            quiz=new_quiz_instance,
+                            order=pq_template.order
+                        )
+                    )
+
+                # Crea i collegamenti Pathway-Quiz in blocco
+                if pathway_quiz_links:
+                    PathwayQuiz.objects.bulk_create(pathway_quiz_links)
+
+                logger.info(f"Creata istanza Pathway ID {new_pathway.id} da Template ID {template.id} per Docente {teacher.id}")
+                return new_pathway
+        except Exception as e:
+            logger.error(f"Errore atomico durante creazione Pathway da template {template.id}: {e}", exc_info=True)
+            raise # Rilancia per fallimento API
+
+
+    @action(detail=True, methods=['post'], url_path='add-quiz', permission_classes=[permissions.IsAuthenticated, IsPathwayOwnerOrAdmin])
     def add_quiz(self, request, pk=None):
+        # ... (codice esistente per aggiungere un Quiz *esistente* a un Pathway *esistente*) ...
+        # Questa logica rimane invariata per ora, gestisce solo istanze concrete.
+        # Potremmo voler aggiungere una logica simile per aggiungere QuizTemplate a PathwayTemplate,
+        # ma questo dovrebbe essere gestito da PathwayQuizTemplateViewSet.
         pathway = self.get_object()
         quiz_id = request.data.get('quiz_id')
         order = request.data.get('order')
@@ -310,7 +670,10 @@ class PathwayViewSet(viewsets.ModelViewSet):
         if not quiz_id or order is None:
             return Response({'detail': 'quiz_id e order sono richiesti.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        quiz = get_object_or_404(Quiz, pk=quiz_id, teacher=request.user)
+        # Assicurati che il quiz esista e appartenga al docente (o sia admin)
+        quiz = get_object_or_404(Quiz, pk=quiz_id)
+        if quiz.teacher != request.user and not request.user.is_admin:
+             raise DRFPermissionDenied("Non puoi usare questo quiz.")
 
         try:
             order = int(order)
@@ -318,11 +681,11 @@ class PathwayViewSet(viewsets.ModelViewSet):
         except (ValueError, TypeError):
             return Response({'order': 'L\'ordine deve essere un intero non negativo.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Verifica se l'ordine è già occupato da un *altro* quiz in questo percorso
+        # Verifica ordine esistente
         existing_entry_with_order = PathwayQuiz.objects.filter(
             pathway=pathway,
             order=order
-        ).exclude(quiz=quiz).first() # Escludi il quiz corrente (per permettere l'update dell'ordine dello stesso quiz)
+        ).exclude(quiz=quiz).first()
 
         if existing_entry_with_order:
             return Response(
@@ -331,7 +694,6 @@ class PathwayViewSet(viewsets.ModelViewSet):
             )
 
         try:
-            # Procedi con update_or_create (sicuro ora che l'ordine non è usato da altri quiz)
             pathway_quiz, created = PathwayQuiz.objects.update_or_create(
                 pathway=pathway,
                 quiz=quiz,
@@ -339,30 +701,67 @@ class PathwayViewSet(viewsets.ModelViewSet):
             )
             return Response(PathwayQuizSerializer(pathway_quiz).data, status=status.HTTP_200_OK if not created else status.HTTP_201_CREATED)
         except IntegrityError as e:
-             # Questo non dovrebbe più accadere per il vincolo (pathway, order),
-             # ma potrebbe esserci un altro IntegrityError (es. (pathway, quiz) se non gestito da update_or_create?)
-             logger.error(f"Errore di integrità imprevisto aggiungendo quiz {quiz_id} a percorso {pathway.id}: {e}", exc_info=True)
+             logger.error(f"Errore di integrità aggiungendo quiz {quiz_id} a percorso {pathway.id}: {e}", exc_info=True)
              return Response({'detail': 'Errore di integrità durante l\'aggiunta del quiz al percorso.'}, status=status.HTTP_400_BAD_REQUEST)
 
-    @action(detail=True, methods=['post'], url_path='assign-student', permission_classes=[permissions.IsAuthenticated, IsPathwayOwnerOrAdmin]) # Updated permission
-    def assign_student_pathway(self, request, pk=None):
-        pathway = self.get_object()
-        student_id = request.data.get('student_id')
-        if not student_id:
-             return Response({'student_id': 'ID studente richiesto.'}, status=status.HTTP_400_BAD_REQUEST)
+    # Modificata per usare PathwayAssignmentSerializer e gestire creazione da template
+    @action(detail=False, methods=['post'], url_path='assign-student', permission_classes=[permissions.IsAuthenticated, IsTeacherUser]) # Non più detail=True
+    def assign_student_pathway(self, request):
+        # Usa il nuovo serializer specifico per l'azione
+        from .serializers import PathwayAssignActionSerializer # Importa il nuovo serializer
+        action_serializer = PathwayAssignActionSerializer(data=request.data, context={'request': request})
+        if action_serializer.is_valid():
+            # Recupera i dati validati dal nuovo serializer
+            # pathway_id non è più presente qui
+            pathway_template_id = action_serializer.validated_data.get('pathway_template_id')
+            student = action_serializer.validated_data.get('student')
 
-        student = get_object_or_404(Student, pk=student_id, teacher=request.user)
+            pathway_to_assign = None
+            quiz_viewset = QuizViewSet() # Istanzia QuizViewSet per accedere al suo helper
 
-        assignment, created = PathwayAssignment.objects.get_or_create(
-            pathway=pathway,
-            student=student,
-            defaults={'assigned_by': request.user}
-        )
+            # Ora sappiamo che pathway_template_id è presente e valido grazie a PathwayAssignActionSerializer
+            # Quindi procediamo direttamente con la creazione da template
+            template = get_object_or_404(PathwayTemplate, pk=pathway_template_id)
+            # Verifica ownership del template
+            if template.teacher != request.user and not request.user.is_admin:
+                raise DRFPermissionDenied("Non puoi usare questo template di percorso.")
+            try:
+                # Crea nuova istanza Pathway, passando l'helper di QuizViewSet per creare i quiz interni
+                pathway_to_assign = self._create_pathway_instance_from_template(
+                    template,
+                    request.user,
+                    quiz_viewset._create_quiz_instance_from_template # Passa la funzione helper
+                )
+            except Exception as e:
+                logger.error(f"Fallimento creazione Pathway da template {pathway_template_id} durante assegnazione a studente {student.id}: {e}", exc_info=True)
+                return Response({'detail': f'Errore durante la creazione del percorso dal template: {e}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            # Rimosso blocco else, perché pathway_template_id è ora obbligatorio nel action_serializer
+            # else: ...
 
-        if created:
-            return Response({'status': 'Percorso assegnato con successo.'}, status=status.HTTP_201_CREATED)
+            # Verifica assegnazione esistente
+            existing_assignment = PathwayAssignment.objects.filter(pathway=pathway_to_assign, student=student).first()
+            if existing_assignment:
+                 serializer = PathwayAssignmentSerializer(existing_assignment, context={'request': request})
+                 return Response({'status': 'Percorso già assegnato a questo studente.', 'assignment': serializer.data}, status=status.HTTP_200_OK)
+
+            # Crea la nuova assegnazione
+            try:
+                assignment = PathwayAssignment.objects.create(
+                    pathway=pathway_to_assign,
+                    student=student,
+                    assigned_by=request.user
+                )
+                serializer = PathwayAssignmentSerializer(assignment, context={'request': request})
+                return Response({'status': 'Percorso assegnato con successo.', 'assignment': serializer.data}, status=status.HTTP_201_CREATED)
+            except IntegrityError:
+                 logger.warning(f"Race condition rilevata durante assegnazione percorso {pathway_to_assign.id} a studente {student.id}")
+                 existing_assignment = PathwayAssignment.objects.get(pathway=pathway_to_assign, student=student)
+                 serializer = PathwayAssignmentSerializer(existing_assignment, context={'request': request})
+                 return Response({'status': 'Percorso già assegnato a questo studente (race condition).', 'assignment': serializer.data}, status=status.HTTP_200_OK)
         else:
-            return Response({'status': 'Percorso già assegnato a questo studente.'}, status=status.HTTP_200_OK)
+            # Logga gli errori specifici del NUOVO serializer per debug
+            logger.error(f"Errore validazione PathwayAssignActionSerializer: {action_serializer.errors}")
+            return Response(action_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     @action(detail=True, methods=['delete'], url_path='remove-quiz/(?P<pathway_quiz_pk>[^/.]+)', permission_classes=[permissions.IsAuthenticated, IsPathwayOwnerOrAdmin])
     def remove_quiz(self, request, pk=None, pathway_quiz_pk=None):
