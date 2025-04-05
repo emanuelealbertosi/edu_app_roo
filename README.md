@@ -159,3 +159,97 @@ Frontend sviluppati in Vue.js 3 (Composition API, TypeScript, Pinia, Tailwind CS
     ```
 
 *(Aggiungere ulteriori dettagli su configurazione, API, ecc. in seguito)*
+
+### 3. Deployment (Produzione con Docker)
+
+Questa sezione descrive come eseguire l'applicazione su un server utilizzando le immagini Docker pre-compilate disponibili su Docker Hub e il file `docker-compose.prod.yml`.
+
+#### Prerequisiti
+
+*   Docker e Docker Compose installati sul server.
+*   Accesso al server tramite SSH o terminale.
+
+#### Passaggi
+
+1.  **Clonare il repository sul server:**
+    ```bash
+    git clone <URL_REPOSITORY>
+    cd edu_app_roo
+    ```
+2.  **Creare e Configurare `.env.prod`:**
+    *   Crea un file chiamato `.env.prod` nella directory principale del progetto (`edu_app_roo`).
+    *   Copia il contenuto di esempio da `.env.prod.example` (se esiste) o definisci le seguenti variabili:
+        ```dotenv
+        # =========================================
+        # === VARIABILI AMBIENTE DI PRODUZIONE ===
+        # =========================================
+        # ATTENZIONE: Modificare questi valori con segreti reali prima del deployment!
+
+        # --- Database Configuration ---
+        POSTGRES_DB=edu_app_prod_db # Nome del database di produzione
+        POSTGRES_USER=prod_user     # Utente database di produzione
+        # Cambiare questa password con una forte e sicura!
+        POSTGRES_PASSWORD=changeme_prod_password
+
+        # --- Django Settings ---
+        # Generare una nuova SECRET_KEY per la produzione! Esempio: python -c 'from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())'
+        SECRET_KEY='changeme_replace_with_a_real_production_secret_key'
+        # Impostare DEBUG a False in produzione per sicurezza e performance!
+        DEBUG=False
+        # Impostare gli host permessi (es. il dominio del tuo server, indirizzo IP)
+        DJANGO_ALLOWED_HOSTS=tuo_dominio.com,www.tuo_dominio.com,indirizzo_ip_server
+        # Impostare gli origin CORS permessi (es. i domini dei tuoi frontend in produzione)
+        CORS_ALLOWED_ORIGINS=https://frontend-studente.tuo_dominio.com,https://frontend-docente.tuo_dominio.com
+
+        # --- Superuser Credentials (per lo script di inizializzazione) ---
+        # Scegliere username e email desiderati per l'admin iniziale
+        DJANGO_SUPERUSER_USERNAME=admin_prod
+        DJANGO_SUPERUSER_EMAIL=admin@tuo_dominio.com
+        # Cambiare questa password con una forte e sicura!
+        DJANGO_SUPERUSER_PASSWORD=changeme_admin_prod_password
+        ```
+    *   **IMPORTANTE:** Sostituisci i valori `changeme_...` e `tuo_dominio.com`/`indirizzo_ip_server` con i tuoi valori reali e sicuri per la produzione.
+
+3.  **(Opzionale) Login a Docker Hub (se le immagini sono private):**
+    Se i repository su Docker Hub sono privati, dovrai fare il login:
+    ```bash
+    docker login -u tuo_username_dockerhub
+    ```
+
+4.  **Avviare i Container di Produzione:**
+    Utilizza il file `docker-compose.prod.yml` e il file `.env.prod` per avviare i servizi:
+    ```bash
+    docker-compose -f docker-compose.prod.yml --env-file .env.prod up -d
+    ```
+    *   `-f docker-compose.prod.yml`: Specifica di usare il file Compose di produzione.
+    *   `--env-file .env.prod`: Specifica il file di variabili d'ambiente di produzione.
+    *   `up`: Scarica le immagini (se non presenti localmente), crea e avvia i container.
+    *   `-d`: Esegue i container in background.
+
+    Docker Compose scaricherà automaticamente le immagini specificate (`albertosiemanuele/edu-app-...:latest`) da Docker Hub. Lo script `entrypoint.prod.sh` all'interno del container `backend` eseguirà le migrazioni e creerà il superutente iniziale (se configurato in `.env.prod`).
+
+5.  **Accesso ai Servizi:**
+    *   **Backend Django:** Accessibile sulla porta 8000 del server (es. `http://tuo_dominio.com:8000/`). Potresti voler configurare un reverse proxy (come Nginx o Apache) sul server per esporre l'applicazione sulla porta 80/443 e gestire HTTPS.
+    *   **Frontend Docente:** Accessibile sulla porta 5174 del server (es. `http://tuo_dominio.com:5174/`). Anche qui, un reverse proxy è consigliato.
+    *   **Frontend Studente:** Accessibile sulla porta 5175 del server (es. `http://tuo_dominio.com:5175/`). Anche qui, un reverse proxy è consigliato.
+
+#### Gestione dei Container di Produzione
+
+*   **Vedere i log:**
+    ```bash
+    docker-compose -f docker-compose.prod.yml logs -f [nome_servizio]
+    # Esempio: docker-compose -f docker-compose.prod.yml logs -f backend
+    ```
+*   **Fermare i container:**
+    ```bash
+    docker-compose -f docker-compose.prod.yml down
+    ```
+*   **Riavviare i container:**
+    ```bash
+    docker-compose -f docker-compose.prod.yml restart [nome_servizio]
+    ```
+*   **Eseguire comandi nel container backend:**
+    ```bash
+    docker-compose -f docker-compose.prod.yml exec backend <comando>
+    # Esempio: docker-compose -f docker-compose.prod.yml exec backend python manage.py shell
+    ```

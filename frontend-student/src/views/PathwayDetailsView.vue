@@ -34,34 +34,49 @@ onMounted(async () => {
   }
 });
 
-// Avvia un quiz specifico del percorso
-const startQuiz = async (quizId: number) => {
-  isLoading.value = true;
+// // Avvia un quiz specifico del percorso (Funzione deprecata nello store)
+// const startQuiz = async (quizId: number) => {
+//   isLoading.value = true;
   
-  try {
-    const attemptId = await pathwayStore.startQuiz(quizId);
-    router.push(`/quiz/${quizId}/attempt/${attemptId}`);
-  } catch (error) {
-    console.error('Errore nell\'avvio del quiz:', error);
-  } finally {
-    isLoading.value = false;
-  }
-};
+//   try {
+//     // const attemptId = await pathwayStore.startQuiz(quizId); // Azione commentata nello store
+//     console.warn("Tentativo di chiamare startQuiz deprecato da PathwayDetailsView");
+//     // router.push(`/quiz/${quizId}/attempt/${attemptId}`); // Non più possibile ottenere attemptId qui
+//   } catch (error) {
+//     console.error('Errore nell\'avvio del quiz:', error);
+//   } finally {
+//     isLoading.value = false;
+//   }
+// };
 
 // Torna alla dashboard
 const goToDashboard = () => {
   router.push('/dashboard');
 };
 
+// Calcola lo stato di un quiz basandosi sul progresso
+const getQuizStatus = (quizOrder: number): { isCompleted: boolean; isAvailable: boolean } => {
+  const progress = pathwayStore.currentPathway?.progress;
+  const isCompleted = !!progress?.completed_orders?.includes(quizOrder);
+  
+  // Disponibile se è il primo non completato o se il percorso non è iniziato ed è il primo quiz
+  const lastCompletedOrder = progress?.last_completed_quiz_order ?? -1;
+  const isAvailable = !isCompleted && (quizOrder === lastCompletedOrder + 1 || (!progress && quizOrder === 0));
+  
+  return { isCompleted, isAvailable };
+};
+
 // Determina la classe CSS per lo stato di un quiz
-const getQuizStatusClass = (isCompleted: boolean, isAvailable: boolean) => {
+const getQuizStatusClass = (quizOrder: number) => {
+  const { isCompleted, isAvailable } = getQuizStatus(quizOrder);
   if (isCompleted) return 'quiz-completed';
   if (isAvailable) return 'quiz-available';
   return 'quiz-locked';
 };
 
 // Genera l'etichetta per lo stato di un quiz
-const getQuizStatusLabel = (isCompleted: boolean, isAvailable: boolean) => {
+const getQuizStatusLabel = (quizOrder: number) => {
+  const { isCompleted, isAvailable } = getQuizStatus(quizOrder);
   if (isCompleted) return 'Completato';
   if (isAvailable) return 'Disponibile';
   return 'Bloccato';
@@ -133,43 +148,55 @@ const getQuizStatusLabel = (isCompleted: boolean, isAvailable: boolean) => {
       <section class="quizzes-section">
         <h2>Quiz in questo Percorso</h2>
         
-        <div v-if="pathwayStore.currentPathway.quizzes.length === 0" class="empty-quizzes">
+        <!-- Usa quiz_details -->
+        <div v-if="pathwayStore.currentPathway.quiz_details.length === 0" class="empty-quizzes">
           <p>Questo percorso non contiene quiz.</p>
         </div>
         
         <div v-else class="quizzes-list">
           <div 
-            v-for="quiz in pathwayStore.currentPathway.quizzes" 
+            <!-- Usa quiz_details -->
+            v-for="quiz in pathwayStore.currentPathway.quiz_details"
             :key="quiz.id"
             class="quiz-item"
-            :class="getQuizStatusClass(quiz.is_completed, quiz.is_available)"
+            <!-- Calcola classe basata sull'ordine -->
+            :class="getQuizStatusClass(quiz.order)"
           >
             <div class="quiz-position">{{ quiz.order + 1 }}</div>
             
             <div class="quiz-content">
-              <h3 class="quiz-title">{{ quiz.title }}</h3>
-              <p class="quiz-description">{{ quiz.description }}</p>
+              <!-- Usa quiz_title, rimuove description -->
+              <h3 class="quiz-title">{{ quiz.quiz_title }}</h3>
+              <!-- <p class="quiz-description">{{ quiz.description }}</p> -->
               
+              <!-- Calcola status basato sull'ordine -->
               <div class="quiz-status">
-                <span :class="['status-badge', getQuizStatusClass(quiz.is_completed, quiz.is_available)]">
-                  {{ getQuizStatusLabel(quiz.is_completed, quiz.is_available) }}
+                <span :class="['status-badge', getQuizStatusClass(quiz.order)]">
+                  {{ getQuizStatusLabel(quiz.order) }}
                 </span>
               </div>
             </div>
             
             <div class="quiz-action">
-              <button 
-                v-if="quiz.is_available && !quiz.is_completed"
-                @click="startQuiz(quiz.id)"
-                class="start-quiz-button"
-                :disabled="isLoading"
-              >
-                {{ isLoading ? 'Caricamento...' : 'Inizia Quiz' }}
-              </button>
+              <!-- Pulsante startQuiz commentato perché la funzione è deprecata -->
+              <!--
+                <button
+                  v-if="getQuizStatus(quiz.order).isAvailable && !getQuizStatus(quiz.order).isCompleted"
+                  @click="startQuiz(quiz.quiz_id)" // Usa quiz_id
+                  class="start-quiz-button"
+                  :disabled="isLoading"
+                >
+                  {{ isLoading ? 'Caricamento...' : 'Inizia Quiz' }}
+                </button>
+              -->
+              <!-- Mostra un messaggio o un link alternativo se necessario -->
+              <span v-if="getQuizStatus(quiz.order).isAvailable && !getQuizStatus(quiz.order).isCompleted" class="text-gray-500 text-sm">
+                (Avvio quiz da implementare)
+              </span>
               
               <button 
-                v-else-if="quiz.is_completed"
-                @click="router.push(`/quiz/${quiz.id}`)"
+                v-else-if="getQuizStatus(quiz.order).isCompleted"
+                @click="router.push(`/quiz/${quiz.quiz_id}`)"
                 class="view-quiz-button"
               >
                 Visualizza Risultati
@@ -186,13 +213,17 @@ const getQuizStatusLabel = (isCompleted: boolean, isAvailable: boolean) => {
       <div v-if="pathwayStore.nextAvailableQuiz" class="next-quiz-action">
         <h3>Continua il Percorso</h3>
         <p>Prossimo quiz disponibile: <strong>{{ pathwayStore.nextAvailableQuiz.title }}</strong></p>
-        <button 
-          @click="startQuiz(pathwayStore.nextAvailableQuiz.id)" 
-          class="continue-button"
-          :disabled="isLoading"
-        >
-          {{ isLoading ? 'Caricamento...' : 'Continua Percorso' }}
-        </button>
+        <!-- Pulsante startQuiz commentato perché la funzione è deprecata -->
+        <!--
+          <button
+            @click="startQuiz(pathwayStore.nextAvailableQuiz.id)"
+            class="continue-button"
+            :disabled="isLoading"
+          >
+            {{ isLoading ? 'Caricamento...' : 'Continua Percorso' }}
+          </button>
+        -->
+        <p v-if="!isLoading" class="text-gray-500 text-sm">(Funzione "Continua Percorso" da rivedere)</p>
       </div>
     </div>
   </div>

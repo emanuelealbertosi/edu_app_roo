@@ -21,13 +21,16 @@ COPY requirements.txt /app/
 # Installa le dipendenze Python
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Copia lo script di entrypoint
+COPY entrypoint.prod.sh /app/entrypoint.prod.sh
+# Assicurati che sia eseguibile (anche se lo abbiamo fatto sull'host, è buona norma ripeterlo)
+RUN chmod +x /app/entrypoint.prod.sh
+
 # Copia il resto del codice dell'applicazione nella directory di lavoro
 COPY . /app/
 
-# Esponi la porta su cui Gunicorn (o il server di sviluppo) sarà in ascolto
+# Esponi la porta su cui Gunicorn sarà in ascolto
 EXPOSE 8000
 
-# Comando per eseguire l'applicazione (usiamo il server di sviluppo per ora,
-# per produzione si dovrebbe usare Gunicorn o uWSGI)
-# Assicurati che le migrazioni siano applicate all'avvio o separatamente
-CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+# Imposta lo script di entrypoint come comando di avvio del container
+ENTRYPOINT ["/app/entrypoint.prod.sh"]

@@ -93,7 +93,8 @@ describe('DashboardView.vue', () => {
      };
      dashboardStore.wallet = { current_points: 100, recent_transactions: [] };
      dashboardStore.quizzes = [{ id: 1, title: 'Quiz 1', description: 'Desc', metadata: {}, latest_attempt: null, available_from: null, available_until: null }];
-     dashboardStore.pathways = [{ id: 1, title: 'Pathway 1', description: 'Desc', metadata: {}, progress: null }];
+     // Corretto: usa latest_progress e aggiunge quiz_details
+     dashboardStore.pathways = [{ id: 1, title: 'Pathway 1', description: 'Desc', metadata: {}, latest_progress: null, quiz_details: [] }];
      dashboardStore.loading = { quizzes: false, pathways: false, wallet: false }; // Simula fine caricamento
 
      const wrapper = mount(DashboardView, {

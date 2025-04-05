@@ -10,14 +10,15 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 import os # Add this line
-from dotenv import load_dotenv # Add this line
+# from dotenv import load_dotenv # Rimosso - ci affidiamo a Docker Compose per le env vars
 import dj_database_url # Add this line
 import sys # Add this line
 from pathlib import Path
 
-# Load environment variables from .env file
-# Make sure this is done before accessing os.environ for settings
-load_dotenv(Path(__file__).resolve().parent.parent / '.env')
+# NOTA: Non carichiamo più .env o .env.docker qui.
+# Docker Compose inietterà le variabili da .env.docker specificato in docker-compose.yml
+# Per lo sviluppo locale, assicurati che le variabili siano caricate nell'ambiente
+# (es. tramite attivazione venv o un file .env letto dal tuo IDE/terminale)
 
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -103,13 +104,24 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 # https://github.com/jazzband/dj-database-url
 
-DATABASES = {
-    'default': dj_database_url.config(
-        # Replace DATABASE_URL in .env with your actual database connection string
-        default=f'sqlite:///{BASE_DIR / "db.sqlite3"}', # Fallback to sqlite if DATABASE_URL not set
-        conn_max_age=600 # Optional: connection pooling
-    )
-}
+# Leggi esplicitamente DATABASE_URL dall'ambiente
+DATABASE_URL_ENV = os.getenv('DATABASE_URL')
+print(f"DATABASE_URL from environment: {DATABASE_URL_ENV}") # Debug
+
+if DATABASE_URL_ENV:
+    print("Using DATABASE_URL from environment for database config.") # Debug
+    DATABASES = {
+        'default': dj_database_url.parse(DATABASE_URL_ENV, conn_max_age=600)
+    }
+else:
+    # Fallback a SQLite se DATABASE_URL non è impostata (per sviluppo locale senza .env)
+    print("DATABASE_URL not found in environment, falling back to SQLite.") # Debug
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 
 # Password validation

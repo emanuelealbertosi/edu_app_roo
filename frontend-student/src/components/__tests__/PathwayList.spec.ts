@@ -22,22 +22,27 @@ const mockPathways: Pathway[] = [
     id: 1, 
     title: 'Percorso Base', 
     description: 'Introduzione', 
-    metadata: { points_on_completion: 50 }, 
-    progress: null // Non iniziato
+    metadata: { points_on_completion: 50 },
+    latest_progress: null, // Non iniziato
+    quiz_details: [] // Aggiunto per soddisfare il tipo
   },
   { 
     id: 2, 
     title: 'Percorso Intermedio', 
     description: 'Approfondimento', 
-    metadata: {}, 
-    progress: { status: 'in_progress', last_completed_quiz_order: 1, completed_at: null, points_earned: null } // In corso (ipotizzando 5 quiz, completato il secondo -> 40%)
+    metadata: {},
+    // Aggiunti campi mancanti da latest_progress in dashboard.ts
+    latest_progress: { id: 1, status: 'in_progress', last_completed_quiz_order: 1, completed_orders: [0, 1], started_at: new Date().toISOString(), completed_at: null, points_earned: null },
+    quiz_details: [{id: 1, quiz_id: 10, quiz_title: 'Quiz 1', order: 0}, {id: 2, quiz_id: 11, quiz_title: 'Quiz 2', order: 1}] // Aggiunto per soddisfare il tipo (esempio)
   },
    { 
     id: 3, 
     title: 'Percorso Avanzato', 
     description: 'Maestria', 
-    metadata: { points_on_completion: 100 }, 
-    progress: { status: 'completed', last_completed_quiz_order: 4, completed_at: new Date().toISOString(), points_earned: 100 } // Completato
+    metadata: { points_on_completion: 100 },
+    // Aggiunti campi mancanti da latest_progress in dashboard.ts
+    latest_progress: { id: 2, status: 'completed', last_completed_quiz_order: 4, completed_orders: [0, 1, 2, 3, 4], started_at: new Date().toISOString(), completed_at: new Date().toISOString(), points_earned: 100 },
+    quiz_details: [{id: 3, quiz_id: 20, quiz_title: 'Quiz A', order: 0}] // Aggiunto per soddisfare il tipo (esempio)
   },
 ];
 
