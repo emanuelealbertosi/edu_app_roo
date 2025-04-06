@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Script interattivo per il deployment dell'applicazione Edu App Roo su Ubuntu usando Docker
-# Chiede sempre le variabili e sovrascrive .env.prod
+# Chiede sempre le variabili, sovrascrive .env.prod, esporta le variabili e avvia i container.
 # Rimuove il volume del DB ad ogni esecuzione per garantire uno stato pulito.
 
 # --- Variabili Configurabili (Immagini Docker Hub) ---
@@ -78,15 +78,15 @@ if [ -z "$SERVER_IP" ]; then
 fi
 
 # Database
-read -p "Nome database PostgreSQL [edu_app_prod_db]: " POSTGRES_DB
-POSTGRES_DB=${POSTGRES_DB:-edu_app_prod_db}
+read -p "Nome database PostgreSQL [edu_app_prod_db]: " POSTGRES_DB_VAR # Usiamo _VAR per evitare conflitti con export
+POSTGRES_DB_VAR=${POSTGRES_DB_VAR:-edu_app_prod_db}
 
-read -p "Utente database PostgreSQL [prod_user]: " POSTGRES_USER
-POSTGRES_USER=${POSTGRES_USER:-prod_user}
+read -p "Utente database PostgreSQL [prod_user]: " POSTGRES_USER_VAR # Usiamo _VAR
+POSTGRES_USER_VAR=${POSTGRES_USER_VAR:-prod_user}
 
-read -sp "Password database PostgreSQL (NESSUN DEFAULT - OBBLIGATORIA!): " POSTGRES_PASSWORD
+read -sp "Password database PostgreSQL (NESSUN DEFAULT - OBBLIGATORIA!): " POSTGRES_PASSWORD_VAR # Usiamo _VAR
 echo # Aggiunge newline dopo input password
-if [ -z "$POSTGRES_PASSWORD" ]; then
+if [ -z "$POSTGRES_PASSWORD_VAR" ]; then
     echo "Errore: La password del database è obbligatoria."
     exit 1
 fi
@@ -95,63 +95,79 @@ fi
 # Genera una chiave segreta di default
 echo "Generazione SECRET_KEY..."
 DEFAULT_SECRET_KEY=$(generate_secret_key)
-read -p "Django SECRET_KEY [Generata automaticamente]: " SECRET_KEY
-SECRET_KEY=${SECRET_KEY:-$DEFAULT_SECRET_KEY}
+read -p "Django SECRET_KEY [Generata automaticamente]: " SECRET_KEY_VAR # Usiamo _VAR
+SECRET_KEY_VAR=${SECRET_KEY_VAR:-$DEFAULT_SECRET_KEY}
 
 # DEBUG deve essere False in produzione
-DEBUG=False
-echo "DEBUG impostato a: $DEBUG (non modificabile per produzione)"
+DEBUG_VAR=False # Usiamo _VAR
+echo "DEBUG impostato a: $DEBUG_VAR (non modificabile per produzione)"
 
 # Suggerisci ALLOWED_HOSTS con l'IP fornito e '*'
 DEFAULT_ALLOWED_HOSTS="*,${SERVER_IP}"
-read -p "Host/Domini permessi per Django (separati da virgola) [Default: ${DEFAULT_ALLOWED_HOSTS}]: " DJANGO_ALLOWED_HOSTS
-DJANGO_ALLOWED_HOSTS=${DJANGO_ALLOWED_HOSTS:-${DEFAULT_ALLOWED_HOSTS}}
+read -p "Host/Domini permessi per Django (separati da virgola) [Default: ${DEFAULT_ALLOWED_HOSTS}]: " DJANGO_ALLOWED_HOSTS_VAR # Usiamo _VAR
+DJANGO_ALLOWED_HOSTS_VAR=${DJANGO_ALLOWED_HOSTS_VAR:-${DEFAULT_ALLOWED_HOSTS}}
 
 # Suggerisci CORS_ALLOWED_ORIGINS con l'IP fornito
 DEFAULT_CORS_ORIGINS="http://${SERVER_IP}:5174,http://${SERVER_IP}:5175"
 echo "Configurazione CORS: Verranno usati gli URL basati sull'IP fornito."
 echo "Se userai domini e HTTPS in futuro, dovrai aggiornare questo valore manualmente nel file .env.prod."
-read -p "Origini CORS permesse (separati da virgola) [Default: ${DEFAULT_CORS_ORIGINS}]: " CORS_ALLOWED_ORIGINS
-CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-${DEFAULT_CORS_ORIGINS}}
+read -p "Origini CORS permesse (separati da virgola) [Default: ${DEFAULT_CORS_ORIGINS}]: " CORS_ALLOWED_ORIGINS_VAR # Usiamo _VAR
+CORS_ALLOWED_ORIGINS_VAR=${CORS_ALLOWED_ORIGINS_VAR:-${DEFAULT_CORS_ORIGINS}}
 
 # Superuser
-read -p "Username Superuser Django [admin_prod]: " DJANGO_SUPERUSER_USERNAME
-DJANGO_SUPERUSER_USERNAME=${DJANGO_SUPERUSER_USERNAME:-admin_prod}
+read -p "Username Superuser Django [admin_prod]: " DJANGO_SUPERUSER_USERNAME_VAR # Usiamo _VAR
+DJANGO_SUPERUSER_USERNAME_VAR=${DJANGO_SUPERUSER_USERNAME_VAR:-admin_prod}
 
-read -p "Email Superuser Django [admin@example.com]: " DJANGO_SUPERUSER_EMAIL
-DJANGO_SUPERUSER_EMAIL=${DJANGO_SUPERUSER_EMAIL:-admin@example.com}
+read -p "Email Superuser Django [admin@example.com]: " DJANGO_SUPERUSER_EMAIL_VAR # Usiamo _VAR
+DJANGO_SUPERUSER_EMAIL_VAR=${DJANGO_SUPERUSER_EMAIL_VAR:-admin@example.com}
 
-read -sp "Password Superuser Django (NESSUN DEFAULT - OBBLIGATORIA!): " DJANGO_SUPERUSER_PASSWORD
+read -sp "Password Superuser Django (NESSUN DEFAULT - OBBLIGATORIA!): " DJANGO_SUPERUSER_PASSWORD_VAR # Usiamo _VAR
 echo # Aggiunge newline dopo input password
-if [ -z "$DJANGO_SUPERUSER_PASSWORD" ]; then
+if [ -z "$DJANGO_SUPERUSER_PASSWORD_VAR" ]; then
     echo "Errore: La password del superuser è obbligatoria."
     exit 1
 fi
 
 # --- Creazione File .env.prod (Sovrascrive se esiste) ---
+# Questo file verrà usato principalmente dal servizio 'db'
 echo "Creazione/Sovrascrittura del file '.env.prod' con i valori forniti..."
 cat << EOF > .env.prod
 # File generato automaticamente dallo script deploy_on_ubuntu.sh
 # Data: $(date)
 
 # --- Database Configuration ---
-POSTGRES_DB=${POSTGRES_DB}
-POSTGRES_USER=${POSTGRES_USER}
-POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+POSTGRES_DB=${POSTGRES_DB_VAR}
+POSTGRES_USER=${POSTGRES_USER_VAR}
+POSTGRES_PASSWORD=${POSTGRES_PASSWORD_VAR}
 
 # --- Django Settings ---
-SECRET_KEY='${SECRET_KEY}' # Apici singoli per gestire caratteri speciali
-DEBUG=${DEBUG}
-DJANGO_ALLOWED_HOSTS=${DJANGO_ALLOWED_HOSTS}
-CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS}
+SECRET_KEY='${SECRET_KEY_VAR}' # Apici singoli per gestire caratteri speciali
+DEBUG=${DEBUG_VAR}
+DJANGO_ALLOWED_HOSTS=${DJANGO_ALLOWED_HOSTS_VAR}
+CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS_VAR}
 
 # --- Superuser Credentials ---
-DJANGO_SUPERUSER_USERNAME=${DJANGO_SUPERUSER_USERNAME}
-DJANGO_SUPERUSER_EMAIL=${DJANGO_SUPERUSER_EMAIL}
-DJANGO_SUPERUSER_PASSWORD=${DJANGO_SUPERUSER_PASSWORD}
+DJANGO_SUPERUSER_USERNAME=${DJANGO_SUPERUSER_USERNAME_VAR}
+DJANGO_SUPERUSER_EMAIL=${DJANGO_SUPERUSER_EMAIL_VAR}
+DJANGO_SUPERUSER_PASSWORD=${DJANGO_SUPERUSER_PASSWORD_VAR}
 EOF
 
 echo "File '.env.prod' creato/aggiornato con successo."
+
+# --- Esporta le variabili per Docker Compose ---
+# Questo rende le variabili disponibili per l'interpolazione in docker-compose.prod.yml
+echo "Esportazione delle variabili per Docker Compose..."
+export POSTGRES_DB=${POSTGRES_DB_VAR}
+export POSTGRES_USER=${POSTGRES_USER_VAR}
+export POSTGRES_PASSWORD=${POSTGRES_PASSWORD_VAR}
+export SECRET_KEY=${SECRET_KEY_VAR}
+export DEBUG=${DEBUG_VAR}
+export DJANGO_ALLOWED_HOSTS=${DJANGO_ALLOWED_HOSTS_VAR}
+export CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS_VAR}
+export DJANGO_SUPERUSER_USERNAME=${DJANGO_SUPERUSER_USERNAME_VAR}
+export DJANGO_SUPERUSER_EMAIL=${DJANGO_SUPERUSER_EMAIL_VAR}
+export DJANGO_SUPERUSER_PASSWORD=${DJANGO_SUPERUSER_PASSWORD_VAR}
+
 
 # --- Creazione File docker-compose.prod.yml (se non esiste) ---
 if [ ! -f "docker-compose.prod.yml" ]; then
@@ -165,8 +181,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data/
     env_file:
-      - .env.prod
-    # La sezione environment qui è ridondante ma non dannosa
+      - .env.prod # db usa ancora env_file
     environment:
       - POSTGRES_DB=\${POSTGRES_DB}
       - POSTGRES_USER=\${POSTGRES_USER}
@@ -182,8 +197,17 @@ services:
     image: ${BACKEND_IMAGE}
     ports:
       - "8000:8000"
-    env_file:
-      - .env.prod # Usa .env.prod per caricare le variabili
+    # Le variabili vengono iniettate tramite 'environment' qui sotto,
+    # leggendo i valori esportati dallo script chiamante.
+    environment:
+      - SECRET_KEY=\${SECRET_KEY}
+      - DEBUG=\${DEBUG}
+      - DATABASE_URL=postgres://\${POSTGRES_USER}:\${POSTGRES_PASSWORD}@db:5432/\${POSTGRES_DB}
+      - DJANGO_ALLOWED_HOSTS=\${DJANGO_ALLOWED_HOSTS}
+      - CORS_ALLOWED_ORIGINS=\${CORS_ALLOWED_ORIGINS}
+      - DJANGO_SUPERUSER_USERNAME=\${DJANGO_SUPERUSER_USERNAME}
+      - DJANGO_SUPERUSER_EMAIL=\${DJANGO_SUPERUSER_EMAIL}
+      - DJANGO_SUPERUSER_PASSWORD=\${DJANGO_SUPERUSER_PASSWORD}
     depends_on:
       db:
         condition: service_healthy
@@ -222,7 +246,8 @@ echo "Tentativo di pull delle immagini più recenti da Docker Hub..."
 $COMPOSE_CMD -f docker-compose.prod.yml pull
 
 echo "Avvio dei container Docker in background (potrebbe richiedere tempo)..."
-$COMPOSE_CMD -f docker-compose.prod.yml --env-file .env.prod up -d --force-recreate
+# Non serve più --env-file qui perché le variabili sono esportate nell'ambiente
+$COMPOSE_CMD -f docker-compose.prod.yml up -d --force-recreate
 
 echo "---------------------------------------------------------------------"
 echo "Deployment completato!"
@@ -234,7 +259,7 @@ echo "  - Frontend Docente:       http://${SERVER_IP}:5174/"
 echo "  - Frontend Studente:      http://${SERVER_IP}:5175/"
 echo ""
 echo "Credenziali Admin (definite durante l'esecuzione dello script):"
-echo "  - Username: ${DJANGO_SUPERUSER_USERNAME}" # Legge variabile dallo script
+echo "  - Username: ${DJANGO_SUPERUSER_USERNAME_VAR}" # Legge variabile dallo script
 echo "  - Password: (quella inserita durante l'esecuzione dello script)"
 echo ""
 echo "Comandi utili:"
