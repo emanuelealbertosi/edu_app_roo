@@ -29,16 +29,15 @@ check_dependency() {
 }
 
 generate_secret_key() {
-    # Prova a usare python3 se disponibile, altrimenti python
-    if command_exists python3; then
-        python3 -c 'from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())'
-    elif command_exists python; then
-        python -c 'from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())'
+    # Metodo più robusto e comune su Linux
+    if command_exists openssl; then
+        openssl rand -base64 48
+    elif [ -e /dev/urandom ]; then
+         head /dev/urandom | tr -dc A-Za-z0-9 | head -c 50 ; echo ''
     else
-        # Fallback a un metodo meno sicuro se Python non è disponibile
-        head /dev/urandom | tr -dc A-Za-z0-9 | head -c 50
-        echo "" # Aggiunge newline
-        echo "Attenzione: Chiave segreta generata con metodo meno sicuro. Installa Python per una chiave migliore."
+        # Fallback molto semplice se tutto il resto fallisce
+        date +%s | sha256sum | base64 | head -c 50 ; echo ''
+        echo "Attenzione: Chiave segreta generata con metodo di fallback meno sicuro."
     fi
 }
 
@@ -85,6 +84,7 @@ fi
 
 # Django Settings
 # Genera una chiave segreta di default
+echo "Generazione SECRET_KEY..."
 DEFAULT_SECRET_KEY=$(generate_secret_key)
 read -p "Django SECRET_KEY [Generata automaticamente]: " SECRET_KEY
 SECRET_KEY=${SECRET_KEY:-$DEFAULT_SECRET_KEY}
@@ -225,7 +225,7 @@ echo "  - Backend Django (Admin): http://<IP_SERVER_O_DOMINIO>:8000/admin/"
 echo "  - Frontend Docente:       http://<IP_SERVER_O_DOMINIO>:5174/"
 echo "  - Frontend Studente:      http://<IP_SERVER_O_DOMINIO>:5175/"
 echo ""
-echo "Credenziali Admin (definite in .env.prod):"
+echo "Credenziali Admin (definite durante l'esecuzione dello script):"
 echo "  - Username: ${DJANGO_SUPERUSER_USERNAME}" # Legge variabile dallo script
 echo "  - Password: (quella inserita durante l'esecuzione dello script)"
 echo ""
