@@ -1,6 +1,7 @@
 #!/bin/bash
 
 # Script interattivo per il deployment dell'applicazione Edu App Roo su Ubuntu usando Docker
+# Chiede sempre le variabili e sovrascrive .env.prod
 
 # --- Variabili Configurabili (Immagini Docker Hub) ---
 DOCKERHUB_USERNAME="albertosiemanuele" # Il tuo username Docker Hub
@@ -68,6 +69,13 @@ echo "Premi Invio per usare i valori predefiniti suggeriti tra parentesi."
 echo "ATTENZIONE: Usa password FORTI e UNICHE per il database e l'admin!"
 echo "---------------------------------------------------------------------"
 
+# Indirizzo IP del Server
+read -p "Inserisci l'indirizzo IP pubblico di questo server Ubuntu: " SERVER_IP
+if [ -z "$SERVER_IP" ]; then
+    echo "Errore: L'indirizzo IP del server è necessario per configurare CORS e ALLOWED_HOSTS."
+    exit 1
+fi
+
 # Database
 read -p "Nome database PostgreSQL [edu_app_prod_db]: " POSTGRES_DB
 POSTGRES_DB=${POSTGRES_DB:-edu_app_prod_db}
@@ -93,14 +101,17 @@ SECRET_KEY=${SECRET_KEY:-$DEFAULT_SECRET_KEY}
 DEBUG=False
 echo "DEBUG impostato a: $DEBUG (non modificabile per produzione)"
 
-read -p "Host/Domini permessi per Django (separati da virgola) [Default: * (permetti tutti)]: " DJANGO_ALLOWED_HOSTS
-DJANGO_ALLOWED_HOSTS=${DJANGO_ALLOWED_HOSTS:-*}
+# Suggerisci ALLOWED_HOSTS con l'IP fornito e '*'
+DEFAULT_ALLOWED_HOSTS="*,${SERVER_IP}"
+read -p "Host/Domini permessi per Django (separati da virgola) [Default: ${DEFAULT_ALLOWED_HOSTS}]: " DJANGO_ALLOWED_HOSTS
+DJANGO_ALLOWED_HOSTS=${DJANGO_ALLOWED_HOSTS:-${DEFAULT_ALLOWED_HOSTS}}
 
-# Nota sulla sicurezza di CORS
-echo "Configurazione CORS: Specificare gli URL completi dei frontend permessi (es. https://mio-studente.com,https://mio-docente.com)."
-echo "Lasciando vuoto si useranno i default per localhost (http://localhost:5174,http://localhost:5175), NON ADATTO a produzione reale senza reverse proxy."
-read -p "Origini CORS permesse (separati da virgola) [Default: localhost ports]: " CORS_ALLOWED_ORIGINS
-CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-"http://localhost:5174,http://localhost:5175"}
+# Suggerisci CORS_ALLOWED_ORIGINS con l'IP fornito
+DEFAULT_CORS_ORIGINS="http://${SERVER_IP}:5174,http://${SERVER_IP}:5175"
+echo "Configurazione CORS: Verranno usati gli URL basati sull'IP fornito."
+echo "Se userai domini e HTTPS in futuro, dovrai aggiornare questo valore manualmente nel file .env.prod."
+read -p "Origini CORS permesse (separati da virgola) [Default: ${DEFAULT_CORS_ORIGINS}]: " CORS_ALLOWED_ORIGINS
+CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-${DEFAULT_CORS_ORIGINS}}
 
 # Superuser
 read -p "Username Superuser Django [admin_prod]: " DJANGO_SUPERUSER_USERNAME
@@ -116,8 +127,8 @@ if [ -z "$DJANGO_SUPERUSER_PASSWORD" ]; then
     exit 1
 fi
 
-# --- Creazione File .env.prod ---
-echo "Creazione del file '.env.prod' con i valori forniti..."
+# --- Creazione File .env.prod (Sovrascrive se esiste) ---
+echo "Creazione/Sovrascrittura del file '.env.prod' con i valori forniti..."
 cat << EOF > .env.prod
 # File generato automaticamente dallo script deploy_on_ubuntu.sh
 # Data: $(date)
@@ -139,24 +150,25 @@ DJANGO_SUPERUSER_EMAIL=${DJANGO_SUPERUSER_EMAIL}
 DJANGO_SUPERUSER_PASSWORD=${DJANGO_SUPERUSER_PASSWORD}
 EOF
 
-echo "File '.env.prod' creato con successo."
+echo "File '.env.prod' creato/aggiornato con successo."
 
 # --- Creazione File docker-compose.prod.yml (se non esiste) ---
 if [ ! -f "docker-compose.prod.yml" ]; then
     echo "Creazione del file 'docker-compose.prod.yml'..."
     # Usiamo \${VAR} per evitare l'espansione immediata delle variabili nello script
-    cat << 'EOF' > docker-compose.prod.yml
+    # Le immagini sono definite all'inizio dello script
+    cat <<-EOF > docker-compose.prod.yml
 services:
   db:
-    image: postgres:15-alpine # Usa variabile definita nello script o immagine diretta
+    image: ${DB_IMAGE}
     volumes:
       - postgres_data:/var/lib/postgresql/data/
     env_file:
       - .env.prod
     environment:
-      - POSTGRES_DB=${POSTGRES_DB}
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=\${POSTGRES_DB}
+      - POSTGRES_USER=\${POSTGRES_USER}
+      - POSTGRES_PASSWORD=\${POSTGRES_PASSWORD}
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U \${POSTGRES_USER} -d \${POSTGRES_DB}"]
       interval: 10s
@@ -165,27 +177,19 @@ services:
     restart: unless-stopped
 
   backend:
-    image: albertosiemanuele/edu-app-backend:latest # Usa variabile definita nello script o immagine diretta
+    image: ${BACKEND_IMAGE}
     ports:
       - "8000:8000"
     env_file:
       - .env.prod
-    environment:
-      - SECRET_KEY=${SECRET_KEY}
-      - DEBUG=${DEBUG}
-      - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
-      - DJANGO_ALLOWED_HOSTS=${DJANGO_ALLOWED_HOSTS}
-      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS}
-      - DJANGO_SUPERUSER_USERNAME=${DJANGO_SUPERUSER_USERNAME}
-      - DJANGO_SUPERUSER_EMAIL=${DJANGO_SUPERUSER_EMAIL}
-      - DJANGO_SUPERUSER_PASSWORD=${DJANGO_SUPERUSER_PASSWORD}
+    # Rimuoviamo environment duplicato, env_file è sufficiente
     depends_on:
       db:
         condition: service_healthy
     restart: unless-stopped
 
   frontend-student:
-    image: albertosiemanuele/edu-app-frontend-student:latest # Usa variabile definita nello script o immagine diretta
+    image: ${STUDENT_FRONTEND_IMAGE}
     ports:
       - "5175:80"
     depends_on:
@@ -193,7 +197,7 @@ services:
     restart: unless-stopped
 
   frontend-teacher:
-    image: albertosiemanuele/edu-app-frontend-teacher:latest # Usa variabile definita nello script o immagine diretta
+    image: ${TEACHER_FRONTEND_IMAGE}
     ports:
       - "5174:80"
     depends_on:
@@ -221,9 +225,9 @@ echo "Deployment completato!"
 echo "I container dovrebbero essere in esecuzione."
 echo ""
 echo "Puoi accedere ai servizi (potrebbe richiedere qualche istante per l'avvio completo):"
-echo "  - Backend Django (Admin): http://<IP_SERVER_O_DOMINIO>:8000/admin/"
-echo "  - Frontend Docente:       http://<IP_SERVER_O_DOMINIO>:5174/"
-echo "  - Frontend Studente:      http://<IP_SERVER_O_DOMINIO>:5175/"
+echo "  - Backend Django (Admin): http://${SERVER_IP}:8000/admin/"
+echo "  - Frontend Docente:       http://${SERVER_IP}:5174/"
+echo "  - Frontend Studente:      http://${SERVER_IP}:5175/"
 echo ""
 echo "Credenziali Admin (definite durante l'esecuzione dello script):"
 echo "  - Username: ${DJANGO_SUPERUSER_USERNAME}" # Legge variabile dallo script
