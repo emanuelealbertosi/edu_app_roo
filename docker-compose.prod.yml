@@ -6,10 +6,6 @@ services:
     env_file:
       - .env.prod # Specifica solo env_file
     # Rimuoviamo la sezione environment ridondante
-    # environment:
-    #   - POSTGRES_DB=${POSTGRES_DB}
-    #   - POSTGRES_USER=${POSTGRES_USER}
-    #   - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
     healthcheck:
       # Usiamo $$ per passare le variabili lette da env_file alla shell dell'healthcheck
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
@@ -22,19 +18,17 @@ services:
     image: albertosiemanuele/edu-app-backend:latest
     ports:
       - "8000:8000"
-    # Specifica solo env_file per caricare le variabili
+    # Specifica env_file per caricare TUTTE le variabili nell'ambiente del container
     env_file:
       - .env.prod
-    # Rimuoviamo la sezione environment; le variabili verranno da .env.prod
-    # environment:
-    #   - SECRET_KEY=${SECRET_KEY}
-    #   - DEBUG=${DEBUG}
-    #   - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
-    #   - DJANGO_ALLOWED_HOSTS=${DJANGO_ALLOWED_HOSTS}
-    #   - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS}
-    #   - DJANGO_SUPERUSER_USERNAME=${DJANGO_SUPERUSER_USERNAME}
-    #   - DJANGO_SUPERUSER_EMAIL=${DJANGO_SUPERUSER_EMAIL}
-    #   - DJANGO_SUPERUSER_PASSWORD=${DJANGO_SUPERUSER_PASSWORD}
+    # Definiamo ESPLICITAMENTE solo DATABASE_URL qui, usando l'interpolazione
+    # delle variabili che DOVREBBERO essere state caricate da .env.prod.
+    # settings.py leggerà le altre variabili (SECRET_KEY, DEBUG, etc.) direttamente
+    # dall'ambiente via os.getenv().
+    environment:
+      - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      # Le altre variabili (SECRET_KEY, DEBUG, ALLOWED_HOSTS, CORS, SUPERUSER_*)
+      # sono già nell'ambiente grazie a env_file e verranno lette da settings.py
     depends_on:
       db:
         condition: service_healthy
