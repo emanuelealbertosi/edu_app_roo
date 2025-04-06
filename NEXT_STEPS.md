@@ -1,20 +1,25 @@
 # Prossimi Passi per lo Sviluppo
 
-*(Stato al 5 Aprile 2025, ~07:10)*
+*(Stato al 6 Aprile 2025, ~10:50)*
 
 ## Priorità Immediata
 
-1.  **Eseguire Test Backend (Pytest):**
+1.  **Risolvere Problemi Deployment Docker Produzione:**
+    *   **Obiettivo:** Investigare e risolvere il problema per cui le variabili d'ambiente (`DATABASE_URL`, `SECRET_KEY`, etc.) definite in `.env.prod` non vengono lette correttamente dallo script `entrypoint.prod.sh` all'interno del container `backend` durante l'esecuzione dei comandi `manage.py` (migrate, collectstatic, create_initial_superuser). Questo causa il fallback a SQLite e fallimenti successivi.
+    *   **Stato Attuale:** Diversi tentativi (uso di `env_file`, `environment`, ibrido, `export` nello script di deployment, `source` nell'entrypoint) non hanno risolto il problema. Il container `backend` non si avvia correttamente.
+    *   **Azione:**
+        *   Verificare attentamente la versione di Docker e Docker Compose sul server Ubuntu.
+        *   Esaminare possibili conflitti di permessi o configurazioni specifiche dell'ambiente server.
+        *   Considerare approcci alternativi per passare le variabili (es. montare `.env.prod` come volume e leggerlo esplicitamente in `settings.py` o nell'entrypoint).
+        *   Semplificare temporaneamente `entrypoint.prod.sh` per isolare il problema (es. rimuovere temporaneamente `migrate` o `create_initial_superuser`).
+
+2.  **Eseguire Test Backend (Pytest):** (Posticipato fino alla risoluzione del deployment)
     *   **Obiettivo:** Assicurarsi che il refactoring dei template, l'aggiunta dell'upload template e le correzioni ai serializer di assegnazione non abbiano introdotto regressioni. Aggiornare/creare test per coprire le nuove funzionalità (upload template, assegnazione da template).
     *   **Azione:** Lanciare `pytest` nella root del progetto (nell'ambiente locale). Correggere eventuali fallimenti.
 
-2.  **Eseguire Test Manuali (Nuovo Flusso Docente):**
+3.  **Eseguire Test Manuali (Nuovo Flusso Docente):** (Posticipato fino alla risoluzione del deployment)
     *   **Obiettivo:** Verificare manualmente il nuovo flusso di lavoro del docente: creazione/gestione template quiz (incluso upload da file) e percorsi, gestione domande/opzioni template (con salvataggio automatico), assegnazione da template, visualizzazione istanze assegnate. Aggiornare `test.md` per includere i passaggi di upload.
     *   **Azione:** Seguire i passaggi aggiornati in `test.md`.
-
-3.  **Risolvere Problema Indicatore Caricamento Upload Quiz (Se Persistente):**
-    *   **Obiettivo:** Verificare se il problema con l'indicatore di caricamento in `QuizUploadForm.vue` (nel frontend docente, per i quiz concreti) è ancora presente e risolverlo.
-    *   **Azione:** Testare l'upload, analizzare console e correggere se necessario.
 
 ## Frontend Docente
 
@@ -54,7 +59,7 @@
 12. **Test Frontend Studente:**
     *   **Priorità Bassa:** Scrivere test E2E (Playwright) per i flussi principali (incluso storico acquisti).
 
-## Dockerizzazione (Priorità Abbassata)
+## Dockerizzazione (Priorità Abbassata - Bloccata da Problemi Prod)
 
 13. **Risolvere Problemi Build Docker Frontend Docente:**
     *   **Obiettivo:** Investigare e risolvere gli errori TypeScript e di dipendenze che impediscono il build Docker di `frontend-teacher`. Rimuovere il workaround dallo script `build`.

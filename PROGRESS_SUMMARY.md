@@ -1,4 +1,4 @@
-# Riepilogo Stato Avanzamento Progetto (5 Aprile 2025, ~07:00)
+# Riepilogo Stato Avanzamento Progetto (6 Aprile 2025, ~10:50)
 
 ## 1. Progettazione
 
@@ -136,6 +136,8 @@
 *   Chiariti commenti sulla logica di calcolo del punteggio e assegnazione punti in `apps/education/models.py`.
 *   Aggiunti/Migliorati docstring e `help_text` nei modelli delle app `education`, `users`, `rewards`.
 *   Aggiunto logging di base per errori/eccezioni nei metodi dei modelli e delle view (incluso logging DEBUG per stato quiz e validazione serializer assegnazione).
+*   **Corretto `settings.py`** per leggere `SECRET_KEY`, `DEBUG`, `ALLOWED_HOSTS` da variabili d'ambiente.
+*   **Aggiunto `whitenoise`** alla configurazione per servire file statici in produzione.
 
 ## 11. Frontend Studenti (Vue.js)
 
@@ -163,17 +165,17 @@
 *   **Funzionalità Precedenti:** Mantenute (upload quiz, gestione ricompense, consegne, grading, progressi, stile Tailwind, interceptor 401, etc.).
 *   **Correzioni UI/UX:** Rimossa textarea metadati da form domande, corretto salvataggio automatico opzioni, corretti errori HTML.
 
-## 14. Dockerizzazione (Tentativo Iniziale - In Sospeso)
+## 14. Dockerizzazione Produzione (Tentativi - PROBLEMA APERTO)
 
-*   Creati `Dockerfile` e `docker-compose.yml` iniziali.
-*   Affrontati problemi di build frontend (TypeScript, dipendenze).
-*   **Rollback a Esecuzione Locale:** Mantenuto per ora a causa dei problemi Docker.
+*   Creati `Dockerfile`, `docker-compose.prod.yml` e `entrypoint.prod.sh` per l'ambiente di produzione.
+*   Configurate e pushate le immagini Docker per backend, frontend-studente, frontend-docente su Docker Hub (`albertosiemanuele/...`).
+*   Creato script interattivo `deploy_on_ubuntu.sh` per facilitare il deployment su server Ubuntu.
+*   **Iterazioni di Debug:**
+    *   Risolto problema generazione `SECRET_KEY` nello script di deployment.
+    *   Risolto errore `DisallowedHost` configurando `ALLOWED_HOSTS` e `CORS_ALLOWED_ORIGINS` tramite lo script interattivo.
+    *   Affrontato problema persistente con le variabili d'ambiente (`DATABASE_URL`, `SECRET_KEY`, etc.) non lette correttamente dallo script `entrypoint.prod.sh` all'interno del container `backend` durante l'esecuzione dei comandi `manage.py`.
+    *   Provate diverse configurazioni di `docker-compose.prod.yml` (`env_file`, `environment`, ibrido) e dello script `deploy_on_ubuntu.sh` (esportazione variabili).
+    *   Modificato `entrypoint.prod.sh` per caricare esplicitamente `.env.prod` con `source`.
+*   **Stato Attuale Problema:** Nonostante le modifiche, i log del container `backend` mostrano ancora che `DATABASE_URL` è `None` e `SECRET_KEY` è vuota quando vengono eseguiti i comandi `manage.py` (migrate, collectstatic, create_initial_superuser), causando il fallback a SQLite e fallimenti successivi (es. `InconsistentMigrationHistory` o `no such table`). Gunicorn fallisce l'avvio a causa di questi errori. **Il deployment Docker in produzione NON è funzionante.**
 
 ## Prossimi Passi Previsti (vedi NEXT_STEPS.md)
-
-*   Aggiornare `NEXT_STEPS.md` e `test.md`.
-*   Eseguire test backend (pytest) per coprire il refactoring dei template e l'upload.
-*   Eseguire test manuali completi sul nuovo flusso docente (incluso upload template).
-*   Risolvere eventuali bug emersi dai test.
-*   Raffinare UI/UX (es. editor domande/opzioni template, viste istanze assegnate).
-*   (Opzionale) Riprendere la Dockerizzazione.
