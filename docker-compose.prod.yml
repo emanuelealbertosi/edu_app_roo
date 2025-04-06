@@ -4,15 +4,14 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data/
     env_file:
-      - .env.prod # Usa il file .env.prod
-    # Le variabili specifiche POSTGRES_* vengono comunque lette da .env
-    # grazie a env_file sopra. La sezione environment qui è ridondante
-    # ma la lasciamo per chiarezza (Compose darà priorità a env_file).
-    environment:
-      - POSTGRES_DB=${POSTGRES_DB}
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - .env.prod # Specifica solo env_file
+    # Rimuoviamo la sezione environment ridondante
+    # environment:
+    #   - POSTGRES_DB=${POSTGRES_DB}
+    #   - POSTGRES_USER=${POSTGRES_USER}
+    #   - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
     healthcheck:
+      # Usiamo $$ per passare le variabili lette da env_file alla shell dell'healthcheck
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
@@ -23,11 +22,10 @@ services:
     image: albertosiemanuele/edu-app-backend:latest
     ports:
       - "8000:8000"
-    # Specifica esplicitamente di caricare le variabili da .env
+    # Specifica solo env_file per caricare le variabili
     env_file:
       - .env.prod
-    # Rimuoviamo la sezione environment duplicata, env_file è sufficiente
-    # e più affidabile in questo caso.
+    # Rimuoviamo la sezione environment; le variabili verranno da .env.prod
     # environment:
     #   - SECRET_KEY=${SECRET_KEY}
     #   - DEBUG=${DEBUG}

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Script interattivo per il deployment dell'applicazione Edu App Roo su Ubuntu usando Docker
-# Chiede sempre le variabili, sovrascrive .env.prod, esporta le variabili e avvia i container.
+# Chiede sempre le variabili, sovrascrive .env.prod e avvia i container usando env_file.
 # Rimuove il volume del DB ad ogni esecuzione per garantire uno stato pulito.
 
 # --- Variabili Configurabili (Immagini Docker Hub) ---
@@ -78,7 +78,7 @@ if [ -z "$SERVER_IP" ]; then
 fi
 
 # Database
-read -p "Nome database PostgreSQL [edu_app_prod_db]: " POSTGRES_DB_VAR # Usiamo _VAR per evitare conflitti con export
+read -p "Nome database PostgreSQL [edu_app_prod_db]: " POSTGRES_DB_VAR # Usiamo _VAR per evitare conflitti
 POSTGRES_DB_VAR=${POSTGRES_DB_VAR:-edu_app_prod_db}
 
 read -p "Utente database PostgreSQL [prod_user]: " POSTGRES_USER_VAR # Usiamo _VAR
@@ -129,7 +129,6 @@ if [ -z "$DJANGO_SUPERUSER_PASSWORD_VAR" ]; then
 fi
 
 # --- Creazione File .env.prod (Sovrascrive se esiste) ---
-# Questo file verrà usato principalmente dal servizio 'db'
 echo "Creazione/Sovrascrittura del file '.env.prod' con i valori forniti..."
 cat << EOF > .env.prod
 # File generato automaticamente dallo script deploy_on_ubuntu.sh
@@ -154,26 +153,10 @@ EOF
 
 echo "File '.env.prod' creato/aggiornato con successo."
 
-# --- Esporta le variabili per Docker Compose ---
-# Questo rende le variabili disponibili per l'interpolazione in docker-compose.prod.yml
-echo "Esportazione delle variabili per Docker Compose..."
-export POSTGRES_DB=${POSTGRES_DB_VAR}
-export POSTGRES_USER=${POSTGRES_USER_VAR}
-export POSTGRES_PASSWORD=${POSTGRES_PASSWORD_VAR}
-export SECRET_KEY=${SECRET_KEY_VAR}
-export DEBUG=${DEBUG_VAR}
-export DJANGO_ALLOWED_HOSTS=${DJANGO_ALLOWED_HOSTS_VAR}
-export CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS_VAR}
-export DJANGO_SUPERUSER_USERNAME=${DJANGO_SUPERUSER_USERNAME_VAR}
-export DJANGO_SUPERUSER_EMAIL=${DJANGO_SUPERUSER_EMAIL_VAR}
-export DJANGO_SUPERUSER_PASSWORD=${DJANGO_SUPERUSER_PASSWORD_VAR}
-
-
 # --- Creazione File docker-compose.prod.yml (se non esiste) ---
+# Assicurati che il file docker-compose.prod.yml sia presente o crealo
 if [ ! -f "docker-compose.prod.yml" ]; then
     echo "Creazione del file 'docker-compose.prod.yml'..."
-    # Usiamo \${VAR} per evitare l'espansione immediata delle variabili nello script
-    # Le immagini sono definite all'inizio dello script
     cat <<-EOF > docker-compose.prod.yml
 services:
   db:
@@ -181,7 +164,8 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data/
     env_file:
-      - .env.prod # db usa ancora env_file
+      - .env.prod
+    # La sezione environment qui è ridondante ma non dannosa
     environment:
       - POSTGRES_DB=\${POSTGRES_DB}
       - POSTGRES_USER=\${POSTGRES_USER}
@@ -197,17 +181,8 @@ services:
     image: ${BACKEND_IMAGE}
     ports:
       - "8000:8000"
-    # Le variabili vengono iniettate tramite 'environment' qui sotto,
-    # leggendo i valori esportati dallo script chiamante.
-    environment:
-      - SECRET_KEY=\${SECRET_KEY}
-      - DEBUG=\${DEBUG}
-      - DATABASE_URL=postgres://\${POSTGRES_USER}:\${POSTGRES_PASSWORD}@db:5432/\${POSTGRES_DB}
-      - DJANGO_ALLOWED_HOSTS=\${DJANGO_ALLOWED_HOSTS}
-      - CORS_ALLOWED_ORIGINS=\${CORS_ALLOWED_ORIGINS}
-      - DJANGO_SUPERUSER_USERNAME=\${DJANGO_SUPERUSER_USERNAME}
-      - DJANGO_SUPERUSER_EMAIL=\${DJANGO_SUPERUSER_EMAIL}
-      - DJANGO_SUPERUSER_PASSWORD=\${DJANGO_SUPERUSER_PASSWORD}
+    env_file:
+      - .env.prod # Usa .env.prod per caricare le variabili
     depends_on:
       db:
         condition: service_healthy
@@ -246,8 +221,8 @@ echo "Tentativo di pull delle immagini più recenti da Docker Hub..."
 $COMPOSE_CMD -f docker-compose.prod.yml pull
 
 echo "Avvio dei container Docker in background (potrebbe richiedere tempo)..."
-# Non serve più --env-file qui perché le variabili sono esportate nell'ambiente
-$COMPOSE_CMD -f docker-compose.prod.yml up -d --force-recreate
+# Usa --env-file per passare esplicitamente il file .env.prod
+$COMPOSE_CMD -f docker-compose.prod.yml --env-file .env.prod up -d --force-recreate
 
 echo "---------------------------------------------------------------------"
 echo "Deployment completato!"
