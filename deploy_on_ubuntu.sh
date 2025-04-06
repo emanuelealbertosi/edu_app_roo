@@ -1,7 +1,8 @@
 #!/bin/bash
 
 # Script interattivo per il deployment dell'applicazione Edu App Roo su Ubuntu usando Docker
-# Chiede sempre le variabili, sovrascrive .env.prod e avvia i container usando env_file.
+# Chiede sempre le variabili, crea/sovrascrive .env.prod e docker-compose.prod.yml,
+# e avvia i container usando env_file esplicito.
 # Rimuove il volume del DB ad ogni esecuzione per garantire uno stato pulito.
 
 # --- Variabili Configurabili (Immagini Docker Hub) ---
@@ -10,7 +11,10 @@ BACKEND_IMAGE="${DOCKERHUB_USERNAME}/edu-app-backend:latest"
 STUDENT_FRONTEND_IMAGE="${DOCKERHUB_USERNAME}/edu-app-frontend-student:latest"
 TEACHER_FRONTEND_IMAGE="${DOCKERHUB_USERNAME}/edu-app-frontend-teacher:latest"
 DB_IMAGE="postgres:15-alpine"
-PROJECT_DIR="edu_app_deployment"
+PROJECT_DIR_NAME="edu_app_deployment" # Nome della directory
+# Ottieni il percorso assoluto della directory dello script
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+PROJECT_DIR="${SCRIPT_DIR}/${PROJECT_DIR_NAME}" # Percorso assoluto della directory di deployment
 
 # --- Funzioni Helper ---
 command_exists() {
@@ -59,9 +63,12 @@ fi
 echo "Dipendenze trovate ($COMPOSE_CMD)."
 
 # --- Creazione Directory ---
-echo "Creazione della directory di progetto '$PROJECT_DIR' (se non esiste)..."
+echo "Creazione della directory di progetto '$PROJECT_DIR_NAME' (se non esiste)..."
+# Crea la directory relativa alla posizione dello script, non alla CWD
 mkdir -p "$PROJECT_DIR"
 cd "$PROJECT_DIR" || exit 1 # Entra nella directory o esci se fallisce
+echo "Directory di lavoro corrente: $(pwd)"
+
 
 # --- Raccolta Interattiva delle Variabili d'Ambiente ---
 echo "---------------------------------------------------------------------"
@@ -129,8 +136,9 @@ if [ -z "$DJANGO_SUPERUSER_PASSWORD_VAR" ]; then
 fi
 
 # --- Creazione File .env.prod (Sovrascrive se esiste) ---
-echo "Creazione/Sovrascrittura del file '.env.prod' con i valori forniti..."
-cat << EOF > .env.prod
+ENV_FILE_PATH="${PROJECT_DIR}/.env.prod" # Percorso assoluto
+echo "Creazione/Sovrascrittura del file '${ENV_FILE_PATH}' con i valori forniti..."
+cat << EOF > "${ENV_FILE_PATH}"
 # File generato automaticamente dallo script deploy_on_ubuntu.sh
 # Data: $(date)
 
@@ -151,26 +159,24 @@ DJANGO_SUPERUSER_EMAIL=${DJANGO_SUPERUSER_EMAIL_VAR}
 DJANGO_SUPERUSER_PASSWORD=${DJANGO_SUPERUSER_PASSWORD_VAR}
 EOF
 
-echo "File '.env.prod' creato/aggiornato con successo."
+echo "File '${ENV_FILE_PATH}' creato/aggiornato con successo."
 
-# --- Creazione File docker-compose.prod.yml (se non esiste) ---
-# Assicurati che il file docker-compose.prod.yml sia presente o crealo
-if [ ! -f "docker-compose.prod.yml" ]; then
-    echo "Creazione del file 'docker-compose.prod.yml'..."
-    cat <<-EOF > docker-compose.prod.yml
+# --- Creazione File docker-compose.prod.yml (Sovrascrive se esiste) ---
+COMPOSE_FILE_PATH="${PROJECT_DIR}/docker-compose.prod.yml" # Percorso assoluto
+echo "Creazione/Sovrascrittura del file '${COMPOSE_FILE_PATH}'..."
+# Usiamo \${VAR} per evitare l'espansione immediata delle variabili nello script
+# Le immagini sono definite all'inizio dello script
+cat <<-EOF > "${COMPOSE_FILE_PATH}"
 services:
   db:
     image: ${DB_IMAGE}
     volumes:
       - postgres_data:/var/lib/postgresql/data/
     env_file:
-      - .env.prod
-    # La sezione environment qui è ridondante ma non dannosa
-    environment:
-      - POSTGRES_DB=\${POSTGRES_DB}
-      - POSTGRES_USER=\${POSTGRES_USER}
-      - POSTGRES_PASSWORD=\${POSTGRES_PASSWORD}
+      - .env.prod # Specifica solo env_file
+    # Rimuoviamo la sezione environment ridondante
     healthcheck:
+      # Usiamo $$ per passare le variabili lette da env_file alla shell dell'healthcheck
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
@@ -183,6 +189,7 @@ services:
       - "8000:8000"
     env_file:
       - .env.prod # Usa .env.prod per caricare le variabili
+    # Rimuoviamo la sezione environment; le variabili verranno da .env.prod
     depends_on:
       db:
         condition: service_healthy
@@ -207,22 +214,21 @@ services:
 volumes:
   postgres_data:
 EOF
-    echo "File 'docker-compose.prod.yml' creato."
-else
-    echo "File 'docker-compose.prod.yml' già esistente, non sovrascritto."
-fi
+echo "File '${COMPOSE_FILE_PATH}' creato/aggiornato."
+
 
 # --- Fermare e Rimuovere Vecchi Container/Volumi ---
 echo "Fermare e rimuovere eventuali container e volumi precedenti..."
-$COMPOSE_CMD -f docker-compose.prod.yml down -v --remove-orphans
+# Usiamo -f con il percorso assoluto per sicurezza
+$COMPOSE_CMD -f "${COMPOSE_FILE_PATH}" down -v --remove-orphans
 
 # --- Avvio dei Container ---
 echo "Tentativo di pull delle immagini più recenti da Docker Hub..."
-$COMPOSE_CMD -f docker-compose.prod.yml pull
+$COMPOSE_CMD -f "${COMPOSE_FILE_PATH}" pull
 
 echo "Avvio dei container Docker in background (potrebbe richiedere tempo)..."
-# Usa --env-file per passare esplicitamente il file .env.prod
-$COMPOSE_CMD -f docker-compose.prod.yml --env-file .env.prod up -d --force-recreate
+# Usa --env-file con il percorso assoluto per passare esplicitamente il file .env.prod
+$COMPOSE_CMD -f "${COMPOSE_FILE_PATH}" --env-file "${ENV_FILE_PATH}" up -d --force-recreate
 
 echo "---------------------------------------------------------------------"
 echo "Deployment completato!"
@@ -238,9 +244,9 @@ echo "  - Username: ${DJANGO_SUPERUSER_USERNAME_VAR}" # Legge variabile dallo sc
 echo "  - Password: (quella inserita durante l'esecuzione dello script)"
 echo ""
 echo "Comandi utili:"
-echo "  - Vedere i log: $COMPOSE_CMD -f docker-compose.prod.yml logs -f"
-echo "  - Fermare i servizi: cd $PROJECT_DIR && $COMPOSE_CMD -f docker-compose.prod.yml down"
-echo "  - Riavviare i servizi: cd $PROJECT_DIR && $COMPOSE_CMD -f docker-compose.prod.yml restart"
+echo "  - Vedere i log: $COMPOSE_CMD -f ${COMPOSE_FILE_PATH} logs -f"
+echo "  - Fermare i servizi: cd ${PROJECT_DIR} && $COMPOSE_CMD -f ${COMPOSE_FILE_PATH} down"
+echo "  - Riavviare i servizi: cd ${PROJECT_DIR} && $COMPOSE_CMD -f ${COMPOSE_FILE_PATH} restart"
 echo "---------------------------------------------------------------------"
 
 exit 0
