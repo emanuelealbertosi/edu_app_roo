@@ -2,6 +2,7 @@
 
 # Script interattivo per il deployment dell'applicazione Edu App Roo su Ubuntu usando Docker
 # Chiede sempre le variabili e sovrascrive .env.prod
+# Rimuove il volume del DB ad ogni esecuzione per garantire uno stato pulito.
 
 # --- Variabili Configurabili (Immagini Docker Hub) ---
 DOCKERHUB_USERNAME="albertosiemanuele" # Il tuo username Docker Hub
@@ -165,12 +166,13 @@ services:
       - postgres_data:/var/lib/postgresql/data/
     env_file:
       - .env.prod
+    # La sezione environment qui è ridondante ma non dannosa
     environment:
       - POSTGRES_DB=\${POSTGRES_DB}
       - POSTGRES_USER=\${POSTGRES_USER}
       - POSTGRES_PASSWORD=\${POSTGRES_PASSWORD}
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U \${POSTGRES_USER} -d \${POSTGRES_DB}"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -181,8 +183,7 @@ services:
     ports:
       - "8000:8000"
     env_file:
-      - .env.prod
-    # Rimuoviamo environment duplicato, env_file è sufficiente
+      - .env.prod # Usa .env.prod per caricare le variabili
     depends_on:
       db:
         condition: service_healthy
@@ -212,6 +213,9 @@ else
     echo "File 'docker-compose.prod.yml' già esistente, non sovrascritto."
 fi
 
+# --- Fermare e Rimuovere Vecchi Container/Volumi ---
+echo "Fermare e rimuovere eventuali container e volumi precedenti..."
+$COMPOSE_CMD -f docker-compose.prod.yml down -v --remove-orphans
 
 # --- Avvio dei Container ---
 echo "Tentativo di pull delle immagini più recenti da Docker Hub..."
