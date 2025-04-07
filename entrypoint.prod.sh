@@ -12,17 +12,18 @@
 echo "Applying database migrations..."
 python manage.py migrate --noinput
 
-# Raccogli i file statici (anche se serviti da Nginx, è buona pratica)
-# echo "Collecting static files..."
-# python manage.py collectstatic --noinput --clear
+# Raccogli i file statici nella directory STATIC_ROOT
+echo "Collecting static files..."
+python manage.py collectstatic --noinput --clear
 
 # Crea il superutente iniziale se le variabili d'ambiente sono impostate
 # e l'utente non esiste già.
+# Leggiamo le variabili direttamente (dovrebbero essere state esportate da 'source')
 if [ -n "$DJANGO_SUPERUSER_USERNAME" ] && [ -n "$DJANGO_SUPERUSER_PASSWORD" ] && [ -n "$DJANGO_SUPERUSER_EMAIL" ]; then
     echo "Creating initial superuser..."
     python manage.py create_initial_superuser
 else
-    echo "Superuser environment variables not set, skipping superuser creation."
+    echo "Superuser environment variables not set or not loaded, skipping superuser creation."
 fi
 
 # Avvia Gunicorn

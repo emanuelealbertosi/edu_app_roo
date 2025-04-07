@@ -20,7 +20,8 @@ COPY . .
 # Passa l'URL dell'API come argomento di build (può essere sovrascritto da docker-compose)
 ARG VITE_API_BASE_URL=http://localhost:8000/api
 ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
-RUN npm run build
+# Aggiunto echo per invalidare la cache di build Docker per questo passo
+RUN echo "Building with API URL: ${VITE_API_BASE_URL}" && npm run build
 
 # Stage 2: Serve l'applicazione con Nginx
 FROM nginx:stable-alpine

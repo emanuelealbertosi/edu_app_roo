@@ -1,3 +1,4 @@
+# aggiornamento 11:28
 #!/bin/bash
 
 # Script interattivo per il deployment dell'applicazione Edu App Roo su Ubuntu usando Docker
@@ -153,6 +154,10 @@ DEBUG=${DEBUG_VAR}
 DJANGO_ALLOWED_HOSTS=${DJANGO_ALLOWED_HOSTS_VAR}
 CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS_VAR}
 
+# Costruisci DATABASE_URL
+DATABASE_URL_VAR="postgres://${POSTGRES_USER_VAR}:${POSTGRES_PASSWORD_VAR}@db:5432/${POSTGRES_DB_VAR}"
+DATABASE_URL=${DATABASE_URL_VAR}
+
 # --- Superuser Credentials ---
 DJANGO_SUPERUSER_USERNAME=${DJANGO_SUPERUSER_USERNAME_VAR}
 DJANGO_SUPERUSER_EMAIL=${DJANGO_SUPERUSER_EMAIL_VAR}
@@ -161,60 +166,47 @@ EOF
 
 echo "File '${ENV_FILE_PATH}' creato/aggiornato con successo."
 
-# --- Creazione File docker-compose.prod.yml (Sovrascrive se esiste) ---
-COMPOSE_FILE_PATH="${PROJECT_DIR}/docker-compose.prod.yml" # Percorso assoluto
-echo "Creazione/Sovrascrittura del file '${COMPOSE_FILE_PATH}'..."
-# Usiamo \${VAR} per evitare l'espansione immediata delle variabili nello script
-# Le immagini sono definite all'inizio dello script
-cat <<-EOF > "${COMPOSE_FILE_PATH}"
-services:
-  db:
-    image: ${DB_IMAGE}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data/
-    env_file:
-      - .env.prod # Specifica solo env_file
-    # Rimuoviamo la sezione environment ridondante
-    healthcheck:
-      # Usiamo $$ per passare le variabili lette da env_file alla shell dell'healthcheck
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    restart: unless-stopped
+# --- Creazione File docker-compose.prod.yml da Template ---
+TEMPLATE_FILE_PATH="${SCRIPT_DIR}/docker-compose.prod.yml.template" # Percorso del template
+COMPOSE_FILE_PATH="${PROJECT_DIR}/docker-compose.prod.yml" # Percorso del file finale
 
-  backend:
-    image: ${BACKEND_IMAGE}
-    ports:
-      - "8000:8000"
-    env_file:
-      - .env.prod # Usa .env.prod per caricare le variabili
-    # Rimuoviamo la sezione environment; le variabili verranno da .env.prod
-    depends_on:
-      db:
-        condition: service_healthy
-    restart: unless-stopped
+if [ ! -f "$TEMPLATE_FILE_PATH" ]; then
+    echo "Errore: File template '${TEMPLATE_FILE_PATH}' non trovato!"
+    exit 1
+fi
 
-  frontend-student:
-    image: ${STUDENT_FRONTEND_IMAGE}
-    ports:
-      - "5175:80"
-    depends_on:
-      - backend
-    restart: unless-stopped
+echo "Copia del template in '${COMPOSE_FILE_PATH}'..."
+cp "$TEMPLATE_FILE_PATH" "$COMPOSE_FILE_PATH"
 
-  frontend-teacher:
-    image: ${TEACHER_FRONTEND_IMAGE}
-    ports:
-      - "5174:80"
-    depends_on:
-      - backend
-    restart: unless-stopped
+echo "Sostituzione dei segnaposto in '${COMPOSE_FILE_PATH}'..."
 
-volumes:
-  postgres_data:
-EOF
-echo "File '${COMPOSE_FILE_PATH}' creato/aggiornato."
+# Funzione helper per escape di caratteri speciali per sed
+escape_sed() {
+  echo "$1" | sed -e 's/[]\/$*.^[]/\\&/g'
+}
+
+# Applica le sostituzioni usando sed -i (modifica diretta)
+# Usiamo | come delimitatore per sed per evitare conflitti con / nelle URL o password
+sed -i "s|__POSTGRES_DB__|$(escape_sed "${POSTGRES_DB_VAR}")|g" "$COMPOSE_FILE_PATH"
+sed -i "s|__POSTGRES_USER__|$(escape_sed "${POSTGRES_USER_VAR}")|g" "$COMPOSE_FILE_PATH"
+sed -i "s|__POSTGRES_PASSWORD__|$(escape_sed "${POSTGRES_PASSWORD_VAR}")|g" "$COMPOSE_FILE_PATH"
+sed -i "s|__BACKEND_IMAGE__|$(escape_sed "${BACKEND_IMAGE}")|g" "$COMPOSE_FILE_PATH"
+# Assicuriamoci che DATABASE_URL_VAR sia definita PRIMA di usarla qui
+DATABASE_URL_VAR="postgres://${POSTGRES_USER_VAR}:${POSTGRES_PASSWORD_VAR}@db:5432/${POSTGRES_DB_VAR}"
+sed -i "s|__DATABASE_URL__|$(escape_sed "${DATABASE_URL_VAR}")|g" "$COMPOSE_FILE_PATH"
+# Inseriamo il valore escapato all'interno delle doppie virgolette nel template
+SECRET_KEY_ESCAPED=$(escape_sed "${SECRET_KEY_VAR}")
+sed -i "s|\"__SECRET_KEY__\"|\"${SECRET_KEY_ESCAPED}\"|g" "$COMPOSE_FILE_PATH"
+sed -i "s|__DEBUG__|$(escape_sed "${DEBUG_VAR}")|g" "$COMPOSE_FILE_PATH"
+sed -i "s|__DJANGO_ALLOWED_HOSTS__|$(escape_sed "${DJANGO_ALLOWED_HOSTS_VAR}")|g" "$COMPOSE_FILE_PATH"
+sed -i "s|__CORS_ALLOWED_ORIGINS__|$(escape_sed "${CORS_ALLOWED_ORIGINS_VAR}")|g" "$COMPOSE_FILE_PATH"
+sed -i "s|__DJANGO_SUPERUSER_USERNAME__|$(escape_sed "${DJANGO_SUPERUSER_USERNAME_VAR}")|g" "$COMPOSE_FILE_PATH"
+sed -i "s|__DJANGO_SUPERUSER_EMAIL__|$(escape_sed "${DJANGO_SUPERUSER_EMAIL_VAR}")|g" "$COMPOSE_FILE_PATH"
+sed -i "s|__DJANGO_SUPERUSER_PASSWORD__|$(escape_sed "${DJANGO_SUPERUSER_PASSWORD_VAR}")|g" "$COMPOSE_FILE_PATH"
+sed -i "s|__STUDENT_FRONTEND_IMAGE__|$(escape_sed "${STUDENT_FRONTEND_IMAGE}")|g" "$COMPOSE_FILE_PATH"
+sed -i "s|__TEACHER_FRONTEND_IMAGE__|$(escape_sed "${TEACHER_FRONTEND_IMAGE}")|g" "$COMPOSE_FILE_PATH"
+
+echo "File '${COMPOSE_FILE_PATH}' generato e aggiornato con i valori reali."
 
 
 # --- Fermare e Rimuovere Vecchi Container/Volumi ---
@@ -227,8 +219,8 @@ echo "Tentativo di pull delle immagini più recenti da Docker Hub..."
 $COMPOSE_CMD -f "${COMPOSE_FILE_PATH}" pull
 
 echo "Avvio dei container Docker in background (potrebbe richiedere tempo)..."
-# Usa --env-file con il percorso assoluto per passare esplicitamente il file .env.prod
-$COMPOSE_CMD -f "${COMPOSE_FILE_PATH}" --env-file "${ENV_FILE_PATH}" up -d --force-recreate
+# Usiamo il compose file appena modificato con i valori reali
+$COMPOSE_CMD -f "${COMPOSE_FILE_PATH}" up -d --force-recreate
 
 echo "---------------------------------------------------------------------"
 echo "Deployment completato!"

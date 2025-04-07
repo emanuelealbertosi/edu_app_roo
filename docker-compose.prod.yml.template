@@ -1,0 +1,57 @@
+services:
+  db:
+    image: postgres:15-alpine
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    environment:
+      POSTGRES_DB: __POSTGRES_DB__
+      POSTGRES_USER: __POSTGRES_USER__
+      POSTGRES_PASSWORD: __POSTGRES_PASSWORD__
+    healthcheck:
+      # Usiamo valori diretti qui perché la sostituzione avviene prima
+      test: ["CMD-SHELL", "pg_isready -U __POSTGRES_USER__ -d __POSTGRES_DB__"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  backend:
+    image: __BACKEND_IMAGE__
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: __DATABASE_URL__
+      SECRET_KEY: "__SECRET_KEY__"
+      DEBUG: __DEBUG__
+      DJANGO_ALLOWED_HOSTS: __DJANGO_ALLOWED_HOSTS__
+      CORS_ALLOWED_ORIGINS: __CORS_ALLOWED_ORIGINS__
+      DJANGO_SUPERUSER_USERNAME: __DJANGO_SUPERUSER_USERNAME__
+      DJANGO_SUPERUSER_EMAIL: __DJANGO_SUPERUSER_EMAIL__
+      DJANGO_SUPERUSER_PASSWORD: __DJANGO_SUPERUSER_PASSWORD__
+      # Aggiungiamo anche le variabili DB qui per completezza
+      POSTGRES_DB: __POSTGRES_DB__
+      POSTGRES_USER: __POSTGRES_USER__
+      POSTGRES_PASSWORD: __POSTGRES_PASSWORD__
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend-student:
+    image: __STUDENT_FRONTEND_IMAGE__
+    ports:
+      - "5175:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  frontend-teacher:
+    image: __TEACHER_FRONTEND_IMAGE__
+    ports:
+      - "5174:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

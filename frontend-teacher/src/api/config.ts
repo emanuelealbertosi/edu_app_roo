@@ -2,7 +2,10 @@ import axios from 'axios';
 import { useAuthStore } from '@/stores/auth'; // Import auth store
 
 const apiClient = axios.create({
-  baseURL: 'http://127.0.0.1:8000/api/', // Aggiunto slash finale
+  // URL base del backend. Viene letto dalla variabile d'ambiente VITE_API_BASE_URL
+  // che viene impostata durante il build Docker.
+  // In sviluppo locale (npm run dev), Vite usa il file .env.development o simili.
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api/',
   headers: {
     'Content-Type': 'application/json'
   }

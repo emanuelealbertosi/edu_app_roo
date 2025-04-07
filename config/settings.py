@@ -35,12 +35,16 @@ if str(APPS_DIR) not in sys.path:
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-g5h-ha1s)ey5fs7#50t35a-_z^pau*rb39+d^jmfxgv_de36pr'
+# Leggi SECRET_KEY dall'ambiente, con un fallback per sicurezza (anche se non ideale per prod)
+SECRET_KEY = os.getenv('SECRET_KEY', 'fallback-insecure-key-replace-me-in-env')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# Leggi DEBUG dall'ambiente, convertendo la stringa in Booleano. Default a False per produzione.
+DEBUG = os.getenv('DEBUG', 'False').lower() in ('true', '1', 't')
 
-ALLOWED_HOSTS = []
+# Leggi ALLOWED_HOSTS dall'ambiente, separando la stringa per virgole.
+# Default a '*' se non specificato, ma è più sicuro specificare host reali in .env.prod
+ALLOWED_HOSTS = os.getenv('DJANGO_ALLOWED_HOSTS', '*').split(',')
 
 
 # Application definition
@@ -70,6 +74,8 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    # Whitenoise Middleware (subito dopo SecurityMiddleware)
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'corsheaders.middleware.CorsMiddleware',  # Aggiunto per CORS
     'django.middleware.common.CommonMiddleware',
@@ -160,6 +166,17 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 
+# Directory dove collectstatic raccoglierà i file statici per la produzione
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+# Configurazione Storage per Whitenoise (per servire file statici compressi)
+# https://whitenoise.readthedocs.io/en/stable/django.html#add-compression-and-caching-support
+STORAGES = {
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
+
 # Custom User Model
 # https://docs.djangoproject.com/en/5.1/topics/auth/customizing/#substituting-a-custom-user-model
 AUTH_USER_MODEL = 'users.User'
@@ -245,14 +262,21 @@ SIMPLE_JWT = {
 
 # CORS Configuration
 # https://github.com/adamchainz/django-cors-headers
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",  # Frontend Student in development
-    "http://127.0.0.1:5173",
-    "http://localhost:5175",  # Frontend Teacher in development (old port?)
-    "http://127.0.0.1:5175",
-    "http://localhost:5174",  # Frontend Teacher in development (current port)
-    "http://127.0.0.1:5174",
-]
+# Leggi le origini CORS dall'ambiente, separando la stringa per virgole.
+# Fornisci un default ragionevole per lo sviluppo locale se la variabile non è impostata.
+CORS_ALLOWED_ORIGINS_ENV = os.getenv('CORS_ALLOWED_ORIGINS')
+if CORS_ALLOWED_ORIGINS_ENV:
+    CORS_ALLOWED_ORIGINS = CORS_ALLOWED_ORIGINS_ENV.split(',')
+else:
+    # Default per sviluppo locale se la variabile d'ambiente non è impostata
+    CORS_ALLOWED_ORIGINS = [
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:5175", # Probabilmente vecchio, ma lo lasciamo per sicurezza
+        "http://127.0.0.1:5175",
+        "http://localhost:5174", # Porta corrente sviluppo docente
+        "http://127.0.0.1:5174",
+    ]
 
 CORS_ALLOW_CREDENTIALS = True  # Permetti l'invio di cookies nelle richieste cross-origin
 
