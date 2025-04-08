@@ -4,9 +4,9 @@
     <p>Qui puoi visualizzare, creare e modificare i tuoi quiz.</p>
     <div class="actions">
       <!-- Applicato stile Tailwind -->
-      <button @click="createNewQuiz" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded mr-2">Crea Nuovo Quiz</button>
+      <button @click="createNewQuiz" class="btn btn-primary mr-2">Crea Nuovo Quiz</button>
       <!-- Applicato stile Tailwind -->
-      <button @click="uploadFromFile" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">Carica da File</button>
+      <button @click="uploadFromFile" class="btn btn-success">Carica da File</button>
     </div>
     <div v-if="isLoading" class="loading">Caricamento quiz...</div>
     <div v-else-if="error" class="error-message">
@@ -32,9 +32,9 @@
               <td>{{ new Date(quiz.created_at).toLocaleDateString() }}</td>
               <td>
                 <!-- Applicato stile Tailwind -->
-                <button @click="editQuiz(quiz.id)" class="bg-yellow-500 hover:bg-yellow-700 text-white font-bold py-1 px-2 rounded text-sm mr-2">Modifica</button>
+                <button @click="editQuiz(quiz.id)" class="btn btn-warning text-sm mr-2">Modifica</button>
                 <!-- Applicato stile Tailwind -->
-                <button @click="deleteQuiz(quiz.id)" class="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded text-sm">Elimina</button>
+                <button @click="deleteQuiz(quiz.id)" class="btn btn-danger text-sm">Elimina</button>
               </td>
             </tr>
           </tbody>

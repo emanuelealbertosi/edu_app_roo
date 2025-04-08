@@ -38,7 +38,7 @@ const handleLogin = async () => {
         <label for="password" class="block text-gray-700 text-sm font-bold mb-2">Password:</label>
         <input type="password" id="password" v-model="password" required class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:bg-gray-200" />
       </div>
-      <button type="submit" :disabled="authStore.loading" class="w-full bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white font-bold py-3 px-4 rounded-lg focus:outline-none focus:shadow-outline transition-colors duration-200" :class="{ 'opacity-50 cursor-not-allowed': authStore.loading }">
+      <button type="submit" :disabled="authStore.loading" class="w-full btn btn-primary" :class="{ 'opacity-50 cursor-not-allowed': authStore.loading }">
         {{ authStore.loading ? 'Accesso in corso...' : 'Login' }}
       </button>
       <p v-if="errorMessage" class="error-message text-red-500 text-sm mt-4 text-center">{{ errorMessage }}</p>

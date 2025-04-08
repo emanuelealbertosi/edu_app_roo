@@ -1,11 +1,12 @@
 import apiClient from './config';
 
-// Interfacce per TypeScript
+// --- Interfacce Ricompense ---
+
 export interface Reward {
   id: number;
   name: string;
   description: string;
-  type: 'digital' | 'real_world_tracked';
+  type: 'digital' | 'real_world_tracked'; // Aggiornato per matchare backend
   cost_points: number;
   metadata: {
     image_url?: string;
@@ -17,16 +18,40 @@ export interface Reward {
 
 export interface RewardPurchase {
   id: number;
-  reward: Reward;
+  reward: Reward; // Dettagli ricompensa nidificati
   points_spent: number;
   purchased_at: string;
-  status: 'PURCHASED' | 'DELIVERED' | 'CANCELLED'; // Aggiornato per usare i valori del backend
+  status: 'PURCHASED' | 'DELIVERED' | 'CANCELLED'; 
+  status_display?: string; // Aggiunto opzionale display
   delivered_at: string | null;
   delivery_notes: string | null;
+  delivered_by_username?: string | null; // Aggiunto opzionale
+}
+
+// --- Interfacce Badge ---
+
+export interface Badge {
+  id: number;
+  name: string;
+  description: string;
+  // slug: string; // Rimosso campo slug, non presente nel modello backend
+  image_url: string | null;
+  trigger_type: string; 
+  trigger_type_display?: string; // Reso opzionale
+  trigger_condition: { [key: string]: any };
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface EarnedBadge {
+  id: number;
+  student: number; // ID studente
+  badge: Badge; // Dettagli badge nidificati
+  earned_at: string;
 }
 
 /**
- * Servizio per interagire con le ricompense
+ * Servizio per interagire con le ricompense e i badge
  */
 const RewardsService = {
   /**
@@ -34,9 +59,6 @@ const RewardsService = {
    */
   async getAvailableRewards(): Promise<Reward[]> {
     try {
-      // Ripristinato 'student/' perché il router backend lo include
-      // Aggiunto prefisso completo relativo a /api/
-      // Corretto percorso completo relativo a /api/
       const response = await apiClient.get('rewards/student/shop/');
       return response.data;
     } catch (error) {
@@ -50,9 +72,6 @@ const RewardsService = {
    */
   async purchaseReward(rewardId: number): Promise<RewardPurchase> {
     try {
-      // Ripristinato 'student/' e corretto URL per l'azione 'purchase'
-      // Aggiunto prefisso completo relativo a /api/
-      // Corretto percorso completo relativo a /api/
       const response = await apiClient.post(`rewards/student/shop/${rewardId}/purchase/`);
       return response.data;
     } catch (error) {
@@ -66,9 +85,6 @@ const RewardsService = {
    */
   async getPurchaseHistory(): Promise<RewardPurchase[]> {
     try {
-      // Ripristinato 'student/' perché già nel baseURL
-      // Aggiunto prefisso completo relativo a /api/
-      // Corretto percorso completo relativo a /api/
       const response = await apiClient.get('rewards/student/purchases/');
       return response.data;
     } catch (error) {
@@ -82,16 +98,41 @@ const RewardsService = {
    */
   async getPurchaseDetails(purchaseId: number): Promise<RewardPurchase> {
     try {
-      // Ripristinato 'student/' perché il router backend lo include
-      // Aggiunto prefisso completo relativo a /api/
-      // Corretto percorso completo relativo a /api/
       const response = await apiClient.get(`rewards/student/purchases/${purchaseId}/`);
       return response.data;
     } catch (error) {
       console.error(`Error fetching purchase details for purchase ${purchaseId}:`, error);
       throw error;
     }
-  }
+  },
+
+  // --- Funzioni API per Badge ---
+
+  /**
+   * Ottiene tutte le definizioni dei badge attivi
+   */
+  async getAllBadges(): Promise<Badge[]> {
+    try {
+      const response = await apiClient.get('rewards/badges/'); // Usa URL registrato
+      return response.data;
+    } catch (error) {
+      console.error('Errore API nel recuperare le definizioni dei badge:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Ottiene i badge guadagnati dallo studente autenticato
+   */
+  async getEarnedBadges(): Promise<EarnedBadge[]> {
+    try {
+      const response = await apiClient.get('rewards/student/earned-badges/'); // Usa URL registrato
+      return response.data;
+    } catch (error) {
+      console.error('Errore API nel recuperare i badge guadagnati:', error);
+      throw error;
+    }
+  },
 };
 
 export default RewardsService;

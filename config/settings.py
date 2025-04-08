@@ -10,15 +10,15 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 import os # Add this line
-# from dotenv import load_dotenv # Rimosso - ci affidiamo a Docker Compose per le env vars
-import dj_database_url # Add this line
-import sys # Add this line
+from dotenv import load_dotenv # Aggiunto import
+import dj_database_url
+import sys
 from pathlib import Path
 
-# NOTA: Non carichiamo più .env o .env.docker qui.
-# Docker Compose inietterà le variabili da .env.docker specificato in docker-compose.yml
-# Per lo sviluppo locale, assicurati che le variabili siano caricate nell'ambiente
-# (es. tramite attivazione venv o un file .env letto dal tuo IDE/terminale)
+# Carica le variabili d'ambiente da .env (per sviluppo locale)
+# Questo dovrebbe essere fatto il prima possibile
+load_dotenv()
+
 
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.

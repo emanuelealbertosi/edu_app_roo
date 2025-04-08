@@ -88,9 +88,11 @@ const handleSubmit = async () => {
     <button
       type="submit"
       :disabled="isLoading"
-      class="w-full bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white font-bold py-3 px-4 rounded-lg focus:outline-none focus:shadow-outline transition-colors duration-200"
-      :class="{ 'opacity-50 cursor-not-allowed': isLoading }"
+      class="w-full btn btn-primary py-3"
+      
     >
+    <!-- Applicata classe base e primaria, aumentato padding verticale -->
+    <!-- :class="{ 'opacity-50 cursor-not-allowed': isLoading }" Rimossa classe dinamica, gestita da :disabled e stili in .btn -->
       {{ isLoading ? 'Accesso in corso...' : 'Accedi' }}
     </button>
   </form>

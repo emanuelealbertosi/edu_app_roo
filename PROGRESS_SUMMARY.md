@@ -1,4 +1,4 @@
-# Riepilogo Stato Avanzamento Progetto (6 Aprile 2025, ~10:50)
+# Riepilogo Stato Avanzamento Progetto (8 Aprile 2025, ~18:00)
 
 ## 1. Progettazione
 
@@ -152,10 +152,12 @@
 *   **Aggiunta descrizione ricompensa allo storico acquisti.**
 *   **Risolto errore 500 visualizzazione percorsi.**
 *   **Risolto problema caricamento pagina storico acquisti** (richiesto riavvio server Vite).
+*   **Corretti errori di rendering:** Risolti `InvalidCharacterError` e `TypeError: Cannot read properties of null (reading 'parentNode')` legati a commenti HTML mal posizionati e gestione transizioni/HMR.
 
 ## 12. Dati di Test
 
 *   Creato comando di management `seed_test_data` utilizzando le factory per popolare il database.
+*   **Corretto comando `seed_test_data`:** Abilitata pulizia database, corretto uso di `name` per badge, rimosso `due_date` da `PathwayAssignmentFactory`.
 *   Eseguito con successo il comando per avere dati di esempio disponibili.
 
 ## 13. Frontend Docenti (Vue.js) - Post Refactoring
@@ -164,6 +166,7 @@
 *   **Editor Domande/Opzioni Template:** Implementato (`TemplateQuestionEditor`, `TemplateAnswerOptionsEditor`, viste e API integrate).
 *   **Funzionalità Precedenti:** Mantenute (upload quiz, gestione ricompense, consegne, grading, progressi, stile Tailwind, interceptor 401, etc.).
 *   **Correzioni UI/UX:** Rimossa textarea metadati da form domande, corretto salvataggio automatico opzioni, corretti errori HTML.
+*   **Applicati stili bottoni standard:** Utilizzate classi `.btn-*` nelle viste e componenti principali per coerenza visiva.
 
 ## 14. Dockerizzazione Produzione (Tentativi - PROBLEMA APERTO)
 
@@ -177,5 +180,15 @@
     *   Provate diverse configurazioni di `docker-compose.prod.yml` (`env_file`, `environment`, ibrido) e dello script `deploy_on_ubuntu.sh` (esportazione variabili).
     *   Modificato `entrypoint.prod.sh` per caricare esplicitamente `.env.prod` con `source`.
 *   **Stato Attuale Problema:** Nonostante le modifiche, i log del container `backend` mostrano ancora che `DATABASE_URL` è `None` e `SECRET_KEY` è vuota quando vengono eseguiti i comandi `manage.py` (migrate, collectstatic, create_initial_superuser), causando il fallback a SQLite e fallimenti successivi (es. `InconsistentMigrationHistory` o `no such table`). Gunicorn fallisce l'avvio a causa di questi errori. **Il deployment Docker in produzione NON è funzionante.**
+
+## 15. Miglioramenti UX (Piano `UX_IMPROVEMENT_PLAN.md`)
+
+*   **Avvio Server Locali:** Avviati con successo backend Django, frontend studente e frontend docente.
+*   **Stili Bottoni (Docente):** Applicati stili standard (`.btn-*`) ai bottoni nelle viste e componenti principali del frontend docente.
+*   **Gamification (Badge):**
+    *   Implementata logica backend per assegnare il badge "Primo Quiz Completato" (`first-quiz-completed`) nel modello `QuizAttempt`.
+    *   Aggiornato lo store notifiche studente per tracciare badge notificati.
+    *   Implementata logica frontend in `QuizResultView.vue` per recuperare badge guadagnati e mostrare notifica per il badge "Primo Quiz Completato" (se non già notificato).
+    *   Aggiunta creazione badge "Primo Quiz Completato" nello script `seed_test_data`.
 
 ## Prossimi Passi Previsti (vedi NEXT_STEPS.md)

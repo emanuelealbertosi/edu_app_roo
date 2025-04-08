@@ -21,7 +21,7 @@
           <button
             @click="markAsDelivered(purchase.id)"
             :disabled="isDelivering[purchase.id]"
-            class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+            class="btn btn-success"
           >
             {{ isDelivering[purchase.id] ? 'Consegna...' : 'Segna come Consegnato' }}
           </button>

@@ -4,7 +4,7 @@
     <p>Qui puoi visualizzare, creare e modificare le ricompense disponibili per gli studenti.</p>
     <div class="actions">
       <!-- Applicato stile Tailwind -->
-      <button @click="createNewReward" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">Crea Nuova Ricompensa</button>
+      <button @click="createNewReward" class="btn btn-primary">Crea Nuova Ricompensa</button>
     </div>
 
     <div v-if="isLoading" class="loading">Caricamento ricompense...</div>
@@ -31,9 +31,9 @@
             <td>{{ reward.is_active ? 'Attiva' : 'Non Attiva' }}</td>
             <td>
               <!-- Applicato stile Tailwind -->
-              <button @click="editReward(reward.id)" class="bg-yellow-500 hover:bg-yellow-700 text-white font-bold py-1 px-2 rounded text-sm mr-2">Modifica</button>
+              <button @click="editReward(reward.id)" class="btn btn-warning text-sm mr-2">Modifica</button>
               <!-- Applicato stile Tailwind -->
-              <button @click="deleteReward(reward.id)" class="delete bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded text-sm">Elimina</button>
+              <button @click="deleteReward(reward.id)" class="btn btn-danger text-sm">Elimina</button>
             </td>
           </tr>
         </tbody>

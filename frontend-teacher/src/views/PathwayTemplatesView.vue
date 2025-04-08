@@ -4,7 +4,7 @@
     <p>Qui puoi visualizzare, creare e modificare i tuoi template di percorsi educativi.</p>
     <div class="actions">
       <!-- Applicato stile Tailwind -->
-      <button @click="createNewPathwayTemplate" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">Crea Nuovo Template</button>
+      <button @click="createNewPathwayTemplate" class="btn btn-primary">Crea Nuovo Template</button>
     </div>
 
     <div v-if="isLoading" class="loading">Caricamento template...</div>
@@ -28,9 +28,9 @@
             <td>{{ new Date(template.created_at).toLocaleDateString() }}</td>
             <td>
               <!-- Applicato stile Tailwind -->
-              <button @click="editPathwayTemplate(template.id)" class="bg-yellow-500 hover:bg-yellow-700 text-white font-bold py-1 px-2 rounded text-sm mr-2">Modifica</button>
+              <button @click="editPathwayTemplate(template.id)" class="btn btn-warning text-sm mr-2">Modifica</button>
               <!-- Applicato stile Tailwind -->
-              <button @click="deletePathwayTemplate(template.id)" class="delete bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded text-sm">Elimina</button>
+              <button @click="deletePathwayTemplate(template.id)" class="btn btn-danger text-sm">Elimina</button>
             </td>
           </tr>
         </tbody>

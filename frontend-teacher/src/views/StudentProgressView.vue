@@ -27,7 +27,7 @@
             <td>{{ summary.completed_pathways_count ?? 0 }}</td>
             <td>{{ summary.total_points_earned ?? 0 }}</td>
             <td>
-              <button @click="viewDetails(summary.student_id)">Dettagli</button>
+              <button @click="viewDetails(summary.student_id)" class="btn btn-link text-sm">Dettagli</button>
             </td>
           </tr>
         </tbody>

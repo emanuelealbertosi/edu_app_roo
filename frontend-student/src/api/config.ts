@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { useUiStore } from '@/stores/ui'; // Importa lo store UI
 
 // Crea un'istanza axios configurata per l'API
 const apiClient = axios.create({
@@ -18,8 +19,14 @@ const apiClient = axios.create({
 });
 
 // Interceptor per aggiungere automaticamente il token JWT alle richieste
+// Interceptor per aggiungere token JWT e tracciare inizio richiesta
 apiClient.interceptors.request.use(
   config => {
+    // Ottieni lo store solo quando serve (all'interno dell'interceptor)
+    // Questo evita problemi di inizializzazione di Pinia prima dell'app Vue
+    const uiStore = useUiStore();
+    uiStore.apiRequestStarted(); // Segnala inizio richiesta
+
     const token = localStorage.getItem('auth_token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -27,13 +34,20 @@ apiClient.interceptors.request.use(
     return config;
   },
   error => {
+    // Anche in caso di errore nella configurazione della richiesta, segnala la fine
+    const uiStore = useUiStore();
+    uiStore.apiRequestEnded();
     return Promise.reject(error);
   }
 );
 
 // Interceptor per gestire le risposte e gli errori
+// Interceptor per gestire le risposte e tracciare fine richiesta
 apiClient.interceptors.response.use(
   response => {
+    // Segnala fine richiesta in caso di successo
+    const uiStore = useUiStore();
+    uiStore.apiRequestEnded();
     return response;
   },
   error => {
@@ -57,6 +71,9 @@ apiClient.interceptors.response.use(
       console.error('Request error:', error.message);
     }
     
+    // Segnala fine richiesta anche in caso di errore
+    const uiStore = useUiStore();
+    uiStore.apiRequestEnded();
     return Promise.reject(error);
   }
 );

@@ -22,10 +22,10 @@
       <!-- TODO: Aggiungere gestione altri metadata se necessario -->
 
       <div class="form-actions">
-        <button type="submit" :disabled="isSaving">
+        <button type="submit" :disabled="isSaving" class="btn btn-success">
           {{ isSaving ? 'Salvataggio...' : (isEditing ? 'Salva Modifiche Template' : 'Crea Template') }}
         </button>
-        <button type="button" @click="cancel">Annulla</button>
+        <button type="button" @click="cancel" class="btn btn-secondary">Annulla</button>
       </div>
     </form>
 
@@ -39,7 +39,7 @@
         <ul v-if="templateData.quiz_template_details.length > 0">
             <li v-for="quizDetail in sortedQuizTemplateDetails" :key="quizDetail.id">
                <span>({{ quizDetail.order }}) {{ quizDetail.quiz_template_title }}</span>
-               <button @click="removeQuizTemplate(quizDetail.id)" type="button" class="delete small">Rimuovi</button>
+               <button @click="removeQuizTemplate(quizDetail.id)" type="button" class="btn btn-danger text-sm">Rimuovi</button>
                <!-- TODO: Aggiungere UI per modificare ordine -->
             </li>
         </ul>
@@ -55,7 +55,7 @@
                         {{ quizTpl.title }} (ID: {{ quizTpl.id }})
                     </option>
                 </select>
-                <button @click="addSelectedQuizTemplate" type="button" :disabled="!selectedQuizTemplateToAdd || isAddingQuizTemplate">
+                <button @click="addSelectedQuizTemplate" type="button" :disabled="!selectedQuizTemplateToAdd || isAddingQuizTemplate" class="btn btn-primary">
                     {{ isAddingQuizTemplate ? 'Aggiungo...' : 'Aggiungi Template' }}
                 </button>
             </div>

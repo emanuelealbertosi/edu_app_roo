@@ -34,7 +34,7 @@
         <button
             type="button"
             @click="removeOption(index)"
-            class="delete-button bg-red-500 hover:bg-red-700 text-white text-xs font-bold py-1 px-2 rounded ml-2"
+            class="btn btn-danger text-xs ml-2"
         >
             Rimuovi
         </button>
@@ -44,7 +44,7 @@
     <button
         type="button"
         @click="addOption"
-        class="add-button bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-3 rounded mt-3"
+        class="btn btn-primary mt-3"
     >
         Aggiungi Opzione
     </button>

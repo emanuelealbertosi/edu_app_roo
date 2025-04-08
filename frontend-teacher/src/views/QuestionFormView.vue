@@ -43,10 +43,10 @@
       </div>
 
       <div class="form-actions">
-        <button type="submit" :disabled="isSaving" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded mr-2 disabled:opacity-50 disabled:cursor-not-allowed">
+        <button type="submit" :disabled="isSaving" class="btn btn-success mr-2">
           {{ isSaving ? 'Salvataggio...' : (isEditing ? 'Salva Modifiche' : 'Crea Domanda') }}
         </button>
-        <button type="button" @click="goBack" class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">Annulla</button>
+        <button type="button" @click="goBack" class="btn btn-secondary">Annulla</button>
       </div>
     </form>
   </div>

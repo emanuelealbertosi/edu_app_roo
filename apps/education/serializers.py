@@ -793,11 +793,49 @@ class QuizAttemptSerializer(serializers.ModelSerializer):
 
 
 class QuizAttemptDetailSerializer(QuizAttemptSerializer):
-    """ Serializer dettagliato per un tentativo, include le risposte date. """
-    student_answers = StudentAnswerSerializer(many=True, read_only=True)
+    """ Serializer dettagliato per un tentativo, include risposte date e info aggiuntive. """
+    # Rinominiamo 'student_answers' in 'given_answers' per coerenza con il piano e il frontend
+    given_answers = StudentAnswerSerializer(source='student_answers', many=True, read_only=True)
+    # Includiamo i dettagli del quiz per accedere alla soglia e al numero totale domande
+    quiz = QuizSerializer(read_only=True)
+    # Campi calcolati per il frontend
+    completion_threshold = serializers.SerializerMethodField()
+    total_questions = serializers.SerializerMethodField()
+    correct_answers_count = serializers.SerializerMethodField()
 
-    class Meta(QuizAttemptSerializer.Meta):
-        fields = QuizAttemptSerializer.Meta.fields + ['student_answers']
+    class Meta(QuizAttemptSerializer.Meta): # Eredita Meta dal genitore
+        # Aggiungi i nuovi campi calcolati e i campi nidificati
+        # Rimuoviamo 'student_answers' originale e aggiungiamo 'given_answers' e gli altri
+        fields = [f for f in QuizAttemptSerializer.Meta.fields if f != 'student_answers'] + [
+            'quiz',
+            'given_answers',
+            'completion_threshold',
+            'total_questions',
+            'correct_answers_count'
+        ]
+
+    def get_completion_threshold(self, obj: QuizAttempt) -> float | None:
+        """ Recupera la soglia di completamento dai metadati del quiz. """
+        default_threshold = 0.6
+        threshold = obj.quiz.metadata.get('completion_threshold', default_threshold)
+        try:
+            threshold = max(0.0, min(1.0, float(threshold)))
+        except (ValueError, TypeError):
+            threshold = default_threshold
+        # Moltiplica per 100 per restituire una percentuale intera o float
+        return threshold * 100
+
+    def get_total_questions(self, obj: QuizAttempt) -> int:
+        """ Conta il numero totale di domande nel quiz associato. """
+        # Usiamo .count() che è efficiente
+        return obj.quiz.questions.count()
+
+    def get_correct_answers_count(self, obj: QuizAttempt) -> int:
+        """ Conta il numero di risposte corrette date in questo tentativo. """
+        # Assicurati che le risposte siano state caricate (se usi prefetch_related nella view)
+        # Altrimenti, esegue una query qui.
+        # Usiamo la relazione inversa 'student_answers' definita nel modello QuizAttempt
+        return obj.student_answers.filter(is_correct=True).count()
 
 
 class PathwayProgressSerializer(serializers.ModelSerializer):

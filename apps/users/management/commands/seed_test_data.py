@@ -16,7 +16,7 @@ from apps.rewards.factories import (
 )
 from apps.rewards.models import Wallet, RewardTemplate, Reward # Importa il modello Wallet
 from apps.education.models import QuestionType, Quiz, Pathway
-from apps.rewards.models import RewardTemplate, Reward
+from apps.rewards.models import RewardTemplate, Reward, Badge, EarnedBadge # Import Badge and EarnedBadge
 
 User = get_user_model()
 
@@ -28,15 +28,43 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS('Starting database seeding...'))
 
         # --- Clean Slate (Optional but recommended for repeatable seeding) ---
-        # self.stdout.write('Deleting existing data...')
-        # User.objects.filter(is_superuser=False, is_staff=False).delete() # Delete non-superusers
-        # QuizTemplate.objects.all().delete()
-        # Quiz.objects.all().delete()
-        # Pathway.objects.all().delete()
-        # RewardTemplate.objects.all().delete()
-        # Reward.objects.all().delete()
-        # # Add other models as needed (Assignments, Progress, etc.)
-        # self.stdout.write(self.style.WARNING('Existing data deleted.'))
+        self.stdout.write('Deleting existing data...')
+        # Importa i modelli necessari per la pulizia all'inizio del file o qui
+        from apps.education.models import QuizTemplate, Quiz, Pathway, QuizAssignment, PathwayAssignment, QuizAttempt, PathwayProgress, StudentAnswer
+        from apps.rewards.models import RewardTemplate, Reward, RewardPurchase, EarnedBadge
+        from apps.users.models import Student
+
+        # Elimina in ordine inverso per rispettare le dipendenze ForeignKey (o usa CASCADE)
+        # Nota: L'ordine potrebbe dover essere aggiustato in base alle relazioni effettive
+        self.stdout.write('Deleting Student Answers...')
+        StudentAnswer.objects.all().delete()
+        self.stdout.write('Deleting Quiz Attempts...')
+        QuizAttempt.objects.all().delete()
+        self.stdout.write('Deleting Pathway Progress...')
+        PathwayProgress.objects.all().delete()
+        self.stdout.write('Deleting Quiz Assignments...')
+        QuizAssignment.objects.all().delete()
+        self.stdout.write('Deleting Pathway Assignments...')
+        PathwayAssignment.objects.all().delete()
+        self.stdout.write('Deleting Earned Badges...')
+        EarnedBadge.objects.all().delete()
+        self.stdout.write('Deleting Reward Purchases...')
+        RewardPurchase.objects.all().delete()
+        self.stdout.write('Deleting Rewards...')
+        Reward.objects.all().delete()
+        self.stdout.write('Deleting Reward Templates...')
+        RewardTemplate.objects.all().delete()
+        self.stdout.write('Deleting Pathways...')
+        Pathway.objects.all().delete() # Questo elimina anche PathwayQuiz tramite CASCADE (se impostato)
+        self.stdout.write('Deleting Quizzes...')
+        Quiz.objects.all().delete() # Questo elimina anche Question e AnswerOption tramite CASCADE
+        self.stdout.write('Deleting Quiz Templates...')
+        QuizTemplate.objects.all().delete() # Questo elimina anche QuestionTemplate e AnswerOptionTemplate
+        self.stdout.write('Deleting Students and Wallets...')
+        Student.objects.all().delete() # Questo elimina anche Wallet tramite CASCADE
+        self.stdout.write('Deleting non-admin Users...')
+        User.objects.filter(is_superuser=False, is_staff=False).delete() # Delete non-superusers/staff
+        self.stdout.write(self.style.WARNING('Existing data deleted.'))
 
         # --- Create Users ---
         self.stdout.write('Creating users...')
@@ -179,6 +207,24 @@ class Command(BaseCommand):
         )
         self.stdout.write(self.style.SUCCESS('Created 2 Reward Templates and 2 Rewards.'))
 
+        # --- Create Badges ---
+        self.stdout.write('Creating badges...')
+        badge_first_quiz, created_bq = Badge.objects.get_or_create(
+            name='Primo Quiz Completato!', # Usa 'name' invece di 'slug'
+            defaults={
+                'name': 'Primo Quiz Completato!',
+                'description': 'Hai completato con successo il tuo primo quiz.',
+                'image_url': '/badges/first_quiz.png', # Assumendo che l'immagine esista in static/badges/
+                'trigger_type': 'AUTO', # O un altro tipo se definito
+                'trigger_condition': {'event': 'first_quiz_passed'}, # Condizione simbolica
+                'is_active': True
+            }
+        )
+        if created_bq:
+            self.stdout.write(self.style.SUCCESS(f'Created Badge: {badge_first_quiz.name}'))
+        else:
+            self.stdout.write(self.style.NOTICE(f'Badge "{badge_first_quiz.name}" already exists.'))
+
         # --- Assign Content to Students ---
         self.stdout.write('Assigning content to students...')
         assignments_created = 0
@@ -190,7 +236,7 @@ class Command(BaseCommand):
             )
             # Assign the pathway
             PathwayAssignmentFactory(
-                student=student, pathway=pathway, assigned_by=teacher, due_date=due_date
+                student=student, pathway=pathway, assigned_by=teacher # Rimosso due_date
             )
             assignments_created += 2
         self.stdout.write(self.style.SUCCESS(f'Created {assignments_created} assignments.'))

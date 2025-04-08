@@ -73,7 +73,7 @@
         <button
             @click="assignContent"
             :disabled="!canAssign || isAssigning"
-            class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+            class="btn btn-success"
         >
             {{ isAssigning ? 'Assegnazione...' : 'Assegna Selezionati' }}
         </button>

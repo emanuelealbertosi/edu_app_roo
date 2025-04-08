@@ -2,6 +2,8 @@
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import { computed, nextTick } from 'vue'; // Importa nextTick
 import { useAuthStore } from '@/stores/auth';
+import GlobalLoadingIndicator from '@/components/common/GlobalLoadingIndicator.vue';
+import NotificationContainer from '@/components/common/NotificationContainer.vue'; // Importa contenitore notifiche
 
 const authStore = useAuthStore();
 const router = useRouter();
@@ -16,12 +18,17 @@ const handleLogout = () => { // Rimosso async e nextTick
 </script>
 
 <template>
+  <GlobalLoadingIndicator />
+  <NotificationContainer />
+  <!-- Aggiungi il contenitore notifiche qui -->
+  
   <header v-if="showNavbar" class="fixed top-0 left-0 w-full bg-purple-800 text-white shadow-md z-10 p-4 flex justify-between items-center">
     <nav class="flex gap-6">
       <RouterLink to="/dashboard" class="py-1 hover:text-amber-300 border-b-2 border-transparent router-link-exact-active:border-amber-300 transition-colors duration-200">Dashboard</RouterLink>
       <RouterLink to="/shop" class="py-1 hover:text-amber-300 border-b-2 border-transparent router-link-exact-active:border-amber-300 transition-colors duration-200">Shop</RouterLink>
       <RouterLink to="/profile" class="py-1 hover:text-amber-300 border-b-2 border-transparent router-link-exact-active:border-amber-300 transition-colors duration-200">Profilo</RouterLink>
       <RouterLink to="/purchases" class="py-1 hover:text-amber-300 border-b-2 border-transparent router-link-exact-active:border-amber-300 transition-colors duration-200">Acquisti</RouterLink>
+      <RouterLink to="/badges" class="py-1 hover:text-amber-300 border-b-2 border-transparent router-link-exact-active:border-amber-300 transition-colors duration-200">Traguardi</RouterLink> <!-- Aggiunto Link Badge -->
     </nav>
     <div class="flex items-center gap-4">
        <span class="text-sm text-purple-200 hidden md:inline">Ciao, {{ authStore.userFullName }}!</span>
@@ -29,11 +36,15 @@ const handleLogout = () => { // Rimosso async e nextTick
     </div>
   </header>
   <main class="pt-24 px-4 md:px-8">
+    <RouterView />
+    <!-- Temporaneamente rimossa transition per debug InvalidCharacterError -->
+    <!--
     <RouterView v-slot="{ Component }">
       <transition name="fade" mode="out-in">
         <component :is="Component" />
       </transition>
     </RouterView>
+    -->
   </main>
 </template>
 

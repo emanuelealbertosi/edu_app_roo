@@ -26,7 +26,7 @@
           <!-- Rimossa riga 26 vuota -->
         </label>
         <!-- Rimosso pulsante Salva per opzione singola -->
-        <button @click="deleteOption(option.id)" type="button" class="delete-option-btn" :disabled="!option.id">Elimina</button> <!-- Disabilita se nuova -->
+        <button @click="deleteOption(option.id)" type="button" class="btn btn-danger text-sm" :disabled="!option.id">Elimina</button> <!-- Disabilita se nuova -->
       </li>
     </ul>
     <p v-else>Nessuna opzione definita.</p>
@@ -34,7 +34,7 @@
     <!-- Form Aggiunta Nuova Opzione -->
     <div class="add-option-form">
       <input type="text" v-model="newOptionText" placeholder="Nuovo testo opzione" />
-      <button @click="addOption" type="button" :disabled="!newOptionText.trim() || isAdding">
+      <button @click="addOption" type="button" :disabled="!newOptionText.trim() || isAdding" class="btn btn-primary">
         {{ isAdding ? 'Aggiungo...' : 'Aggiungi Opzione' }}
       </button>
     </div>

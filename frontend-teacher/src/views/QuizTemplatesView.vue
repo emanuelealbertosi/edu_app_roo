@@ -4,9 +4,9 @@
     <p>Qui puoi visualizzare, creare e modificare i tuoi template di quiz.</p> <!-- Descrizione aggiornata -->
     <div class="actions">
       <!-- Applicato stile Tailwind -->
-      <button @click="createNewQuizTemplate" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded mr-2">Crea Nuovo Template</button>
+      <button @click="createNewQuizTemplate" class="btn btn-primary mr-2">Crea Nuovo Template</button>
       <!-- Aggiunto pulsante Carica da File -->
-      <button @click="toggleUploadForm" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">Carica Template da File</button>
+      <button @click="toggleUploadForm" class="btn btn-success">Carica Template da File</button>
     </div>
 
     <!-- Form di Upload (mostrato/nascosto) -->
@@ -22,8 +22,8 @@
           <input type="file" id="templateFile" @change="handleFileUpload" accept=".pdf,.docx,.md" required class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
         </div>
         <div class="flex justify-end space-x-2">
-           <button type="button" @click="toggleUploadForm" class="bg-gray-300 hover:bg-gray-400 text-black font-bold py-2 px-4 rounded">Annulla</button>
-           <button type="submit" :disabled="isUploading" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50">
+           <button type="button" @click="toggleUploadForm" class="btn btn-secondary">Annulla</button>
+           <button type="submit" :disabled="isUploading" class="btn btn-success">
              {{ isUploading ? 'Caricamento...' : 'Carica Template' }}
            </button>
         </div>
@@ -54,9 +54,9 @@
               <td>{{ new Date(template.created_at).toLocaleDateString() }}</td>
               <td>
                 <!-- Applicato stile Tailwind -->
-                <button @click="editQuizTemplate(template.id)" class="bg-yellow-500 hover:bg-yellow-700 text-white font-bold py-1 px-2 rounded text-sm mr-2">Modifica</button> <!-- Funzione aggiornata -->
+                <button @click="editQuizTemplate(template.id)" class="btn btn-warning text-sm mr-2">Modifica</button> <!-- Funzione aggiornata -->
                 <!-- Applicato stile Tailwind -->
-                <button @click="deleteQuizTemplate(template.id)" class="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded text-sm">Elimina</button> <!-- Funzione aggiornata -->
+                <button @click="deleteQuizTemplate(template.id)" class="btn btn-danger text-sm">Elimina</button> <!-- Funzione aggiornata -->
               </td>
             </tr>
           </tbody>

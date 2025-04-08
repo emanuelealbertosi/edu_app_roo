@@ -10,14 +10,14 @@
       <!-- Aggiunto block e mb-1 -->
       <button
         @click="editQuestion"
-        class="block bg-yellow-500 hover:bg-yellow-700 text-white font-bold py-1 px-2 rounded text-sm mb-1 w-full text-center"
+        class="btn btn-warning text-sm mb-1 w-full text-center"
       >
         Modifica
       </button>
       <!-- Aggiunto block -->
       <button
         @click="deleteQuestion"
-        class="delete block bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded text-sm w-full text-center"
+        class="btn btn-danger text-sm w-full text-center"
       >
         Elimina
       </button>

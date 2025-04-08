@@ -298,3 +298,81 @@ class RewardPurchase(models.Model):
     def __str__(self):
         return f"{self.student.full_name} purchased {self.reward.name} at {self.purchased_at}"
 
+
+# --- Modelli per Gamification (Badge) ---
+
+class Badge(models.Model):
+    """
+    Definizione di un badge/traguardo che gli studenti possono ottenere.
+    """
+    class TriggerType(models.TextChoices):
+        QUIZ_COMPLETED = 'QUIZ_COMPLETED', _('Quiz Completed')
+        PATHWAY_COMPLETED = 'PATHWAY_COMPLETED', _('Pathway Completed')
+        CORRECT_STREAK = 'CORRECT_STREAK', _('Correct Answer Streak')
+        POINTS_THRESHOLD = 'POINTS_THRESHOLD', _('Points Threshold Reached')
+        # Aggiungere altri trigger se necessario
+
+    name = models.CharField(_('Badge Name'), max_length=100, unique=True)
+    description = models.TextField(_('Description'), help_text=_('Spiega come ottenere questo badge.'))
+    image_url = models.URLField(_('Image URL'), blank=True, null=True, help_text=_('URL dell\'immagine del badge (es. SVG, PNG).'))
+    trigger_type = models.CharField(
+        _('Trigger Type'),
+        max_length=30,
+        choices=TriggerType.choices,
+        help_text=_('L\'evento che può sbloccare questo badge.')
+    )
+    # Condizioni specifiche basate sul trigger_type (JSON per flessibilità)
+    trigger_condition = models.JSONField(
+        _('Trigger Condition'),
+        default=dict,
+        blank=True,
+        help_text=_(
+            'Condizioni specifiche. Es: {"min_score": 80} per QUIZ_COMPLETED, '
+            '{"streak_length": 5} per CORRECT_STREAK, '
+            '{"points": 1000} per POINTS_THRESHOLD.'
+        )
+    )
+    is_active = models.BooleanField(
+        _('Active'),
+        default=True,
+        help_text=_('Se il badge può essere attualmente ottenuto.')
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = _('Badge')
+        verbose_name_plural = _('Badges')
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+
+class EarnedBadge(models.Model):
+    """
+    Registra quando uno Studente ha ottenuto un Badge specifico.
+    """
+    student = models.ForeignKey(
+        Student,
+        on_delete=models.CASCADE,
+        related_name='earned_badges',
+        verbose_name=_('Student')
+    )
+    badge = models.ForeignKey(
+        Badge,
+        on_delete=models.CASCADE, # Se il badge viene eliminato, rimuovi anche le occorrenze guadagnate
+        related_name='earned_by_students',
+        verbose_name=_('Badge')
+    )
+    earned_at = models.DateTimeField(_('Earned At'), auto_now_add=True)
+
+    class Meta:
+        verbose_name = _('Earned Badge')
+        verbose_name_plural = _('Earned Badges')
+        # Assicura che uno studente possa guadagnare lo stesso badge una sola volta
+        unique_together = ('student', 'badge')
+        ordering = ['-earned_at']
+
+    def __str__(self):
+        return f"{self.student.full_name} earned {self.badge.name} at {self.earned_at}"
+

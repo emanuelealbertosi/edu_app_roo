@@ -22,14 +22,14 @@
             <!-- Applicato stile Tailwind -->
             <button
                 @click="gradeAnswer(answer.id, true, 1)"
-                class="bg-green-500 hover:bg-green-700 text-white font-bold py-1 px-2 rounded text-sm mr-2"
+                class="btn btn-success text-sm mr-2"
             >
                 Corretta (1pt)
             </button>
             <!-- Applicato stile Tailwind -->
             <button
                 @click="gradeAnswer(answer.id, false, 0)"
-                class="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded text-sm"
+                class="btn btn-danger text-sm"
             >
                 Errata (0pt)
             </button>

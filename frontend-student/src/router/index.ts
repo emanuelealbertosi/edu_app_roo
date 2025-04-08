@@ -44,6 +44,12 @@ const router = createRouter({
       meta: { requiresAuth: true }
     },
     {
+      path: '/badges',
+      name: 'Badges',
+      component: () => import('../views/BadgesView.vue'), // Aggiunto import dinamico
+      meta: { requiresAuth: true }
+    },
+    {
       path: '/quiz/:id',
       name: 'quiz-details',
       component: () => import('../views/QuizDetailsView.vue'),

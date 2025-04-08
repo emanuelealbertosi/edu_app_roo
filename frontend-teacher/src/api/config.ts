@@ -1,5 +1,6 @@
 import axios from 'axios';
-import { useAuthStore } from '@/stores/auth'; // Import auth store
+import { useAuthStore } from '@/stores/auth';
+import { useUiStore } from '@/stores/ui'; // Importa lo store UI
 
 const apiClient = axios.create({
   // URL base del backend. Viene letto dalla variabile d'ambiente VITE_API_BASE_URL
@@ -12,25 +13,34 @@ const apiClient = axios.create({
 });
 
 // Add interceptor to include Authorization header
+// Add interceptor to include Authorization header and track request start
 apiClient.interceptors.request.use(
   (config) => {
-    // Get store instance *inside* the interceptor to avoid issues with Pinia initialization order
     const authStore = useAuthStore();
-    const token = authStore.accessToken; // Assumes your store has an accessToken getter/property
-    if (token && config.headers) { // Check if headers exist
+    const uiStore = useUiStore(); // Ottieni istanza store UI
+    uiStore.apiRequestStarted(); // Segnala inizio richiesta
+
+    const token = authStore.accessToken;
+    if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
   },
   (error) => {
+    // Segnala fine richiesta anche in caso di errore configurazione
+    const uiStore = useUiStore();
+    uiStore.apiRequestEnded();
     return Promise.reject(error);
   }
 );
 
 // Add interceptor for handling 401 Unauthorized errors
+// Add interceptor for handling responses and tracking request end
 apiClient.interceptors.response.use(
   (response) => {
-    // Any status code that lie within the range of 2xx cause this function to trigger
+    // Segnala fine richiesta in caso di successo
+    const uiStore = useUiStore();
+    uiStore.apiRequestEnded();
     return response;
   },
   (error) => {
@@ -57,6 +67,9 @@ apiClient.interceptors.response.use(
     }
 
     // Return any error which is not 401
+    // Segnala fine richiesta anche in caso di errore risposta
+    const uiStore = useUiStore();
+    uiStore.apiRequestEnded();
     return Promise.reject(error);
   }
 );

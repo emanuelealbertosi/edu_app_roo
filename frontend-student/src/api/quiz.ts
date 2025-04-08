@@ -15,6 +15,7 @@ export interface Question {
   text: string;
   // Aggiornato per usare i valori effettivi del backend (come in models.py)
   question_type: 'MC_SINGLE' | 'MC_MULTI' | 'TF' | 'FILL_BLANK' | 'OPEN_MANUAL';
+  question_type_display?: string | null; // Aggiunto campo display opzionale
   order: number;
   metadata: {
     points?: number;
@@ -35,7 +36,7 @@ export interface QuizAttempt {
   completed_at: string | null;
   score: number | null;
   points_earned: number | null;
-  status: 'in_progress' | 'pending_manual_grading' | 'completed';
+  status: 'IN_PROGRESS' | 'PENDING_GRADING' | 'COMPLETED' | 'FAILED'; // Usa valori backend (uppercase)
 }
 
 // Interfaccia per una singola risposta data dallo studente
@@ -53,9 +54,13 @@ export interface StudentAnswerResult {
 }
 
 export interface AttemptDetails extends QuizAttempt {
-  questions: Question[];
-  // Corretto il nome e usato la nuova interfaccia
-  given_answers: StudentAnswerResult[];
+  questions: Question[]; // Lista delle domande del quiz
+  given_answers: StudentAnswerResult[]; // Lista delle risposte date dallo studente
+  // Nuovi campi dal backend
+  status_display: string | null; // Campo display per lo stato
+  completion_threshold: number | null; // Percentuale
+  total_questions: number | null;
+  correct_answers_count: number | null;
 }
 
 // Tipi per le risposte alle domande

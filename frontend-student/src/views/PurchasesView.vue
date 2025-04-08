@@ -71,6 +71,7 @@ onMounted(() => {
             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data Acquisto</th>
             <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Stato</th>
             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data Consegna</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Note Consegna</th>
           </tr>
         </thead>
         <tbody class="text-sm text-gray-700">
@@ -86,6 +87,7 @@ onMounted(() => {
               <span v-else class="text-xs italic">{{ purchase.status }}</span>
             </td>
             <td data-label="Data Consegna" class="px-4 py-3 whitespace-nowrap">{{ formatDate(purchase.delivered_at) }}</td>
+            <td data-label="Note Consegna" class="px-4 py-3">{{ purchase.delivery_notes || '-' }}</td>
           </tr>
         </tbody>
       </table>

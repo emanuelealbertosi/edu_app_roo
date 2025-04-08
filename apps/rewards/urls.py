@@ -3,7 +3,8 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     RewardTemplateViewSet, RewardViewSet, StudentShopViewSet,
     StudentWalletViewSet, StudentPurchasesViewSet, TeacherRewardDeliveryViewSet,
-    StudentWalletInfoView # Importa la nuova view
+    StudentWalletInfoView, # Importa la view del wallet
+    BadgeViewSet, StudentEarnedBadgeViewSet # Importa i ViewSet dei Badge
 )
 
 # Crea un router e registra le viewset standard
@@ -16,6 +17,9 @@ router.register(r'student/wallet', StudentWalletViewSet, basename='student-walle
 router.register(r'student/purchases', StudentPurchasesViewSet, basename='student-purchases')
 # ViewSet specifico per docenti
 router.register(r'teacher/delivery', TeacherRewardDeliveryViewSet, basename='teacher-delivery')
+# Registra i nuovi endpoint per i Badge
+router.register(r'badges', BadgeViewSet, basename='badge') # Lista definizioni badge
+router.register(r'student/earned-badges', StudentEarnedBadgeViewSet, basename='student-earned-badge') # Badge guadagnati dallo studente
 
 
 # Gli URL dell'API sono determinati automaticamente dal router.

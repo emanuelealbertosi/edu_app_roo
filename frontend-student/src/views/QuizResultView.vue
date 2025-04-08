@@ -1,14 +1,19 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import QuizService, { type AttemptDetails, type Question, type StudentAnswerResult } from '@/api/quiz'; // Aggiunto StudentAnswerResult
+import QuizService, { type AttemptDetails, type Question, type StudentAnswerResult } from '@/api/quiz';
+import RewardsService from '@/api/rewards'; // Importa RewardsService
+import { useNotificationStore } from '@/stores/notification'; // Importa store notifiche
+// import confetti from 'canvas-confetti'; // Per animazione successo
 
 // State
 const route = useRoute();
 const router = useRouter();
 const attemptDetails = ref<AttemptDetails | null>(null);
+const notificationStore = useNotificationStore(); // Inizializza store notifiche
 const isLoading = ref(true);
 const error = ref<string | null>(null);
+const showConfetti = ref(false); // State per animazione successo
 
 const attemptId = computed(() => Number(route.params.attemptId));
 
@@ -89,10 +94,81 @@ function getCorrectnessText(isCorrect: boolean | null): string {
     return 'In attesa di correzione';
 }
 
+// Calcola l'esito del quiz
+const quizOutcome = computed(() => {
+  if (!attemptDetails.value) return 'loading';
+  const status = attemptDetails.value.status;
+  const score = attemptDetails.value.score;
+  // Usa la soglia fornita dall'API (che è già in percentuale)
+  const threshold = attemptDetails.value.completion_threshold;
+
+  // Usa i valori di stato MAIUSCOLI come definiti nel tipo aggiornato
+  if (status === 'PENDING_GRADING') {
+    return 'pending';
+  }
+  if (status === 'COMPLETED' && score !== null && threshold !== null && score >= threshold) {
+    return 'success';
+  }
+  // Se lo stato è FAILED o se è COMPLETED ma sotto soglia
+  if (status === 'FAILED' || (status === 'COMPLETED' && score !== null && threshold !== null && score < threshold)) {
+    return 'failure';
+  }
+  return 'unknown'; // Fallback per stati inattesi o in_progress (non dovrebbe accadere qui)
+});
+
+// Funzione per lanciare i coriandoli
+function triggerConfetti() {
+   showConfetti.value = true; // Potresti usare questo per triggerare un componente/animazione CSS
+   // Oppure usare direttamente la libreria:
+   /*
+   if (typeof confetti === 'function') {
+       confetti({
+           particleCount: 150,
+           spread: 90,
+           origin: { y: 0.6 }
+       });
+   }
+   */
+   console.log("Confetti triggered!"); // Placeholder
+}
 
 // Lifecycle Hooks
-onMounted(() => {
-  fetchAttemptResults();
+onMounted(async () => { // reso async
+  await fetchAttemptResults();
+  
+  // Dopo aver caricato i risultati, controlla se sono stati guadagnati nuovi badge
+  if (attemptDetails.value && (quizOutcome.value === 'success' || quizOutcome.value === 'failure')) { // Controlla anche su failure? Forse solo su success.
+      try {
+          console.log("Checking for earned badges...");
+          const earnedBadges = await RewardsService.getEarnedBadges();
+          console.log("Earned badges fetched:", earnedBadges);
+
+          // Controlla specificamente il badge 'first-quiz-completed'
+          const firstQuizBadge = earnedBadges.find(eb => eb.badge.name === 'Primo Quiz Completato!'); // Usa 'name' invece di 'slug'
+
+          if (firstQuizBadge) {
+              console.log("Found 'first-quiz-completed' badge. Attempting notification.");
+              // Usa la funzione aggiornata dello store che controlla se è già stato notificato
+              notificationStore.addBadgeNotification(
+                  firstQuizBadge.badge.id,
+                  firstQuizBadge.badge.name,
+                  firstQuizBadge.badge.image_url
+              );
+          }
+
+          // TODO: Potresti aggiungere qui la logica per notificare ALTRI badge se necessario,
+          // confrontando `earnedBadges` con uno stato precedente o con `notifiedBadgeIds`.
+
+      } catch (badgeError) {
+          console.error("Errore nel recupero o notifica dei badge:", badgeError);
+          // Non mostrare errore all'utente per questo, è secondario
+      }
+  }
+
+  // Trigger confetti solo se il risultato è successo al caricamento
+  if (quizOutcome.value === 'success') {
+      triggerConfetti();
+  }
 });
 
 </script>
@@ -109,24 +185,56 @@ onMounted(() => {
       <p>{{ error }}</p>
     </div>
 
-    <div v-if="attemptDetails &amp;&amp; !isLoading" class="results-container">
-      <h2>{{ attemptDetails.quiz.title }}</h2>
-      <p><strong>Descrizione:</strong> {{ attemptDetails.quiz.description }}</p>
-      <p><strong>Stato:</strong> {{ attemptDetails.status }}</p>
-      <p v-if="attemptDetails.completed_at"><strong>Completato il:</strong> {{ new Date(attemptDetails.completed_at).toLocaleString() }}</p>
-      
-      <div v-if="attemptDetails.status === 'completed'" class="summary-scores">
-          <p><strong>Punteggio Finale:</strong> {{ attemptDetails.score !== null ? Math.round(attemptDetails.score) : 'N/D' }}%</p> <!-- Aggiunto % e arrotondamento -->
-          <!-- <p><strong>Punti Guadagnati:</strong> {{ attemptDetails.points_earned ?? 0 }}</p> --> <!-- Rimosso: points_earned non è sul modello Attempt -->
-      </div>
-       <div v-else-if="attemptDetails.status === 'pending_manual_grading'" class="summary-scores pending">
-          <p>Il punteggio finale e i punti guadagnati saranno disponibili dopo la correzione manuale.</p>
+    <div v-if="attemptDetails && !isLoading" class="results-container">
+      <!-- Riepilogo Visivo Esito -->
+      <div
+        :class="[
+          'outcome-summary',
+          'p-6 rounded-lg mb-8 text-center shadow-md',
+          { 'bg-green-100 border border-green-300 text-green-800': quizOutcome === 'success' },
+          { 'bg-red-100 border border-red-300 text-red-800': quizOutcome === 'failure' },
+          { 'bg-yellow-100 border border-yellow-300 text-yellow-800': quizOutcome === 'pending' },
+          { 'bg-gray-100 border border-gray-300 text-gray-800': quizOutcome === 'unknown' || quizOutcome === 'loading' }
+        ]"
+      >
+        <div v-if="quizOutcome === 'success'" class="outcome-content animate-fade-in">
+          <span class="text-5xl mb-2 block">🎉</span>
+          <h3 class="text-2xl font-semibold mb-2">Complimenti! Quiz Superato!</h3>
+          <p class="text-lg">Punteggio: <strong>{{ Math.round(attemptDetails.score ?? 0) }}%</strong></p>
+          <p>Hai risposto correttamente a <strong>{{ attemptDetails.correct_answers_count ?? '?' }}</strong> su <strong>{{ attemptDetails.total_questions ?? '?' }}</strong> domande.</p>
+          <!-- Placeholder per animazione confetti attivata da showConfetti -->
+          <div v-if="showConfetti" class="confetti-placeholder"></div>
+        </div>
+        <div v-else-if="quizOutcome === 'failure'" class="outcome-content animate-fade-in">
+          <span class="text-5xl mb-2 block">😥</span>
+          <h3 class="text-2xl font-semibold mb-2">Peccato! Non hai superato il quiz.</h3>
+          <p class="text-lg">Punteggio: <strong>{{ Math.round(attemptDetails.score ?? 0) }}%</strong> (Soglia: {{ attemptDetails.completion_threshold ?? 'N/D' }}%)</p>
+          <p>Hai risposto correttamente a <strong>{{ attemptDetails.correct_answers_count ?? '?' }}</strong> su <strong>{{ attemptDetails.total_questions ?? '?' }}</strong> domande.</p>
+          <p class="mt-2 text-sm">Non arrenderti, riprova se possibile!</p>
+        </div>
+        <div v-else-if="quizOutcome === 'pending'" class="outcome-content animate-fade-in">
+          <span class="text-5xl mb-2 block">⏳</span>
+          <h3 class="text-2xl font-semibold mb-2">Risultato in attesa</h3>
+          <p>Il tuo punteggio finale sarà disponibile dopo la correzione manuale da parte del docente.</p>
+        </div>
+        <div v-else class="outcome-content">
+          <p>Stato del tentativo non determinato.</p>
+        </div>
       </div>
 
-      <h3>Dettaglio Risposte</h3>
+      <!-- Dettagli Quiz (Titolo, Descrizione, ecc.) -->
+      <h2 class="text-xl font-semibold mb-2">{{ attemptDetails.quiz.title }}</h2>
+      <p class="text-gray-600 mb-1"><strong>Descrizione:</strong> {{ attemptDetails.quiz.description || '-' }}</p>
+      <p class="text-gray-600 mb-1"><strong>Stato Tentativo:</strong> {{ attemptDetails.status_display || attemptDetails.status }}</p> <!-- Usa status_display se disponibile -->
+      <p class="text-gray-600 mb-4" v-if="attemptDetails.completed_at"><strong>Completato il:</strong> {{ new Date(attemptDetails.completed_at).toLocaleString() }}</p>
+      
+      <!-- Rimosso vecchio blocco summary-scores -->
+
+      <h3 class="text-lg font-semibold mt-6 mb-4 border-t pt-4">Dettaglio Risposte</h3>
       <ul class="answers-list">
+        <!-- Le domande sono direttamente in attemptDetails secondo il tipo aggiornato -->
         <li v-for="question in attemptDetails.questions" :key="question.id" class="answer-item">
-          <p class="question-text"><strong>{{ question.order + 1 }}. {{ question.text }}</strong> ({{ question.question_type }})</p> <!-- Corretto numero domanda -->
+          <p class="question-text"><strong>{{ question.order + 1 }}. {{ question.text }}</strong> ({{ question.question_type_display || question.question_type }})</p>
           <div v-if="getStudentAnswerForQuestion(question.id)" :class="['student-answer', getCorrectnessClass(getStudentAnswerForQuestion(question.id)?.is_correct ?? null)]"> <!-- Aggiunto ?? null -->
             <!-- Passa l'intero oggetto question a formatAnswer -->
             <p><strong>Tua Risposta:</strong> {{ formatAnswer(getStudentAnswerForQuestion(question.id)?.selected_answers, question) }}</p>
@@ -267,4 +375,20 @@ onMounted(() => {
 h1, h2, h3 {
     color: #333;
 }
+
+/* Animazione Fade-in */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in {
+  animation: fadeIn 0.5s ease-out forwards;
+}
+
+/* Placeholder per animazione confetti */
+.confetti-placeholder {
+  /* Qui potresti aggiungere stili per un componente confetti o triggerare JS */
+  min-height: 50px; /* Solo per dare spazio visivo */
+}
+
 </style>

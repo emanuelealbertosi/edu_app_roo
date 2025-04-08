@@ -11,7 +11,7 @@ from django.db.models import F # Import F for atomic updates
 # Import Wallet and PointTransaction later to avoid circular dependency if needed,
 # or ensure they are defined before QuizAttempt if in the same file.
 # Let's import them here for clarity for now.
-from apps.rewards.models import Wallet, PointTransaction
+from apps.rewards.models import Wallet, PointTransaction, Badge, EarnedBadge # Import Badge and EarnedBadge
 import logging # Import logging
 
 # Get an instance of a logger
@@ -579,6 +579,7 @@ class QuizAttempt(models.Model):
         # print(f"Calcolato punteggio finale per tentativo {self.id}: {final_score}") # Rimosso print
         return final_score
 
+    @transaction.atomic # Assicura atomicità per punti e badge
     def assign_completion_points(self):
         """
         Checks if the attempt meets the completion threshold and assigns points if applicable.
@@ -650,11 +651,68 @@ class QuizAttempt(models.Model):
                         points_change=points_to_award,
                         reason=f"Completamento Quiz: {self.quiz.title}"
                     )
-                    logger.info(f"Awarded {points_to_award} points to student {self.student.id} for completing quiz {self.quiz.id}. New balance: {wallet.current_points}") # Note: wallet.current_points might be F() object here
+                    logger.info(f"Awarded {points_to_award} points to student {self.student.id} for completing quiz {self.quiz.id}.") # Log aggiornato per chiarezza
+
+                    # --- Logica Assegnazione Badge "Primo Quiz Completato" ---
+                    # Verifica se è il PRIMO quiz IN ASSOLUTO completato correttamente dallo studente
+                    is_first_ever_completion = not QuizAttempt.objects.filter(
+                        student=self.student,
+                        status=QuizAttempt.AttemptStatus.COMPLETED
+                    ).exclude(pk=self.pk).exists() # Escludi il tentativo corrente
+
+                    if is_first_ever_completion:
+                        logger.info(f"Questo è il primo quiz IN ASSOLUTO completato correttamente da {self.student.full_name}. Tentativo assegnazione badge 'first-quiz-completed'.")
+                        try:
+                            # Assumiamo che il badge esista con questo slug
+                            first_quiz_badge = Badge.objects.get(slug='first-quiz-completed')
+                            earned_badge, created = EarnedBadge.objects.get_or_create(
+                                student=self.student,
+                                badge=first_quiz_badge,
+                                defaults={'earned_at': timezone.now()} # Imposta earned_at solo se creato
+                            )
+                            if created:
+                                logger.info(f"Badge '{first_quiz_badge.name}' assegnato a {self.student.full_name}.")
+                            else:
+                                logger.info(f"Studente {self.student.full_name} aveva già il badge '{first_quiz_badge.name}'.")
+                        except Badge.DoesNotExist:
+                            logger.warning("Badge con slug 'first-quiz-completed' non trovato nel database. Impossibile assegnare.")
+                        except Exception as e_badge:
+                            # Logga l'errore ma non far fallire l'assegnazione dei punti
+                            logger.error(f"Errore durante l'assegnazione del badge 'first-quiz-completed' a {self.student.id}: {e_badge}", exc_info=True)
+                    # --- Fine Logica Badge ---
+
+                    # --- Logica Assegnazione Badge "Primo Quiz Completato" ---
+                    # Verifica se è il PRIMO quiz IN ASSOLUTO completato correttamente dallo studente
+                    is_first_ever_completion = not QuizAttempt.objects.filter(
+                        student=self.student,
+                        status=QuizAttempt.AttemptStatus.COMPLETED
+                    ).exclude(pk=self.pk).exists() # Escludi il tentativo corrente
+
+                    if is_first_ever_completion:
+                        logger.info(f"Questo è il primo quiz IN ASSOLUTO completato correttamente da {self.student.full_name}. Tentativo assegnazione badge 'first-quiz-completed'.")
+                        try:
+                            # Assumiamo che il badge esista con questo slug
+                            first_quiz_badge = Badge.objects.get(slug='first-quiz-completed')
+                            earned_badge, created = EarnedBadge.objects.get_or_create(
+                                student=self.student,
+                                badge=first_quiz_badge,
+                                defaults={'earned_at': timezone.now()} # Imposta earned_at solo se creato
+                            )
+                            if created:
+                                logger.info(f"Badge '{first_quiz_badge.name}' assegnato a {self.student.full_name}.")
+                            else:
+                                logger.info(f"Studente {self.student.full_name} aveva già il badge '{first_quiz_badge.name}'.")
+                        except Badge.DoesNotExist:
+                            logger.warning("Badge con slug 'first-quiz-completed' non trovato nel database. Impossibile assegnare.")
+                        except Exception as e_badge:
+                            # Logga l'errore ma non far fallire l'assegnazione dei punti
+                            logger.error(f"Errore durante l'assegnazione del badge 'first-quiz-completed' a {self.student.id}: {e_badge}", exc_info=True)
+                    # --- Fine Logica Badge ---
+
             except Wallet.DoesNotExist:
                 logger.error(f"Wallet not found for student {self.student.id} when trying to award points for quiz {self.quiz.id}.")
-            except Exception as e:
-                logger.exception(f"Error awarding points for quiz attempt {self.id}: {e}")
+            except Exception as e_points: # Rinomina variabile eccezione per evitare shadowing
+                logger.exception(f"Error awarding points or badge for quiz attempt {self.id}: {e_points}") # Aggiornato log errore
 
         # --- Trigger Pathway Progress Update ---
         # This should happen if the quiz was passed, regardless of points awarded

@@ -4,7 +4,8 @@ from .models import (
     RewardStudentSpecificAvailability, RewardPurchase
 )
 from apps.users.models import Student, UserRole # Import Student for validation/representation
-from apps.users.serializers import StudentSerializer # Potentially useful for nested data
+from apps.users.serializers import StudentSerializer
+from .models import Badge, EarnedBadge # Importa i nuovi modelli
 
 # Nota: Non creiamo un serializer per RewardStudentSpecificAvailability direttamente,
 # la sua gestione avverrà tramite il RewardSerializer.
@@ -123,9 +124,11 @@ class RewardPurchaseSerializer(serializers.ModelSerializer):
     class Meta:
         model = RewardPurchase
         fields = [
-            'id', 'student', 'student_info', 'reward', 'reward_info', 'points_spent',
-            'purchased_at', 'status', 'status_display', 'delivered_by', 'delivered_by_username',
-            'delivered_at', 'delivery_notes'
+            'id', 'student', 'student_info', 'reward',
+            'reward_info', # Assicura che i dettagli della ricompensa siano inclusi
+            'points_spent', 'purchased_at', 'status', 'status_display',
+            'delivered_by', 'delivered_by_username', 'delivered_at',
+            'delivery_notes' # Assicura che le note di consegna siano incluse
         ]
         read_only_fields = [
             'student', 'student_info', 'reward_info', 'points_spent', 'purchased_at',
@@ -151,3 +154,32 @@ class StudentWalletDashboardSerializer(serializers.Serializer):
 
     # Nota: Questo non è un ModelSerializer perché aggrega dati da Wallet e PointTransaction.
     # La view dovrà costruire l'oggetto dati da passare a questo serializer.
+
+
+# --- Serializers per Gamification (Badge) ---
+
+class BadgeSerializer(serializers.ModelSerializer):
+    """ Serializer per visualizzare le definizioni dei Badge. """
+    trigger_type_display = serializers.CharField(source='get_trigger_type_display', read_only=True)
+
+    class Meta:
+        model = Badge
+        fields = [
+            'id', 'name', 'description', 'image_url',
+            'trigger_type', 'trigger_type_display', 'trigger_condition',
+            'is_active', 'created_at'
+        ]
+        read_only_fields = fields # Le definizioni sono gestite dall'admin o predefinite
+
+
+class EarnedBadgeSerializer(serializers.ModelSerializer):
+    """ Serializer per visualizzare i Badge guadagnati da uno studente. """
+    # Includi i dettagli del badge guadagnato
+    badge = BadgeSerializer(read_only=True)
+    # Opzionale: includere info studente se la view non è già filtrata per studente
+    # student_info = StudentSerializer(source='student', read_only=True)
+
+    class Meta:
+        model = EarnedBadge
+        fields = ['id', 'student', 'badge', 'earned_at']
+        read_only_fields = fields # Questi record sono creati dalla logica interna

@@ -4,7 +4,7 @@
     <p>Qui puoi visualizzare, creare e modificare i tuoi percorsi educativi.</p>
     <div class="actions">
       <!-- Applicato stile Tailwind -->
-      <button @click="createNewPathway" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">Crea Nuovo Percorso</button>
+      <button @click="createNewPathway" class="btn btn-primary">Crea Nuovo Percorso</button>
     </div>
 
     <div v-if="isLoading" class="loading">Caricamento percorsi...</div>
@@ -28,9 +28,9 @@
             <td>{{ new Date(pathway.created_at).toLocaleDateString() }}</td>
             <td>
               <!-- Applicato stile Tailwind -->
-              <button @click="editPathway(pathway.id)" class="bg-yellow-500 hover:bg-yellow-700 text-white font-bold py-1 px-2 rounded text-sm mr-2">Modifica</button>
+              <button @click="editPathway(pathway.id)" class="btn btn-warning text-sm mr-2">Modifica</button>
               <!-- Applicato stile Tailwind -->
-              <button @click="deletePathway(pathway.id)" class="delete bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded text-sm">Elimina</button>
+              <button @click="deletePathway(pathway.id)" class="btn btn-danger text-sm">Elimina</button>
             </td>
           </tr>
         </tbody>

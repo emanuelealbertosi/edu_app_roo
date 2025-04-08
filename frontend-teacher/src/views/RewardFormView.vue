@@ -44,10 +44,10 @@
       <!-- TODO: Aggiungere gestione metadata -->
 
       <div class="form-actions">
-        <button type="submit" :disabled="isSaving">
+        <button type="submit" :disabled="isSaving" class="btn btn-success">
           {{ isSaving ? 'Salvataggio...' : (isEditing ? 'Salva Modifiche' : 'Crea Ricompensa') }}
         </button>
-        <button type="button" @click="cancel">Annulla</button>
+        <button type="button" @click="cancel" class="btn btn-secondary">Annulla</button>
       </div>
     </form>
   </div>

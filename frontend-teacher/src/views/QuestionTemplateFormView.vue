@@ -1,12 +1,26 @@
 <template>
   <div class="question-template-form-view">
-    <h1>{{ isEditing ? 'Modifica Domanda Template' : 'Crea Nuova Domanda Template' }}</h1>
-    <p v-if="quizTemplateId">Per Template Quiz ID: {{ quizTemplateId }}</p>
+    <div class="flex justify-between items-center mb-2">
+      <h1 class="text-2xl font-semibold">{{ isEditing ? 'Modifica Domanda Template' : 'Crea Nuova Domanda Template' }}</h1>
+      <!-- Indicatore Autosave -->
+      <span v-if="isEditing" class="text-sm italic" :class="{
+        'text-gray-500': autoSaveStatus === 'idle',
+        'text-blue-600': autoSaveStatus === 'saving',
+        'text-green-600': autoSaveStatus === 'saved',
+        'text-red-600': autoSaveStatus === 'error'
+      }">
+        <template v-if="autoSaveStatus === 'saving'">Salvataggio...</template>
+        <template v-else-if="autoSaveStatus === 'saved'">Salvato ✓</template>
+        <template v-else-if="autoSaveStatus === 'error'">Errore salvataggio!</template>
+        <!-- Nessun testo per 'idle' -->
+      </span>
+    </div>
+    <p v-if="quizTemplateId" class="text-sm text-gray-600 mb-4">Per Template Quiz ID: {{ quizTemplateId }}</p>
 
     <div v-if="isLoading" class="loading">Caricamento dati domanda...</div>
     <div v-else-if="error" class="error-message">{{ error }}</div>
 
-    <form v-else @submit.prevent="saveQuestionTemplate">
+    <form v-else @submit.prevent="saveQuestionTemplate" class="space-y-4">
       <div class="form-group">
         <label for="text">Testo Domanda:</label>
         <textarea id="text" v-model="questionData.text" required rows="4"></textarea>
@@ -38,11 +52,45 @@
       </div>
 
 
-      <div class="form-actions">
-        <button type="submit" :disabled="isSaving" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded mr-2 disabled:opacity-50 disabled:cursor-not-allowed">
-          {{ isSaving ? 'Salvataggio...' : (isEditing ? 'Salva Modifiche Domanda' : 'Crea Domanda') }}
+      <!-- Navigazione Sequenziale (solo in modifica) -->
+      <div v-if="isEditing && allQuestionIds.length > 1" class="navigation-actions mt-6 flex justify-between items-center border-t pt-4">
+        <button
+          type="button"
+          @click="goToPreviousQuestion"
+          :disabled="!hasPreviousQuestion"
+          class="btn btn-primary"
+        >
+          &lt; Precedente
         </button>
-        <button type="button" @click="cancel" class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">Annulla</button>
+        <span class="text-sm text-gray-600">
+          Domanda {{ currentQuestionIndex + 1 }} di {{ allQuestionIds.length }}
+        </span>
+        <button
+          type="button"
+          @click="goToNextQuestion"
+          :disabled="!hasNextQuestion"
+          class="btn btn-primary"
+        >
+          Successiva &gt;
+        </button>
+      </div>
+
+      <!-- Azioni Principali Form -->
+      <div class="form-actions mt-6 flex justify-end space-x-3 border-t pt-4">
+        <button
+          type="button"
+          @click="cancel"
+          class="btn btn-secondary"
+        >
+          {{ isEditing ? 'Torna al Template' : 'Annulla Creazione' }}
+        </button>
+        <button
+          type="submit"
+          :disabled="isSaving"
+          class="btn btn-success"
+        >
+          {{ isSaving ? 'Salvataggio...' : (isEditing ? 'Salva Modifiche' : 'Crea Domanda') }}
+        </button>
       </div>
     </form>
   </div>
@@ -51,11 +99,14 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, reactive, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import debounce from 'lodash-es/debounce'; // Importa debounce
 import {
     fetchTeacherQuestionTemplateDetails, createTeacherQuestionTemplate, updateTeacherQuestionTemplate,
+    // Potrebbe servire un endpoint per fetchare solo gli ID delle domande del template
+    // fetchQuestionTemplateIdsForQuizTemplate,
     type QuestionTemplate, type QuestionTemplatePayload
 } from '@/api/templateQuestions';
-import TemplateAnswerOptionsEditor from '@/components/TemplateAnswerOptionsEditor.vue'; // Importa il componente
+import TemplateAnswerOptionsEditor from '@/components/TemplateAnswerOptionsEditor.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -66,9 +117,18 @@ const isEditing = computed(() => !!questionId.value);
 const isLoading = ref(false);
 const isSaving = ref(false);
 const error = ref<string | null>(null);
+const autoSaveStatus = ref<'idle' | 'saving' | 'saved' | 'error'>('idle');
+
+// Stato per la navigazione sequenziale
+const allQuestionIds = ref<number[]>([]); // Da popolare (es. con chiamata API)
+const currentQuestionIndex = computed(() => {
+  if (!questionId.value || allQuestionIds.value.length === 0) return -1;
+  return allQuestionIds.value.indexOf(questionId.value);
+});
+const hasPreviousQuestion = computed(() => currentQuestionIndex.value > 0);
+const hasNextQuestion = computed(() => currentQuestionIndex.value !== -1 && currentQuestionIndex.value < allQuestionIds.value.length - 1);
+
 // Rimosse variabili per metadata JSON manuale
-// const metadataString = ref('');
-// const metadataError = ref<string | null>(null);
 
 // Tipi di domanda che usano opzioni
 const OPTION_BASED_TYPES = ['MC_SINGLE', 'MC_MULTI', 'TF'];
@@ -79,6 +139,95 @@ const questionData = reactive<Partial<QuestionTemplatePayload>>({ // Usiamo Part
   question_type: 'MC_SINGLE', // Default
   metadata: {}, // Mantenuto per struttura dati, ma non più editabile manualmente qui
 });
+
+// --- Autosalvataggio ---
+const performAutoSave = async () => {
+  if (!isEditing.value || !quizTemplateId.value || !questionId.value) return; // Salva solo in modifica
+  
+  autoSaveStatus.value = 'saving';
+  console.log("Autosaving question template..."); // Debug
+
+  // Prepara payload (simile a saveQuestionTemplate ma senza navigazione)
+  const finalMetadata = questionData.metadata || {};
+  const payload: QuestionTemplatePayload = {
+    text: questionData.text as string,
+    question_type: questionData.question_type as string,
+    metadata: finalMetadata,
+  };
+
+  try {
+    // Usiamo sempre update perché siamo in modalità modifica
+    await updateTeacherQuestionTemplate(quizTemplateId.value, questionId.value, payload);
+    autoSaveStatus.value = 'saved';
+    // Resetta lo stato dopo un po'
+    setTimeout(() => { autoSaveStatus.value = 'idle'; }, 2000);
+  } catch (err: any) {
+    console.error("Errore autosalvataggio:", err);
+    autoSaveStatus.value = 'error';
+    // Non mostriamo l'errore dettagliato qui per non essere invasivi,
+    // l'utente vedrà l'errore completo al salvataggio manuale se persiste.
+    // Resetta lo stato dopo un po'
+    setTimeout(() => { autoSaveStatus.value = 'idle'; }, 3000);
+  }
+};
+
+// Crea la versione debounced della funzione di salvataggio
+const debouncedSave = debounce(performAutoSave, 1500); // Salva dopo 1.5s di inattività
+
+// Watcher per triggerare l'autosalvataggio
+// Usiamo deep: true per osservare cambiamenti negli oggetti (es. metadata)
+// Aggiungiamo un flag per evitare il trigger al caricamento iniziale
+const isInitialLoadDone = ref(false);
+watch(questionData, (newValue, oldValue) => {
+  if (isInitialLoadDone.value && isEditing.value) {
+    autoSaveStatus.value = 'idle'; // Resetta stato se utente modifica di nuovo
+    debouncedSave();
+  }
+}, { deep: true });
+
+// --- Navigazione Sequenziale ---
+const goToQuestion = (index: number) => {
+  if (index >= 0 && index < allQuestionIds.value.length) {
+    const nextQuestionId = allQuestionIds.value[index];
+    // Naviga alla stessa rotta ma con ID domanda diverso
+    router.push({
+      name: 'edit-question-template', // Assicurati che il nome rotta sia corretto
+      params: {
+        templateId: quizTemplateId.value?.toString(),
+        questionId: nextQuestionId.toString()
+      }
+    });
+  }
+};
+
+const goToPreviousQuestion = () => {
+  if (hasPreviousQuestion.value) {
+    goToQuestion(currentQuestionIndex.value - 1);
+  }
+};
+
+const goToNextQuestion = () => {
+  if (hasNextQuestion.value) {
+    goToQuestion(currentQuestionIndex.value + 1);
+  }
+};
+
+const fetchAllQuestionIds = async (qtId: number) => {
+    // --- Placeholder: Implementare chiamata API per ottenere gli ID ---
+    console.warn("fetchAllQuestionIds non implementato - usare dati fittizi per ora");
+    // Esempio dati fittizi (da sostituire con chiamata API reale)
+    // const ids = await fetchQuestionTemplateIdsForQuizTemplate(qtId);
+    // allQuestionIds.value = ids;
+    // Esempio:
+    // Simula una chiamata API che restituisce ID basati sull'ID del template
+    if (qtId === 1) { // ID template fittizio
+        allQuestionIds.value = [10, 15, 20, 25]; // ID domande fittizi
+    } else {
+        allQuestionIds.value = [30, 31, 32]; // Altri ID fittizi
+    }
+    console.log("ID domande caricati (fittizi):", allQuestionIds.value);
+    // --- Fine Placeholder ---
+};
 
 // Rimosso watcher per metadataString
 
@@ -103,18 +252,23 @@ onMounted(async () => {
     questionId.value = Number(qIdParam);
     if (!isNaN(questionId.value)) {
       await loadQuestionTemplateData(quizTemplateId.value, questionId.value);
+      // Dopo aver caricato i dati, recupera gli ID per la navigazione
+      await fetchAllQuestionIds(quizTemplateId.value);
     } else {
       console.error("ID Domanda Template non valido:", qIdParam);
       error.value = "ID Domanda Template fornito non valido.";
       questionId.value = null;
     }
   } else {
-      // Modalità creazione, resetta dati (anche se già default)
+      // Modalità creazione
       questionData.text = '';
       questionData.question_type = 'MC_SINGLE';
-      questionData.metadata = {}; // Resetta metadata
-      // Rimosso reset metadataString
+      questionData.metadata = {};
+      // In modalità creazione, non ha senso caricare gli ID per la navigazione
+      allQuestionIds.value = [];
   }
+  // Segnala che il caricamento iniziale è completo per abilitare l'autosave
+  isInitialLoadDone.value = true;
 });
 
 const loadQuestionTemplateData = async (qtId: number, qId: number) => {
@@ -160,8 +314,16 @@ const saveQuestionTemplate = async () => {
     } else {
       await createTeacherQuestionTemplate(quizTemplateId.value, payload);
     }
-    // Torna alla vista del template quiz dopo salvataggio/creazione
-    router.push({ name: 'quiz-template-edit', params: { id: quizTemplateId.value.toString() } });
+    // Non navigare via dopo il salvataggio manuale se siamo in modifica,
+    // l'utente potrebbe voler usare i bottoni di navigazione.
+    // Naviga solo se stiamo creando una nuova domanda.
+    if (!isEditing.value) {
+        router.push({ name: 'quiz-template-edit', params: { id: quizTemplateId.value.toString() } });
+    } else {
+        // Mostra feedback salvataggio manuale riuscito
+        autoSaveStatus.value = 'saved';
+        setTimeout(() => { autoSaveStatus.value = 'idle'; }, 2000);
+    }
   } catch (err: any) {
     console.error("Errore salvataggio domanda template:", err);
     if (err.response?.data && typeof err.response.data === 'object') {

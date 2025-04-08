@@ -30,11 +30,11 @@
 
       <div class="form-actions">
          <!-- Applicato stile Tailwind -->
-        <button type="submit" :disabled="isSaving" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded mr-2 disabled:opacity-50 disabled:cursor-not-allowed">
+        <button type="submit" :disabled="isSaving" class="btn btn-success mr-2">
           {{ isSaving ? 'Salvataggio...' : (isEditing ? 'Salva Template' : 'Crea Template') }} <!-- Aggiornato testo -->
         </button>
          <!-- Applicato stile Tailwind -->
-        <button type="button" @click="cancel" class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">Annulla</button>
+        <button type="button" @click="cancel" class="btn btn-secondary">Annulla</button>
       </div>
     </form>
 
@@ -61,7 +61,7 @@
         </div>
         <!-- Pulsante Aggiungi Domanda -->
          <!-- Applicato stile Tailwind -->
-        <button type="button" @click="addQuestion" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded mt-4">Aggiungi Domanda Template</button> <!-- Aggiornato testo -->
+        <button type="button" @click="addQuestion" class="btn btn-primary mt-4">Aggiungi Domanda Template</button> <!-- Aggiornato testo -->
     </div>
 
   </div>
