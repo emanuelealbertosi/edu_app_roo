@@ -32,7 +32,18 @@
             <option value="ALL">Tutti gli studenti</option> <!-- Corretto valore -->
             <option value="SPECIFIC">Studenti Specifici</option> <!-- Corretto valore -->
         </select>
-        <!-- TODO: Aggiungere UI per selezionare studenti specifici se availability_type === 'SPECIFIC_STUDENTS' -->
+      </div>
+      <!-- Sezione Studenti Specifici -->
+      <div v-if="rewardData.availability_type === 'SPECIFIC'" class="form-group">
+        <label for="specific_students">Studenti Specifici:</label>
+        <div v-if="isLoadingStudents" class="loading">Caricamento studenti...</div>
+        <div v-else-if="studentsError" class="error-message">{{ studentsError }}</div>
+        <select v-else multiple id="specific_students" v-model="selectedStudentIds" class="student-select">
+          <option v-for="student in allStudents" :key="student.id" :value="student.id">
+            {{ student.first_name }} {{ student.last_name }} ({{ student.student_code }})
+          </option>
+        </select>
+        <small>Tieni premuto Ctrl (o Cmd su Mac) per selezionare più studenti.</small>
       </div>
        <div class="form-group">
         <label for="is_active">
@@ -57,6 +68,7 @@
 import { ref, onMounted, computed, reactive } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { createReward, fetchRewardDetails, updateReward, type RewardPayload } from '@/api/rewards';
+import { fetchStudents, type Student } from '@/api/students'; // Importa API studenti
 
 // Interfaccia per i dati del form
 interface RewardFormData {
@@ -67,7 +79,7 @@ interface RewardFormData {
   availability_type: string;
   is_active: boolean;
   metadata: Record<string, any> | null;
-  // specific_student_ids: number[]; // Da aggiungere
+  available_to_specific_students?: number[]; // Campo atteso dall'API in lettura
 }
 
 const route = useRoute();
@@ -78,6 +90,10 @@ const isEditing = computed(() => !!rewardId.value);
 const isLoading = ref(false);
 const isSaving = ref(false);
 const error = ref<string | null>(null);
+const studentsError = ref<string | null>(null); // Errore caricamento studenti
+const isLoadingStudents = ref(false); // Loading studenti
+const allStudents = ref<Student[]>([]); // Lista di tutti gli studenti del docente
+const selectedStudentIds = ref<number[]>([]); // ID studenti selezionati nel form
 
 // Usiamo reactive per l'oggetto del form
 const rewardData = reactive<RewardFormData>({
@@ -88,7 +104,7 @@ const rewardData = reactive<RewardFormData>({
   availability_type: 'ALL_STUDENTS', // Default
   is_active: true,
   metadata: {},
-  // specific_student_ids: [],
+  // available_to_specific_students non serve qui, è solo in lettura
 });
 
 // TODO: Caricare tipi da backend o definire costanti
@@ -107,6 +123,8 @@ onMounted(async () => {
       rewardId.value = null;
     }
   }
+  // Carica anche la lista studenti
+  await loadAllStudents();
 });
 
 const loadRewardData = async (id: number) => {
@@ -121,13 +139,33 @@ const loadRewardData = async (id: number) => {
     rewardData.availability_type = fetchedReward.availability_type;
     rewardData.is_active = fetchedReward.is_active;
     rewardData.metadata = fetchedReward.metadata || {};
-    // TODO: Caricare specific_student_ids se availability_type è SPECIFIC
+    // Popola gli studenti selezionati se la modalità è SPECIFIC
+    if (fetchedReward.availability_type === 'SPECIFIC') {
+      // Assumiamo che l'API restituisca gli ID in available_to_specific_students
+      selectedStudentIds.value = fetchedReward.available_to_specific_students || [];
+    } else {
+      selectedStudentIds.value = []; // Resetta se non è SPECIFIC
+    }
   } catch (err: any) {
     console.error("Errore nel caricamento della ricompensa:", err);
     error.value = err.response?.data?.detail || err.message || 'Errore nel caricamento dei dati della ricompensa.';
   } finally {
     isLoading.value = false;
   }
+};
+
+// Funzione per caricare la lista di tutti gli studenti
+const loadAllStudents = async () => {
+    isLoadingStudents.value = true;
+    studentsError.value = null;
+    try {
+        allStudents.value = await fetchStudents();
+    } catch (err: any) {
+        console.error("Errore nel caricamento degli studenti:", err);
+        studentsError.value = err.response?.data?.detail || err.message || 'Errore nel caricamento della lista studenti.';
+    } finally {
+        isLoadingStudents.value = false;
+    }
 };
 
 const saveReward = async () => {
@@ -144,7 +182,8 @@ const saveReward = async () => {
     is_active: rewardData.is_active,
     // Ometti metadata se vuoto, altrimenti invialo
     ...(rewardData.metadata && Object.keys(rewardData.metadata).length > 0 && { metadata: rewardData.metadata }),
-    // TODO: Includere specific_student_ids se availability_type è SPECIFIC
+    // Includi specific_student_ids solo se availability_type è SPECIFIC
+    ...(rewardData.availability_type === 'SPECIFIC' && { specific_student_ids: selectedStudentIds.value }),
     // template: null, // Rimuoviamo template, è opzionale
   };
 
@@ -161,10 +200,16 @@ const saveReward = async () => {
     router.push({ name: 'rewards' }); // Torna alla lista
   } catch (err: any) {
     console.error("Errore durante il salvataggio della ricompensa:", err);
-    error.value = err.response?.data?.detail || err.message || 'Errore durante il salvataggio della ricompensa.';
-     if (err.response?.data && typeof err.response.data === 'object') {
-         console.log("Dettagli errore API:", err.response.data);
-     }
+    // Tenta di estrarre messaggi di errore specifici per campo
+    if (err.response?.data && typeof err.response.data === 'object') {
+        console.error("Dettagli errore API:", err.response.data);
+        // Cerca errori specifici (es. per specific_student_ids)
+        const fieldErrors = Object.values(err.response.data).flat().join(' '); // Concatena tutti i messaggi di errore
+        error.value = fieldErrors || err.response.data.detail || 'Errore di validazione. Controlla i campi.';
+    } else {
+        // Errore generico
+        error.value = err.message || 'Errore sconosciuto durante il salvataggio della ricompensa.';
+    }
   } finally {
     isSaving.value = false;
   }
@@ -208,6 +253,16 @@ const cancel = () => {
 .form-group textarea {
   min-height: 100px;
   resize: vertical;
+}
+.student-select {
+    min-height: 150px; /* Rende il box più alto */
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    padding: 5px;
+    width: 100%;
+}
+.student-select option {
+    padding: 3px;
 }
 .form-actions {
   margin-top: 20px;

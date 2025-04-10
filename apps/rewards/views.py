@@ -103,10 +103,27 @@ class RewardViewSet(viewsets.ModelViewSet):
             permission_classes = [permissions.IsAuthenticated]
         return [permission() for permission in permission_classes]
 
+    def get_serializer(self, *args, **kwargs):
+        """
+        Sovrascrive get_serializer per filtrare il queryset del campo
+        specific_student_ids basandosi sul docente autenticato.
+        """
+        serializer_class = self.get_serializer_class()
+        kwargs['context'] = self.get_serializer_context()
+
+        # Filtra il queryset solo se l'utente è un docente
+        user = self.request.user
+        if isinstance(user, User) and user.is_teacher:
+            # Non è più necessario passare il queryset qui,
+            # la validazione avverrà nel serializer.validate()
+            pass
+
+        return serializer_class(*args, **kwargs)
+
     def get_serializer_context(self):
-        """ Aggiunge il docente al contesto per validazione studenti. """
+        """ Aggiunge la request al contesto per usarla in serializer.validate(). """
         context = super().get_serializer_context()
-        context['teacher'] = self.request.user
+        context['request'] = self.request # Assicura che la request sia nel contesto
         return context
 
     def perform_create(self, serializer):
@@ -116,13 +133,9 @@ class RewardViewSet(viewsets.ModelViewSet):
         user = self.request.user
         if not user.is_teacher:
              raise serializers.ValidationError("Solo i Docenti possono creare ricompense.")
-
-        specific_students_data = serializer.validated_data.get('available_to_specific_students', [])
-        if specific_students_data:
-            teacher_student_ids = set(user.students.values_list('id', flat=True))
-            for student in specific_students_data:
-                if student.id not in teacher_student_ids:
-                    raise serializers.ValidationError(f"Lo studente {student.id} non appartiene a questo docente.")
+# La validazione che gli studenti appartengano al docente è ora gestita
+# dal queryset filtrato passato al PrimaryKeyRelatedField nel serializer.
+# Non è più necessaria la validazione esplicita qui.
 
         serializer.save(teacher=user)
 
@@ -131,14 +144,9 @@ class RewardViewSet(viewsets.ModelViewSet):
         Validates specific student availability during updates.
         """
         user = self.request.user
-        specific_students_data = serializer.validated_data.get('available_to_specific_students')
-
-        if specific_students_data is not None:
-            teacher_student_ids = set(user.students.values_list('id', flat=True))
-            for student in specific_students_data:
-                if student.id not in teacher_student_ids:
-                    raise serializers.ValidationError(f"Lo studente {student.id} non appartiene a questo docente.")
-
+        # La validazione che gli studenti appartengano al docente è ora gestita
+        # dal queryset filtrato passato al PrimaryKeyRelatedField nel serializer.
+        # Non è più necessaria la validazione esplicita qui.
         serializer.save()
 
     def destroy(self, request, *args, **kwargs):

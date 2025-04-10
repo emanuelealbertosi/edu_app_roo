@@ -19,6 +19,7 @@ export interface Reward {
     metadata: Record<string, any> | null;
     is_active: boolean;
     created_at: string;
+    available_to_specific_students?: number[]; // Array di ID studente se availability_type è 'SPECIFIC'
     // available_students_info?: Student[]; // Se si sceglie di mostrarli
 }
 

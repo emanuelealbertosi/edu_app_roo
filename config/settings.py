@@ -309,5 +309,55 @@ CORS_ALLOW_HEADERS = [
     "origin",
     "user-agent",
     "x-csrftoken",
+    "x-csrftoken",
     "x-requested-with",
 ]
+
+# Logging Configuration
+# https://docs.djangoproject.com/en/5.1/topics/logging/
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False, # Non disabilitare i logger predefiniti di Django
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
+            'style': '{',
+        },
+        'simple': {
+            'format': '{levelname} {asctime} {module} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'level': 'DEBUG' if DEBUG else 'INFO', # Mostra DEBUG solo se DEBUG=True
+            'class': 'logging.StreamHandler',
+            'formatter': 'simple', # Usa il formato semplice per la console
+        },
+    },
+    'loggers': {
+        # Logger radice: cattura tutto se non specificato diversamente
+        '': {
+            'handlers': ['console'],
+            'level': 'DEBUG' if DEBUG else 'INFO', # Livello base per tutti i logger
+            'propagate': True,
+        },
+        # Puoi aggiungere logger specifici per app se necessario
+        'apps.rewards': {
+            'handlers': ['console'],
+            'level': 'DEBUG', # Assicura che i messaggi DEBUG da questa app siano processati
+            'propagate': False # Non inviare anche al logger radice se gestito qui (rimossa virgola)
+        },
+        # Esempio: Ridurre verbosità di Django in DEBUG
+        # 'django': {
+        #     'handlers': ['console'],
+        #     'level': 'INFO',
+        #     'propagate': False,
+        # },
+        # 'django.db.backends': {
+        #     'handlers': ['console'],
+        #     'level': 'INFO', # Cambia a DEBUG per vedere query SQL
+        #     'propagate': False,
+        # },
+    },
+}

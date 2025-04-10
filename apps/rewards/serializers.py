@@ -3,7 +3,7 @@ from .models import (
     Wallet, PointTransaction, RewardTemplate, Reward,
     RewardStudentSpecificAvailability, RewardPurchase
 )
-from apps.users.models import Student, UserRole # Import Student for validation/representation
+from apps.users.models import User, Student, UserRole # Import User, Student for validation/representation
 from apps.users.serializers import StudentSerializer
 from .models import Badge, EarnedBadge # Importa i nuovi modelli
 
@@ -55,26 +55,32 @@ class RewardSerializer(serializers.ModelSerializer):
     type_display = serializers.CharField(source='get_type_display', read_only=True)
     availability_type_display = serializers.CharField(source='get_availability_type_display', read_only=True)
     # Campo per ricevere gli ID degli studenti specifici durante la creazione/aggiornamento
+    # Il queryset verrà sovrascritto dalla ViewSet per filtrare per docente
     specific_student_ids = serializers.PrimaryKeyRelatedField(
-        queryset=Student.objects.all(), # Queryset base, verrà filtrato nella view
+        queryset=Student.objects.all(), # Queryset base, la validazione specifica avverrà in validate()
         many=True,
         write_only=True, # Usato solo per input, non mostrato nell'output standard
         required=False, # Non richiesto se availability_type è ALL
         source='available_to_specific_students' # Collega a M2M
     )
-    # Opzionale: Mostrare gli studenti specifici a cui è disponibile (sola lettura)
+    # Campo per OUTPUT (read-only) con gli ID degli studenti specifici
+    available_to_specific_students = serializers.PrimaryKeyRelatedField(
+        many=True,
+        read_only=True # Legge dalla relazione M2M 'available_to_specific_students'
+    )
+    # Opzionale: Mostrare le info complete degli studenti specifici (sola lettura)
     available_students_info = StudentSerializer(source='available_to_specific_students', many=True, read_only=True)
-
     class Meta:
         model = Reward
         fields = [
             'id', 'teacher', 'teacher_username', 'template', 'name', 'description',
             'type', 'type_display', 'cost_points', 'availability_type', 'availability_type_display',
             'specific_student_ids', # Input per studenti specifici
-            'available_students_info', # Output (opzionale)
+            'available_to_specific_students', # Output ID studenti specifici
+            'available_students_info', # Output info complete studenti (opzionale)
             'metadata', 'is_active', 'created_at'
         ]
-        read_only_fields = ['teacher', 'teacher_username', 'type_display', 'availability_type_display', 'available_students_info', 'created_at']
+        read_only_fields = ['teacher', 'teacher_username', 'type_display', 'availability_type_display', 'available_to_specific_students', 'available_students_info', 'created_at']
 
     def validate(self, data):
         availability_type = data.get('availability_type', self.instance.availability_type if self.instance else None)
@@ -90,10 +96,29 @@ class RewardSerializer(serializers.ModelSerializer):
             })
 
         # Validazione aggiuntiva: assicurarsi che gli studenti specificati appartengano al docente
-        # Questa logica è meglio gestirla nella ViewSet (get_serializer_context o perform_create/update)
-        # per avere accesso all'utente autenticato (request.user).
+        request = self.context.get('request')
+        if not request or not hasattr(request, 'user'):
+            # Questo non dovrebbe accadere se la view passa il contesto correttamente
+            raise serializers.ValidationError("Contesto della richiesta mancante per la validazione.")
+
+        user = request.user
+        if isinstance(user, User) and user.is_teacher:
+            if specific_students: # Se sono stati forniti studenti specifici
+                teacher_student_ids = set(user.students.values_list('id', flat=True))
+                for student in specific_students:
+                    if student.pk not in teacher_student_ids:
+                        raise serializers.ValidationError({
+                            'specific_student_ids': f"Lo studente con ID {student.pk} non appartiene a questo docente."
+                        })
+        else:
+            # Se l'utente non è un docente, non dovrebbe poter specificare studenti
+            if specific_students:
+                 raise serializers.ValidationError({
+                    'specific_student_ids': "Solo i docenti possono specificare studenti."
+                })
 
         return data
+
 
     def create(self, validated_data):
         # La logica per impostare il 'teacher' e validare gli studenti specifici

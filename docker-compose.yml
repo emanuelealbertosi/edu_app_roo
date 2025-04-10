@@ -7,11 +7,6 @@ services:
       - postgres_data:/var/lib/postgresql/data/
     env_file:
       - .env.docker # Carica variabili d'ambiente dal file .env.docker
-    environment:
-      # Assicurati che queste variabili siano definite nel tuo .env
-      - POSTGRES_DB=${POSTGRES_DB}
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
     # ports:
       # - "5432:5432" # Esporre la porta solo se necessario accedere al DB dall'esterno dei container
       # - "5432:5432"

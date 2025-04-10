@@ -11,7 +11,8 @@ from .models import (
 class WalletAdmin(admin.ModelAdmin):
     list_display = ('student', 'current_points')
     search_fields = ('student__first_name', 'student__last_name')
-    readonly_fields = ('student', 'current_points') # Gestito internamente
+    # readonly_fields = ('student',) # 'current_points' reso modificabile
+    # Nota: Modificare 'current_points' manualmente non crea una PointTransaction.
 
 @admin.register(PointTransaction)
 class PointTransactionAdmin(admin.ModelAdmin):
@@ -59,7 +60,8 @@ class RewardPurchaseAdmin(admin.ModelAdmin):
     list_filter = ('status', 'purchased_at', 'delivered_at', 'reward__type')
     search_fields = ('student__first_name', 'student__last_name', 'reward__name', 'delivered_by__username')
     autocomplete_fields = ['student', 'reward', 'delivered_by']
-    readonly_fields = ('points_spent', 'purchased_at') # Campi gestiti automaticamente/dal docente
+    # readonly_fields = () # Resi modificabili per correzioni manuali
+    # Nota: Modificare 'points_spent' o 'purchased_at' può creare incongruenze.
     list_select_related = ('student', 'reward', 'delivered_by') # Ottimizzazione query
 
     # Azione per marcare come consegnato?
@@ -96,4 +98,5 @@ class EarnedBadgeAdmin(admin.ModelAdmin):
     list_filter = ('earned_at', 'badge')
     search_fields = ('student__first_name', 'student__last_name', 'badge__name')
     autocomplete_fields = ['student', 'badge']
-    readonly_fields = ('student', 'badge', 'earned_at') # Record creato automaticamente
+    # readonly_fields = () # Resi modificabili per correzioni manuali
+    # Nota: Modificare questi campi può creare incongruenze storiche.

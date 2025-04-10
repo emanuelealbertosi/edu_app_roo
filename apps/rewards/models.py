@@ -334,11 +334,19 @@ class Badge(models.Model):
         default=dict,
         blank=True,
         help_text=_(
-            'Condizioni specifiche in formato JSON. Esempi:\n'
-            '- Per QUIZ_COMPLETED: {"quiz_id": 123, "min_score_percent": 80} (quiz_id opzionale, si applica a qualsiasi quiz se omesso)\n'
-            '- Per PATHWAY_COMPLETED: {"pathway_id": 45} (pathway_id opzionale)\n'
-            '- Per CORRECT_STREAK: {"streak_length": 10}\n'
-            '- Per POINTS_THRESHOLD: {"points": 500}'
+            'Condizioni specifiche in formato JSON, dipendenti dal Trigger Type:\n'
+            '<ul>'
+            '<li><b>QUIZ_COMPLETED:</b> <code>{"quiz_id": 123, "min_score_percent": 80}</code><br>'
+            '   <i>(<code>quiz_id</code> è opzionale: se omesso, si applica al completamento di qualsiasi quiz. '
+            '   <code>min_score_percent</code> è opzionale: se omesso, non viene controllato il punteggio. '
+            '   Per il badge "Primo quiz completato", usare <code>{}</code>).</i></li>'
+            '<li><b>PATHWAY_COMPLETED:</b> <code>{"pathway_id": 45}</code><br>'
+            '   <i>(<code>pathway_id</code> è opzionale: se omesso, si applica al completamento di qualsiasi percorso).</i></li>'
+            '<li><b>CORRECT_STREAK:</b> <code>{"streak_length": 10}</code><br>'
+            '   <i>(Specifica la lunghezza minima della sequenza di risposte corrette consecutive).</i></li>'
+            '<li><b>POINTS_THRESHOLD:</b> <code>{"points": 500}</code><br>'
+            '   <i>(Specifica la soglia di punti totali da raggiungere).</i></li>'
+            '</ul>'
         )
     )
     is_active = models.BooleanField(
