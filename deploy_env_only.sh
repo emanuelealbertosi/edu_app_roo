@@ -121,6 +121,11 @@ if [ -z "$DJANGO_SUPERUSER_PASSWORD_VAR" ]; then
     exit 1
 fi
 
+# Versione Docker
+read -p "Versione Docker da utilizzare [latest]: " DOCKER_VERSION_VAR
+DOCKER_VERSION_VAR=${DOCKER_VERSION_VAR:-latest}
+echo "Versione Docker selezionata: ${DOCKER_VERSION_VAR}"
+
 # --- Creazione File .env.prod (Sovrascrive se esiste) ---
 echo "Creazione/Sovrascrittura del file '${ENV_FILE_PATH}'..."
 # Costruisci DATABASE_URL DENTRO lo script, prima di scrivere il file .env
@@ -147,22 +152,52 @@ CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS_VAR}
 DJANGO_SUPERUSER_USERNAME=${DJANGO_SUPERUSER_USERNAME_VAR}
 DJANGO_SUPERUSER_EMAIL=${DJANGO_SUPERUSER_EMAIL_VAR}
 DJANGO_SUPERUSER_PASSWORD=${DJANGO_SUPERUSER_PASSWORD_VAR}
+
+# --- Docker Settings ---
+DOCKER_VERSION=${DOCKER_VERSION_VAR}
 EOF
 
 echo "File '${ENV_FILE_PATH}' creato/aggiornato con successo."
 
 # --- Fermare e Rimuovere Vecchi Container/Volumi ---
 echo "Fermare e rimuovere eventuali container e volumi precedenti associati a ${COMPOSE_FILE_NAME}..."
-$COMPOSE_CMD -f "${COMPOSE_FILE_PATH}" down -v --remove-orphans
+$COMPOSE_CMD -f "${COMPOSE_FILE_PATH}" down --remove-orphans # Rimosso -v per preservare il volume del DB
+
+# --- Preparazione del file Docker Compose con la versione specificata ---
+echo "Preparazione del file Docker Compose con la versione ${DOCKER_VERSION_VAR}..."
+TEMP_COMPOSE_FILE="${PROJECT_DIR}/docker-compose.prod.temp.yml"
+
+# Crea una copia del file compose originale
+cp "${COMPOSE_FILE_PATH}" "${TEMP_COMPOSE_FILE}"
+
+# Sostituisci il tag :latest con la versione specificata dall'utente
+if [ "${DOCKER_VERSION_VAR}" != "latest" ]; then
+    # Usa sed per sostituire :latest con :${DOCKER_VERSION_VAR}
+    sed -i "s/:latest/:${DOCKER_VERSION_VAR}/g" "${TEMP_COMPOSE_FILE}"
+    echo "File Docker Compose modificato per utilizzare la versione ${DOCKER_VERSION_VAR}"
+else
+    echo "Utilizzo della versione latest come richiesto"
+fi
 
 # --- Avvio dei Container ---
-echo "Tentativo di pull delle immagini più recenti da Docker Hub..."
-# Usiamo il file statico per il pull
-$COMPOSE_CMD -f "${COMPOSE_FILE_PATH}" pull
+echo "Tentativo di pull delle immagini Docker versione ${DOCKER_VERSION_VAR}..."
+# Usiamo il file temporaneo per il pull
+$COMPOSE_CMD -f "${TEMP_COMPOSE_FILE}" pull --include-deps
 
-echo "Avvio dei container Docker usando ${COMPOSE_FILE_NAME} e ${ENV_FILE_PATH} (forzando il pull)..."
-# Usiamo il file statico, specifichiamo --env-file e aggiungiamo --pull always
-$COMPOSE_CMD -f "${COMPOSE_FILE_PATH}" --env-file "${ENV_FILE_PATH}" up -d --force-recreate --pull always
+echo "Avvio dei container Docker usando il file compose modificato e ${ENV_FILE_PATH} con versione ${DOCKER_VERSION_VAR}..."
+# Usiamo il file temporaneo, specifichiamo --env-file e aggiungiamo --pull always
+$COMPOSE_CMD -f "${TEMP_COMPOSE_FILE}" --env-file "${ENV_FILE_PATH}" up -d --force-recreate --pull always
+
+echo "Attesa di 10 secondi per permettere al backend di avviarsi completamente..."
+sleep 10
+echo "Esecuzione delle migrazioni Django..."
+# Usiamo il file temporaneo e env_file per eseguire il comando exec
+$COMPOSE_CMD -f "${TEMP_COMPOSE_FILE}" --env-file "${ENV_FILE_PATH}" exec backend python manage.py migrate --noinput
+echo "Migrazioni Django completate."
+
+# Pulizia del file temporaneo
+echo "Pulizia del file temporaneo..."
+rm "${TEMP_COMPOSE_FILE}"
 
 echo "---------------------------------------------------------------------"
 echo "Deployment avviato!"
@@ -181,6 +216,7 @@ echo "Comandi utili:"
 echo "  - Vedere i log: $COMPOSE_CMD -f ${COMPOSE_FILE_PATH} logs -f"
 echo "  - Fermare i servizi: cd ${PROJECT_DIR} && $COMPOSE_CMD -f ${COMPOSE_FILE_PATH} down"
 echo "  - Riavviare i servizi: cd ${PROJECT_DIR} && $COMPOSE_CMD -f ${COMPOSE_FILE_PATH} restart"
+echo "  - Versione Docker utilizzata: ${DOCKER_VERSION_VAR}"
 echo "---------------------------------------------------------------------"
 
 exit 0

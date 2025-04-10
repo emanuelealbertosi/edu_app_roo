@@ -30,4 +30,4 @@ fi
 echo "Starting Gunicorn..."
 # Nota: Assicurati che 'config.wsgi:application' sia il percorso corretto per il tuo file wsgi.py
 # Puoi regolare il numero di workers (-w) in base alle risorse del tuo server
-exec gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 3
+exec gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 1 --timeout 120 # Ridotto a 1 worker e aumentato timeout a 120s per server con poca RAM (1GB)

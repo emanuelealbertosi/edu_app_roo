@@ -212,7 +212,7 @@ echo "File '${COMPOSE_FILE_PATH}' generato e aggiornato con i valori reali."
 # --- Fermare e Rimuovere Vecchi Container/Volumi ---
 echo "Fermare e rimuovere eventuali container e volumi precedenti..."
 # Usiamo -f con il percorso assoluto per sicurezza
-$COMPOSE_CMD -f "${COMPOSE_FILE_PATH}" down -v --remove-orphans
+$COMPOSE_CMD -f "${COMPOSE_FILE_PATH}" down --remove-orphans # Rimosso -v per preservare il volume del DB
 
 # --- Avvio dei Container ---
 echo "Tentativo di pull delle immagini più recenti da Docker Hub..."
@@ -221,6 +221,12 @@ $COMPOSE_CMD -f "${COMPOSE_FILE_PATH}" pull
 echo "Avvio dei container Docker in background (potrebbe richiedere tempo)..."
 # Usiamo il compose file appena modificato con i valori reali
 $COMPOSE_CMD -f "${COMPOSE_FILE_PATH}" up -d --force-recreate
+
+echo "Attesa di 10 secondi per permettere al backend di avviarsi completamente..."
+sleep 10
+echo "Esecuzione delle migrazioni Django..."
+$COMPOSE_CMD -f "${COMPOSE_FILE_PATH}" exec backend python manage.py migrate --noinput
+echo "Migrazioni Django completate."
 
 echo "---------------------------------------------------------------------"
 echo "Deployment completato!"

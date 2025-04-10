@@ -113,3 +113,6 @@ cython_debug/
 
 # Node / Frontend dependencies
 node_modules/
+
+# Ignora file temporanei specifici
+root@217.154.2.9
