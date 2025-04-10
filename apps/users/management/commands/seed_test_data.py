@@ -209,12 +209,12 @@ class Command(BaseCommand):
 
         # --- Create Badges ---
         self.stdout.write('Creating badges...')
-        badge_first_quiz, created_bq = Badge.objects.get_or_create(
-            name='Primo Quiz Completato!', # Usa 'name' invece di 'slug'
-            defaults={
-                'name': 'Primo Quiz Completato!',
+        # Usa update_or_create per assicurare che l'image_url venga aggiornato
+        badge_first_quiz, created_bq = Badge.objects.update_or_create(
+            name='Primo Quiz Completato!', # Campo di lookup
+            defaults={ # Campi da creare o aggiornare
                 'description': 'Hai completato con successo il tuo primo quiz.',
-                'image_url': '/badges/first_quiz.png', # Assumendo che l'immagine esista in static/badges/
+                # Rimosso image_url, ora è ImageField da caricare manualmente
                 'trigger_type': 'AUTO', # O un altro tipo se definito
                 'trigger_condition': {'event': 'first_quiz_passed'}, # Condizione simbolica
                 'is_active': True

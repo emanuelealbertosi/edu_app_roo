@@ -1,6 +1,6 @@
 # Piano di Miglioramento Esperienza Utente (UX) - App Educativa
 
-**Versione:** 1.3 (8 Aprile 2025) - Stili Bottoni e Badge Base
+**Versione:** 1.4 (10 Aprile 2025) - Correzioni Badge e Admin
 
 ## 1. Introduzione
 
@@ -17,10 +17,14 @@ Questo documento delinea un piano per migliorare l'esperienza utente (UX) e corr
 7.  **Gamification Limitata:** Il sistema attuale si basa principalmente sui punti e sulle ricompense acquistabili. Mancano elementi di gamification più dinamici e visivi come badge (con animazioni), classifiche o personalizzazione.
 8.  **Interfaccia Svolgimento Quiz Monotona:** L'interfaccia in cui lo studente svolge il quiz manca di elementi visivi dinamici (come sfondi o animazioni iniziali) che potrebbero renderla più coinvolgente.
 9.  **[BUG] Errori Rendering Frontend Studente:** Errori `InvalidCharacterError` e `TypeError: Cannot read properties of null (reading 'parentNode')` nella console, probabilmente legati a commenti HTML mal posizionati o problemi con transizioni/HMR.
+10. **[BUG] Icona Badge Rotta:** L'icona del badge mostrata nelle notifiche non viene visualizzata correttamente.
+11. **[BUG] Errore Caricamento Wallet:** Errore nel caricamento delle informazioni del wallet nella dashboard studente.
+12. **[BUG] Errore Caricamento Badge:** Errore nel caricamento dei badge nella pagina "I Miei Traguardi".
+13. **[FEATURE] Gestione Badge Admin:** Mancanza di interfaccia admin per creare/gestire i badge e caricare le loro immagini.
 
 ## 3. Analisi Tecnica
 
-*(Le analisi tecniche rimangono invariate rispetto alla versione 1.1)*
+*(Le analisi tecniche rimangono invariate rispetto alla versione 1.1, ad eccezione dei nuovi bug)*
 
 ### 3.1. [BUG] Storico Acquisti (`frontend-student/src/views/PurchasesView.vue` e Backend)
 *   **Causa Probabile:** API non invia `reward` nidificato e `delivery_notes`. Frontend non mostra `delivery_notes`.
@@ -34,10 +38,18 @@ Questo documento delinea un piano per migliorare l'esperienza utente (UX) e corr
 ### 3.4. [BUG] Errori Rendering Frontend Studente
 *   **Causa Probabile:** Commenti HTML mal posizionati (`InvalidCharacterError`), possibili conflitti con transizioni/HMR (`parentNode` error).
 
+### 3.5. [BUG] Icona Badge Rotta
+*   **Causa Probabile:** Inizialmente, file immagine mancante in `/public`. Successivamente, logica di notifica errata in `QuizResultView.vue`. Infine, errore di serializzazione nel backend (`BadgeSerializer` usava `image_url` invece di `image`).
+
+### 3.6. [BUG] Errore Caricamento Wallet
+*   **Causa Probabile:** URL API `student/dashboard/wallet/` mancante in `config/urls.py`.
+
+### 3.7. [BUG] Errore Caricamento Badge
+*   **Causa Probabile:** Errore di serializzazione nel backend (`BadgeSerializer` usava `image_url` invece di `image`) chiamato dal `EarnedBadgeSerializer`.
+
 ## 4. Proposte di Soluzione
 
 ### 4.1. [BUG FIX] Soluzione Storico Acquisti Studente
-
 *   **Obiettivo:** Mostrare correttamente nome, descrizione ricompensa e note di consegna.
 *   **Proposta:**
     1.  **Backend:** Modificare `RewardPurchaseSerializer` per includere `reward` nidificato (con `name`, `description`) e `delivery_notes`.
@@ -45,7 +57,6 @@ Questo documento delinea un piano per migliorare l'esperienza utente (UX) e corr
 *   **Tecnologie:** Backend (DRF Serializers), Frontend (Vue.js template).
 
 ### 4.2. Soluzione Menu Docente (Responsive)
-
 *   **Obiettivo:** Rendere il menu utilizzabile su mobile.
 *   **Proposta:** Implementare menu "Hamburger" per schermi piccoli.
 *   **Tecnologie:** Vue.js, Tailwind CSS.
@@ -60,7 +71,6 @@ graph TD
 ```
 
 ### 4.3. Soluzione Feedback Risultati Quiz Studente
-
 *   **Obiettivo:** Fornire feedback chiaro, immediato e coinvolgente sull'esito.
 *   **Proposta:** Modificare `QuizResultView.vue` e API:
     1.  **API Backend:** Assicurarsi che `getAttemptDetails` restituisca `quiz.completion_threshold`, `total_questions`, `correct_answers_count`.
@@ -97,25 +107,21 @@ sequenceDiagram
 ```
 
 ### 4.4. Miglioramenti Generali (Bottoni e Grafica)
-
 *   **Obiettivo:** Migliorare estetica e coerenza visiva.
 *   **Proposta:** Revisione bottoni (stili, effetti, icone), coerenza stile "Kahoot-like" (palette, tipografia, layout), leggibilità.
 *   **Tecnologie:** Tailwind CSS, CSS.
 
 ### 4.5. Soluzione Indicatore di Caricamento API Globale
-
 *   **Obiettivo:** Fornire feedback visivo durante chiamate API.
 *   **Proposta:** Implementare indicatore globale (barra/spinner) tramite intercettore API, store Pinia (`uiStore`), e componente `GlobalLoadingIndicator.vue` in `App.vue`.
 *   **Tecnologie:** Vue.js, Pinia, Client API (Interceptors), CSS/Tailwind CSS.
 
 ### 4.6. Soluzione Editing Domande Template Fluido
-
 *   **Obiettivo:** Rendere modifica domande template più rapida.
 *   **Proposta:** Modificare `QuestionTemplateFormView.vue` con autosalvataggio (debounce) e navigazione sequenziale.
 *   **Tecnologie:** Vue.js, Debounce (lodash-es), API Backend (PATCH), CSS/Tailwind CSS.
 
 ### 4.7. Soluzione Gamification Avanzata (Studente)
-
 *   **Obiettivo:** Aumentare coinvolgimento studente.
 *   **Proposta:** Implementare sistema Badge, Classifiche (opzionale), Avatar.
     1.  **Sistema di Badge:**
@@ -126,7 +132,6 @@ sequenceDiagram
 *   **Tecnologie:** Backend (Django, DRF), Frontend (Vue.js, CSS animations/transitions).
 
 ### 4.8. Soluzione Sfondi e Animazioni Svolgimento Quiz (Studente)
-
 *   **Obiettivo:** Rendere l'interfaccia svolgimento quiz più varia e dinamica.
 *   **Proposta:** Modificare `QuizAttemptView.vue`:
     1.  **Sfondi Casuali:** Applicare sfondo casuale da `/public/backgrounds/` `onMounted`, garantendo leggibilità testo.
@@ -134,7 +139,6 @@ sequenceDiagram
 *   **Tecnologie:** Vue.js (script setup, onMounted, :style), CSS (backgrounds, animations/transitions), Libreria Animazioni (opzionale).
 
 ### 4.9. [BUG FIX] Soluzione Errori Rendering Frontend Studente
-
 *   **Obiettivo:** Eliminare errori `InvalidCharacterError` e `TypeError: Cannot read properties of null (reading 'parentNode')`.
 *   **Proposta:**
     1.  Correggere posizione commenti HTML nei template Vue (es. `App.vue`, `LoginForm.vue`).
@@ -142,7 +146,46 @@ sequenceDiagram
     3.  Riavviare server Vite per pulire cache HMR se necessario.
 *   **Tecnologie:** Vue.js template, Vite.
 
-## 5. Passi di Implementazione Suggeriti (Stato: 8 Aprile 2025)
+### 4.10. [BUG FIX] Soluzione Icona Badge Rotta
+*   **Obiettivo:** Visualizzare correttamente l'icona del badge nelle notifiche.
+*   **Proposta:**
+    1.  Creare directory e file placeholder (`frontend-student/public/badges/first_quiz.png`).
+    2.  Correggere logica di notifica spostandola da `QuizResultView.vue` a `QuizAttemptView.vue` e usando `newly_earned_badges` dalla risposta API `completeAttempt`.
+    3.  Correggere `BadgeSerializer` nel backend per usare `image` invece di `image_url`.
+    4.  Creare file SVG placeholder (`first_quiz.svg`) e aggiornare URL nel backend (`seed_test_data.py`).
+    5.  Usare `update_or_create` in `seed_test_data.py` per forzare aggiornamento URL.
+*   **Tecnologie:** Vue.js, Django, DRF Serializers, File System.
+
+### 4.11. [BUG FIX] Soluzione Errore Caricamento Wallet
+*   **Obiettivo:** Caricare correttamente le informazioni del wallet nella dashboard studente.
+*   **Proposta:** Ripristinare URL API `student/dashboard/wallet/` e relativo import in `config/urls.py`.
+*   **Tecnologie:** Django URLs.
+
+### 4.12. [BUG FIX] Soluzione Errore Caricamento Badge
+*   **Obiettivo:** Caricare e visualizzare correttamente i badge nella pagina "I Miei Traguardi".
+*   **Proposta:**
+    1.  **Backend:** Correggere `BadgeSerializer` in `apps/rewards/serializers.py` per usare `image` invece di `image_url`.
+    2.  **Backend:** Assicurarsi che `settings.py` definisca `STORAGES['default']` per gestire l'upload dei file.
+    3.  **Backend:** Assicurarsi che `config/urls.py` sia configurato per servire i file media in sviluppo (`settings.DEBUG`).
+    4.  **Backend:** Garantire che `StudentEarnedBadgeViewSet` in `apps/rewards/views.py` passi il contesto della richiesta (`request`) al serializer (es. sovrascrivendo `get_serializer_context`) per generare URL assoluti.
+    5.  **Frontend:** Correggere il template in `frontend-student/src/views/BadgesView.vue` per usare `badge.image` (invece di `badge.image_url`) nell'attributo `src` del tag `<img>`.
+*   **Tecnologie:** DRF Serializers, Django Settings, Django URLs, Django Views, Vue.js template.
+
+### 4.13. [FEATURE] Soluzione Gestione Badge Admin
+*   **Obiettivo:** Permettere la creazione/gestione dei badge e l'upload delle immagini dall'admin Django.
+*   **Proposta:**
+    1.  Aggiungere `Pillow` alle dipendenze.
+    2.  Configurare `MEDIA_URL` e `MEDIA_ROOT` in `settings.py`.
+    3.  Modificare modello `Badge` per usare `ImageField` invece di `URLField`.
+    4.  Aggiornare `BadgeAdmin` per gestire `ImageField` (con anteprima).
+    5.  Aggiornare `SimpleBadgeSerializer` e `BadgeSerializer` per usare `image`.
+    6.  Rimuovere impostazione `image_url` da `seed_test_data.py`.
+    7.  Creare e applicare migrazione (`rewards.0004`).
+    8.  Aggiornare `config/urls.py` per servire file media in sviluppo.
+    9.  Migliorare `help_text` per `trigger_condition` nel modello `Badge`.
+*   **Tecnologie:** Django Models, Django Admin, Django Settings, Migrations, DRF Serializers, Pillow.
+
+## 5. Passi di Implementazione Suggeriti (Stato: 10 Aprile 2025)
 
 1.  **[BUG FIX] Storico Acquisti Studente:** ✅ Completato (Serializer backend verificato/corretto, Vista frontend aggiornata).
 2.  **Menu Docente Responsive:** ✅ Completato (Implementato menu hamburger in `frontend-teacher/src/App.vue`).
@@ -151,9 +194,13 @@ sequenceDiagram
 5.  **Editing Domande Fluido (Docente):** ✅ Completato (Implementato autosalvataggio e navigazione sequenziale in `QuestionTemplateFormView.vue`). ⚠️ Nota: Recupero ID domande per navigazione è placeholder.
 6.  **Sfondi e Animazioni Svolgimento Quiz (Studente):** ✅ Completato (Implementati sfondi casuali e animazione iniziale in `QuizAttemptView.vue`).
 7.  **Miglioramenti Generali (Bottoni/Grafica):** ✅ Completato (Stili `.btn-*` definiti e applicati alle viste/componenti principali del frontend docente).
-8.  **Gamification Avanzata (Studente):** ✅ Parzialmente Completato (Implementati modelli, migrazioni, API, vista Badge, store notifiche, componente notifiche. Implementata logica backend e notifica frontend per badge "Primo Quiz Completato"). ⏳ Da fare: Logica assegnazione altri badge (backend), trigger notifica reale per altri badge (frontend), Classifiche, Avatar.
+8.  **Gamification Avanzata (Studente):** ✅ Parzialmente Completato (Implementati modelli, migrazioni, API, vista Badge, store notifiche, componente notifiche. Implementata logica backend e notifica frontend per badge "Primo Quiz Completato"). **Corretta logica notifica e visualizzazione icona badge.** ⏳ Da fare: Logica assegnazione altri badge (backend), trigger notifica reale per altri badge (frontend), Classifiche, Avatar.
 9.  **[BUG FIX] Errori Rendering Frontend Studente:** ✅ Completato (Corretti commenti HTML, rimossa `tag` da transition-group, riavviato server Vite).
-10. **Test:** ⏳ Da fare (Aggiornare/creare test per coprire tutte le modifiche).
+10. **[BUG FIX] Icona Badge Rotta:** ✅ Completato (Vedi punto 8).
+11. **[BUG FIX] Errore Caricamento Wallet:** ✅ Completato (Ripristinato URL API in `config/urls.py`).
+12. **[BUG FIX] Errore Caricamento Badge:** ✅ Completato (Corretto Serializer, Storage, Vista e Frontend).
+13. **[FEATURE] Gestione Badge Admin:** ✅ Completato (Implementato upload immagini e migliorato help text condizioni).
+14. **Test:** ⏳ Da fare (Aggiornare/creare test per coprire tutte le modifiche).
 
 ## 6. Conclusione
 

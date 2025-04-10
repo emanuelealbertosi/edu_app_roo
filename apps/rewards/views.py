@@ -254,7 +254,16 @@ class StudentEarnedBadgeViewSet(mixins.ListModelMixin,
         if not student:
              logger.warning(f"Utente non studente ha tentato accesso a EarnedBadge.")
              return EarnedBadge.objects.none()
-        return EarnedBadge.objects.filter(student=student).select_related('badge')
+        # Aggiunto prefetch_related per ottimizzare l'accesso all'immagine del badge
+        return EarnedBadge.objects.filter(student=student).select_related('badge').prefetch_related('badge')
+
+    def get_serializer_context(self):
+        """
+        Assicura che il contesto della richiesta sia passato al serializer.
+        """
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
 
 
 # --- Altri ViewSet Studente ---

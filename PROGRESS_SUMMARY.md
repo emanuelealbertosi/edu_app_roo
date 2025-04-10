@@ -1,4 +1,4 @@
-# Riepilogo Stato Avanzamento Progetto (8 Aprile 2025, ~18:00)
+# Riepilogo Stato Avanzamento Progetto (10 Aprile 2025, ~08:55)
 
 ## 1. Progettazione
 
@@ -7,7 +7,7 @@
 ## 2. Setup Progetto Django
 
 *   Creato ambiente virtuale (`.venv`).
-*   Installato Django e le dipendenze necessarie (`psycopg2-binary`, `python-dotenv`, `dj-database-url`, `djangorestframework`, `djangorestframework-simplejwt`, `drf-nested-routers`, `factory-boy`, `Faker`, `django-json-widget`, `django-cors-headers`, `PyPDF2`, `python-docx`, `markdown`, `lodash-es`, `@types/lodash-es`).
+*   Installato Django e le dipendenze necessarie (`psycopg2-binary`, `python-dotenv`, `dj-database-url`, `djangorestframework`, `djangorestframework-simplejwt`, `drf-nested-routers`, `factory-boy`, `Faker`, `django-json-widget`, `django-cors-headers`, `PyPDF2`, `python-docx`, `markdown`, `Pillow`).
 *   Aggiunto `pytest` e `pytest-django` alle dipendenze e creato `pytest.ini`. Aggiornato `requirements.txt`.
 *   Inizializzato progetto Django (`config`, `manage.py`).
 *   Creata directory `apps` e aggiunto `apps/__init__.py`.
@@ -36,6 +36,9 @@
     *   Create e applicate migrazioni `0007` e `0008` per l'app `education` per riflettere queste modifiche.
 *   **Correzione Assegnazione Percorsi:** Modificato modello `PathwayAssignment` per permettere `null=True` sul campo `pathway` e applicata migrazione `0009`.
 *   **Correzione Assegnazione Quiz:** Aggiunto campo `due_date` al modello `QuizAssignment` e applicata migrazione `0010`.
+*   **Correzione Migrazioni Inconsistenti:** Risolto problema `InconsistentMigrationHistory` per `education.0012` usando `--fake`.
+*   **Modifica Immagine Badge:** Modificato campo `image_url` in `image` (`ImageField`) nel modello `Badge` per permettere upload. Creata e applicata migrazione `rewards.0004`.
+*   **Migliorato Help Text Badge:** Aggiornato `help_text` per `trigger_condition` nel modello `Badge` con esempi chiari.
 
 ## 5. Autenticazione e API Base
 
@@ -80,11 +83,16 @@
     *   Risolto errore `400 Bad Request` per l'assegnazione di percorsi da template (modificato modello `PathwayAssignment`, usato serializer dedicato `PathwayAssignActionSerializer`, corretta view `assign_student_pathway`).
     *   Risolto errore `400 Bad Request` per l'assegnazione di quiz da template (usato serializer dedicato `QuizAssignActionSerializer`, corretta view `assign_student`).
     *   Risolti `IndentationError` e `NameError` in `serializers.py` emersi durante le correzioni.
+*   **Corretto errore API caricamento Wallet Studente:** Risolto `NameError` in `config/urls.py` ripristinando l'URL e l'import per `StudentWalletInfoView`.
+*   **Corretto errore API caricamento Badge Studente:** Risolto `ImproperlyConfigured` in `BadgeSerializer` correggendo il campo `image_url` in `image`.
 
 ## 6. Interfaccia Admin
 
 *   Configurati i file `admin.py` per tutte le app (`users`, `rewards`, `education`) per registrare i modelli (inclusi quelli di assegnazione e template) e personalizzare la visualizzazione (inclusi `inlines` per gestione nidificata).
 *   Installato e configurato `django-json-widget` per migliorare l'editing dei campi `metadata` nell'admin.
+*   **Aggiunta gestione Badge:** Registrati modelli `Badge` e `EarnedBadge`.
+*   **Abilitato upload immagini Badge:** Modificato `BadgeAdmin` per usare `ImageField` (con anteprima).
+*   **Migliorato help text condizioni Badge:** Aggiornato `help_text` per `trigger_condition` in `BadgeAdmin`.
 
 ## 7. Test Modelli e API
 
@@ -100,7 +108,7 @@
 *   **Aggiunti test API mancanti per `education`:** Coperti tutti i tipi di domanda in `submit_answer` e casi limite per grading manuale.
 *   **Corretti tutti i fallimenti nei test API dell'app `users`:** Abilitato e corretto test creazione utente API.
 *   **Corretti tutti i fallimenti nei test API dell'app `rewards`:** Risolti problemi con factory (Wallet, Reward, RewardTemplate, RewardPurchase), permessi (IsRewardOwnerOrAdmin, IsRewardTemplateOwnerOrAdmin), autenticazione studente e gestione ProtectedError.
-*   **Tutti i test (295) ora passano.** (Nota: Da riverificare dopo refactoring template e aggiunta upload)
+*   **Tutti i test (295) ora passano.** (Nota: Da riverificare dopo refactoring template, aggiunta upload e modifiche Badge)
 
 ## 8. Controllo Versione
 
@@ -114,8 +122,8 @@
 ## 9. Stato Attuale
 
 *   Il server di sviluppo Django è in esecuzione (`python manage.py runserver`).
-*   L'interfaccia di amministrazione (`/admin/`) è accessibile e migliorata con `django-json-widget`.
-*   Gli endpoint API per Admin/Docente e Studente sono funzionanti.
+*   L'interfaccia di amministrazione (`/admin/`) è accessibile e migliorata con `django-json-widget`. Permette ora la gestione dei Badge con upload di immagini.
+*   Gli endpoint API per Admin/Docente e Studente sono funzionanti, inclusi quelli per wallet e badge.
 *   La logica per il calcolo punteggio/punti per Quiz e Percorsi è implementata.
 *   Il codice è versionato su GitHub.
 *   Il database contiene dati di test generati dal comando `seed_test_data`.
@@ -136,8 +144,9 @@
 *   Chiariti commenti sulla logica di calcolo del punteggio e assegnazione punti in `apps/education/models.py`.
 *   Aggiunti/Migliorati docstring e `help_text` nei modelli delle app `education`, `users`, `rewards`.
 *   Aggiunto logging di base per errori/eccezioni nei metodi dei modelli e delle view (incluso logging DEBUG per stato quiz e validazione serializer assegnazione).
-*   **Corretto `settings.py`** per leggere `SECRET_KEY`, `DEBUG`, `ALLOWED_HOSTS` da variabili d'ambiente.
+*   **Corretto `settings.py`** per leggere `SECRET_KEY`, `DEBUG`, `ALLOWED_HOSTS` da variabili d'ambiente. Aggiunte configurazioni `MEDIA_URL` e `MEDIA_ROOT`.
 *   **Aggiunto `whitenoise`** alla configurazione per servire file statici in produzione.
+*   **Aggiornato `config/urls.py`** per servire file media in sviluppo.
 
 ## 11. Frontend Studenti (Vue.js)
 
@@ -153,11 +162,13 @@
 *   **Risolto errore 500 visualizzazione percorsi.**
 *   **Risolto problema caricamento pagina storico acquisti** (richiesto riavvio server Vite).
 *   **Corretti errori di rendering:** Risolti `InvalidCharacterError` e `TypeError: Cannot read properties of null (reading 'parentNode')` legati a commenti HTML mal posizionati e gestione transizioni/HMR.
+*   **Corretta logica notifica badge:** Spostata la logica di notifica da `QuizResultView` a `QuizAttemptView` per usare l'array `newly_earned_badges` dalla risposta API `completeAttempt`.
+*   **Corretto errore icona badge rotta:** Identificato e risolto problema con `ImageField` e serializer. Creato file SVG placeholder.
 
 ## 12. Dati di Test
 
 *   Creato comando di management `seed_test_data` utilizzando le factory per popolare il database.
-*   **Corretto comando `seed_test_data`:** Abilitata pulizia database, corretto uso di `name` per badge, rimosso `due_date` da `PathwayAssignmentFactory`.
+*   **Corretto comando `seed_test_data`:** Abilitata pulizia database, corretto uso di `name` per badge, rimosso `due_date` da `PathwayAssignmentFactory`. Corretto uso di `update_or_create` per aggiornare `image_url` (ora `image`). Rimosso `image_url` dai defaults (da caricare manualmente).
 *   Eseguito con successo il comando per avere dati di esempio disponibili.
 
 ## 13. Frontend Docenti (Vue.js) - Post Refactoring
@@ -188,7 +199,8 @@
 *   **Gamification (Badge):**
     *   Implementata logica backend per assegnare il badge "Primo Quiz Completato" (`first-quiz-completed`) nel modello `QuizAttempt`.
     *   Aggiornato lo store notifiche studente per tracciare badge notificati.
-    *   Implementata logica frontend in `QuizResultView.vue` per recuperare badge guadagnati e mostrare notifica per il badge "Primo Quiz Completato" (se non già notificato).
+    *   Implementata logica frontend in `QuizAttemptView.vue` per recuperare badge guadagnati e mostrare notifica per i badge appena ottenuti. Rimossa logica duplicata da `QuizResultView.vue`.
     *   Aggiunta creazione badge "Primo Quiz Completato" nello script `seed_test_data`.
+    *   **Corretto errore icona badge rotta:** Identificato e risolto problema con `ImageField` e serializer. Creato file SVG placeholder. Corretto errore API caricamento badge.
 
 ## Prossimi Passi Previsti (vedi NEXT_STEPS.md)

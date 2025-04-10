@@ -314,7 +314,14 @@ class Badge(models.Model):
 
     name = models.CharField(_('Badge Name'), max_length=100, unique=True)
     description = models.TextField(_('Description'), help_text=_('Spiega come ottenere questo badge.'))
-    image_url = models.URLField(_('Image URL'), blank=True, null=True, help_text=_('URL dell\'immagine del badge (es. SVG, PNG).'))
+    # Cambiato da URLField a ImageField per permettere l'upload
+    image = models.ImageField(
+        _('Image'),
+        upload_to='badges/', # Salva le immagini in MEDIA_ROOT/badges/
+        blank=True,
+        null=True,
+        help_text=_('Immagine del badge (verrà caricata).')
+    )
     trigger_type = models.CharField(
         _('Trigger Type'),
         max_length=30,
@@ -327,9 +334,11 @@ class Badge(models.Model):
         default=dict,
         blank=True,
         help_text=_(
-            'Condizioni specifiche. Es: {"min_score": 80} per QUIZ_COMPLETED, '
-            '{"streak_length": 5} per CORRECT_STREAK, '
-            '{"points": 1000} per POINTS_THRESHOLD.'
+            'Condizioni specifiche in formato JSON. Esempi:\n'
+            '- Per QUIZ_COMPLETED: {"quiz_id": 123, "min_score_percent": 80} (quiz_id opzionale, si applica a qualsiasi quiz se omesso)\n'
+            '- Per PATHWAY_COMPLETED: {"pathway_id": 45} (pathway_id opzionale)\n'
+            '- Per CORRECT_STREAK: {"streak_length": 10}\n'
+            '- Per POINTS_THRESHOLD: {"points": 500}'
         )
     )
     is_active = models.BooleanField(

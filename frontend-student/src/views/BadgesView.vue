@@ -69,7 +69,7 @@ onMounted(() => {
         }"
       >
         <img 
-          :src="badge.image_url || '/placeholder-badge.svg'" 
+          :src="badge.image || '/placeholder-badge.svg'"
           :alt="badge.name" 
           class="w-20 h-20 mx-auto mb-3 object-contain"
           :class="{ 'opacity-50': !earnedBadgeIds.has(badge.id) }"

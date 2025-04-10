@@ -14,7 +14,7 @@ def check_for_quiz_completion_badges(sender, instance: QuizAttempt, created, **k
     """
     # Esegui solo se il tentativo è stato completato (non in creazione o aggiornamento intermedio)
     # e se lo stato è COMPLETED o FAILED (potremmo avere badge anche per tentativi falliti?)
-    if instance.status in [QuizAttempt.Status.COMPLETED, QuizAttempt.Status.FAILED] and instance.student:
+    if instance.status in [QuizAttempt.AttemptStatus.COMPLETED, QuizAttempt.AttemptStatus.FAILED] and instance.student:
         student = instance.student
         quiz = instance.quiz
         score = instance.score # Percentuale
@@ -38,7 +38,7 @@ def check_for_quiz_completion_badges(sender, instance: QuizAttempt, created, **k
             quiz_id_condition = conditions.get('quiz_id')
             min_score_condition = conditions.get('min_score') # Percentuale
             max_score_condition = conditions.get('max_score') # Percentuale
-            status_condition = conditions.get('status', QuizAttempt.Status.COMPLETED) # Default a COMPLETED
+            status_condition = conditions.get('status', QuizAttempt.AttemptStatus.COMPLETED) # Default a COMPLETED
 
             # Verifica condizioni
             conditions_met = True

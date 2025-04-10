@@ -136,34 +136,13 @@ function triggerConfetti() {
 onMounted(async () => { // reso async
   await fetchAttemptResults();
   
-  // Dopo aver caricato i risultati, controlla se sono stati guadagnati nuovi badge
-  if (attemptDetails.value && (quizOutcome.value === 'success' || quizOutcome.value === 'failure')) { // Controlla anche su failure? Forse solo su success.
-      try {
-          console.log("Checking for earned badges...");
-          const earnedBadges = await RewardsService.getEarnedBadges();
-          console.log("Earned badges fetched:", earnedBadges);
-
-          // Controlla specificamente il badge 'first-quiz-completed'
-          const firstQuizBadge = earnedBadges.find(eb => eb.badge.name === 'Primo Quiz Completato!'); // Usa 'name' invece di 'slug'
-
-          if (firstQuizBadge) {
-              console.log("Found 'first-quiz-completed' badge. Attempting notification.");
-              // Usa la funzione aggiornata dello store che controlla se è già stato notificato
-              notificationStore.addBadgeNotification(
-                  firstQuizBadge.badge.id,
-                  firstQuizBadge.badge.name,
-                  firstQuizBadge.badge.image_url
-              );
-          }
-
-          // TODO: Potresti aggiungere qui la logica per notificare ALTRI badge se necessario,
-          // confrontando `earnedBadges` con uno stato precedente o con `notifiedBadgeIds`.
-
-      } catch (badgeError) {
-          console.error("Errore nel recupero o notifica dei badge:", badgeError);
-          // Non mostrare errore all'utente per questo, è secondario
-      }
+  // La logica di notifica dei badge è stata spostata in QuizAttemptView.vue
+  // Questa sezione può essere rimossa o commentata.
+  /*
+  if (attemptDetails.value && quizOutcome.value === 'success') {
+      // ... vecchia logica rimossa ...
   }
+  */
 
   // Trigger confetti solo se il risultato è successo al caricamento
   if (quizOutcome.value === 'success') {
@@ -175,7 +154,7 @@ onMounted(async () => { // reso async
 
 <template>
   <div class="quiz-result-view">
-    <h1>Risultati del Quiz</h1>
+    <!-- Titolo rimosso -->
 
     <div v-if="isLoading" class="loading">
       <p>Caricamento risultati...</p>
@@ -222,32 +201,7 @@ onMounted(async () => { // reso async
         </div>
       </div>
 
-      <!-- Dettagli Quiz (Titolo, Descrizione, ecc.) -->
-      <h2 class="text-xl font-semibold mb-2">{{ attemptDetails.quiz.title }}</h2>
-      <p class="text-gray-600 mb-1"><strong>Descrizione:</strong> {{ attemptDetails.quiz.description || '-' }}</p>
-      <p class="text-gray-600 mb-1"><strong>Stato Tentativo:</strong> {{ attemptDetails.status_display || attemptDetails.status }}</p> <!-- Usa status_display se disponibile -->
-      <p class="text-gray-600 mb-4" v-if="attemptDetails.completed_at"><strong>Completato il:</strong> {{ new Date(attemptDetails.completed_at).toLocaleString() }}</p>
-      
-      <!-- Rimosso vecchio blocco summary-scores -->
-
-      <h3 class="text-lg font-semibold mt-6 mb-4 border-t pt-4">Dettaglio Risposte</h3>
-      <ul class="answers-list">
-        <!-- Le domande sono direttamente in attemptDetails secondo il tipo aggiornato -->
-        <li v-for="question in attemptDetails.questions" :key="question.id" class="answer-item">
-          <p class="question-text"><strong>{{ question.order + 1 }}. {{ question.text }}</strong> ({{ question.question_type_display || question.question_type }})</p>
-          <div v-if="getStudentAnswerForQuestion(question.id)" :class="['student-answer', getCorrectnessClass(getStudentAnswerForQuestion(question.id)?.is_correct ?? null)]"> <!-- Aggiunto ?? null -->
-            <!-- Passa l'intero oggetto question a formatAnswer -->
-            <p><strong>Tua Risposta:</strong> {{ formatAnswer(getStudentAnswerForQuestion(question.id)?.selected_answers, question) }}</p>
-            <p><strong>Esito:</strong> {{ getCorrectnessText(getStudentAnswerForQuestion(question.id)?.is_correct ?? null) }} <!-- Aggiunto ?? null -->
-               <span v-if="getStudentAnswerForQuestion(question.id)?.score !== null"> (Punti: {{ getStudentAnswerForQuestion(question.id)?.score }})</span>
-            </p>
-            <!-- Qui potremmo aggiungere la risposta corretta se disponibile e se vogliamo mostrarla -->
-          </div>
-          <div v-else class="student-answer no-answer">
-            <p>Nessuna risposta fornita.</p>
-          </div>
-        </li>
-      </ul>
+      <!-- Dettagli Quiz e Risposte rimossi come richiesto -->
 
       <button @click="router.push('/dashboard')" class="back-button">Torna alla Dashboard</button>
     </div>

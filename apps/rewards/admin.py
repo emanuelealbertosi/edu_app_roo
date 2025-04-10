@@ -3,7 +3,8 @@ from django.db import models # Import models
 from django_json_widget.widgets import JSONEditorWidget # Import the widget
 from .models import (
     Wallet, PointTransaction, RewardTemplate, Reward,
-    RewardStudentSpecificAvailability, RewardPurchase
+    RewardStudentSpecificAvailability, RewardPurchase,
+    Badge, EarnedBadge # Aggiunto Badge e EarnedBadge
 )
 
 @admin.register(Wallet)
@@ -68,3 +69,31 @@ class RewardPurchaseAdmin(admin.ModelAdmin):
     # actions = [mark_delivered_action]
 
 # Non registriamo RewardStudentSpecificAvailability direttamente, è gestito dall'inline.
+
+@admin.register(Badge)
+class BadgeAdmin(admin.ModelAdmin):
+    list_display = ('name', 'image_thumbnail', 'trigger_type', 'is_active', 'created_at') # Aggiunto image_thumbnail
+    list_filter = ('trigger_type', 'is_active')
+    search_fields = ('name', 'description')
+    # Definisci i campi mostrati nel form di modifica/creazione
+    fields = ('name', 'description', 'image', 'trigger_type', 'trigger_condition', 'is_active')
+    readonly_fields = ('image_thumbnail',) # Mostra anteprima ma non renderla modificabile direttamente qui
+    formfield_overrides = {
+        models.JSONField: {'widget': JSONEditorWidget},
+    }
+
+    # Metodo per mostrare un'anteprima dell'immagine nella lista
+    @admin.display(description='Image Preview')
+    def image_thumbnail(self, obj):
+        from django.utils.html import format_html
+        if obj.image:
+            return format_html('<img src="{}" style="max-height: 50px; max-width: 50px;" />', obj.image.url)
+        return "No Image"
+
+@admin.register(EarnedBadge)
+class EarnedBadgeAdmin(admin.ModelAdmin):
+    list_display = ('student', 'badge', 'earned_at')
+    list_filter = ('earned_at', 'badge')
+    search_fields = ('student__first_name', 'student__last_name', 'badge__name')
+    autocomplete_fields = ['student', 'badge']
+    readonly_fields = ('student', 'badge', 'earned_at') # Record creato automaticamente

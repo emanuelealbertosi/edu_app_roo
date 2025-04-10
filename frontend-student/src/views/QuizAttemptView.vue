@@ -9,6 +9,7 @@ import TrueFalseQuestion from '@/components/quiz/questions/TrueFalseQuestion.vue
 import FillBlankQuestion from '@/components/quiz/questions/FillBlankQuestion.vue';
 import OpenAnswerManualQuestion from '@/components/quiz/questions/OpenAnswerManualQuestion.vue';
 import { useAuthStore } from '@/stores/auth';
+import { useNotificationStore } from '@/stores/notification'; // Importa lo store notifiche
 
 // --- Sfondi e Animazioni ---
 const availableBackgrounds = [
@@ -133,6 +134,22 @@ async function completeAttemptHandler() {
   try {
     const finalAttemptDetails = await QuizService.completeAttempt(attempt.value.id);
     console.log("Tentativo completato:", finalAttemptDetails);
+
+    // --- Logica Notifica Badge ---
+    // Assicurati di importare useNotificationStore all'inizio dello script setup
+    const notificationStore = useNotificationStore();
+    if (finalAttemptDetails.newly_earned_badges && finalAttemptDetails.newly_earned_badges.length > 0) {
+      console.log("Nuovi badge guadagnati:", finalAttemptDetails.newly_earned_badges);
+      finalAttemptDetails.newly_earned_badges.forEach((badge: any) => { // Usa 'any' o definisci un tipo/interfaccia per Badge
+        notificationStore.addBadgeNotification(
+          badge.id,
+          badge.name,
+          badge.image_url // Assicurati che questo campo sia restituito dal SimpleBadgeSerializer
+        );
+      });
+    }
+    // --- Fine Logica Notifica Badge ---
+
     // Reindirizza alla pagina dei risultati (da creare)
     // Passando l'ID del tentativo completato
     router.push({ name: 'QuizResult', params: { attemptId: attempt.value.id } });
@@ -208,7 +225,7 @@ function updateUserAnswer(answer: Answer | null) {
       <transition name="start-anim">
         <div v-if="showStartAnimation" class="start-animation text-center text-white mb-8">
           <p class="text-4xl font-bold animate-pulse">Pronti? Via!</p>
-          {/* Potresti usare un SVG animato o Lottie qui */}
+          <!-- Potresti usare un SVG animato o Lottie qui -->
         </div>
       </transition>
 

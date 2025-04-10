@@ -233,7 +233,7 @@ class TeacherQuestionTemplateViewSet(viewsets.ModelViewSet):
              raise DRFPermissionDenied("Non puoi aggiungere domande a questo template di quiz.")
         # Calcola il prossimo ordine disponibile
         last_order = QuestionTemplate.objects.filter(quiz_template=quiz_template).aggregate(Max('order'))['order__max']
-        next_order = 1 if last_order is None else last_order + 1
+        next_order = 0 if last_order is None else last_order + 1 # Ordine 0-based
         serializer.save(quiz_template=quiz_template, order=next_order)
 
     @transaction.atomic
@@ -342,15 +342,17 @@ class QuizViewSet(viewsets.ModelViewSet):
                 questions_to_create = []
                 options_to_create_map = {} # Mappa: q_template.id -> lista di opzioni da creare
 
+                question_order_counter = 0 # Inizializza contatore ordine a 0 PRIMA del ciclo
                 for q_template in template.question_templates.prefetch_related('answer_option_templates').order_by('order'):
                     new_question = Question(
                         quiz=new_quiz,
                         text=q_template.text,
                         question_type=q_template.question_type,
-                        order=q_template.order,
+                        order=question_order_counter, # Assegna ordine sequenziale 0-based
                         metadata=q_template.metadata.copy() if q_template.metadata else {}
                     )
                     questions_to_create.append(new_question)
+                    question_order_counter += 1 # Incrementa contatore per la prossima domanda
                     # Prepara le opzioni per il bulk create dopo aver creato le domande
                     options_to_create_map[q_template.id] = []
                     for opt_template in q_template.answer_option_templates.order_by('order'):
@@ -525,7 +527,7 @@ class QuestionViewSet(viewsets.ModelViewSet):
         # Calcola il prossimo ordine disponibile
         last_order = Question.objects.filter(quiz=quiz).aggregate(Max('order'))['order__max']
         # L'ordine parte da 1, non da 0
-        next_order = 1 if last_order is None else last_order + 1
+        next_order = 0 if last_order is None else last_order + 1 # Ordine 0-based
         # Salva la domanda con il quiz e l'ordine calcolato
         serializer.save(quiz=quiz, order=next_order)
 
@@ -848,7 +850,15 @@ class StudentQuizAttemptViewSet(viewsets.GenericViewSet):
              logger.warning(f"Tentativo accesso non autorizzato a quiz {quiz.id} da studente {student.id}. Assegnato direttamente: {is_directly_assigned}, In percorso assegnato: {is_in_assigned_pathway}")
              return Response({'detail': 'Questo quiz non ti è stato assegnato direttamente o tramite un percorso.'}, status=status.HTTP_403_FORBIDDEN)
 
-         existing_attempt = QuizAttempt.objects.filter(student=student, quiz=quiz, status=QuizAttempt.AttemptStatus.IN_PROGRESS).first()
+         # Seleziona solo i campi necessari per QuizAttemptDetailSerializer se l'attempt esiste
+         existing_attempt = QuizAttempt.objects.filter(
+             student=student,
+             quiz=quiz,
+             status=QuizAttempt.AttemptStatus.IN_PROGRESS
+         ).only(
+             'id', 'student_id', 'quiz_id', 'started_at', 'completed_at', 'score', 'status'
+             # Non includere 'first_correct_completion' qui
+         ).first()
          if existing_attempt:
              serializer = QuizAttemptDetailSerializer(existing_attempt, context={'request': request})
              return Response(serializer.data, status=status.HTTP_200_OK)
@@ -1019,7 +1029,6 @@ class AttemptViewSet(viewsets.GenericViewSet):
         # Rimosso: La valutazione avviene in calculate_final_score o manualmente
         # if question.question_type != QuestionType.OPEN_ANSWER_MANUAL:
         #     student_answer.evaluate() # Il metodo evaluate() salva la risposta
-
         serializer = StudentAnswerSerializer(student_answer)
         return Response(serializer.data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
@@ -1053,16 +1062,99 @@ class AttemptViewSet(viewsets.GenericViewSet):
             attempt.save()
             logger.info(f"Tentativo Quiz {attempt.id} completato, in attesa di correzione manuale.")
         else:
-            # Calcola punteggio finale e assegna punti se è il primo completamento corretto
-            final_score = attempt.calculate_final_score() # Calcola e salva lo score
-            attempt.assign_completion_points() # Assegna punti se necessario (e salva first_correct_completion)
+            # --- Inizio Valutazione Risposte Automatiche ---
+            # Itera su tutte le risposte date per questo tentativo e valuta quelle automatiche
+            logger.debug(f"Inizio valutazione risposte per tentativo {attempt.id}")
+            for student_answer in attempt.student_answers.prefetch_related('question', 'question__answer_options').all(): # Corretto: usa prefetch_related per entrambe
+                question = student_answer.question
+                valid_data_for_storage = student_answer.selected_answers # Recupera i dati salvati
+                is_correct = None
+                score = None
+                logger.debug(f"Valutazione Q{question.order} (Tipo: {question.question_type})")
+
+                # Esegui la logica di valutazione solo per domande a correzione automatica
+                # e solo se la risposta non è già stata valutata (is_correct è None)
+                if question.question_type != QuestionType.OPEN_ANSWER_MANUAL and student_answer.is_correct is None:
+                    try:
+                        if question.question_type == QuestionType.MULTIPLE_CHOICE_SINGLE:
+                            correct_option = question.answer_options.filter(is_correct=True).first()
+                            selected_option_id = valid_data_for_storage.get('answer_option_id')
+                            is_correct = bool(correct_option and selected_option_id == correct_option.id)
+                            score = float(question.metadata.get('points_per_correct_answer', 1.0)) if is_correct else 0.0
+                            logger.debug(f"  MC_SINGLE: Sel={selected_option_id}, Corr={correct_option.id if correct_option else None}, Result={is_correct}, Score={score}")
+
+                        elif question.question_type == QuestionType.TRUE_FALSE:
+                            correct_option = question.answer_options.filter(is_correct=True).first()
+                            selected_bool = valid_data_for_storage.get('is_true')
+                            if correct_option:
+                                is_correct_option_true = correct_option.text.lower() == 'vero'
+                                is_correct = (selected_bool == is_correct_option_true)
+                                score = float(question.metadata.get('points_per_correct_answer', 1.0)) if is_correct else 0.0
+                                logger.debug(f"  TF: Sel={selected_bool}, CorrVal={is_correct_option_true}, Result={is_correct}, Score={score}")
+                            else:
+                                is_correct = False; score = 0.0
+                                logger.warning(f"  TF: Nessuna opzione corretta definita per Q ID {question.id}")
+
+
+                        elif question.question_type == QuestionType.MULTIPLE_CHOICE_MULTIPLE:
+                            correct_option_ids = set(question.answer_options.filter(is_correct=True).values_list('id', flat=True))
+                            selected_option_ids = set(valid_data_for_storage.get('answer_option_ids', []))
+                            is_correct = (correct_option_ids == selected_option_ids)
+                            score = float(question.metadata.get('points_per_correct_answer', 1.0)) if is_correct else 0.0
+                            logger.debug(f"  MC_MULTI: Sel={selected_option_ids}, Corr={correct_option_ids}, Result={is_correct}, Score={score}")
+
+                        elif question.question_type == QuestionType.FILL_BLANK:
+                            correct_answers_list = question.metadata.get('correct_answers', [])
+                            case_sensitive = question.metadata.get('case_sensitive', False)
+                            submitted_answers = valid_data_for_storage.get('answers', [])
+                            if len(correct_answers_list) != len(submitted_answers):
+                                is_correct = False
+                                logger.debug(f"  FILL_BLANK: Numero risposte errato (atteso {len(correct_answers_list)}, dato {len(submitted_answers)})")
+                            else:
+                                all_match = True
+                                for i, correct_ans in enumerate(correct_answers_list):
+                                    submitted = submitted_answers[i]
+                                    correct_str = str(correct_ans)
+                                    submitted_str = str(submitted)
+                                    if not case_sensitive:
+                                        if correct_str.lower() != submitted_str.lower(): all_match = False; break
+                                    else:
+                                        if correct_str != submitted_str: all_match = False; break
+                                is_correct = all_match
+                            score = float(question.metadata.get('points_per_correct_answer', 1.0)) if is_correct else 0.0
+                            logger.debug(f"  FILL_BLANK: Result={is_correct}, Score={score}")
+
+                        # Salva i risultati della valutazione sulla singola risposta
+                        if is_correct is not None: # Salva solo se è stata valutata
+                            student_answer.is_correct = is_correct
+                            student_answer.score = score
+                            student_answer.save(update_fields=['is_correct', 'score'])
+                            logger.debug(f"  Risposta salvata: is_correct={is_correct}, score={score}")
+                        else:
+                             logger.debug(f"  Nessuna valutazione automatica applicabile o già valutata.")
+
+                    except Exception as eval_error:
+                         logger.error(f"Errore durante valutazione automatica risposta per Q ID {question.id} in tentativo {attempt.id}: {eval_error}", exc_info=True)
+                         # Non bloccare il completamento, ma logga l'errore
+                         student_answer.is_correct = None # Assicura che rimanga non valutato
+                         student_answer.score = None
+                         student_answer.save(update_fields=['is_correct', 'score'])
+
+            logger.debug(f"Fine valutazione risposte per tentativo {attempt.id}")
+            # --- Fine Valutazione Risposte Automatiche ---
+
+            # Ora calcola il punteggio finale e assegna punti/badge basandosi sulle risposte valutate
+            final_score = attempt.calculate_final_score() # Calcola e salva lo score sull'attempt
+            newly_earned_badges = attempt.assign_completion_points() # Assegna punti/badge e cattura i nuovi badge
             # Lo stato viene aggiornato dentro assign_completion_points o rimane COMPLETED
             attempt.completed_at = timezone.now()
             attempt.save() # Salva eventuali modifiche da assign_completion_points
             logger.info(f"Tentativo Quiz {attempt.id} completato automaticamente. Score: {final_score}, Status: {attempt.status}")
 
 
-        serializer = QuizAttemptSerializer(attempt, context={'request': request})
+        # Passa i nuovi badge al contesto del serializer
+        context = {'request': request, 'newly_earned_badges': newly_earned_badges}
+        serializer = QuizAttemptSerializer(attempt, context=context)
         return Response(serializer.data)
 
 
@@ -1184,7 +1276,10 @@ class StudentAssignedQuizzesView(generics.ListAPIView):
         queryset = Quiz.objects.filter(id__in=assigned_quiz_ids).select_related('teacher').prefetch_related(
              Prefetch(
                  'attempts',
-                 queryset=QuizAttempt.objects.filter(student=student).order_by('-started_at'), # Ordina per trovare facilmente l'ultimo nel serializer
+                 # Seleziona solo i campi necessari per SimpleQuizAttemptSerializer
+                 queryset=QuizAttempt.objects.filter(student=student).order_by('-started_at').only(
+                     'id', 'score', 'status', 'completed_at', 'quiz_id' # quiz_id è necessario per il prefetch
+                 ),
                  to_attr='student_attempts_for_quiz' # Salva in un attributo temporaneo
              )
         ).order_by('-created_at') # Ordina per data di creazione (o altro criterio)

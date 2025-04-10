@@ -172,10 +172,19 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 # Configurazione Storage per Whitenoise (per servire file statici compressi)
 # https://whitenoise.readthedocs.io/en/stable/django.html#add-compression-and-caching-support
 STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
     "staticfiles": {
         "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
     },
 }
+
+# Media Files (User Uploaded Files)
+# https://docs.djangoproject.com/en/5.1/topics/files/
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'mediafiles' # Directory dove verranno salvati i file caricati
+# Rimuovi la parentesi graffa extra qui sotto
 
 # Custom User Model
 # https://docs.djangoproject.com/en/5.1/topics/auth/customizing/#substituting-a-custom-user-model

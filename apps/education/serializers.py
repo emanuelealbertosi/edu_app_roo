@@ -19,7 +19,8 @@ from .models import (
 )
 from apps.users.serializers import UserSerializer, StudentSerializer # Per info utente/studente
 from apps.users.models import User, Student # Aggiunto per associazione docente e studente
-from .models import QuizAttempt # Assicurati che QuizAttempt sia importato
+from .models import QuizAttempt, EarnedBadge # Assicurati che QuizAttempt e EarnedBadge siano importati
+from apps.rewards.serializers import SimpleBadgeSerializer # Importa il serializer per i badge
 
 logger = logging.getLogger(__name__)
 
@@ -269,7 +270,7 @@ class QuizUploadSerializer(serializers.Serializer):
         questions = [q for q in questions if q.get("text")]
         questions.sort(key=lambda q: q.get("order", float('inf')))
         for i, q in enumerate(questions):
-            q["order"] = i + 1
+            q["order"] = i # Ordine 0-based
             if not q["options"]:
                 q["type"] = QuestionType.OPEN_ANSWER_MANUAL
 
@@ -484,7 +485,7 @@ class QuizTemplateUploadSerializer(serializers.Serializer):
         questions = [q for q in questions if q.get("text")]
         questions.sort(key=lambda q: q.get("order", float('inf')))
         for i, q in enumerate(questions):
-            q["order"] = i + 1
+            q["order"] = i # Ordine 0-based
             if not q["options"]:
                 q["type"] = QuestionType.OPEN_ANSWER_MANUAL
 
@@ -782,14 +783,33 @@ class QuizAttemptSerializer(serializers.ModelSerializer):
     student_info = StudentSerializer(source='student', read_only=True)
     quiz_title = serializers.CharField(source='quiz.title', read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
+    # Campo per includere i badge appena guadagnati
+    newly_earned_badges = SimpleBadgeSerializer(many=True, read_only=True)
 
     class Meta:
         model = QuizAttempt
         fields = [
             'id', 'student', 'student_info', 'quiz', 'quiz_title',
-            'started_at', 'completed_at', 'score', 'status', 'status_display'
+            'started_at', 'completed_at', 'score', 'status', 'status_display',
+            'newly_earned_badges' # Aggiunto il nuovo campo
         ]
-        read_only_fields = ['student', 'student_info', 'quiz', 'quiz_title', 'started_at', 'completed_at', 'score', 'status', 'status_display']
+        read_only_fields = [
+            'student', 'student_info', 'quiz', 'quiz_title', 'started_at',
+            'completed_at', 'score', 'status', 'status_display',
+            'newly_earned_badges'
+        ]
+
+    def to_representation(self, instance):
+        """ Aggiunge i badge appena guadagnati dal contesto alla rappresentazione. """
+        representation = super().to_representation(instance)
+        newly_earned = self.context.get('newly_earned_badges', [])
+        if newly_earned:
+            # Serializza solo i Badge associati agli EarnedBadge
+            badges_to_serialize = [earned.badge for earned in newly_earned]
+            representation['newly_earned_badges'] = SimpleBadgeSerializer(badges_to_serialize, many=True).data
+        else:
+            representation['newly_earned_badges'] = [] # Assicura che sia sempre una lista
+        return representation
 
 
 class QuizAttemptDetailSerializer(QuizAttemptSerializer):
@@ -873,7 +893,10 @@ class StudentQuizDashboardSerializer(QuizSerializer):
     def get_latest_attempt(self, obj):
         student = self.context.get('student')
         if student:
-            latest = obj.attempts.filter(student=student).order_by('-started_at').first()
+            # Seleziona solo i campi necessari per SimpleQuizAttemptSerializer
+            latest = obj.attempts.filter(student=student).order_by('-started_at').only(
+                'id', 'score', 'status', 'completed_at'
+            ).first()
             if latest:
                 return SimpleQuizAttemptSerializer(latest).data
         return None

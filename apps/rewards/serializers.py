@@ -165,7 +165,7 @@ class BadgeSerializer(serializers.ModelSerializer):
     class Meta:
         model = Badge
         fields = [
-            'id', 'name', 'description', 'image_url',
+            'id', 'name', 'description', 'image', # Sostituito image_url con image
             'trigger_type', 'trigger_type_display', 'trigger_condition',
             'is_active', 'created_at'
         ]
@@ -183,3 +183,15 @@ class EarnedBadgeSerializer(serializers.ModelSerializer):
         model = EarnedBadge
         fields = ['id', 'student', 'badge', 'earned_at']
         read_only_fields = fields # Questi record sono creati dalla logica interna
+
+
+class SimpleBadgeSerializer(serializers.ModelSerializer):
+    """ Serializer semplificato per i Badge, usato per le notifiche. """
+    # Aggiunto image (che ora è ImageField)
+    image = serializers.ImageField(read_only=True)
+
+    class Meta:
+        model = Badge
+        # Sostituito image_url con image
+        fields = ['id', 'name', 'description', 'image']
+        read_only_fields = fields

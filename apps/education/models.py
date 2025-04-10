@@ -5,7 +5,7 @@ from django.core.exceptions import ValidationError
 from django.db.models import Max as AggregateMax # Rinomina Max per evitare conflitti
 
 # Import Student model
-from apps.users.models import Student
+from apps.users.models import Student, UserRole, User # Ripristinato import UserRole e User
 from django.utils import timezone # Import timezone
 from django.db.models import F # Import F for atomic updates
 # Import Wallet and PointTransaction later to avoid circular dependency if needed,
@@ -209,7 +209,6 @@ class PathwayQuizTemplate(models.Model):
 
     def __str__(self):
         return f"{self.pathway_template.title} - Step {self.order}: {self.quiz_template.title}"
-
 
 
 # --- Concrete Models (Created/Managed by Teacher) ---
@@ -435,8 +434,12 @@ class QuizAttempt(models.Model):
         blank=True,
         help_text=_('Final score achieved (e.g., percentage or total points).')
     )
-    # points_earned: Calcolato al momento del completamento se le condizioni sono soddisfatte
-    # first_correct_completion: Calcolato al momento del completamento
+    # points_earned: Calcolato al momento del completamento se le condizioni sono soddisfatte (Non è un campo DB diretto)
+    first_correct_completion = models.BooleanField(
+        _('First Correct Completion?'),
+        default=False,
+        help_text=_('Indica se questo è stato il primo tentativo superato con successo per questo quiz da parte dello studente.')
+    )
     status = models.CharField(
         _('Status'),
         max_length=20,
@@ -498,332 +501,328 @@ class QuizAttempt(models.Model):
                     correct_answers = [ans.strip().lower() for ans in q.metadata.get('correct_answers', [])]
                     fill_blank_answers_map[q.id] = correct_answers
 
+        # Se non ci sono domande auto-gradate, non possiamo calcolare un punteggio automatico
+        if total_autograded_questions == 0:
+            # Potremmo controllare se ci sono domande manuali e se sono state valutate,
+            # ma per ora restituiamo None se non ci sono domande auto-gradate.
+            # Oppure potremmo impostare lo stato su PENDING_GRADING se ci sono domande manuali.
+            logger.info(f"Attempt {self.id}: No auto-gradable questions found. Score calculation skipped.")
+            # Se ci sono domande totali ma nessuna auto-gradabile, probabilmente sono tutte manuali
+            if total_questions > 0:
+                 self.status = self.AttemptStatus.PENDING_GRADING
+                 self.save(update_fields=['status'])
+                 logger.info(f"Attempt {self.id}: Status set to PENDING_GRADING as only manual questions exist.")
+            self.score = None # Assicura che lo score sia None
+            self.save(update_fields=['score'])
+            return None # O 0.0? None indica che non è stato calcolato automaticamente.
+
         correct_answers_count = 0
-        manual_score_total = 0
-        manual_questions_graded = 0
-        correct_manual_answers_count = 0 # Aggiunto contatore
+        total_score_points = 0.0 # Punteggio basato sui punti per domanda
+        max_possible_points = 0.0 # Punteggio massimo possibile dalle domande auto-gradate
 
-        # Itera sulle risposte dello studente recuperate dal DB
-        for student_answer in student_answers:
-            question = student_answer.question
-            question_id = question.id
-            question_type = question.question_type
-            selected_data = student_answer.selected_answers
+        for answer in student_answers:
+            q = answer.question
+            # Considera solo le risposte a domande auto-gradate per il punteggio
+            if q.question_type != QuestionType.OPEN_ANSWER_MANUAL:
+                points_per_correct = float(q.metadata.get('points_per_correct_answer', 1.0)) # Default a 1 punto
+                max_possible_points += points_per_correct # Aggiungi al massimo possibile
 
-            if question_type == QuestionType.OPEN_ANSWER_MANUAL:
-                if student_answer.score is not None: # Considera solo se gradata
-                    manual_score_total += student_answer.score
-                    manual_questions_graded += 1
-                    if student_answer.is_correct: # Aggiunto controllo
-                        correct_manual_answers_count += 1
-                continue # Salta il controllo automatico
+                is_correct = False # Resetta per ogni risposta
+                selected_data = answer.selected_answers
 
-            # Logica correzione automatica
-            is_correct = False
-            try:
-                if question_type in [QuestionType.MULTIPLE_CHOICE_SINGLE, QuestionType.TRUE_FALSE]:
-                    selected_option_id_raw = selected_data.get('answer_option_id') if isinstance(selected_data, dict) else None
-                    expected_correct_id = correct_options_map.get(question_id)
-
-                    # Tentativo di conversione a intero e confronto
-                    selected_option_id = None
-                    try:
-                        if selected_option_id_raw is not None:
-                            selected_option_id = int(selected_option_id_raw)
-                    except (ValueError, TypeError):
-                        logger.warning(f"Attempt {self.id} - Q {question_id}: Could not convert selected_option_id '{selected_option_id_raw}' to int.") # Manteniamo questo warning
-
-                    if expected_correct_id is not None and selected_option_id == expected_correct_id: # Rimosso log da qui
+                if q.question_type == QuestionType.MULTIPLE_CHOICE_SINGLE:
+                    correct_option_id = correct_options_map.get(q.id)
+                    selected_option_id = selected_data.get('answer_option_id') if isinstance(selected_data, dict) else None
+                    if correct_option_id is not None and selected_option_id == correct_option_id:
                         is_correct = True
-                elif question_type == QuestionType.MULTIPLE_CHOICE_MULTIPLE:
-                    # Corretto per usare answer_option_ids
+
+                elif q.question_type == QuestionType.TRUE_FALSE:
+                    correct_option_id = correct_options_map.get(q.id)
+                    selected_bool = selected_data.get('is_true') if isinstance(selected_data, dict) else None
+                    # Trova l'opzione corretta per determinare se la risposta attesa è True o False
+                    correct_option_obj = q.answer_options.filter(id=correct_option_id).first() if correct_option_id else None
+                    if correct_option_obj:
+                         expected_bool = correct_option_obj.text.lower() == 'vero' # O un check più robusto
+                         if selected_bool == expected_bool:
+                             is_correct = True
+                    # Se correct_option_obj non esiste o selected_bool è None, is_correct rimane False
+
+                elif q.question_type == QuestionType.MULTIPLE_CHOICE_MULTIPLE:
+                    correct_option_ids = correct_options_map.get(q.id, set())
                     selected_option_ids = set(selected_data.get('answer_option_ids', [])) if isinstance(selected_data, dict) else set()
-                    expected_correct_set = correct_options_map.get(question_id, set()) # Get the set or an empty set
-                    print(f"--- Attempt {self.id}: Evaluating Q {question_id} (MC_MULTI): Selected Set={selected_option_ids}, Expected Set={expected_correct_set} ---") # DEBUG PRINT
-                    if question_id in correct_options_map and selected_option_ids == expected_correct_set:
+                    if correct_option_ids == selected_option_ids:
                         is_correct = True
-                elif question_type == QuestionType.FILL_BLANK:
-                    user_answer = selected_data.get('answer_text', '').strip().lower() if isinstance(selected_data, dict) else ''
-                    if question_id in fill_blank_answers_map and user_answer in fill_blank_answers_map[question_id]:
-                        is_correct = True
-            except Exception as e:
-                logger.exception(f"Errore durante la valutazione della risposta per domanda {question_id} nel tentativo {self.id}")
-                # Consideriamo la risposta come errata in caso di eccezione? Per ora sì.
-                is_correct = False # Assicurati che is_correct sia False
 
-            if is_correct:
-                correct_answers_count += 1
-            # Aggiorna is_correct sulla risposta se è cambiato
-            if student_answer.is_correct != is_correct:
-                 student_answer.is_correct = is_correct
-                 student_answer.save(update_fields=['is_correct']) # Salva l'esito della singola risposta
+                elif q.question_type == QuestionType.FILL_BLANK:
+                    correct_answers_list = fill_blank_answers_map.get(q.id, [])
+                    submitted_answers = selected_data.get('answers', []) if isinstance(selected_data, dict) else []
+                    case_sensitive = q.metadata.get('case_sensitive', False)
 
-        # Calcola punteggio finale
-        # Calcolo del punteggio finale:
-        # - Se ci sono domande a correzione automatica, il punteggio è la percentuale
-        #   di risposte corrette *solo* tra quelle automatiche. Il punteggio manuale
-        #   viene ignorato in questo calcolo percentuale finale.
-        # - Se ci sono *solo* domande manuali e sono state tutte gradate,
-        #   il punteggio è la percentuale di risposte manuali corrette.
-        # - Altrimenti (es. solo domande manuali non ancora gradate), il punteggio è 0.
-        final_score = 0
-        if total_autograded_questions > 0:
-            # Caso 1: Ci sono domande auto-gradate. Il punteggio si basa solo su queste.
-            final_score = (correct_answers_count / total_autograded_questions) * 100
-        elif manual_questions_graded > 0:
-             # Caso 2: Ci sono SOLO domande manuali e sono state gradate.
-             final_score = (correct_manual_answers_count / manual_questions_graded) * 100 # Calcola percentuale
-        # else: final_score rimane 0
+                    if len(correct_answers_list) == len(submitted_answers):
+                        all_match = True
+                        for i, correct_ans in enumerate(correct_answers_list):
+                            submitted = submitted_answers[i]
+                            correct_str = str(correct_ans)
+                            submitted_str = str(submitted)
+                            if not case_sensitive:
+                                if correct_str.lower() != submitted_str.lower(): all_match = False; break
+                            else:
+                                if correct_str != submitted_str: all_match = False; break
+                        if all_match:
+                            is_correct = True
 
-        final_score = round(final_score, 2)
-        # print(f"Calcolato punteggio finale per tentativo {self.id}: {final_score}") # Rimosso print
-        return final_score
+                # Aggiorna il conteggio e il punteggio se la risposta è corretta
+                if is_correct:
+                    correct_answers_count += 1
+                    total_score_points += points_per_correct
+
+                # Salva is_correct e score sulla singola risposta (se non già fatto in submit_answer)
+                # Questo è ridondante se lo facciamo già in submit_answer, ma può servire come fallback
+                # o se vogliamo ricalcolare tutto qui. Per ora lo commentiamo assumendo che submit_answer lo faccia.
+                # answer.is_correct = is_correct
+                # answer.score = points_per_correct if is_correct else 0.0
+                # answer.save(update_fields=['is_correct', 'score'])
+
+
+        # Calcola il punteggio percentuale finale
+        final_score_percent = 0.0
+        if max_possible_points > 0:
+            final_score_percent = round((total_score_points / max_possible_points) * 100, 2)
+        else:
+            # Se non ci sono punti massimi possibili (es. solo domande con 0 punti?), il punteggio è 0 o indeterminato?
+            # Per ora impostiamo a 0.
+            final_score_percent = 0.0
+
+        # Salva il punteggio finale sul tentativo
+        self.score = final_score_percent
+        self.save(update_fields=['score'])
+        logger.info(f"Attempt {self.id}: Final score calculated: {final_score_percent}% ({total_score_points}/{max_possible_points} points)")
+
+        return final_score_percent
+
 
     @transaction.atomic # Assicura atomicità per punti e badge
-    def assign_completion_points(self):
+    def assign_completion_points(self) -> list[EarnedBadge]: # Aggiunto tipo di ritorno
+        logger.info(f"Attempt {self.id}: Entering assign_completion_points. Current status: {self.status}, Score: {self.score}") # LOGGING
         """
-        Checks if the attempt meets the completion threshold and assigns points if applicable.
-
-        This method operates on the QuizAttempt instance (`self`).
-        It reads 'completion_threshold_percent' and 'points_on_completion' from the Quiz metadata.
-        Points are awarded only if:
-        1. The attempt's score meets or exceeds the threshold.
-        2. 'points_on_completion' is greater than 0.
-        3. This is the *first* successful completion of this specific quiz by this student
-           (checked by querying previous successful attempts).
-
-        If points are awarded, it atomically updates the student's Wallet balance
-        and creates a PointTransaction record.
-
-        It also triggers `update_pathway_progress` regardless of whether points were awarded for the quiz itself,
-        to ensure pathway progression is checked upon successful quiz completion.
+        Assigns points and potentially the 'first-quiz-completed' badge
+        if the quiz attempt is the first successful one for the student.
+        Also updates the attempt status based on score and threshold.
+        Returns a list of newly earned Badge instances.
         """
-        # Ensure score is calculated and saved before checking threshold
+        newly_earned_badges = [] # Inizializza lista badge guadagnati
+        logger.info(f"Attempt {self.id}: Entering assign_completion_points. Current status: {self.status}, Score: {self.score}") # LOGGING
+        # Ensure score is calculated and available
         if self.score is None:
-             self.score = self.calculate_final_score() # Calculate if not already done
-             # self.save(update_fields=['score']) # Save score? calculate_final_score might not save. Let's assume it does for now or is saved before calling this.
+             logger.warning(f"Attempt {self.id}: Score is None, cannot assign points or determine status accurately.")
+             # Decide how to handle this - maybe recalculate? For now, just return or set to FAILED.
+             if self.status == self.AttemptStatus.IN_PROGRESS: # Avoid overwriting PENDING_GRADING
+                 self.status = self.AttemptStatus.FAILED
+                 self.save(update_fields=['status'])
+             return
 
-        # Default threshold to 100% if not specified
-        completion_threshold = float(self.quiz.metadata.get('completion_threshold_percent', 100.0))
-        points_to_award = int(self.quiz.metadata.get('points_on_completion', 0))
+        # Determine pass/fail based on threshold
+        threshold = self.quiz.metadata.get('completion_threshold_percent', 100.0) # Default to 100% if not set
+        passed = self.score >= threshold
 
-        logger.debug(f"Attempt {self.id}: Score={self.score}, Threshold={completion_threshold}, Points={points_to_award}")
+        # Update status based on pass/fail, only if currently IN_PROGRESS or PENDING (after grading)
+        if self.status in [self.AttemptStatus.IN_PROGRESS, self.AttemptStatus.PENDING_GRADING]:
+             self.status = self.AttemptStatus.COMPLETED if passed else self.AttemptStatus.FAILED
+             self.save(update_fields=['status']) # Save status update
 
-        passed = self.score is not None and self.score >= completion_threshold
-
-        # Update attempt status based on pass/fail
+        # Award points logic (only if passed)
+        points_to_award = 0
         if passed:
-            self.status = self.AttemptStatus.COMPLETED
-        else:
-            self.status = self.AttemptStatus.FAILED
-        # Save the status change immediately
-        self.save(update_fields=['status', 'score']) # Ensure score is saved too
+            points_to_award = self.quiz.metadata.get('points_on_completion', 0)
 
-        # Check if this is the first *successful* completion
-        is_first_successful = False
-        if passed:
-            # Check if there are any *previous* attempts for this quiz by this student that were COMPLETED
-            previous_successful_attempts_exist = QuizAttempt.objects.filter(
+            # Check if this is the first *successful* completion for this specific quiz
+            is_first_successful_for_this_quiz = not QuizAttempt.objects.filter(
                 quiz=self.quiz,
                 student=self.student,
                 status=self.AttemptStatus.COMPLETED
             ).exclude(pk=self.pk).exists() # Exclude the current attempt
 
-            if not previous_successful_attempts_exist:
-                is_first_successful = True
+            if is_first_successful_for_this_quiz:
+                self.first_correct_completion = True # Mark this attempt
                 logger.info(f"Attempt {self.id} is the first successful completion for quiz {self.quiz.id} by student {self.student.id}.")
+            else:
+                 self.first_correct_completion = False # Ensure it's False otherwise
+                 logger.info(f"Attempt {self.id} is NOT the first successful completion for quiz {self.quiz.id} by student {self.student.id}.")
 
+            # Save first_correct_completion status
+            self.save(update_fields=['first_correct_completion'])
 
-        # Award points only on the first successful completion and if points > 0
-        if is_first_successful and points_to_award > 0:
-            try:
-                wallet = Wallet.objects.get(student=self.student)
-                # Use atomic transaction for updating wallet and creating transaction
-                with transaction.atomic():
-                    # Use F() expression for atomic update
-                    wallet.current_points = F('current_points') + points_to_award
-                    wallet.save(update_fields=['current_points'])
-                    # Refresh wallet from DB to get the updated value if needed later in this request
-                    # wallet.refresh_from_db()
+            # Award points only on the first successful completion and if points > 0
+            if is_first_successful_for_this_quiz and points_to_award > 0:
+                try:
+                    wallet = Wallet.objects.get(student=self.student)
+                    # Use atomic transaction for updating wallet and creating transaction
+                    with transaction.atomic():
+                        # Use F() expression for atomic update
+                        wallet.current_points = F('current_points') + points_to_award
+                        wallet.save(update_fields=['current_points'])
+                        # Refresh wallet from DB to get the updated value if needed later in this request
+                        # wallet.refresh_from_db()
 
-                    PointTransaction.objects.create(
-                        wallet=wallet,
-                        points_change=points_to_award,
-                        reason=f"Completamento Quiz: {self.quiz.title}"
-                    )
-                    logger.info(f"Awarded {points_to_award} points to student {self.student.id} for completing quiz {self.quiz.id}.") # Log aggiornato per chiarezza
+                        PointTransaction.objects.create(
+                            wallet=wallet,
+                            points_change=points_to_award,
+                            reason=f"Completamento Quiz: {self.quiz.title}"
+                        )
+                        logger.info(f"Awarded {points_to_award} points to student {self.student.id} for completing quiz {self.quiz.id}.") # Log aggiornato per chiarezza
 
-                    # --- Logica Assegnazione Badge "Primo Quiz Completato" ---
-                    # Verifica se è il PRIMO quiz IN ASSOLUTO completato correttamente dallo studente
-                    is_first_ever_completion = not QuizAttempt.objects.filter(
-                        student=self.student,
-                        status=QuizAttempt.AttemptStatus.COMPLETED
-                    ).exclude(pk=self.pk).exists() # Escludi il tentativo corrente
+                        # --- Logica Assegnazione Badge "Primo Quiz Completato" ---
+                        # Rimosse righe di log che causavano NameError
+                        # Verifica se è il PRIMO quiz IN ASSOLUTO completato correttamente dallo studente
+                        logger.info(f"Attempt {self.id}: Quiz passed. Checking for first completion badge.") # LOGGING
+                        is_first_ever_completion = not QuizAttempt.objects.filter(
+                            student=self.student,
+                            status=QuizAttempt.AttemptStatus.COMPLETED
+                        ).exclude(pk=self.pk).exists() # Escludi il tentativo corrente
 
-                    if is_first_ever_completion:
-                        logger.info(f"Questo è il primo quiz IN ASSOLUTO completato correttamente da {self.student.full_name}. Tentativo assegnazione badge 'first-quiz-completed'.")
-                        try:
-                            # Assumiamo che il badge esista con questo slug
-                            first_quiz_badge = Badge.objects.get(slug='first-quiz-completed')
-                            earned_badge, created = EarnedBadge.objects.get_or_create(
-                                student=self.student,
-                                badge=first_quiz_badge,
-                                defaults={'earned_at': timezone.now()} # Imposta earned_at solo se creato
-                            )
-                            if created:
-                                logger.info(f"Badge '{first_quiz_badge.name}' assegnato a {self.student.full_name}.")
-                            else:
-                                logger.info(f"Studente {self.student.full_name} aveva già il badge '{first_quiz_badge.name}'.")
-                        except Badge.DoesNotExist:
-                            logger.warning("Badge con slug 'first-quiz-completed' non trovato nel database. Impossibile assegnare.")
-                        except Exception as e_badge:
-                            # Logga l'errore ma non far fallire l'assegnazione dei punti
-                            logger.error(f"Errore durante l'assegnazione del badge 'first-quiz-completed' a {self.student.id}: {e_badge}", exc_info=True)
-                    # --- Fine Logica Badge ---
+                        logger.info(f"Attempt {self.id}: Checking for first completion badge. is_first_ever_completion={is_first_ever_completion}") # LOGGING
+                        if is_first_ever_completion:
+                            logger.info(f"Questo è il primo quiz IN ASSOLUTO completato correttamente da {self.student.full_name}. Tentativo assegnazione badge 'first-quiz-completed'.")
+                            try:
+                                # Assumiamo che il badge esista con questo slug
+                                first_quiz_badge = Badge.objects.get(name='Primo Quiz Completato!') # Usa nome corretto
+                                earned_badge, created = EarnedBadge.objects.get_or_create(
+                                    student=self.student,
+                                    badge=first_quiz_badge,
+                                    defaults={'earned_at': timezone.now()} # Imposta earned_at solo se creato
+                                )
+                                if created:
+                                    logger.info(f"Badge '{first_quiz_badge.name}' assegnato a {self.student.full_name}.")
+                                    newly_earned_badges.append(earned_badge) # Aggiungi alla lista se creato
+                                else:
+                                    logger.info(f"Studente {self.student.full_name} aveva già il badge '{first_quiz_badge.name}'.")
+                            except Badge.DoesNotExist:
+                                logger.warning("Badge con nome 'Primo Quiz Completato!' non trovato nel database. Impossibile assegnare.") # Updated log message
+                            except Exception as e_badge:
+                                # Logga l'errore ma non far fallire l'assegnazione dei punti
+                                logger.error(f"Errore durante l'assegnazione del badge 'Primo Quiz Completato!' a {self.student.id}: {e_badge}", exc_info=True) # Updated log message
+                        # --- Fine Logica Badge ---
 
-                    # --- Logica Assegnazione Badge "Primo Quiz Completato" ---
-                    # Verifica se è il PRIMO quiz IN ASSOLUTO completato correttamente dallo studente
-                    is_first_ever_completion = not QuizAttempt.objects.filter(
-                        student=self.student,
-                        status=QuizAttempt.AttemptStatus.COMPLETED
-                    ).exclude(pk=self.pk).exists() # Escludi il tentativo corrente
+                        # Blocco duplicato rimosso
 
-                    if is_first_ever_completion:
-                        logger.info(f"Questo è il primo quiz IN ASSOLUTO completato correttamente da {self.student.full_name}. Tentativo assegnazione badge 'first-quiz-completed'.")
-                        try:
-                            # Assumiamo che il badge esista con questo slug
-                            first_quiz_badge = Badge.objects.get(slug='first-quiz-completed')
-                            earned_badge, created = EarnedBadge.objects.get_or_create(
-                                student=self.student,
-                                badge=first_quiz_badge,
-                                defaults={'earned_at': timezone.now()} # Imposta earned_at solo se creato
-                            )
-                            if created:
-                                logger.info(f"Badge '{first_quiz_badge.name}' assegnato a {self.student.full_name}.")
-                            else:
-                                logger.info(f"Studente {self.student.full_name} aveva già il badge '{first_quiz_badge.name}'.")
-                        except Badge.DoesNotExist:
-                            logger.warning("Badge con slug 'first-quiz-completed' non trovato nel database. Impossibile assegnare.")
-                        except Exception as e_badge:
-                            # Logga l'errore ma non far fallire l'assegnazione dei punti
-                            logger.error(f"Errore durante l'assegnazione del badge 'first-quiz-completed' a {self.student.id}: {e_badge}", exc_info=True)
-                    # --- Fine Logica Badge ---
-
-            except Wallet.DoesNotExist:
-                logger.error(f"Wallet not found for student {self.student.id} when trying to award points for quiz {self.quiz.id}.")
-            except Exception as e_points: # Rinomina variabile eccezione per evitare shadowing
-                logger.exception(f"Error awarding points or badge for quiz attempt {self.id}: {e_points}") # Aggiornato log errore
+                except Wallet.DoesNotExist:
+                    logger.error(f"Wallet not found for student {self.student.id} when trying to award points for quiz {self.quiz.id}.")
+                except Exception as e_points: # Rinomina variabile eccezione per evitare shadowing
+                    logger.exception(f"Error awarding points or badge for quiz attempt {self.id}: {e_points}") # Aggiornato log errore
 
         # --- Trigger Pathway Progress Update ---
         # This should happen if the quiz was passed, regardless of points awarded
+        pathway_badges = []
         if passed:
-             self.update_pathway_progress() # Call the method to update pathway progress
+             pathway_badges = self.update_pathway_progress() # Cattura i badge dal percorso
+
+        return newly_earned_badges + pathway_badges # Restituisci tutti i badge guadagnati
 
 
-    def update_pathway_progress(self):
+    def update_pathway_progress(self) -> list[EarnedBadge]: # Aggiunto tipo di ritorno
         """
         Updates the PathwayProgress if this quiz is part of a pathway and was successfully completed.
         Uses the new `completed_orders` field.
-        Checks if the pathway itself is now complete and assigns pathway points if applicable.
+        Checks if the pathway itself is now complete and assigns pathway points/badges if applicable.
+        Returns a list of newly earned pathway-related Badge instances.
         """
+        newly_earned_pathway_badges = [] # Inizializza lista badge guadagnati
         logger.debug(f"Attempt {self.id}: Checking pathway progress update for quiz {self.quiz.id}.")
         # Check if the attempt was successful (status is COMPLETED)
         if self.status != self.AttemptStatus.COMPLETED:
             logger.debug(f"Attempt {self.id}: Quiz not passed (status={self.status}), skipping pathway update.")
             return
 
-        # Find if this quiz is part of any pathways assigned to the student
-        assigned_pathways = Pathway.objects.filter(
-            assignments__student=self.student, # Check assignments for this student
-            pathwayquiz__quiz=self.quiz # Check if the pathway contains this quiz
-        ).distinct().prefetch_related('pathwayquiz_set') # Prefetch related quizzes for efficiency
+        # Find pathways this quiz belongs to and the student is assigned to
+        pathway_assignments = PathwayAssignment.objects.filter(
+            student=self.student,
+            pathway__quizzes=self.quiz # Filtra per percorsi che contengono questo quiz
+        ).select_related('pathway')
 
-        if not assigned_pathways.exists():
-            logger.debug(f"Attempt {self.id}: Quiz {self.quiz.id} is not part of any assigned pathway for student {self.student.id}.")
-            return
+        logger.debug(f"Attempt {self.id}: Found {pathway_assignments.count()} pathway assignments for student {self.student.id} containing quiz {self.quiz.id}.")
 
-        for pathway in assigned_pathways:
-            logger.info(f"Attempt {self.id}: Updating progress for pathway {pathway.id} for student {self.student.id}.")
+        for assignment in pathway_assignments:
+            pathway = assignment.pathway
+            # Get the order of the current quiz within this specific pathway
             try:
-                # Get or create the progress record for this student and pathway
-                progress, created = PathwayProgress.objects.get_or_create(
-                    student=self.student,
-                    pathway=pathway,
-                    defaults={'status': PathwayProgress.ProgressStatus.IN_PROGRESS, 'completed_orders': []} # Ensure completed_orders is initialized
-                )
+                pathway_quiz_entry = PathwayQuiz.objects.get(pathway=pathway, quiz=self.quiz)
+                current_quiz_order = pathway_quiz_entry.order
+            except PathwayQuiz.DoesNotExist:
+                logger.warning(f"Attempt {self.id}: Quiz {self.quiz.id} is linked to pathway {pathway.id} but PathwayQuiz entry is missing.")
+                continue # Skip this pathway if the link is broken
 
-                # Find the order of the completed quiz within this specific pathway
-                try:
-                    pathway_quiz_entry = pathway.pathwayquiz_set.get(quiz=self.quiz)
-                    completed_quiz_order = pathway_quiz_entry.order
-                except PathwayQuiz.DoesNotExist:
-                    logger.error(f"Consistency error: Quiz {self.quiz.id} completed in attempt {self.id} but not found in PathwayQuiz for pathway {pathway.id}.")
-                    continue # Skip this pathway if the quiz isn't actually part of it
+            # Get or create the progress record for this student and pathway
+            progress, created = PathwayProgress.objects.get_or_create(
+                student=self.student,
+                pathway=pathway,
+                defaults={'status': PathwayProgress.ProgressStatus.IN_PROGRESS}
+            )
 
-                # Ensure completed_orders is a list (handle potential null/incorrect type from DB if default wasn't set properly)
-                if not isinstance(progress.completed_orders, list):
-                    progress.completed_orders = []
+            # Add the current quiz order to the list of completed orders if not already present
+            if current_quiz_order not in progress.completed_orders:
+                progress.completed_orders.append(current_quiz_order)
+                progress.completed_orders.sort() # Mantieni ordinato
+                progress.last_completed_quiz_order = max(progress.completed_orders) # Aggiorna l'ultimo completato
+                logger.info(f"Attempt {self.id}: Updated pathway {pathway.id} progress for student {self.student.id}. Completed orders: {progress.completed_orders}")
+            else:
+                 logger.debug(f"Attempt {self.id}: Quiz order {current_quiz_order} already marked as completed for pathway {pathway.id}, student {self.student.id}.")
 
-                # Add the completed order to the list if not already present
-                if completed_quiz_order not in progress.completed_orders:
-                    progress.completed_orders.append(completed_quiz_order)
-                    progress.completed_orders.sort() # Keep the list sorted
-                    logger.debug(f"Pathway {pathway.id} Progress for student {self.student.id}: Added order {completed_quiz_order} to completed_orders. New list: {progress.completed_orders}")
-                else:
-                    logger.debug(f"Pathway {pathway.id} Progress for student {self.student.id}: Order {completed_quiz_order} already in completed_orders.")
 
-                # Update last_completed_quiz_order with the maximum completed order
-                progress.last_completed_quiz_order = max(progress.completed_orders) if progress.completed_orders else None
+            # Check if the pathway is now complete
+            all_pathway_quiz_orders = set(PathwayQuiz.objects.filter(pathway=pathway).values_list('order', flat=True))
+            completed_orders_set = set(progress.completed_orders)
 
-                # Check if the entire pathway is now complete
-                all_pathway_quiz_orders = set(pathway.pathwayquiz_set.values_list('order', flat=True))
-                completed_orders_set = set(progress.completed_orders)
+            if all_pathway_quiz_orders == completed_orders_set:
+                logger.info(f"Pathway {pathway.id} completed by student {self.student.id} with attempt {self.id}.")
+                progress.status = PathwayProgress.ProgressStatus.COMPLETED
+                progress.completed_at = timezone.now()
 
-                is_pathway_complete = all_pathway_quiz_orders.issubset(completed_orders_set)
-
-                if is_pathway_complete and progress.status != PathwayProgress.ProgressStatus.COMPLETED:
-                    progress.status = PathwayProgress.ProgressStatus.COMPLETED
-                    progress.completed_at = timezone.now()
-                    logger.info(f"Pathway {pathway.id} completed by student {self.student.id}.")
-
-                    # --- Assign Pathway Completion Points ---
-                    pathway_points = int(pathway.metadata.get('points_on_completion', 0))
-                    # Check if this is the first completion of the *pathway*
-                    previous_pathway_completions_exist = PathwayProgress.objects.filter(
-                        pathway=pathway,
-                        student=self.student,
-                        status=PathwayProgress.ProgressStatus.COMPLETED
-                    ).exclude(pk=progress.pk).exists()
-
-                    if not previous_pathway_completions_exist and pathway_points > 0:
-                        progress.first_correct_completion = True # Mark first completion
+                # --- Logica Punti/Badge per Completamento Percorso ---
+                if not progress.first_correct_completion: # Assegna solo la prima volta
+                    progress.first_correct_completion = True
+                    points_for_pathway = pathway.metadata.get('points_on_completion', 0)
+                    if points_for_pathway > 0:
                         try:
                             wallet = Wallet.objects.get(student=self.student)
                             with transaction.atomic():
-                                wallet.current_points = F('current_points') + pathway_points
+                                wallet.current_points = F('current_points') + points_for_pathway
                                 wallet.save(update_fields=['current_points'])
                                 PointTransaction.objects.create(
                                     wallet=wallet,
-                                    points_change=pathway_points,
+                                    points_change=points_for_pathway,
                                     reason=f"Completamento Percorso: {pathway.title}"
                                 )
-                                progress.points_earned = pathway_points # Record points earned for the pathway
-                                logger.info(f"Awarded {pathway_points} points to student {self.student.id} for completing pathway {pathway.id}.")
+                                progress.points_earned = points_for_pathway
+                                logger.info(f"Awarded {points_for_pathway} points to student {self.student.id} for completing pathway {pathway.id}.")
                         except Wallet.DoesNotExist:
-                            logger.error(f"Wallet not found for student {self.student.id} when trying to award points for pathway {pathway.id}.")
-                        except Exception as e:
-                            logger.exception(f"Error awarding points for pathway completion {progress.id}: {e}")
-                    else:
-                         logger.info(f"Pathway {pathway.id} already completed previously or has 0 points. No points awarded.")
-                         # Ensure points_earned is null if no points were awarded this time
-                         progress.points_earned = None
+                             logger.error(f"Wallet not found for student {self.student.id} when trying to award points for pathway {pathway.id}.")
+                        except Exception as e_path_points:
+                             logger.exception(f"Error awarding points for pathway {pathway.id} completion: {e_path_points}")
 
+                    # --- Logica Badge per Completamento Percorso ---
+                    try:
+                        pathway_badges = Badge.objects.filter(
+                            trigger_type=Badge.TriggerType.PATHWAY_COMPLETED,
+                            is_active=True
+                        )
+                        for badge in pathway_badges:
+                            # Verifica condizioni specifiche del badge (se presenti)
+                            # Per ora, assumiamo che il semplice completamento sia sufficiente
+                            # Esempio futuro: if pathway.metadata.get('difficulty') == badge.trigger_condition.get('required_difficulty'): ...
 
-                # Save the progress changes (status, completed_at, last_completed_quiz_order, completed_orders, points_earned, first_correct_completion)
-                progress.save()
+                            # Controlla se lo studente ha già questo badge
+                            already_earned = EarnedBadge.objects.filter(student=self.student, badge=badge).exists()
+                            if not already_earned:
+                                earned_badge = EarnedBadge.objects.create(student=self.student, badge=badge) # Cattura istanza creata
+                                newly_earned_pathway_badges.append(earned_badge) # Aggiungi alla lista
+                                logger.info(f"Awarded badge '{badge.name}' to student {self.student.id} for completing pathway {pathway.id}.")
+                    except Exception as e_path_badge:
+                        logger.exception(f"Error awarding badge for pathway {pathway.id} completion: {e_path_badge}")
 
-            except Exception as e:
-                logger.exception(f"Error updating pathway progress for pathway {pathway.id}, student {self.student.id}, attempt {self.id}: {e}")
+            # Salva le modifiche al progresso (stato, completed_at, points_earned, first_correct_completion, completed_orders, last_completed_quiz_order)
+            progress.save()
+
+        return newly_earned_pathway_badges # Restituisci i badge guadagnati in questo aggiornamento
 
 
 class StudentAnswer(models.Model):
@@ -930,8 +929,6 @@ class PathwayProgress(models.Model):
         return round((completed_count / total_quizzes) * 100, 1)
 
 
-# --- Assignment Models ---
-
 class QuizAssignment(models.Model):
     """ Modello che rappresenta l'assegnazione di un Quiz a uno Studente. """
     quiz = models.ForeignKey(
@@ -948,34 +945,32 @@ class QuizAssignment(models.Model):
     )
     assigned_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL, # Se l'assegnatore viene eliminato, manteniamo l'assegnazione
+        on_delete=models.SET_NULL, # Mantiene l'assegnazione se chi l'ha assegnato viene eliminato
         null=True,
         related_name='assigned_quizzes',
-        limit_choices_to={'role__in': ['TEACHER', 'ADMIN']}, # Docente o Admin
+        limit_choices_to=Q(role=UserRole.TEACHER) | Q(role=UserRole.ADMIN), # Docente o Admin
         verbose_name=_('Assigned By')
     )
     assigned_at = models.DateTimeField(_('Assigned At'), auto_now_add=True)
-    due_date = models.DateTimeField(_('Due Date'), null=True, blank=True, help_text=_('Optional deadline for the quiz assignment.'))
+    due_date = models.DateTimeField(_('Due Date'), null=True, blank=True)
+    # Potremmo aggiungere uno stato (es. 'pending', 'completed', 'overdue') se necessario
 
     class Meta:
         verbose_name = _('Quiz Assignment')
         verbose_name_plural = _('Quiz Assignments')
-        ordering = ['-assigned_at']
-        unique_together = ('quiz', 'student') # Un quiz può essere assegnato una sola volta a uno studente
+        ordering = ['student', 'assigned_at']
+        unique_together = ('quiz', 'student') # Uno studente può essere assegnato allo stesso quiz una sola volta
 
     def __str__(self):
         return f"Quiz '{self.quiz.title}' assigned to {self.student.full_name}"
 
     def clean(self):
-        # Validazione: Assicura che lo studente appartenga al docente che ha creato il quiz
-        # (o che l'assegnatore sia un admin)
-        if self.assigned_by and self.assigned_by.role == 'TEACHER':
-            if self.quiz.teacher != self.assigned_by:
-                 raise ValidationError(_("A teacher can only assign their own quizzes."))
-            if self.student.teacher != self.assigned_by:
-                 raise ValidationError(_("A teacher can only assign quizzes to their own students."))
-        # Se assigned_by è Admin, permettiamo l'assegnazione (assumendo che l'admin possa gestire tutto)
-        # Se assigned_by è NULL (es. cancellato), non possiamo validare
+        # Validazione opzionale: assicurarsi che assigned_by sia un docente o admin
+        if self.assigned_by and self.assigned_by.role not in [UserRole.TEACHER, UserRole.ADMIN]:
+            raise ValidationError(_('Only Teachers or Admins can assign quizzes.'))
+        # Validazione opzionale: assicurarsi che lo studente appartenga allo stesso docente (se applicabile)
+        # if self.assigned_by and self.assigned_by.is_teacher and self.student.teacher != self.assigned_by:
+        #     raise ValidationError(_('Teacher can only assign quizzes to their own students.'))
 
 
 class PathwayAssignment(models.Model):
@@ -983,7 +978,6 @@ class PathwayAssignment(models.Model):
     pathway = models.ForeignKey(
         Pathway,
         on_delete=models.CASCADE,
-        null=True, # Permetti NULL a livello di DB
         related_name='assignments',
         verbose_name=_('Pathway')
     )
@@ -998,24 +992,23 @@ class PathwayAssignment(models.Model):
         on_delete=models.SET_NULL,
         null=True,
         related_name='assigned_pathways',
-        limit_choices_to={'role__in': ['TEACHER', 'ADMIN']},
+        limit_choices_to=Q(role=UserRole.TEACHER) | Q(role=UserRole.ADMIN),
         verbose_name=_('Assigned By')
     )
     assigned_at = models.DateTimeField(_('Assigned At'), auto_now_add=True)
+    due_date = models.DateTimeField(_('Due Date'), null=True, blank=True)
 
     class Meta:
         verbose_name = _('Pathway Assignment')
         verbose_name_plural = _('Pathway Assignments')
-        ordering = ['-assigned_at']
+        ordering = ['student', 'assigned_at']
         unique_together = ('pathway', 'student')
 
     def __str__(self):
         return f"Pathway '{self.pathway.title}' assigned to {self.student.full_name}"
 
     def clean(self):
-        # Validazione simile a QuizAssignment
-        if self.assigned_by and self.assigned_by.role == 'TEACHER':
-            if self.pathway.teacher != self.assigned_by:
-                 raise ValidationError(_("A teacher can only assign their own pathways."))
-            if self.student.teacher != self.assigned_by:
-                 raise ValidationError(_("A teacher can only assign pathways to their own students."))
+        if self.assigned_by and self.assigned_by.role not in [UserRole.TEACHER, UserRole.ADMIN]:
+            raise ValidationError(_('Only Teachers or Admins can assign pathways.'))
+        # if self.assigned_by and self.assigned_by.is_teacher and self.student.teacher != self.assigned_by:
+        #     raise ValidationError(_('Teacher can only assign pathways to their own students.'))
