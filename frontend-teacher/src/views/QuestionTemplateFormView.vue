@@ -102,8 +102,7 @@ import { useRoute, useRouter } from 'vue-router';
 import debounce from 'lodash-es/debounce'; // Importa debounce
 import {
     fetchTeacherQuestionTemplateDetails, createTeacherQuestionTemplate, updateTeacherQuestionTemplate,
-    // Potrebbe servire un endpoint per fetchare solo gli ID delle domande del template
-    // fetchQuestionTemplateIdsForQuizTemplate,
+    fetchQuestionTemplateIdsForQuizTemplate, // Assicurati che questa sia importata
     type QuestionTemplate, type QuestionTemplatePayload
 } from '@/api/templateQuestions';
 import TemplateAnswerOptionsEditor from '@/components/TemplateAnswerOptionsEditor.vue';
@@ -191,7 +190,7 @@ const goToQuestion = (index: number) => {
     const nextQuestionId = allQuestionIds.value[index];
     // Naviga alla stessa rotta ma con ID domanda diverso
     router.push({
-      name: 'edit-question-template', // Assicurati che il nome rotta sia corretto
+      name: 'quiz-template-question-edit', // Nome corretto della rotta per modificare una domanda specifica
       params: {
         templateId: quizTemplateId.value?.toString(),
         questionId: nextQuestionId.toString()
@@ -213,20 +212,24 @@ const goToNextQuestion = () => {
 };
 
 const fetchAllQuestionIds = async (qtId: number) => {
-    // --- Placeholder: Implementare chiamata API per ottenere gli ID ---
-    console.warn("fetchAllQuestionIds non implementato - usare dati fittizi per ora");
-    // Esempio dati fittizi (da sostituire con chiamata API reale)
-    // const ids = await fetchQuestionTemplateIdsForQuizTemplate(qtId);
-    // allQuestionIds.value = ids;
-    // Esempio:
-    // Simula una chiamata API che restituisce ID basati sull'ID del template
-    if (qtId === 1) { // ID template fittizio
-        allQuestionIds.value = [10, 15, 20, 25]; // ID domande fittizi
-    } else {
-        allQuestionIds.value = [30, 31, 32]; // Altri ID fittizi
+    console.log(`Tentativo di fetch degli ID domande per il template ${qtId}...`);
+    try {
+        // Chiama la funzione API reale (da implementare)
+        const ids = await fetchQuestionTemplateIdsForQuizTemplate(qtId);
+        allQuestionIds.value = ids;
+        console.log("ID domande caricati:", allQuestionIds.value);
+
+        // Verifica se l'ID corrente è presente nell'array caricato
+        if (questionId.value && !allQuestionIds.value.includes(questionId.value)) {
+            console.warn(`L'ID domanda corrente (${questionId.value}) non è stato trovato negli ID caricati per il template ${qtId}. Potrebbe essere un errore o la domanda è stata eliminata.`);
+            // Potresti voler gestire questo caso, ad esempio reindirizzando o mostrando un errore
+        }
+
+    } catch (err) {
+        console.error("Errore durante il fetch degli ID delle domande:", err);
+        error.value = "Impossibile caricare la sequenza delle domande per la navigazione.";
+        allQuestionIds.value = []; // Resetta in caso di errore
     }
-    console.log("ID domande caricati (fittizi):", allQuestionIds.value);
-    // --- Fine Placeholder ---
 };
 
 // Rimosso watcher per metadataString

@@ -213,7 +213,7 @@ class TeacherQuizTemplateViewSet(viewsets.ModelViewSet):
     # Per ora, questo ViewSet gestisce solo il CRUD del QuizTemplate stesso.
 # --- ViewSets Nidificati per Docenti (Gestione Domande/Opzioni Template Quiz) ---
 
-class TeacherQuestionTemplateViewSet(viewsets.ModelViewSet):
+class TeacherQuestionTemplateViewSet(viewsets.ModelViewSet): # Aggiunta azione question_ids
     """ API endpoint per le Question Templates gestite da Docenti nel contesto di un loro QuizTemplate. """
     serializer_class = QuestionTemplateSerializer
     permission_classes = [permissions.IsAuthenticated, IsTeacherUser] # Solo Docenti
@@ -254,6 +254,26 @@ class TeacherQuestionTemplateViewSet(viewsets.ModelViewSet):
         ).order_by('order')
         updated_count = questions_to_reorder.update(order=F('order') - 1)
         logger.info(f"Riordinate {updated_count} domande nel template quiz {quiz_template.id} dopo eliminazione ordine {deleted_order}.")
+
+    # Modificato: detail=False perché l'azione opera sul template (tramite quiz_template_pk), non su una singola domanda (pk)
+    @action(detail=False, methods=['get'], url_path='question-ids', permission_classes=[permissions.IsAuthenticated, IsTeacherUser])
+    def question_ids(self, request, quiz_template_pk=None): # Rimosso pk non necessario
+        """
+        Restituisce un elenco ordinato degli ID delle domande template
+        per il template quiz specificato (quiz_template_pk).
+        Utile per la navigazione sequenziale nel frontend.
+        """
+        quiz_template = get_object_or_404(QuizTemplate, pk=quiz_template_pk)
+        # Verifica ownership
+        if quiz_template.teacher != self.request.user:
+             raise DRFPermissionDenied("Non hai accesso a questo template di quiz.")
+
+        # Recupera gli ID ordinati
+        ordered_ids = list(QuestionTemplate.objects.filter(quiz_template=quiz_template)
+                                                .order_by('order')
+                                                .values_list('id', flat=True))
+
+        return Response(ordered_ids, status=status.HTTP_200_OK)
 
 
 class TeacherAnswerOptionTemplateViewSet(viewsets.ModelViewSet):

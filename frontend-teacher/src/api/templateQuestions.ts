@@ -46,6 +46,23 @@ export interface AnswerOptionTemplatePayload {
 // == Question Templates ==
 
 /**
+ * Recupera gli ID ordinati delle domande template per un specifico template quiz del docente.
+ * Utile per la navigazione sequenziale.
+ */
+export const fetchQuestionTemplateIdsForQuizTemplate = async (quizTemplateId: number): Promise<number[]> => {
+    try {
+        // Assumiamo che l'endpoint restituisca un array di ID numerici: [10, 15, 20, 25]
+        // Corretto URL per l'azione detail=False nel ViewSet nidificato
+        const response: AxiosResponse<number[]> = await apiClient.get(`/education/teacher/quiz-templates/${quizTemplateId}/questions/question-ids/`);
+        return response.data;
+    } catch (error) {
+        console.error(`Errore recupero ID domande template per QuizTemplate ${quizTemplateId}:`, error);
+        throw error;
+    }
+};
+
+
+/**
  * Recupera le domande template per un specifico template quiz del docente.
  */
 export const fetchTeacherQuestionTemplates = async (quizTemplateId: number): Promise<QuestionTemplate[]> => {
