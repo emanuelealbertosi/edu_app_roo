@@ -14,7 +14,8 @@ COPY . .
 
 # Costruisci l'applicazione per la produzione
 # Passa l'URL dell'API come argomento di build (può essere sovrascritto da docker-compose)
-ARG VITE_API_BASE_URL=http://localhost:8000/api
+# Utilizziamo /api/ come valore predefinito per sfruttare il proxy Nginx
+ARG VITE_API_BASE_URL=/api/
 ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
 # Aggiunto echo per invalidare la cache di build Docker per questo passo
 RUN echo "Building with API URL: ${VITE_API_BASE_URL}" && npm run build

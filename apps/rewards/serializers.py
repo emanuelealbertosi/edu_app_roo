@@ -1,3 +1,4 @@
+import logging # Aggiunto import per logging
 from rest_framework import serializers
 from .models import (
     Wallet, PointTransaction, RewardTemplate, Reward,
@@ -6,6 +7,8 @@ from .models import (
 from apps.users.models import User, Student, UserRole # Import User, Student for validation/representation
 from apps.users.serializers import StudentSerializer
 from .models import Badge, EarnedBadge # Importa i nuovi modelli
+
+logger = logging.getLogger(__name__) # Inizializza il logger
 
 # Nota: Non creiamo un serializer per RewardStudentSpecificAvailability direttamente,
 # la sua gestione avverrà tramite il RewardSerializer.
@@ -186,15 +189,30 @@ class StudentWalletDashboardSerializer(serializers.Serializer):
 class BadgeSerializer(serializers.ModelSerializer):
     """ Serializer per visualizzare le definizioni dei Badge. """
     trigger_type_display = serializers.CharField(source='get_trigger_type_display', read_only=True)
+    # Usa SerializerMethodField per costruire manualmente l'URL completo
+    image_url = serializers.SerializerMethodField()
 
+    def get_image_url(self, obj):
+        # DEBUGGING: Log per capire cosa succede
+        logger.debug(f"Serializing image for Badge ID: {obj.id}")
+        logger.debug(f"  obj.image value: {obj.image}")
+        request = self.context.get('request')
+        logger.debug(f"  request in context: {'Present' if request else 'Missing'}")
+        if obj.image and request:
+            image_full_url = request.build_absolute_uri(obj.image.url)
+            logger.debug(f"  Generated image_url: {image_full_url}")
+            return image_full_url
+        else:
+            logger.debug(f"  Condition (obj.image and request) is False, returning None.")
+            return None
     class Meta:
         model = Badge
         fields = [
-            'id', 'name', 'description', 'image', # Sostituito image_url con image
+            'id', 'name', 'description', 'image', 'image_url', # Manteniamo 'image' per ora, aggiungiamo image_url
             'trigger_type', 'trigger_type_display', 'trigger_condition',
             'is_active', 'created_at'
         ]
-        read_only_fields = fields # Le definizioni sono gestite dall'admin o predefinite
+        # read_only_fields = fields # Rimosso temporaneamente per non bloccare 'image'
 
 
 class EarnedBadgeSerializer(serializers.ModelSerializer):
@@ -212,11 +230,26 @@ class EarnedBadgeSerializer(serializers.ModelSerializer):
 
 class SimpleBadgeSerializer(serializers.ModelSerializer):
     """ Serializer semplificato per i Badge, usato per le notifiche. """
-    # Aggiunto image (che ora è ImageField)
+    # Aggiunto image (che ora è ImageField) - Manteniamo per confronto
     image = serializers.ImageField(read_only=True)
+    # Aggiungiamo anche image_url qui per coerenza se necessario in futuro
+    image_url = serializers.SerializerMethodField()
+
+    # Aggiunto metodo mancante per generare l'URL
+    def get_image_url(self, obj):
+        request = self.context.get('request')
+        if obj.image and request:
+            return request.build_absolute_uri(obj.image.url)
+        return None
+
+    def get_image_url(self, obj):
+        request = self.context.get('request')
+        if obj.image and request:
+            return request.build_absolute_uri(obj.image.url)
+        return None
 
     class Meta:
         model = Badge
-        # Sostituito image_url con image
-        fields = ['id', 'name', 'description', 'image']
-        read_only_fields = fields
+        # Sostituito image_url con image, aggiunto image_url
+        fields = ['id', 'name', 'description', 'image', 'image_url']
+        # read_only_fields = fields # Rimosso temporaneamente

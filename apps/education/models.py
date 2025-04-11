@@ -661,54 +661,48 @@ class QuizAttempt(models.Model):
                         # Use F() expression for atomic update
                         wallet.current_points = F('current_points') + points_to_award
                         wallet.save(update_fields=['current_points'])
-                        # Refresh wallet from DB to get the updated value if needed later in this request
-                        # wallet.refresh_from_db()
-
                         PointTransaction.objects.create(
                             wallet=wallet,
                             points_change=points_to_award,
                             reason=f"Completamento Quiz: {self.quiz.title}"
                         )
-                        logger.info(f"Awarded {points_to_award} points to student {self.student.id} for completing quiz {self.quiz.id}.") # Log aggiornato per chiarezza
-
-                        # --- Logica Assegnazione Badge "Primo Quiz Completato" ---
-                        # Rimosse righe di log che causavano NameError
-                        # Verifica se è il PRIMO quiz IN ASSOLUTO completato correttamente dallo studente
-                        logger.info(f"Attempt {self.id}: Quiz passed. Checking for first completion badge.") # LOGGING
-                        is_first_ever_completion = not QuizAttempt.objects.filter(
-                            student=self.student,
-                            status=QuizAttempt.AttemptStatus.COMPLETED
-                        ).exclude(pk=self.pk).exists() # Escludi il tentativo corrente
-
-                        logger.info(f"Attempt {self.id}: Checking for first completion badge. is_first_ever_completion={is_first_ever_completion}") # LOGGING
-                        if is_first_ever_completion:
-                            logger.info(f"Questo è il primo quiz IN ASSOLUTO completato correttamente da {self.student.full_name}. Tentativo assegnazione badge 'first-quiz-completed'.")
-                            try:
-                                # Assumiamo che il badge esista con questo slug
-                                first_quiz_badge = Badge.objects.get(name='Primo Quiz Completato!') # Usa nome corretto
-                                earned_badge, created = EarnedBadge.objects.get_or_create(
-                                    student=self.student,
-                                    badge=first_quiz_badge,
-                                    defaults={'earned_at': timezone.now()} # Imposta earned_at solo se creato
-                                )
-                                if created:
-                                    logger.info(f"Badge '{first_quiz_badge.name}' assegnato a {self.student.full_name}.")
-                                    newly_earned_badges.append(earned_badge) # Aggiungi alla lista se creato
-                                else:
-                                    logger.info(f"Studente {self.student.full_name} aveva già il badge '{first_quiz_badge.name}'.")
-                            except Badge.DoesNotExist:
-                                logger.warning("Badge con nome 'Primo Quiz Completato!' non trovato nel database. Impossibile assegnare.") # Updated log message
-                            except Exception as e_badge:
-                                # Logga l'errore ma non far fallire l'assegnazione dei punti
-                                logger.error(f"Errore durante l'assegnazione del badge 'Primo Quiz Completato!' a {self.student.id}: {e_badge}", exc_info=True) # Updated log message
-                        # --- Fine Logica Badge ---
-
-                        # Blocco duplicato rimosso
-
+                        logger.info(f"Awarded {points_to_award} points to student {self.student.id} for completing quiz {self.quiz.id}.")
                 except Wallet.DoesNotExist:
                     logger.error(f"Wallet not found for student {self.student.id} when trying to award points for quiz {self.quiz.id}.")
-                except Exception as e_points: # Rinomina variabile eccezione per evitare shadowing
-                    logger.exception(f"Error awarding points or badge for quiz attempt {self.id}: {e_points}") # Aggiornato log errore
+                except Exception as e_points:
+                    logger.exception(f"Error awarding points for quiz attempt {self.id}: {e_points}")
+
+            # --- Logica Assegnazione Badge "Primo Quiz Completato" (SPOSTATA FUORI DAL BLOCCO PUNTI) ---
+            # Controlla se è il primo quiz IN ASSOLUTO completato correttamente dallo studente
+            # Questo controllo ha senso farlo solo se il tentativo corrente è stato superato con successo
+            # E se è la prima volta che questo specifico quiz viene superato con successo
+            if passed and is_first_successful_for_this_quiz:
+                 logger.info(f"Attempt {self.id}: Quiz passed and first successful for this quiz. Checking for first completion badge.")
+                 is_first_ever_completion = not QuizAttempt.objects.filter(
+                     student=self.student,
+                     status=QuizAttempt.AttemptStatus.COMPLETED
+                 ).exclude(pk=self.pk).exists() # Escludi il tentativo corrente
+
+                 logger.info(f"Attempt {self.id}: Checking for first completion badge. is_first_ever_completion={is_first_ever_completion}")
+                 if is_first_ever_completion:
+                     logger.info(f"Questo è il primo quiz IN ASSOLUTO completato correttamente da {self.student.full_name}. Tentativo assegnazione badge 'Primo Quiz Completato!'.")
+                     try:
+                         first_quiz_badge = Badge.objects.get(name='Primo Quiz Completato!') # Usa nome corretto
+                         earned_badge, created = EarnedBadge.objects.get_or_create(
+                             student=self.student,
+                             badge=first_quiz_badge,
+                             defaults={'earned_at': timezone.now()}
+                         )
+                         if created:
+                             logger.info(f"Badge '{first_quiz_badge.name}' assegnato a {self.student.full_name}.")
+                             newly_earned_badges.append(earned_badge) # Aggiungi alla lista se creato
+                         else:
+                             logger.info(f"Studente {self.student.full_name} aveva già il badge '{first_quiz_badge.name}'.")
+                     except Badge.DoesNotExist:
+                         logger.warning("Badge con nome 'Primo Quiz Completato!' non trovato nel database. Impossibile assegnare.")
+                     except Exception as e_badge:
+                         logger.error(f"Errore durante l'assegnazione del badge 'Primo Quiz Completato!' a {self.student.id}: {e_badge}", exc_info=True)
+            # --- Fine Logica Badge ---
 
         # --- Trigger Pathway Progress Update ---
         # This should happen if the quiz was passed, regardless of points awarded

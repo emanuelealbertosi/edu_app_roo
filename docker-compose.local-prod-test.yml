@@ -1,0 +1,66 @@
+# File Docker Compose per testare localmente una configurazione simile alla produzione
+# Usa immagini buildate localmente e un file .env.localprod
+services:
+  db:
+    image: postgres:15-alpine
+    volumes:
+      - postgres_data_local_prod:/var/lib/postgresql/data/
+    env_file:
+      - .env.localprod # Legge le variabili da .env.localprod
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  backend:
+    # Usa l'immagine buildata localmente
+    image: edu-app-backend:local-test
+    build:
+      context: .
+      dockerfile: Dockerfile # Assicurati che questo sia il Dockerfile corretto per il backend
+    ports:
+      - "8000:8000" # Mantiene la stessa porta del backend
+    env_file:
+      - .env.localprod # Legge le variabili da .env.localprod
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes: # Mappatura volume media
+      - media_data_local_prod:/app/mediafiles
+    restart: unless-stopped
+
+  frontend-student:
+    # Usa l'immagine buildata localmente
+    image: edu-app-frontend-student:local-test
+    build:
+      context: ./frontend-student
+      dockerfile: Dockerfile # Assicurati che questo sia il Dockerfile corretto
+    ports:
+      # Potresti voler cambiare porta se 5175 è già usata localmente
+      - "5175:80"
+    depends_on:
+      - backend
+    volumes: # Mappatura volume media per servire file
+      - media_data_local_prod:/usr/share/nginx/media
+    restart: unless-stopped
+
+  frontend-teacher:
+    # Usa l'immagine buildata localmente
+    image: edu-app-frontend-teacher:local-test
+    build:
+      context: ./frontend-teacher
+      dockerfile: Dockerfile # Assicurati che questo sia il Dockerfile corretto
+    ports:
+      # Potresti voler cambiare porta se 5174 è già usata localmente
+      - "5174:80"
+    depends_on:
+      - backend
+    volumes: # Mappatura volume media per servire file
+      - media_data_local_prod:/usr/share/nginx/media
+    restart: unless-stopped
+
+volumes:
+  postgres_data_local_prod:
+  media_data_local_prod: {} # Volume per i media locali

@@ -1,78 +1,54 @@
 import logging
-from django.db.models.signals import post_save
+import os
+from django.db import models # Import models for pre_save check
+from django.db.models.signals import post_delete, pre_save # Import pre_save
 from django.dispatch import receiver
-from apps.education.models import QuizAttempt # Importa il modello che triggera
-from .models import Badge, EarnedBadge, Student # Importa modelli Badge e Studente
+from .models import Badge
 
 logger = logging.getLogger(__name__)
 
-@receiver(post_save, sender=QuizAttempt)
-def check_for_quiz_completion_badges(sender, instance: QuizAttempt, created, **kwargs):
+@receiver(post_delete, sender=Badge)
+def delete_badge_image_on_delete(sender, instance, **kwargs):
     """
-    Controlla se lo studente ha guadagnato badge relativi al completamento di un quiz.
-    Triggerato dopo il salvataggio di un QuizAttempt.
+    Deletes the image file from filesystem when a Badge object is deleted.
     """
-    # Esegui solo se il tentativo è stato completato (non in creazione o aggiornamento intermedio)
-    # e se lo stato è COMPLETED o FAILED (potremmo avere badge anche per tentativi falliti?)
-    if instance.status in [QuizAttempt.AttemptStatus.COMPLETED, QuizAttempt.AttemptStatus.FAILED] and instance.student:
-        student = instance.student
-        quiz = instance.quiz
-        score = instance.score # Percentuale
-
-        # 1. Trova i badge attivi relativi al completamento di quiz
-        quiz_badges = Badge.objects.filter(
-            is_active=True,
-            trigger_type=Badge.TriggerType.QUIZ_COMPLETED
-        )
-
-        # Ottieni gli ID dei badge già guadagnati dallo studente per evitare duplicati
-        earned_badge_ids = set(EarnedBadge.objects.filter(student=student).values_list('badge_id', flat=True))
-
-        badges_to_award = []
-
-        for badge in quiz_badges:
-            if badge.id in earned_badge_ids:
-                continue # Già guadagnato
-
-            conditions = badge.trigger_condition or {}
-            quiz_id_condition = conditions.get('quiz_id')
-            min_score_condition = conditions.get('min_score') # Percentuale
-            max_score_condition = conditions.get('max_score') # Percentuale
-            status_condition = conditions.get('status', QuizAttempt.AttemptStatus.COMPLETED) # Default a COMPLETED
-
-            # Verifica condizioni
-            conditions_met = True
-
-            # Condizione sullo stato (es. deve essere COMPLETED)
-            if status_condition and instance.status != status_condition:
-                conditions_met = False
-
-            # Condizione sull'ID specifico del quiz (se presente)
-            if conditions_met and quiz_id_condition and quiz.id != quiz_id_condition:
-                conditions_met = False
-            
-            # Condizione sul punteggio minimo (se presente e se il punteggio esiste)
-            if conditions_met and min_score_condition is not None and (score is None or score < min_score_condition):
-                 conditions_met = False
-
-            # Condizione sul punteggio massimo (se presente e se il punteggio esiste)
-            if conditions_met and max_score_condition is not None and (score is None or score > max_score_condition):
-                 conditions_met = False
-
-            # Se tutte le condizioni sono soddisfatte, aggiungi alla lista
-            if conditions_met:
-                logger.info(f"Studente {student.id} ha soddisfatto le condizioni per il badge '{badge.name}' (ID: {badge.id}) completando il quiz {quiz.id}.")
-                badges_to_award.append(EarnedBadge(student=student, badge=badge))
-
-        # Crea i record EarnedBadge in bulk se ce ne sono
-        if badges_to_award:
+    # Verifica se l'istanza ha un file immagine associato
+    if instance.image:
+        # Verifica se il file esiste effettivamente prima di tentare la cancellazione
+        if hasattr(instance.image, 'path') and os.path.exists(instance.image.path):
             try:
-                EarnedBadge.objects.bulk_create(badges_to_award, ignore_conflicts=True) # ignore_conflicts per sicurezza
-                logger.info(f"Assegnati {len(badges_to_award)} badge allo studente {student.id}.")
-                # Qui potremmo inviare una notifica (se avessimo un sistema di notifiche)
+                instance.image.delete(save=False) # save=False evita di salvare di nuovo il modello
+                logger.info(f"Immagine {instance.image.name} eliminata per Badge ID {instance.id} eliminato.")
             except Exception as e:
-                 logger.error(f"Errore durante bulk_create di EarnedBadge per studente {student.id}: {e}", exc_info=True)
+                logger.error(f"Errore durante l'eliminazione del file immagine {instance.image.name} per Badge ID {instance.id}: {e}", exc_info=True)
+        else:
+            logger.warning(f"File immagine non trovato ({instance.image.name}) per Badge ID {instance.id} durante il tentativo di eliminazione post_delete.")
+    else:
+        logger.debug(f"Nessuna immagine da eliminare per Badge ID {instance.id} eliminato.")
 
-    # TODO: Implementare segnali simili per altri trigger (PATHWAY_COMPLETED, CORRECT_STREAK, POINTS_THRESHOLD)
-    # Per CORRECT_STREAK, potrebbe essere necessario un segnale su StudentAnswer.
-    # Per POINTS_THRESHOLD, potrebbe essere necessario un segnale su Wallet o PointTransaction.
+
+@receiver(pre_save, sender=Badge)
+def delete_old_badge_image_on_change(sender, instance, **kwargs):
+    """
+    Deletes the old image file from filesystem when the Badge image field is updated or cleared.
+    """
+    if not instance.pk: # If this is a new object, do nothing
+        return
+
+    try:
+        # Get the old instance from the database
+        old_instance = sender.objects.get(pk=instance.pk)
+    except sender.DoesNotExist:
+        return # Old instance not found, maybe deleted concurrently?
+
+    # Check if the image field has changed and the old instance had an image
+    if old_instance.image and old_instance.image != instance.image:
+        old_image_path = old_instance.image.path
+        if hasattr(old_instance.image, 'path') and os.path.exists(old_image_path):
+            try:
+                old_instance.image.delete(save=False)
+                logger.info(f"Vecchia immagine {old_image_path} eliminata per Badge ID {instance.id} durante l'aggiornamento.")
+            except Exception as e:
+                logger.error(f"Errore durante l'eliminazione della vecchia immagine {old_image_path} per Badge ID {instance.id}: {e}", exc_info=True)
+        else:
+             logger.warning(f"Vecchio file immagine non trovato ({old_image_path}) per Badge ID {instance.id} durante il tentativo di eliminazione pre_save.")

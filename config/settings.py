@@ -117,7 +117,12 @@ print(f"DATABASE_URL from environment: {DATABASE_URL_ENV}") # Debug
 if DATABASE_URL_ENV:
     print("Using DATABASE_URL from environment for database config.") # Debug
     DATABASES = {
-        'default': dj_database_url.parse(DATABASE_URL_ENV, conn_max_age=600)
+        'default': dj_database_url.parse(
+            DATABASE_URL_ENV,
+            conn_max_age=600,
+            conn_health_checks=True,  # Abilita health check per connessioni persistenti
+            engine='django.db.backends.postgresql'  # Forza l'uso di PostgreSQL
+        )
     }
 else:
     # Fallback a SQLite se DATABASE_URL non è impostata (per sviluppo locale senza .env)
@@ -313,51 +318,78 @@ CORS_ALLOW_HEADERS = [
     "x-requested-with",
 ]
 
+# Ottimizzazioni per server con risorse limitate
+# Queste impostazioni aiutano a ridurre l'utilizzo di memoria e migliorare le prestazioni
+
+# Configurazione del caching in memoria
+# https://docs.djangoproject.com/en/5.1/topics/cache/
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'unique-snowflake',
+        'TIMEOUT': 300,  # 5 minuti
+        'OPTIONS': {
+            'MAX_ENTRIES': 1000,  # Limita il numero di voci in cache
+            'CULL_FREQUENCY': 3,  # Rimuovi 1/3 delle voci quando la cache è piena
+        }
+    }
+}
+
+# Ottimizzazione delle sessioni
+SESSION_ENGINE = 'django.contrib.sessions.backends.cached_db'  # Usa cache + DB per le sessioni
+SESSION_COOKIE_AGE = 86400  # 24 ore in secondi
+SESSION_SAVE_EVERY_REQUEST = False  # Non salvare la sessione ad ogni richiesta
+
 # Logging Configuration
 # https://docs.djangoproject.com/en/5.1/topics/logging/
 LOGGING = {
     'version': 1,
-    'disable_existing_loggers': False, # Non disabilitare i logger predefiniti di Django
+    'disable_existing_loggers': False,
     'formatters': {
         'verbose': {
-            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
+            'format': '{levelname} {asctime} {module} {message}',
             'style': '{',
         },
         'simple': {
-            'format': '{levelname} {asctime} {module} {message}',
+            'format': '{levelname} {message}',
             'style': '{',
         },
     },
     'handlers': {
         'console': {
-            'level': 'DEBUG' if DEBUG else 'INFO', # Mostra DEBUG solo se DEBUG=True
+            'level': 'DEBUG',  # Impostato a DEBUG per vedere i log del serializer
             'class': 'logging.StreamHandler',
-            'formatter': 'simple', # Usa il formato semplice per la console
+            'formatter': 'simple',  # Usa il formato semplice per ridurre la dimensione dei log
         },
     },
     'loggers': {
         # Logger radice: cattura tutto se non specificato diversamente
         '': {
             'handlers': ['console'],
-            'level': 'DEBUG' if DEBUG else 'INFO', # Livello base per tutti i logger
+            'level': 'DEBUG',  # Impostato a DEBUG per vedere i log del serializer
             'propagate': True,
         },
-        # Puoi aggiungere logger specifici per app se necessario
+        # Ridurre verbosità di Django
+        'django': {
+            'handlers': ['console'],
+            'level': 'WARNING',  # Ridotto a WARNING in produzione
+            'propagate': False,
+        },
+        # Aggiungi logger specifico per la nostra app per assicurare DEBUG
         'apps.rewards': {
             'handlers': ['console'],
-            'level': 'DEBUG', # Assicura che i messaggi DEBUG da questa app siano processati
-            'propagate': False # Non inviare anche al logger radice se gestito qui (rimossa virgola)
+            'level': 'DEBUG',
+            'propagate': True, # Propaga anche al root logger se necessario
         },
-        # Esempio: Ridurre verbosità di Django in DEBUG
-        # 'django': {
-        #     'handlers': ['console'],
-        #     'level': 'INFO',
-        #     'propagate': False,
-        # },
-        # 'django.db.backends': {
-        #     'handlers': ['console'],
-        #     'level': 'INFO', # Cambia a DEBUG per vedere query SQL
-        #     'propagate': False,
-        # },
+        'django.db.backends': {
+            'handlers': ['console'],
+            'level': 'WARNING',  # Ridotto a WARNING in produzione
+            'propagate': False,
+        },
     },
+}
+
+# Disabilita il debug toolbar in produzione
+DEBUG_TOOLBAR_CONFIG = {
+    'SHOW_TOOLBAR_CALLBACK': lambda request: DEBUG,
 }

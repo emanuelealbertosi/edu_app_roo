@@ -35,6 +35,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    volumes: # Aggiunta mappatura volume media
+      - media_data:/app/mediafiles
     restart: unless-stopped
 
   frontend-student:
@@ -43,6 +45,8 @@ services:
       - "5175:80"
     depends_on:
       - backend
+    volumes: # Aggiunto volume media per servire file
+      - media_data:/usr/share/nginx/media
     restart: unless-stopped
 
   frontend-teacher:
@@ -51,7 +55,10 @@ services:
       - "5174:80"
     depends_on:
       - backend
+    volumes: # Aggiunto volume media per servire file
+      - media_data:/usr/share/nginx/media
     restart: unless-stopped
 
 volumes:
   postgres_data:
+  media_data: {} # Aggiunta definizione volume media

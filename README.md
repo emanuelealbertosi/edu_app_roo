@@ -253,3 +253,45 @@ Questa sezione descrive come eseguire l'applicazione su un server utilizzando le
     docker-compose -f docker-compose.prod.yml exec backend <comando>
     # Esempio: docker-compose -f docker-compose.prod.yml exec backend python manage.py shell
     ```
+
+## Comandi Utili Docker
+
+### Build e Tag Immagini come `latest`
+
+Esegui questi comandi dalla directory principale del progetto per buildare le immagini e taggarle come `latest` per Docker Hub.
+
+```bash
+# Build e tag Backend
+docker build -t albertosiemanuele/edu-app-backend:latest . -f Dockerfile
+
+# Build e tag Frontend Studente
+docker build -t albertosiemanuele/edu-app-frontend-student:latest ./frontend-student -f ./frontend-student/Dockerfile
+
+# Build e tag Frontend Docente
+docker build -t albertosiemanuele/edu-app-frontend-teacher:latest ./frontend-teacher -f ./frontend-teacher/Dockerfile
+```
+
+### Push Immagini `latest` su Docker Hub
+
+Assicurati di essere loggato (`docker login`).
+
+```bash
+# Push Backend
+docker push albertosiemanuele/edu-app-backend:latest
+
+# Push Frontend Studente
+docker push albertosiemanuele/edu-app-frontend-student:latest
+
+# Push Frontend Docente
+docker push albertosiemanuele/edu-app-frontend-teacher:latest
+```
+
+### Cancellare Manualmente File Media nel Container Backend
+
+Questo comando cancellerà **tutti** i file nella directory `/app/mediafiles/` all'interno del container `backend` in esecuzione. **Usare con estrema cautela.**
+
+```bash
+# Trova il nome esatto del container con 'docker ps' se necessario
+docker exec edu_app_roo-backend-1 rm -rf /app/mediafiles/*
+```
+    ```

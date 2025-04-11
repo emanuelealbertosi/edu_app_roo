@@ -9,7 +9,9 @@ const apiClient = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api/',
   headers: {
     'Content-Type': 'application/json'
-  }
+  },
+  // Timeout per le richieste in ms (30 secondi per server con risorse limitate)
+  timeout: 30000
 });
 
 // Add interceptor to include Authorization header
