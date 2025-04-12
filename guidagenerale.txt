@@ -1,0 +1,55 @@
+scp .\deploy_on_ubuntu.sh root@217.154.2.9:/home/root/
+
+
+Ho implementato una serie completa di ottimizzazioni per risolvere i problemi di timeout e migliorare le prestazioni dell'applicazione su un server con risorse limitate (1GB RAM):
+
+1. Ottimizzazioni Frontend
+Correzione URL API: Modificato i Dockerfile di entrambi i frontend per utilizzare /api/ come valore predefinito per VITE_API_BASE_URL, in modo che le richieste API vengano inoltrate correttamente tramite il proxy Nginx.
+Aumento Timeout Client: Aumentato il timeout Axios in entrambi i frontend da 5 secondi a 30 secondi.
+Ottimizzazione Nginx: Abilitato e aumentato i timeout nel proxy Nginx (connect: 60s, send/read: 120s).
+Correzione Errore: Risolto un errore di sintassi nel file di configurazione dell'API del frontend studenti.
+2. Ottimizzazioni Backend
+Ottimizzazione Gunicorn:
+
+Aumentato il timeout da 120s a 180s
+Aggiunto worker-class gevent per gestire meglio le connessioni concorrenti con meno memoria
+Configurato max-requests e max-requests-jitter per prevenire memory leak
+Ridotto la verbosità dei log
+Ottimizzazione Database:
+
+Aggiunto health check per connessioni persistenti
+Forzato l'uso di PostgreSQL
+Ottimizzazione Django:
+
+Configurato caching in memoria con limiti appropriati
+Ottimizzato le impostazioni delle sessioni
+Ridotto drasticamente la verbosità dei log in produzione
+Disabilitato il debug toolbar in produzione
+Istruzioni per il Deployment
+Per applicare queste ottimizzazioni, è necessario ricostruire tutte le immagini Docker e ridistribuirle:
+
+# Ricostruire le immagini
+docker build -t albertosiemanuele/edu-app-backend:v2 .
+docker build -t albertosiemanuele/edu-app-frontend-student:v2 ./frontend-student
+docker build -t albertosiemanuele/edu-app-frontend-teacher:v2 ./frontend-teacher
+
+# Inviare le immagini a Docker Hub
+docker push albertosiemanuele/edu-app-backend:v2
+docker push albertosiemanuele/edu-app-frontend-student:v2
+docker push albertosiemanuele/edu-app-frontend-teacher:v2
+
+# Aggiornare il deployment sul server specificando "v2" come versione Docker
+Queste ottimizzazioni dovrebbero risolvere i problemi di timeout e migliorare significativamente le prestazioni dell'applicazione sul server con risorse limitate.
+
+
+
+Buildare in locale
+docker-compose -f docker-compose.local-prod-test.yml build --no-cache backend
+
+runnare in locale
+docker-compose -f docker-compose.local-prod-test.yml down --remove-orphans
+docker-compose -f docker-compose.local-prod-test.yml --env-file .env.localprod up -d --force-recreate
+
+
+logs
+docker-compose -f docker-compose.local-prod-test.yml logs backend

@@ -672,11 +672,113 @@ class QuizAttempt(models.Model):
                 except Exception as e_points:
                     logger.exception(f"Error awarding points for quiz attempt {self.id}: {e_points}")
 
+            # --- Logica Assegnazione Badge per Soglia Punti ---
+            # Questo controllo va fatto se il quiz è stato superato, dopo l'eventuale assegnazione punti.
+            try:
+                # Recupera il wallet (potrebbe non essere stato caricato se points_to_award era 0 o non era la prima volta)
+                # Usiamo select_for_update per bloccare la riga del wallet durante il controllo della soglia
+                # per evitare race conditions se più tentativi finiscono contemporaneamente.
+                # Nota: Questo richiede che il DB supporti SELECT FOR UPDATE (PostgreSQL lo fa).
+                wallet = Wallet.objects.select_for_update().get(student=self.student)
+                # Ricarica sempre dal DB per avere il saldo più aggiornato possibile dopo l'eventuale F() expression
+                wallet.refresh_from_db()
+                current_points = wallet.current_points
+                logger.info(f"Attempt {self.id}: Student {self.student.id} current points: {current_points}. Checking threshold badges.")
+
+                # Recupera tutti i badge di soglia attivi
+                threshold_badges = Badge.objects.filter(
+                    is_active=True,
+                    trigger_type='POINTS_THRESHOLD' # Usa la stringa diretta
+                )
+
+                for badge in threshold_badges:
+                    try:
+                        # Estrai la soglia dalla condizione JSON
+                        threshold = int(badge.trigger_condition.get("points", -1)) # CORRETTO: Usa la chiave "points" come da definizione modello
+                        if threshold < 0:
+                            logger.warning(f"Badge Soglia ID {badge.id} ('{badge.name}') ha una soglia non valida o mancante: {badge.trigger_condition}")
+                            continue # Salta questo badge
+
+                        # Controlla se la soglia è raggiunta
+                        if current_points >= threshold:
+                            logger.info(f"Attempt {self.id}: Student points ({current_points}) >= threshold ({threshold}) for badge '{badge.name}' (ID {badge.id}).")
+                            # Tenta di assegnare il badge se non già posseduto
+                            earned_badge, created = EarnedBadge.objects.get_or_create(
+                                student=self.student,
+                                badge=badge,
+                                defaults={'earned_at': timezone.now()}
+                            )
+                            if created:
+                                logger.info(f"Badge Soglia '{badge.name}' assegnato a {self.student.full_name}.")
+                                newly_earned_badges.append(earned_badge) # Aggiungi alla lista se creato
+                                logger.info(f"Attempt {self.id}: Threshold Badge ID {earned_badge.id} aggiunto alla lista newly_earned_badges.")
+                            # else: # Log non necessario se già posseduto
+                            #    logger.info(f"Studente {self.student.full_name} aveva già il badge '{badge.name}' (threshold).")
+
+                    except (ValueError, TypeError, KeyError) as e_cond:
+                        logger.error(f"Errore nel parsing trigger_condition per Badge Soglia {badge.id} ('{badge.name}'): {badge.trigger_condition}. Errore: {e_cond}", exc_info=True)
+                    except Exception as e_thresh_badge:
+                        logger.error(f"Errore durante l'assegnazione del Badge Soglia {badge.id} ('{badge.name}') a {self.student.id}: {e_thresh_badge}", exc_info=True)
+
+            except Wallet.DoesNotExist:
+                logger.error(f"Wallet not found for student {self.student.id} when checking threshold badges.")
+            except Exception as e_check_thresh:
+                logger.error(f"Errore imprevisto durante il controllo dei badge di soglia per lo studente {self.student.id}: {e_check_thresh}", exc_info=True)
+            # --- Fine Logica Badge Soglia Punti ---
+
+            # --- Logica Assegnazione Badge per Completamento Quiz Specifico ---
+            try:
+                logger.info(f"Attempt {self.id}: Checking specific quiz completion badges.")
+                quiz_completion_badges = Badge.objects.filter(
+                    is_active=True,
+                    trigger_type='QUIZ_COMPLETED' # Usa la stringa diretta
+                )
+
+                for badge in quiz_completion_badges:
+                    try:
+                        condition = badge.trigger_condition
+                        required_quiz_id = condition.get("quiz_id") # Può essere None
+                        min_score_percent = float(condition.get("min_score_percent", 0)) # Default 0 se non specificato
+
+                        # Controlla se è il quiz giusto (se specificato)
+                        quiz_match = (required_quiz_id is None or required_quiz_id == self.quiz.id)
+
+                        # Controlla se il punteggio è sufficiente (usa self.score che è già percentuale 0-100)
+                        score_match = (self.score is not None and self.score >= min_score_percent)
+
+                        logger.debug(f"Badge '{badge.name}': ReqQuizID={required_quiz_id}, MinScore={min_score_percent} | CurrentQuizID={self.quiz.id}, CurrentScore={self.score} | QuizMatch={quiz_match}, ScoreMatch={score_match}")
+
+                        if quiz_match and score_match:
+                            logger.info(f"Attempt {self.id}: Conditions met for QUIZ_COMPLETED badge '{badge.name}' (ID {badge.id}).")
+                            # Tenta di assegnare il badge se non già posseduto
+                            earned_badge, created = EarnedBadge.objects.get_or_create(
+                                student=self.student,
+                                badge=badge,
+                                defaults={'earned_at': timezone.now()}
+                            )
+                            if created:
+                                logger.info(f"Badge QUIZ_COMPLETED '{badge.name}' assegnato a {self.student.full_name}.")
+                                newly_earned_badges.append(earned_badge) # Aggiungi alla lista se creato
+                                logger.info(f"Attempt {self.id}: QUIZ_COMPLETED Badge ID {earned_badge.id} aggiunto alla lista newly_earned_badges.")
+                            # else:
+                            #    logger.info(f"Studente {self.student.full_name} aveva già il badge '{badge.name}' (QUIZ_COMPLETED).")
+
+                    except (ValueError, TypeError, KeyError) as e_cond:
+                         logger.error(f"Errore nel parsing trigger_condition per Badge QUIZ_COMPLETED {badge.id} ('{badge.name}'): {condition}. Errore: {e_cond}", exc_info=True)
+                    except Exception as e_quiz_badge:
+                        logger.error(f"Errore durante l'assegnazione del Badge QUIZ_COMPLETED {badge.id} ('{badge.name}') a {self.student.id}: {e_quiz_badge}", exc_info=True)
+
+            except Exception as e_check_quiz_comp:
+                 logger.error(f"Errore imprevisto durante il controllo dei badge QUIZ_COMPLETED per lo studente {self.student.id}: {e_check_quiz_comp}", exc_info=True)
+            # --- Fine Logica Badge Quiz Specifico ---
+
             # --- Logica Assegnazione Badge "Primo Quiz Completato" (SPOSTATA FUORI DAL BLOCCO PUNTI) ---
             # Controlla se è il primo quiz IN ASSOLUTO completato correttamente dallo studente
             # Questo controllo ha senso farlo solo se il tentativo corrente è stato superato con successo
             # E se è la prima volta che questo specifico quiz viene superato con successo
-            if passed and is_first_successful_for_this_quiz:
+            # La condizione corretta: controlla solo se il quiz è stato superato.
+            # Il controllo se è il primo in assoluto avviene all'interno.
+            if passed:
                  logger.info(f"Attempt {self.id}: Quiz passed and first successful for this quiz. Checking for first completion badge.")
                  is_first_ever_completion = not QuizAttempt.objects.filter(
                      student=self.student,
@@ -704,7 +806,7 @@ class QuizAttempt(models.Model):
                          logger.error(f"Errore durante l'assegnazione del badge 'Primo Quiz Completato!' a {self.student.id}: {e_badge}", exc_info=True)
             # --- Fine Logica Badge ---
 
-        # --- Trigger Pathway Progress Update ---
+        # --- Trigger Pathway Progress Update (TEMPORANEAMENTE COMMENTATO PER DEBUG) ---
         # This should happen if the quiz was passed, regardless of points awarded
         pathway_badges = []
         if passed:
@@ -796,20 +898,34 @@ class QuizAttempt(models.Model):
                     # --- Logica Badge per Completamento Percorso ---
                     try:
                         pathway_badges = Badge.objects.filter(
-                            trigger_type=Badge.TriggerType.PATHWAY_COMPLETED,
+                            trigger_type='PATHWAY_COMPLETED', # Usa la stringa diretta
                             is_active=True
                         )
                         for badge in pathway_badges:
-                            # Verifica condizioni specifiche del badge (se presenti)
-                            # Per ora, assumiamo che il semplice completamento sia sufficiente
-                            # Esempio futuro: if pathway.metadata.get('difficulty') == badge.trigger_condition.get('required_difficulty'): ...
+                            try:
+                                condition = badge.trigger_condition
+                                required_pathway_id = condition.get("pathway_id") # Può essere None
 
-                            # Controlla se lo studente ha già questo badge
-                            already_earned = EarnedBadge.objects.filter(student=self.student, badge=badge).exists()
-                            if not already_earned:
-                                earned_badge = EarnedBadge.objects.create(student=self.student, badge=badge) # Cattura istanza creata
-                                newly_earned_pathway_badges.append(earned_badge) # Aggiungi alla lista
-                                logger.info(f"Awarded badge '{badge.name}' to student {self.student.id} for completing pathway {pathway.id}.")
+                                # Controlla se il badge è per questo percorso specifico (se richiesto)
+                                pathway_match = (required_pathway_id is None or required_pathway_id == pathway.id)
+
+                                logger.debug(f"Badge '{badge.name}': ReqPathwayID={required_pathway_id} | CurrentPathwayID={pathway.id} | Match={pathway_match}")
+
+                                if pathway_match:
+                                    # Controlla se lo studente ha già questo badge
+                                    already_earned = EarnedBadge.objects.filter(student=self.student, badge=badge).exists()
+                                    if not already_earned:
+                                        logger.info(f"Conditions met for PATHWAY_COMPLETED badge '{badge.name}' (ID {badge.id}).")
+                                        earned_badge = EarnedBadge.objects.create(student=self.student, badge=badge) # Cattura istanza creata
+                                        newly_earned_pathway_badges.append(earned_badge) # Aggiungi alla lista
+                                        logger.info(f"Awarded badge '{badge.name}' to student {self.student.id} for completing pathway {pathway.id}.")
+                                    # else:
+                                    #    logger.info(f"Studente {self.student.full_name} aveva già il badge '{badge.name}' (PATHWAY_COMPLETED).")
+
+                            except (ValueError, TypeError, KeyError) as e_cond:
+                                logger.error(f"Errore nel parsing trigger_condition per Badge PATHWAY_COMPLETED {badge.id} ('{badge.name}'): {condition}. Errore: {e_cond}", exc_info=True)
+                            except Exception as e_inner_path_badge:
+                                logger.error(f"Errore durante l'assegnazione del Badge PATHWAY_COMPLETED {badge.id} ('{badge.name}') a {self.student.id} per pathway {pathway.id}: {e_inner_path_badge}", exc_info=True)
                     except Exception as e_path_badge:
                         logger.exception(f"Error awarding badge for pathway {pathway.id} completion: {e_path_badge}")
 

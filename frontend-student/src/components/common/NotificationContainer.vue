@@ -1,7 +1,11 @@
 <script setup lang="ts">
+import { reactive } from 'vue'; // Importa reactive
 import { useNotificationStore, type Notification } from '@/stores/notification';
+// Rimosso import TrophyIcon
 
 const notificationStore = useNotificationStore();
+
+// Rimosso stato reattivo e funzione handleImageError, non più necessari
 
 // Funzione per ottenere classi CSS in base al tipo di notifica
 const getNotificationClasses = (notification: Notification) => {
@@ -13,6 +17,8 @@ const getNotificationClasses = (notification: Notification) => {
     'bg-purple-100 border-purple-500 text-purple-700': notification.type === 'badge', // Stile per badge
   };
 };
+
+// Script semplificato
 </script>
 
 <template>
@@ -26,13 +32,17 @@ const getNotificationClasses = (notification: Notification) => {
         role="alert"
       >
         <!-- Icona (opzionale o specifica per tipo) -->
-        <div v-if="notification.icon || notification.type === 'badge'" class="flex-shrink-0">
-           <img v-if="notification.type === 'badge'" :src="notification.icon" :alt="notification.title || 'Badge'" class="w-10 h-10 object-contain">
-           <!-- Altre icone per altri tipi potrebbero andare qui -->
-           <span v-else-if="notification.type === 'success'" class="text-xl">✅</span>
-           <span v-else-if="notification.type === 'error'" class="text-xl">❌</span>
-           <span v-else-if="notification.type === 'info'" class="text-xl">ℹ️</span>
-           <span v-else-if="notification.type === 'warning'" class="text-xl">⚠️</span>
+        <!-- Icona: Mostra sempre TrophyIcon per badge, altrimenti icone specifiche -->
+        <div class="flex-shrink-0 w-10 h-10 flex items-center justify-center">
+          <template v-if="notification.type === 'badge'">
+             <span class="text-2xl">🏆</span> <!-- Sostituito con Emoji Trofeo -->
+             <!-- Rimosso testo di debug ICON -->
+          </template>
+          <span v-else-if="notification.type === 'success'" class="text-xl">✅</span>
+          <span v-else-if="notification.type === 'error'" class="text-xl">❌</span>
+          <span v-else-if="notification.type === 'info'" class="text-xl">ℹ️</span>
+          <span v-else-if="notification.type === 'warning'" class="text-xl">⚠️</span>
+          <!-- Nessuna icona di default per altri tipi non gestiti -->
         </div>
 
         <!-- Contenuto Testuale -->
