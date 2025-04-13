@@ -55,6 +55,7 @@ cd "$PROJECT_DIR" || exit 1
 echo "Directory di lavoro corrente: $(pwd)"
 
 # --- Verifica Esistenza File Compose Statico ---
+# --- Verifica Esistenza File Compose Statico ---
 if [ ! -f "$COMPOSE_FILE_PATH" ]; then
     echo "Errore: File Docker Compose statico '${COMPOSE_FILE_NAME}' non trovato in $(pwd)."
     echo "Per favore, copia il file '${COMPOSE_FILE_NAME}' in questa directory prima di eseguire lo script."
@@ -103,8 +104,9 @@ DEFAULT_ALLOWED_HOSTS="*,${SERVER_IP}"
 read -p "Host/Domini permessi per Django (separati da virgola) [${DEFAULT_ALLOWED_HOSTS}]: " DJANGO_ALLOWED_HOSTS_VAR
 DJANGO_ALLOWED_HOSTS_VAR=${DJANGO_ALLOWED_HOSTS_VAR:-${DEFAULT_ALLOWED_HOSTS}}
 
-DEFAULT_CORS_ORIGINS="http://${SERVER_IP}:5174,http://${SERVER_IP}:5175"
-read -p "Origini CORS permesse (separati da virgola) [${DEFAULT_CORS_ORIGINS}]: " CORS_ALLOWED_ORIGINS_VAR
+# Ora l'accesso avviene tramite il proxy Nginx sulla porta 80 standard
+DEFAULT_CORS_ORIGINS="http://${SERVER_IP}"
+read -p "Origini CORS permesse (URL del proxy Nginx) [${DEFAULT_CORS_ORIGINS}]: " CORS_ALLOWED_ORIGINS_VAR
 CORS_ALLOWED_ORIGINS_VAR=${CORS_ALLOWED_ORIGINS_VAR:-${DEFAULT_CORS_ORIGINS}}
 
 # Superuser
@@ -178,7 +180,6 @@ if [ "${DOCKER_VERSION_VAR}" != "latest" ]; then
 else
     echo "Utilizzo della versione latest come richiesto"
 fi
-
 # --- Avvio dei Container ---
 echo "Tentativo di pull delle immagini Docker versione ${DOCKER_VERSION_VAR}..."
 # Usiamo il file temporaneo per il pull
@@ -195,6 +196,11 @@ echo "Esecuzione delle migrazioni Django..."
 $COMPOSE_CMD -f "${TEMP_COMPOSE_FILE}" --env-file "${ENV_FILE_PATH}" exec backend python manage.py migrate --noinput
 echo "Migrazioni Django completate."
 
+echo "Raccolta dei file statici Django..."
+# Usiamo il file temporaneo e env_file per eseguire collectstatic
+$COMPOSE_CMD -f "${TEMP_COMPOSE_FILE}" --env-file "${ENV_FILE_PATH}" exec backend python manage.py collectstatic --noinput
+echo "Raccolta file statici completata."
+
 # Pulizia del file temporaneo
 echo "Pulizia del file temporaneo..."
 rm "${TEMP_COMPOSE_FILE}"
@@ -204,18 +210,18 @@ echo "Deployment avviato!"
 echo "I container dovrebbero essere in esecuzione."
 echo ""
 echo "Puoi accedere ai servizi (potrebbe richiedere qualche istante per l'avvio completo):"
-echo "  - Backend Django (Admin): http://${SERVER_IP}:8000/admin/"
-echo "  - Frontend Docente:       http://${SERVER_IP}:5174/"
-echo "  - Frontend Studente:      http://${SERVER_IP}:5175/"
+echo "  - Backend Django (Admin): http://${SERVER_IP}/admin/"
+echo "  - Frontend Docente:       http://${SERVER_IP}/docenti/"
+echo "  - Frontend Studente:      http://${SERVER_IP}/studenti/"
 echo ""
 echo "Credenziali Admin (definite durante l'esecuzione dello script):"
 echo "  - Username: ${DJANGO_SUPERUSER_USERNAME_VAR}"
 echo "  - Password: (quella inserita durante l'esecuzione dello script)"
 echo ""
 echo "Comandi utili:"
-echo "  - Vedere i log: $COMPOSE_CMD -f ${COMPOSE_FILE_PATH} logs -f"
-echo "  - Fermare i servizi: cd ${PROJECT_DIR} && $COMPOSE_CMD -f ${COMPOSE_FILE_PATH} down"
-echo "  - Riavviare i servizi: cd ${PROJECT_DIR} && $COMPOSE_CMD -f ${COMPOSE_FILE_PATH} restart"
+echo "  - Vedere i log: cd ${PROJECT_DIR} && $COMPOSE_CMD -f ${COMPOSE_FILE_PATH} --env-file ${ENV_FILE_PATH} logs -f"
+echo "  - Fermare i servizi: cd ${PROJECT_DIR} && $COMPOSE_CMD -f ${COMPOSE_FILE_PATH} --env-file ${ENV_FILE_PATH} down"
+echo "  - Riavviare i servizi: cd ${PROJECT_DIR} && $COMPOSE_CMD -f ${COMPOSE_FILE_PATH} --env-file ${ENV_FILE_PATH} restart"
 echo "  - Versione Docker utilizzata: ${DOCKER_VERSION_VAR}"
 echo "---------------------------------------------------------------------"
 

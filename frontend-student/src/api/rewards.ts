@@ -18,7 +18,8 @@ export interface Reward {
 
 export interface RewardPurchase {
   id: number;
-  reward: Reward; // Dettagli ricompensa nidificati
+  reward: number; // ID della ricompensa
+  reward_info: Reward; // Dettagli ricompensa nidificati (per lettura)
   points_spent: number;
   purchased_at: string;
   status: 'PURCHASED' | 'DELIVERED' | 'CANCELLED'; 

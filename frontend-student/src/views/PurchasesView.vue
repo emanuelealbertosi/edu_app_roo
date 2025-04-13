@@ -76,8 +76,8 @@ onMounted(() => {
         </thead>
         <tbody class="text-sm text-gray-700">
           <tr v-for="purchase in purchaseHistory" :key="purchase.id" class="border-b border-gray-200 md:border-none">
-            <td data-label="Ricompensa" class="px-4 py-3 whitespace-nowrap font-semibold">{{ purchase.reward.name }}</td>
-            <td data-label="Descrizione" class="px-4 py-3">{{ purchase.reward.description || '-' }}</td> <!-- Aggiunta Cella Descrizione -->
+            <td data-label="Ricompensa" class="px-4 py-3 whitespace-nowrap font-semibold">{{ purchase.reward_info.name }}</td>
+            <td data-label="Descrizione" class="px-4 py-3">{{ purchase.reward_info.description || '-' }}</td> <!-- Corretto accesso ai dati -->
             <td data-label="Costo" class="points-spent px-4 py-3 whitespace-nowrap font-semibold">{{ purchase.points_spent }}</td>
             <td data-label="Data Acquisto" class="px-4 py-3 whitespace-nowrap">{{ formatDate(purchase.purchased_at) }}</td>
             <td data-label="Stato" class="status-cell px-4 py-3 text-center">

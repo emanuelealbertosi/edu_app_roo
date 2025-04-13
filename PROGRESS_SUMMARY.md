@@ -179,7 +179,7 @@
 *   **Correzioni UI/UX:** Rimossa textarea metadati da form domande, corretto salvataggio automatico opzioni, corretti errori HTML.
 *   **Applicati stili bottoni standard:** Utilizzate classi `.btn-*` nelle viste e componenti principali per coerenza visiva.
 
-## 14. Dockerizzazione Produzione (Tentativi - PROBLEMA APERTO)
+## 14. Dockerizzazione Produzione
 
 *   Creati `Dockerfile`, `docker-compose.prod.yml` e `entrypoint.prod.sh` per l'ambiente di produzione.
 *   Configurate e pushate le immagini Docker per backend, frontend-studente, frontend-docente su Docker Hub (`albertosiemanuele/...`).
@@ -190,7 +190,12 @@
     *   Affrontato problema persistente con le variabili d'ambiente (`DATABASE_URL`, `SECRET_KEY`, etc.) non lette correttamente dallo script `entrypoint.prod.sh` all'interno del container `backend` durante l'esecuzione dei comandi `manage.py`.
     *   Provate diverse configurazioni di `docker-compose.prod.yml` (`env_file`, `environment`, ibrido) e dello script `deploy_on_ubuntu.sh` (esportazione variabili).
     *   Modificato `entrypoint.prod.sh` per caricare esplicitamente `.env.prod` con `source`.
-*   **Stato Attuale Problema:** Nonostante le modifiche, i log del container `backend` mostrano ancora che `DATABASE_URL` è `None` e `SECRET_KEY` è vuota quando vengono eseguiti i comandi `manage.py` (migrate, collectstatic, create_initial_superuser), causando il fallback a SQLite e fallimenti successivi (es. `InconsistentMigrationHistory` o `no such table`). Gunicorn fallisce l'avvio a causa di questi errori. **Il deployment Docker in produzione NON è funzionante.**
+*   **Stato Attuale Problema Variabili d'Ambiente:** Nonostante le modifiche, i log del container `backend` mostrano ancora che `DATABASE_URL` è `None` e `SECRET_KEY` è vuota quando vengono eseguiti i comandi `manage.py` (migrate, collectstatic, create_initial_superuser), causando il fallback a SQLite e fallimenti successivi (es. `InconsistentMigrationHistory` o `no such table`). Gunicorn fallisce l'avvio a causa di questi errori. **Il deployment Docker in produzione NON è ancora completamente funzionante a causa di questo problema.**
+*   **Risoluzione Problema Reverse Proxy (12/04/2025):**
+    *   Modificato `nginx.conf` (proxy esterno) aggiungendo `^~` a `location /docenti/` per forzare la priorità.
+    *   Modificato `frontend-teacher/nginx.conf` (Nginx interno) rimuovendo il blocco `location ~ ^/docenti/assets/` ridondante.
+    *   Identificato e risolto problema di **caching del browser** (Edge) che manteneva un vecchio redirect 301. La pulizia della cache o l'uso della modalità InPrivate ha risolto il problema.
+    *   **Stato Attuale:** Il reverse proxy funziona correttamente per `/studenti/`, `/docenti/`, `/admin/`, `/api/`.
 
 ## 15. Miglioramenti UX (Piano `UX_IMPROVEMENT_PLAN.md`)
 

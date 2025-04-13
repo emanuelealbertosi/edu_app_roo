@@ -228,10 +228,12 @@ Questa sezione descrive come eseguire l'applicazione su un server utilizzando le
 
     Docker Compose scaricherà automaticamente le immagini specificate (`albertosiemanuele/edu-app-...:latest`) da Docker Hub. Lo script `entrypoint.prod.sh` all'interno del container `backend` eseguirà le migrazioni e creerà il superutente iniziale (se configurato in `.env.prod`).
 
-5.  **Accesso ai Servizi:**
-    *   **Backend Django:** Accessibile sulla porta 8000 del server (es. `http://tuo_dominio.com:8000/`). Potresti voler configurare un reverse proxy (come Nginx o Apache) sul server per esporre l'applicazione sulla porta 80/443 e gestire HTTPS.
-    *   **Frontend Docente:** Accessibile sulla porta 5174 del server (es. `http://tuo_dominio.com:5174/`). Anche qui, un reverse proxy è consigliato.
-    *   **Frontend Studente:** Accessibile sulla porta 5175 del server (es. `http://tuo_dominio.com:5175/`). Anche qui, un reverse proxy è consigliato.
+5.  **Accesso ai Servizi (Tramite Reverse Proxy Nginx):**
+    L'applicazione è configurata per essere accessibile tramite un reverse proxy Nginx sulla porta 80 del server (es. `217.154.2.9`):
+    *   **Frontend Studente:** `http://217.154.2.9/studenti/`
+    *   **Frontend Docente:** `http://217.154.2.9/docenti/`
+    *   **Interfaccia Admin:** `http://217.154.2.9/admin/` (usa le credenziali definite in `.env.prod`)
+    *   **API Backend:** `http://217.154.2.9/api/`
 
 #### Gestione dei Container di Produzione
 

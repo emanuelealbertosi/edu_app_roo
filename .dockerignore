@@ -1,0 +1,47 @@
+# Git
+.git
+.gitignore
+
+# Python Virtual Environment
+.venv/
+venv/
+*/.venv/
+*/venv/
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Django specific
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+mediafiles/
+staticfiles/
+.env* # Escludi tutti i file .env dal contesto, verranno iniettati da compose
+
+# Frontend node modules (se presenti alla root)
+node_modules/
+.npm
+
+# Frontend build artifacts (non dovrebbero essere alla root, ma per sicurezza)
+dist/
+build/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# IDE / Editor specific
+.vscode/
+.idea/
+*.swp
+*.swo
+*.sublime-*
+
+# OS specific
+.DS_Store
+Thumbs.db

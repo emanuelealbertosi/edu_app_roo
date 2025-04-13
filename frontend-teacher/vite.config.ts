@@ -5,6 +5,7 @@ import vue from '@vitejs/plugin-vue'
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  base: '/docenti/', // Aggiungi il percorso base per la produzione
   plugins: [
     vue(),
   ],

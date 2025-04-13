@@ -7,6 +7,7 @@ import vueDevTools from 'vite-plugin-vue-devtools'
 
 // https://vite.dev/config/
 export default defineConfig({
+  base: '/studenti/', // Aggiungi il percorso base per la produzione
   plugins: [
     vue(),
     vueJsx(),

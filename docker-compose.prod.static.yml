@@ -20,22 +20,23 @@ services:
   backend:
     # Assicurati che questa immagine sia corretta e aggiornata su Docker Hub
     image: albertosiemanuele/edu-app-backend:latest
-    ports:
-      - "8000:8000"
+    # ports: # Rimosso, accesso tramite nginx-proxy
+    #  - "8000:8000"
     env_file:
       - .env.prod # Legge le variabili da .env.prod
     depends_on:
       db:
         condition: service_healthy
-    volumes: # Aggiunta mappatura volume media
-      - media_data:/app/mediafiles
+    volumes:
+      - media_data:/app/mediafiles # Volume per i file caricati dagli utenti
+      - static_data:/app/staticfiles # Volume per i file statici raccolti
     restart: unless-stopped
 
   frontend-student:
     # Assicurati che questa immagine sia corretta e aggiornata su Docker Hub
     image: albertosiemanuele/edu-app-frontend-student:latest
-    ports:
-      - "5175:80"
+    # ports: # Rimosso, accesso tramite nginx-proxy
+    #  - "5175:80"
     depends_on:
       - backend
     volumes: # Aggiunto volume media per servire file
@@ -45,14 +46,32 @@ services:
   frontend-teacher:
     # Assicurati che questa immagine sia corretta e aggiornata su Docker Hub
     image: albertosiemanuele/edu-app-frontend-teacher:latest
-    ports:
-      - "5174:80"
+    # ports: # Rimosso, accesso tramite nginx-proxy
+    #  - "5174:80"
     depends_on:
       - backend
     volumes: # Aggiunto volume media per servire file
       - media_data:/usr/share/nginx/media
     restart: unless-stopped
 
+  nginx-proxy:
+    image: nginx:alpine
+    ports:
+      - "80:80" # Espone la porta 80 dell'host
+    volumes:
+      # Monta la configurazione Nginx creata separatamente
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      # Monta i media per servirli direttamente da Nginx
+      - media_data:/usr/share/nginx/media:ro
+      # Monta gli statici raccolti per servirli direttamente da Nginx
+      - static_data:/usr/share/nginx/static:ro
+    depends_on:
+      - backend
+      - frontend-student
+      - frontend-teacher
+    restart: unless-stopped
+
 volumes:
   postgres_data:
-  media_data: {} # Aggiunta definizione volume media
+  media_data: {}
+  static_data: {} # Volume per i file statici
