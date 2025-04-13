@@ -622,8 +622,22 @@ class QuizAttempt(models.Model):
              return
 
         # Determine pass/fail based on threshold
-        threshold = self.quiz.metadata.get('completion_threshold_percent', 100.0) # Default to 100% if not set
-        passed = self.score >= threshold
+        # Recupera la soglia (come frazione, es: 0.5) dal campo metadata del Quiz usando la chiave corretta
+        threshold_fraction = self.quiz.metadata.get('completion_threshold', 1.0) # Default a 1.0 (100%) se non impostata
+        threshold_value = 100.0 # Default in caso di errore
+        try:
+            # Converte la frazione in percentuale per il confronto con self.score
+            threshold_value = float(threshold_fraction) * 100.0
+            logger.info(f"Attempt {self.id}: Letta soglia frazione '{threshold_fraction}' da metadata, convertita a {threshold_value}%")
+        except (ValueError, TypeError):
+            logger.warning(f"Valore non valido per 'completion_threshold' nei metadati del Quiz {self.quiz.id}: {threshold_fraction}. Uso default 100.0%.")
+            threshold_value = 100.0
+
+        # Log dettagliato prima del confronto
+        logger.info(f"Attempt {self.id}: Confronto soglia - Score: {self.score} (Tipo: {type(self.score)}), Threshold Value: {threshold_value} (Tipo: {type(threshold_value)})")
+
+        # Confronta lo score (che è già una percentuale 0-100) con la soglia
+        passed = self.score >= threshold_value
 
         # Update status based on pass/fail, only if currently IN_PROGRESS or PENDING (after grading)
         if self.status in [self.AttemptStatus.IN_PROGRESS, self.AttemptStatus.PENDING_GRADING]:

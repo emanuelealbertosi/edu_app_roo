@@ -53,6 +53,14 @@ export interface StudentAnswerResult {
   answered_at: string;
 }
 
+// Interfaccia per i dati base di un Badge (come da SimpleBadgeSerializer)
+export interface SimpleBadge {
+  id: number;
+  name: string;
+  image_url: string | null; // Può essere null se non c'è immagine
+  description?: string; // Opzionale
+}
+
 export interface AttemptDetails extends QuizAttempt {
   questions: Question[]; // Lista delle domande del quiz
   given_answers: StudentAnswerResult[]; // Lista delle risposte date dallo studente
@@ -61,6 +69,7 @@ export interface AttemptDetails extends QuizAttempt {
   completion_threshold: number | null; // Percentuale
   total_questions: number | null;
   correct_answers_count: number | null;
+  newly_earned_badges?: SimpleBadge[]; // Aggiunto campo opzionale per i badge
 }
 
 // Tipi per le risposte alle domande

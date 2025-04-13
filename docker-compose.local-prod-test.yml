@@ -1,13 +1,16 @@
-# File Docker Compose per testare localmente una configurazione simile alla produzione
-# Usa immagini buildate localmente e un file .env.localprod
+# File Docker Compose statico.
+# Si aspetta che le variabili siano definite in un file .env.prod
+# usato con l'opzione --env-file nel comando 'docker compose up'.
 services:
   db:
     image: postgres:15-alpine
     volumes:
-      - postgres_data_local_prod:/var/lib/postgresql/data/
+      - postgres_data:/var/lib/postgresql/data/
     env_file:
       - .env.localprod # Legge le variabili da .env.localprod
     healthcheck:
+      # Usa la sintassi $$ per leggere le variabili dall'ambiente del container
+      # popolate da env_file
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
@@ -15,58 +18,59 @@ services:
     restart: unless-stopped
 
   backend:
-    # Usa l'immagine buildata localmente
-    image: edu-app-backend:local-test
+    # Costruisce l'immagine localmente usando il Dockerfile nella root
     build:
       context: .
-      dockerfile: Dockerfile # Assicurati che questo sia il Dockerfile corretto per il backend
-    # ports: # Rimosso, accesso tramite nginx-proxy locale (Riga commentata)
+      dockerfile: Dockerfile # Assicurati che il Dockerfile del backend sia nella root
+    # ports: # Rimosso, accesso tramite nginx-proxy
     #  - "8000:8000"
     env_file:
       - .env.localprod # Legge le variabili da .env.localprod
     depends_on:
       db:
         condition: service_healthy
-    volumes: # Mappatura volume media
-      - media_data_local_prod:/app/mediafiles
+    volumes:
+      - media_data:/app/mediafiles # Volume per i file caricati dagli utenti
+      - static_data:/app/staticfiles # Volume per i file statici raccolti
     restart: unless-stopped
 
   frontend-student:
-    # Usa l'immagine buildata localmente
-    image: edu-app-frontend-student:local-test
+    # Costruisce l'immagine localmente usando il Dockerfile in frontend-student/
     build:
       context: ./frontend-student
-      dockerfile: Dockerfile # Assicurati che questo sia il Dockerfile corretto
-    # ports: # Rimosso, accesso tramite nginx-proxy locale (Riga commentata)
-      # Potresti voler cambiare porta se 5175 è già usata localmente (ora esposta da nginx-proxy)
-      # - "5175:80" # Rimosso, accesso tramite nginx-proxy locale
+      dockerfile: Dockerfile
+    # ports: # Rimosso, accesso tramite nginx-proxy
+    #  - "5175:80"
     depends_on:
       - backend
-    volumes: # Mappatura volume media per servire file
-      - media_data_local_prod:/usr/share/nginx/media
+    volumes: # Aggiunto volume media per servire file
+      - media_data:/usr/share/nginx/media
     restart: unless-stopped
 
   frontend-teacher:
-    # Usa l'immagine buildata localmente
-    image: edu-app-frontend-teacher:local-test
+    # Costruisce l'immagine localmente usando il Dockerfile in frontend-teacher/
     build:
       context: ./frontend-teacher
-      dockerfile: Dockerfile # Assicurati che questo sia il Dockerfile corretto
-    # ports: # Rimosso, accesso tramite nginx-proxy locale (Riga commentata)
-      # Potresti voler cambiare porta se 5174 è già usata localmente (ora esposta da nginx-proxy)
-      # - "5174:80" # Rimosso, accesso tramite nginx-proxy locale
+      dockerfile: Dockerfile
+    # ports: # Rimosso, accesso tramite nginx-proxy
+    #  - "5174:80"
     depends_on:
       - backend
-    volumes: # Mappatura volume media per servire file
-      - media_data_local_prod:/usr/share/nginx/media
+    volumes: # Aggiunto volume media per servire file
+      - media_data:/usr/share/nginx/media
     restart: unless-stopped
+
   nginx-proxy:
     image: nginx:alpine
     ports:
-      - "80:80" # Espone la porta 80 dell'host per accedere a tutto
+      - "80:80" # Espone la porta 80 dell'host
     volumes:
-      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro # Monta la configurazione Nginx locale
-      - media_data_local_prod:/usr/share/nginx/media:ro # Monta i media per servirli direttamente
+      # Monta la configurazione Nginx creata separatamente
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      # Monta i media per servirli direttamente da Nginx
+      - media_data:/usr/share/nginx/media:ro
+      # Monta gli statici raccolti per servirli direttamente da Nginx
+      - static_data:/usr/share/nginx/static:ro
     depends_on:
       - backend
       - frontend-student
@@ -74,5 +78,6 @@ services:
     restart: unless-stopped
 
 volumes:
-  postgres_data_local_prod:
-  media_data_local_prod: {} # Volume per i media locali
+  postgres_data:
+  media_data: {}
+  static_data: {} # Volume per i file statici

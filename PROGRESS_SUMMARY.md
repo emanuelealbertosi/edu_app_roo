@@ -1,4 +1,4 @@
-# Riepilogo Stato Avanzamento Progetto (10 Aprile 2025, ~08:55)
+# Riepilogo Stato Avanzamento Progetto (13 Aprile 2025, ~15:35)
 
 ## 1. Progettazione
 
@@ -85,6 +85,7 @@
     *   Risolti `IndentationError` e `NameError` in `serializers.py` emersi durante le correzioni.
 *   **Corretto errore API caricamento Wallet Studente:** Risolto `NameError` in `config/urls.py` ripristinando l'URL e l'import per `StudentWalletInfoView`.
 *   **Corretto errore API caricamento Badge Studente:** Risolto `ImproperlyConfigured` in `BadgeSerializer` correggendo il campo `image_url` in `image`.
+*   **Corretta logica soglia superamento quiz:** Modificato `QuizAttempt.assign_completion_points` per leggere correttamente la soglia (`completion_threshold`) dai metadati del `Quiz` (invece di un campo inesistente) e confrontarla con il punteggio percentuale calcolato.
 
 ## 6. Interfaccia Admin
 
@@ -164,6 +165,11 @@
 *   **Corretti errori di rendering:** Risolti `InvalidCharacterError` e `TypeError: Cannot read properties of null (reading 'parentNode')` legati a commenti HTML mal posizionati e gestione transizioni/HMR.
 *   **Corretta logica notifica badge:** Spostata la logica di notifica da `QuizResultView` a `QuizAttemptView` per usare l'array `newly_earned_badges` dalla risposta API `completeAttempt`.
 *   **Corretto errore icona badge rotta:** Identificato e risolto problema con `ImageField` e serializer. Creato file SVG placeholder.
+*   **Migliorata UX Svolgimento Quiz:**
+   *   Sostituita animazione iniziale "Pronti? Via!" con contatore "3, 2, 1, Via!" su sfondo azzurro (`QuizAttemptView.vue`).
+   *   Sostituito sfondo immagine casuale con sfondi a gradiente colorati che ciclano ad ogni domanda (`QuizAttemptView.vue`).
+   *   Aggiunta transizione di dissolvenza all'apparizione delle domande (`QuizAttemptView.vue`).
+   *   Corretto tipo `AttemptDetails` in `api/quiz.ts` per includere `newly_earned_badges`, risolvendo errori TypeScript.
 
 ## 12. Dati di Test
 
@@ -196,6 +202,7 @@
     *   Modificato `frontend-teacher/nginx.conf` (Nginx interno) rimuovendo il blocco `location ~ ^/docenti/assets/` ridondante.
     *   Identificato e risolto problema di **caching del browser** (Edge) che manteneva un vecchio redirect 301. La pulizia della cache o l'uso della modalità InPrivate ha risolto il problema.
     *   **Stato Attuale:** Il reverse proxy funziona correttamente per `/studenti/`, `/docenti/`, `/admin/`, `/api/`.
+    *   **Corretta configurazione Docker Compose locale:** Modificato `docker-compose.local-prod-test.yml` per usare `build:` invece di `image:` e per leggere le variabili da `.env.localprod` di default, permettendo test locali con codice aggiornato.
 
 ## 15. Miglioramenti UX (Piano `UX_IMPROVEMENT_PLAN.md`)
 
@@ -207,5 +214,6 @@
     *   Implementata logica frontend in `QuizAttemptView.vue` per recuperare badge guadagnati e mostrare notifica per i badge appena ottenuti. Rimossa logica duplicata da `QuizResultView.vue`.
     *   Aggiunta creazione badge "Primo Quiz Completato" nello script `seed_test_data`.
     *   **Corretto errore icona badge rotta:** Identificato e risolto problema con `ImageField` e serializer. Creato file SVG placeholder. Corretto errore API caricamento badge.
-
-## Prossimi Passi Previsti (vedi NEXT_STEPS.md)
+    *   **Migliorata interfaccia svolgimento quiz:** Vedi sezione 11.
+   
+   ## Prossimi Passi Previsti (vedi NEXT_STEPS.md)

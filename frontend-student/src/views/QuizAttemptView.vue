@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed, shallowRef } from 'vue';
+import { ref, onMounted, computed, shallowRef, watch } from 'vue'; // Aggiunto watch
 import { useRoute, useRouter } from 'vue-router';
 import QuizService, { type Question, type QuizAttempt, type Answer } from '@/api/quiz';
 // Importa i componenti delle domande
@@ -12,15 +12,20 @@ import { useAuthStore } from '@/stores/auth';
 import { useNotificationStore } from '@/stores/notification'; // Importa lo store notifiche
 
 // --- Sfondi e Animazioni ---
-const availableBackgrounds = [
-  '/backgrounds/bg1.webp', // Assicurati che questi file esistano in /public/backgrounds/
-  '/backgrounds/bg2.webp',
-  '/backgrounds/bg3.webp',
-  '/backgrounds/bg4.svg', // Esempio SVG
-  // Aggiungi altri percorsi qui
+// Lista di classi Tailwind per i gradienti di sfondo
+const backgroundGradients = [
+  'bg-gradient-to-br from-red-500 to-red-700',
+  'bg-gradient-to-br from-blue-500 to-blue-700',
+  'bg-gradient-to-br from-green-500 to-green-700',
+  'bg-gradient-to-br from-yellow-500 to-yellow-700',
+  'bg-gradient-to-br from-purple-600 to-indigo-700', // Gradiente login
+  'bg-gradient-to-br from-pink-500 to-pink-700',
 ];
-const selectedBackgroundUrl = ref<string>('');
-const showStartAnimation = ref(true);
+const currentBackgroundClass = ref(backgroundGradients[0]); // Inizia con il primo
+const backgroundIndex = ref(0);
+const showStartAnimation = ref(true); // Controlla la visibilità dell'intera animazione
+const countdownValue = ref<number | string>(3); // Inizia da 3, poi diventa 'Via!'
+const countdownActive = ref(false); // Controlla l'intervallo
 
 // State
 const route = useRoute();
@@ -170,14 +175,11 @@ async function completeAttemptHandler() {
 // --- Lifecycle Hooks ---
 
 onMounted(() => {
-  // Seleziona sfondo casuale
-  const randomIndex = Math.floor(Math.random() * availableBackgrounds.length);
-  selectedBackgroundUrl.value = availableBackgrounds[randomIndex];
+  // Imposta il primo gradiente
+  currentBackgroundClass.value = backgroundGradients[backgroundIndex.value];
 
-  // Nasconde l'animazione iniziale dopo un po'
-  setTimeout(() => {
-    showStartAnimation.value = false;
-  }, 1800); // Durata animazione + piccolo ritardo
+  // Avvia il contatore
+  startCountdown();
 
   // Avvia il quiz
   startQuizAttempt();
@@ -208,12 +210,43 @@ function updateUserAnswer(answer: Answer | null) {
   userAnswer.value = answer;
 }
 
+// --- Funzioni per il Contatore ---
+function startCountdown() {
+  countdownActive.value = true;
+  countdownValue.value = 3; // Reset iniziale
+
+  const intervalId = setInterval(() => {
+    if (typeof countdownValue.value === 'number' && countdownValue.value > 1) {
+      countdownValue.value--;
+    } else if (countdownValue.value === 1) {
+      countdownValue.value = 'Via!';
+    } else { // Quando è 'Via!'
+      clearInterval(intervalId);
+      countdownActive.value = false;
+      // Nasconde l'animazione dopo che "Via!" è stato mostrato per un po'
+      setTimeout(() => {
+        showStartAnimation.value = false;
+      }, 500); // Mostra "Via!" per 0.5 secondi
+    }
+  }, 1000); // Intervallo di 1 secondo
+}
+
+// Osserva quando la domanda cambia per ciclare lo sfondo e gestire la transizione
+watch(currentQuestion, (newQuestion, oldQuestion) => {
+  if (newQuestion && (!oldQuestion || newQuestion.id !== oldQuestion.id)) {
+    console.log(`Transitioning to question ${newQuestion.order + 1}`);
+    // Cambia sfondo ciclicamente
+    backgroundIndex.value = (backgroundIndex.value + 1) % backgroundGradients.length;
+    currentBackgroundClass.value = backgroundGradients[backgroundIndex.value];
+  }
+});
+
 </script>
 
 <template>
   <div
-    class="quiz-attempt-view min-h-screen flex flex-col items-center justify-center p-4 bg-cover bg-center relative"
-    :style="{ backgroundImage: `url(${selectedBackgroundUrl})` }"
+    class="quiz-attempt-view min-h-screen flex flex-col items-center justify-center p-4 relative transition-colors duration-500"
+    :class="currentBackgroundClass"
   >
     <!-- Overlay per leggibilità -->
     <div class="absolute inset-0 bg-black bg-opacity-50 z-0"></div>
@@ -222,10 +255,12 @@ function updateUserAnswer(answer: Answer | null) {
     <div class="main-content container mx-auto max-w-3xl relative z-10">
 
       <!-- Animazione Iniziale -->
+      <!-- Animazione Iniziale con Contatore -->
       <transition name="start-anim">
-        <div v-if="showStartAnimation" class="start-animation text-center text-white mb-8">
-          <p class="text-4xl font-bold animate-pulse">Pronti? Via!</p>
-          <!-- Potresti usare un SVG animato o Lottie qui -->
+        <div v-if="showStartAnimation" class="start-animation text-center mb-8 p-10 rounded-lg bg-blue-500 bg-opacity-90 shadow-xl">
+          <p class="text-6xl font-bold text-white animate-pulse">
+            {{ countdownValue }}
+          </p>
         </div>
       </transition>
 
@@ -259,34 +294,42 @@ function updateUserAnswer(answer: Answer | null) {
         </svg>
       </div>
 
-      <div v-if="currentQuestion" class="question-container bg-purple-50 bg-opacity-90 border border-purple-200 p-6 rounded-lg mb-6 shadow-md">
-        <h3 class="text-lg font-semibold text-purple-700 mb-3">Domanda {{ currentQuestion.order + 1 }}</h3>
-        <p class="question-text text-gray-800 text-lg mb-5">{{ currentQuestion.text }}</p>
+      <!-- Blocco Condizionale per Domanda o Completamento -->
+      <!-- Usiamo un template per il v-if in modo che la transizione non interrompa la catena -->
+      <template v-if="currentQuestion">
+        <transition name="question-fade" mode="out-in" appear>
+           <!-- Blocco Domanda Effettivo -->
+          <div :key="currentQuestion.id" class="question-container bg-purple-50 bg-opacity-90 border border-purple-200 p-6 rounded-lg mb-6 shadow-md">
+            <h3 class="text-lg font-semibold text-purple-700 mb-3">Domanda {{ currentQuestion.order + 1 }}</h3>
+            <p class="question-text text-gray-800 text-lg mb-5">{{ currentQuestion.text }}</p>
 
-        <!-- Renderizza dinamicamente il componente domanda corretto -->
-        <div class="answer-area">
-          <component
-            v-if="currentQuestionComponent && currentQuestion"
-            :is="currentQuestionComponent"
-            :question="currentQuestion"
-            @update:answer="updateUserAnswer"
-          />
-          <div v-else>
-             <p v-if="currentQuestion">Tipo di domanda non supportato: {{ currentQuestion.question_type }}</p>
-             <!-- Potrebbe essere un placeholder o un messaggio di errore -->
+            <!-- Renderizza dinamicamente il componente domanda corretto -->
+            <div class="answer-area">
+              <component
+                v-if="currentQuestionComponent && currentQuestion"
+                :is="currentQuestionComponent"
+                :question="currentQuestion"
+                @update:answer="updateUserAnswer"
+              />
+              <div v-else>
+                <p v-if="currentQuestion">Tipo di domanda non supportato: {{ currentQuestion.question_type }}</p>
+                <!-- Potrebbe essere un placeholder o un messaggio di errore -->
+              </div>
+            </div>
+
+            <button
+              @click="submitAnswerHandler"
+              :disabled="isSubmitting || !userAnswer"
+              class="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white font-bold py-3 px-4 rounded-lg shadow transition-colors duration-200"
+            >
+              {{ isSubmitting ? 'Invio...' : 'Invia Risposta' }}
+            </button>
           </div>
-        </div>
-
-        <button
-          @click="submitAnswerHandler"
-          :disabled="isSubmitting || !userAnswer"
-          class="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white font-bold py-3 px-4 rounded-lg shadow transition-colors duration-200"
-        >
-          {{ isSubmitting ? 'Invio...' : 'Invia Risposta' }}
-        </button>
-      </div>
-
-      <div v-else-if="!isLoading && !error" class="text-center mt-8">
+        </transition>
+      </template>
+      <!-- Blocco Completamento: mostrato se NON c'è domanda corrente, NON sta caricando e NON c'è errore -->
+      <!-- Questo v-else-if ora segue direttamente il <template v-if="currentQuestion"> -->
+      <div v-else-if="!currentQuestion && !isLoading && !error" class="text-center mt-8">
         <p class="text-xl text-green-600 font-semibold mb-4">Hai risposto a tutte le domande!</p>
         <button
           @click="completeAttemptHandler"
@@ -330,5 +373,16 @@ function updateUserAnswer(answer: Answer | null) {
   transform: scale(1) translateY(0);
 }
 
+/* Stili per la transizione delle domande */
+.question-fade-enter-active,
+.question-fade-leave-active {
+  transition: opacity 0.3s ease; /* Durata e tipo di transizione */
+}
+.question-fade-enter-from,
+.question-fade-leave-to {
+  opacity: 0;
+}
+
 /* Eventuali altri stili specifici non coperti da Tailwind */
+
 </style>

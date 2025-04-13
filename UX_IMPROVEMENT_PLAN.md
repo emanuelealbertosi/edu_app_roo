@@ -1,6 +1,6 @@
 # Piano di Miglioramento Esperienza Utente (UX) - App Educativa
 
-**Versione:** 1.4 (10 Aprile 2025) - Correzioni Badge e Admin
+**Versione:** 1.5 (13 Aprile 2025) - Correzione Soglia Quiz e UX Svolgimento
 
 ## 1. Introduzione
 
@@ -134,9 +134,10 @@ sequenceDiagram
 ### 4.8. Soluzione Sfondi e Animazioni Svolgimento Quiz (Studente)
 *   **Obiettivo:** Rendere l'interfaccia svolgimento quiz più varia e dinamica.
 *   **Proposta:** Modificare `QuizAttemptView.vue`:
-    1.  **Sfondi Casuali:** Applicare sfondo casuale da `/public/backgrounds/` `onMounted`, garantendo leggibilità testo.
-    2.  **Animazione Iniziale:** Mostrare una breve animazione o messaggio animato (es. "Pronti? Via!") all'inizio dello svolgimento del quiz (es. `onMounted` o dopo il caricamento dei dati).
-*   **Tecnologie:** Vue.js (script setup, onMounted, :style), CSS (backgrounds, animations/transitions), Libreria Animazioni (opzionale).
+    1.  **Sfondi a Gradiente Ciclici:** Rimuovere sfondi immagine casuali. Implementare una lista di classi di gradienti Tailwind e applicarne una diversa ad ogni cambio di domanda.
+    2.  **Animazione Iniziale (Contatore):** Sostituire l'animazione "Pronti? Via!" con un contatore "3, 2, 1, Via!" su sfondo colorato (es. azzurro).
+    3.  **Transizione Domande:** Aggiungere una transizione di dissolvenza (`<transition name="question-fade">`) all'apparizione del blocco della domanda.
+*   **Tecnologie:** Vue.js (script setup, onMounted, watch, :class, `<transition>`), Tailwind CSS (gradienti), CSS (transitions).
 
 ### 4.9. [BUG FIX] Soluzione Errori Rendering Frontend Studente
 *   **Obiettivo:** Eliminare errori `InvalidCharacterError` e `TypeError: Cannot read properties of null (reading 'parentNode')`.
@@ -192,7 +193,7 @@ sequenceDiagram
 3.  **Feedback Risultati Quiz Studente:** ✅ Completato (Serializer backend aggiornato, Vista frontend aggiornata con logica esito, riepilogo visivo e placeholder animazioni).
 4.  **Indicatore Caricamento Globale:** ✅ Completato (Implementato per entrambi i frontend: store, intercettore, componente, integrazione App.vue).
 5.  **Editing Domande Fluido (Docente):** ✅ Completato (Implementato autosalvataggio e navigazione sequenziale in `QuestionTemplateFormView.vue`). ⚠️ Nota: Recupero ID domande per navigazione è placeholder.
-6.  **Sfondi e Animazioni Svolgimento Quiz (Studente):** ✅ Completato (Implementati sfondi casuali e animazione iniziale in `QuizAttemptView.vue`).
+6.  **Sfondi e Animazioni Svolgimento Quiz (Studente):** ✅ Completato (Implementati contatore iniziale, sfondi a gradiente ciclici e transizione domande in `QuizAttemptView.vue`).
 7.  **Miglioramenti Generali (Bottoni/Grafica):** ✅ Completato (Stili `.btn-*` definiti e applicati alle viste/componenti principali del frontend docente).
 8.  **Gamification Avanzata (Studente):** ✅ Parzialmente Completato (Implementati modelli, migrazioni, API, vista Badge, store notifiche, componente notifiche. Implementata logica backend e notifica frontend per badge "Primo Quiz Completato"). **Corretta logica notifica e visualizzazione icona badge.** ⏳ Da fare: Logica assegnazione altri badge (backend), trigger notifica reale per altri badge (frontend), Classifiche, Avatar.
 9.  **[BUG FIX] Errori Rendering Frontend Studente:** ✅ Completato (Corretti commenti HTML, rimossa `tag` da transition-group, riavviato server Vite).
