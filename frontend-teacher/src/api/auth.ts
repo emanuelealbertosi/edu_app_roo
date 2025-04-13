@@ -7,6 +7,16 @@ interface LoginResponse {
   // Add user details if returned by login endpoint, otherwise fetch separately
 }
 
+// Define the shape of the user object for teachers (matching store)
+interface TeacherUser {
+  id: number;
+  username: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  role: string; // 'TEACHER' or 'ADMIN'
+}
+
 // Define expected payload for teacher/admin login
 interface LoginCredentials {
   username?: string; // Use username for teachers/admins
@@ -35,5 +45,16 @@ export const loginTeacher = async (credentials: LoginCredentials): Promise<Login
 // Optional: Add function for logout (e.g., blacklist token) if backend supports it
 // export const logoutTeacher = async (refresh: string): Promise<void> => { ... }
 
-// Optional: Add function to fetch teacher profile data
-// export const getTeacherProfile = async (): Promise<TeacherUser> => { ... }
+// Function to fetch teacher profile data
+export const getTeacherProfile = async (): Promise<TeacherUser> => {
+  console.log('[api/auth] Fetching teacher profile...');
+  try {
+    // Assuming the profile endpoint is /api/admin/users/me/ based on router registration
+    const response = await apiClient.get<TeacherUser>('/admin/users/me/'); // Use the likely correct endpoint
+    console.log('[api/auth] Teacher profile fetched successfully:', response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error('[api/auth] Get teacher profile API error:', error.response?.data || error.message, error);
+    throw new Error(error.response?.data?.detail || 'Failed to fetch user profile');
+  }
+};

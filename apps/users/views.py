@@ -1,5 +1,7 @@
 import logging # Import logging
 from rest_framework import viewsets, permissions, serializers, generics
+from rest_framework.decorators import action # Import action
+from rest_framework.response import Response # Import Response
 from django.db import models # Importa models
 from django.db.models import Count, Sum, Q, OuterRef, Subquery
 from .models import User, Student, UserRole
@@ -23,9 +25,20 @@ class UserViewSet(viewsets.ModelViewSet):
 
     def get_serializer_class(self):
         """ Restituisce il serializer appropriato in base all'azione. """
+        # Aggiungiamo il caso per 'me' se necessario, ma UserSerializer dovrebbe andare bene
+        if self.action == 'me':
+             return UserSerializer # Usa il serializer standard per i dati utente
         if self.action == 'create':
             return UserCreateSerializer
         return UserSerializer # Default per list, retrieve, update, etc.
+
+    @action(detail=False, methods=['get'], url_path='me', permission_classes=[permissions.IsAuthenticated])
+    def me(self, request):
+        """
+        Restituisce i dati dell'utente autenticato.
+        """
+        serializer = self.get_serializer(request.user)
+        return Response(serializer.data)
 
     # Potremmo aggiungere filtri o logica specifica per la creazione/aggiornamento qui
     # Ad esempio, impedire a un Admin di cambiare il proprio ruolo o eliminarsi.

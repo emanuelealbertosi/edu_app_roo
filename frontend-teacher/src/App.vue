@@ -43,6 +43,7 @@ function closeMobileMenuAndLogout() {
         <RouterLink :to="{ name: 'grading' }" class="py-1 hover:text-amber-300 border-b-2 border-transparent router-link-exact-active:border-amber-300 transition-colors duration-200">Valutazioni</RouterLink>
         <RouterLink :to="{ name: 'delivery' }" class="py-1 hover:text-amber-300 border-b-2 border-transparent router-link-exact-active:border-amber-300 transition-colors duration-200">Consegne</RouterLink>
         <RouterLink :to="{ name: 'student-progress' }" class="py-1 hover:text-amber-300 border-b-2 border-transparent router-link-exact-active:border-amber-300 transition-colors duration-200">Progressi</RouterLink>
+        <RouterLink :to="{ name: 'profile' }" class="py-1 hover:text-amber-300 border-b-2 border-transparent router-link-exact-active:border-amber-300 transition-colors duration-200">Profilo</RouterLink>
         <button @click="authStore.logout" class="ml-4 btn btn-danger">Logout</button>
       </nav>
 
@@ -69,6 +70,7 @@ function closeMobileMenuAndLogout() {
         <a @click="closeMobileMenuAndNavigate('grading')" class="block px-4 py-2 text-white hover:bg-purple-600 cursor-pointer">Valutazioni</a>
         <a @click="closeMobileMenuAndNavigate('delivery')" class="block px-4 py-2 text-white hover:bg-purple-600 cursor-pointer">Consegne</a>
         <a @click="closeMobileMenuAndNavigate('student-progress')" class="block px-4 py-2 text-white hover:bg-purple-600 cursor-pointer">Progressi</a>
+        <a @click="closeMobileMenuAndNavigate('profile')" class="block px-4 py-2 text-white hover:bg-purple-600 cursor-pointer">Profilo</a>
         <button @click="closeMobileMenuAndLogout" class="w-full text-left btn btn-danger block px-4 py-2">Logout</button>
       </nav>
     </transition>

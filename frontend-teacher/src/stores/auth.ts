@@ -1,7 +1,7 @@
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
 import { useRouter } from 'vue-router' // Importa useRouter
-import * as authService from '@/api/auth' // Import auth service
+import * as authService from '@/api/auth' // Import auth service (including getTeacherProfile)
 
 // Define the shape of the user object for teachers (adjust as needed)
 interface TeacherUser {
@@ -64,9 +64,24 @@ export const useAuthStore = defineStore('auth', () => {
           last_name: '', // Need to fetch this
           role: 'TEACHER' // Assume teacher for now, fetch/decode for real role
       };
-      // TODO: Implement fetchUserProfile() or decode token to get real user data
+      // Fetch real user data after getting tokens
+      // Store the refresh token FIRST
+      localStorage.setItem('teacher_refresh_token', response.refresh);
+      refreshToken.value = response.refresh;
 
-      setAuthData(response.access, response.refresh, placeholderUser); // Use placeholder for now
+      // Now fetch the user profile using the new access token
+      try {
+        await fetchUserProfile(response.access); // Pass the new access token
+        // setAuthData is called inside fetchUserProfile on success, using the stored refresh token
+      } catch (fetchError) {
+        // If fetching profile fails even with new tokens, clear everything and fail login
+        console.error("Login succeeded but fetching profile failed:", fetchError);
+        // Clear potentially stored refresh token as well
+        clearAuthData();
+        error.value = 'Login succeeded but failed to retrieve user profile.';
+        throw new Error(error.value);
+      }
+
       // La navigazione verrà gestita dal componente che chiama login
       // await router.push({ name: 'dashboard' }); // <-- Rimuovere redirect
 
@@ -89,27 +104,70 @@ export const useAuthStore = defineStore('auth', () => {
     router.push({ name: 'login' }); // Reindirizza alla pagina di login
   }
 
-  // TODO: Add action to fetch user profile if needed
+  // Action to fetch user profile
+  async function fetchUserProfile(currentToken: string | null = accessToken.value) {
+    if (!currentToken) {
+      console.log("[fetchUserProfile] No token available.");
+      clearAuthData(); // Ensure clean state if no token
+      return; // Exit if no token
+    }
+
+    loading.value = true; // Indicate loading state
+    error.value = null;
+    console.log("[fetchUserProfile] Attempting to fetch profile...");
+
+    try {
+      // Set the current token for the API client (important!)
+      // This assumes apiClient has an interceptor or method to set the Authorization header
+      // If not, you might need to pass the token explicitly to getTeacherProfile
+      // For simplicity, we assume an interceptor sets the header based on accessToken.value
+      // We need to temporarily set accessToken.value for the API call if a new token was passed
+      const oldToken = accessToken.value;
+      accessToken.value = currentToken; // Use the provided token for the API call
+      localStorage.setItem('teacher_access_token', currentToken); // Store the potentially new token
+
+      const fetchedUser = await authService.getTeacherProfile();
+
+      // Use setAuthData to update state correctly, keeping the refresh token if it exists
+      const currentRefreshToken = refreshToken.value || localStorage.getItem('teacher_refresh_token');
+      if (currentRefreshToken) {
+          setAuthData(currentToken, currentRefreshToken, fetchedUser);
+          console.log("[fetchUserProfile] Profile fetched and auth data set:", fetchedUser);
+      } else {
+          // This case should ideally not happen if login provides both tokens
+          console.error("[fetchUserProfile] Access token exists, but refresh token is missing. Clearing auth data.");
+          clearAuthData();
+          throw new Error("Refresh token missing after profile fetch.");
+      }
+
+    } catch (fetchError: any) {
+      console.error("[fetchUserProfile] Failed to fetch user profile:", fetchError);
+      error.value = fetchError.message || 'Failed to fetch profile';
+      clearAuthData(); // Clear data on error (e.g., invalid token)
+      // Don't redirect here, let the caller (e.g., navigation guard) handle it
+      // router.push({ name: 'login' });
+      throw fetchError; // Re-throw error
+    } finally {
+       // Restore old token if it was different (only relevant if called with a new token during login)
+       // if (accessToken.value !== oldToken) {
+       //   accessToken.value = oldToken; // This might be complex, ensure state consistency
+       // }
+      loading.value = false; // Reset loading state
+    }
+  }
+
   // TODO: Add action for token refresh
 
-  // --- MODIFIED INITIALIZATION LOGIC ---
-  // If we find a token on startup but don't have user data,
-  // set a placeholder user to make isAuthenticated work.
-  // A more robust solution would verify the token and fetch real data.
+  // --- INITIALIZATION LOGIC ---
+  // If we find a token on startup, try to fetch the user profile
   if (accessToken.value && !user.value) {
-    console.warn("Auth Store: Token found in localStorage but no user data. Setting placeholder user for isAuthenticated.");
-    user.value = {
-        id: 0, // Placeholder ID
-        username: 'Unknown', // Placeholder username
-        email: '',
-        first_name: 'Placeholder',
-        last_name: 'User',
-        role: 'TEACHER' // Assume TEACHER, could be ADMIN
-    };
-    // TODO: Ideally, call an API here to verify the token
-    // and fetch real user data (e.g., fetchUserProfile()).
+    console.log("Auth Store: Token found in localStorage. Attempting to fetch user profile...");
+    fetchUserProfile().catch(err => {
+        console.error("Auth Store: Initial profile fetch failed, user will be logged out.", err);
+        // Error handling (clearing data) is done within fetchUserProfile
+    });
   }
-  // --- END OF MODIFIED INITIALIZATION LOGIC ---
+  // --- END OF INITIALIZATION LOGIC ---
 
 
   return {
@@ -122,6 +180,7 @@ export const useAuthStore = defineStore('auth', () => {
     login,
     logout,
     setAuthData, // Expose if needed externally
-    clearAuthData // Expose if needed externally
+    clearAuthData, // Expose if needed externally
+    fetchUserProfile // Expose if needed (e.g., for manual refresh)
   }
 })

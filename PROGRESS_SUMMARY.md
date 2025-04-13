@@ -1,4 +1,4 @@
-# Riepilogo Stato Avanzamento Progetto (13 Aprile 2025, ~16:55)
+# Riepilogo Stato Avanzamento Progetto (13 Aprile 2025, ~17:33)
 
 ## 1. Progettazione
 
@@ -86,6 +86,7 @@
 *   **Corretto errore API caricamento Wallet Studente:** Risolto `NameError` in `config/urls.py` ripristinando l'URL e l'import per `StudentWalletInfoView`.
 *   **Corretto errore API caricamento Badge Studente:** Risolto `ImproperlyConfigured` in `BadgeSerializer` correggendo il campo `image_url` in `image`.
 *   **Corretta logica soglia superamento quiz:** Modificato `QuizAttempt.assign_completion_points` per leggere correttamente la soglia (`completion_threshold`) dai metadati del `Quiz` (invece di un campo inesistente) e confrontarla con il punteggio percentuale calcolato.
+*   **Aggiunto endpoint profilo utente:** Aggiunta azione `@action me` a `UserViewSet` (`apps/users/views.py`) per permettere agli utenti autenticati (inclusi docenti) di recuperare i propri dati tramite `/api/admin/users/me/`.
 
 ## 6. Interfaccia Admin
 
@@ -190,7 +191,10 @@
 *   **Aggiunto link alla pagina di login studenti** in `LoginView.vue`.
 *   **Creata nuova vista `ProfileView.vue`** per permettere al docente di cambiare la propria password.
 *   **Aggiunta rotta `/profile`** in `router/index.ts` per la nuova vista profilo.
-*   **Corretto errore di build** in `ProfileView.vue` causato da tag CDATA errati.
+*   **Aggiunto link "Profilo"** nel menu di navigazione (`App.vue`).
+*   **Corretto recupero dati profilo docente:**
+    *   Modificato `api/auth.ts` per usare l'endpoint corretto `/api/admin/users/me/`.
+    *   Modificato `stores/auth.ts` per recuperare i dati utente dopo il login e all'avvio, correggendo l'ordine di salvataggio dei token e risolvendo l'errore "Refresh token missing". Ora l'username corretto viene visualizzato nel profilo.
 
 ## 14. Dockerizzazione Produzione
 
