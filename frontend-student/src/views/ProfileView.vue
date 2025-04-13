@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue';
+import { computed, onMounted, ref } from 'vue'; // Aggiunto ref
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { useDashboardStore } from '@/stores/dashboard';
+// TODO: Importare la funzione API per aggiornare il PIN quando sarà disponibile
+// import { updateUserPin } from '@/api/user'; 
 
 // State
 const router = useRouter();
@@ -15,6 +17,13 @@ const studentCode = computed(() => authStore.user?.student_code ?? 'N/D'); // Ac
 const currentPoints = computed(() => dashboardStore.wallet?.current_points ?? 0);
 const isLoadingWallet = computed(() => dashboardStore.loading.wallet); // Per mostrare caricamento wallet
 const walletError = computed(() => dashboardStore.error); // Per mostrare errori caricamento
+
+// State per il form del PIN
+const newPin = ref('');
+const confirmPin = ref('');
+const pinSuccessMessage = ref<string | null>(null);
+const pinErrorMessage = ref<string | null>(null);
+const isSettingPin = ref(false); // Per disabilitare il pulsante durante il salvataggio
 
 // TODO: Aggiungere statistiche quando disponibili (es. da API o calcolate)
 // const quizzesCompleted = computed(() => dashboardStore.completedQuizzes.length);
@@ -29,6 +38,50 @@ onMounted(() => {
   }
   // Potremmo caricare altre statistiche qui se necessario
 });
+
+// Funzione per gestire l'impostazione/modifica del PIN
+const handleSetPin = async () => {
+  pinSuccessMessage.value = null;
+  pinErrorMessage.value = null;
+  isSettingPin.value = true;
+
+  // Validazione base
+  if (newPin.value.length < 4) {
+    pinErrorMessage.value = 'Il PIN deve contenere almeno 4 cifre.';
+    isSettingPin.value = false;
+    return;
+  }
+  if (newPin.value !== confirmPin.value) {
+    pinErrorMessage.value = 'I PIN inseriti non coincidono.';
+    isSettingPin.value = false;
+    return;
+  }
+  if (!/^\d+$/.test(newPin.value)) {
+    pinErrorMessage.value = 'Il PIN può contenere solo cifre numeriche.';
+    isSettingPin.value = false;
+    return;
+  }
+
+  try {
+    // --- Chiamata API (da implementare) ---
+    console.log('Tentativo di aggiornare il PIN con:', newPin.value);
+    // await authStore.updateStudentPin(newPin.value); // Esempio di chiamata allo store
+    // await updateUserPin(newPin.value); // Esempio di chiamata API diretta
+
+    // Simula successo per ora
+    await new Promise(resolve => setTimeout(resolve, 500)); 
+    pinSuccessMessage.value = 'PIN aggiornato con successo!';
+    newPin.value = ''; // Resetta i campi
+    confirmPin.value = '';
+    // --------------------------------------
+
+  } catch (error: any) {
+    console.error("Errore durante l'aggiornamento del PIN:", error);
+    pinErrorMessage.value = error.message || "Si è verificato un errore durante l'aggiornamento del PIN.";
+  } finally {
+    isSettingPin.value = false;
+  }
+};
 
 </script>
 
@@ -75,6 +128,55 @@ onMounted(() => {
         </div> 
         -->
         <p class="stats-placeholder text-sm text-gray-500 italic text-center mt-4">(Altre statistiche saranno disponibili prossimamente)</p>
+      </div>
+
+      <!-- Nuova Card per Impostare/Modificare PIN -->
+      <div class="profile-card pin-card bg-white rounded-lg shadow-md p-6 md:col-span-2"> 
+        <h2 class="text-xl font-semibold text-purple-700 mb-4 border-b pb-2">Imposta / Modifica PIN</h2>
+        <form @submit.prevent="handleSetPin">
+          <div class="mb-4">
+            <label for="newPin" class="block text-gray-700 text-sm font-bold mb-2">Nuovo PIN (min. 4 cifre):</label>
+            <input 
+              type="password" 
+              id="newPin" 
+              v-model="newPin" 
+              required 
+              minlength="4" 
+              pattern="\d*"
+              inputmode="numeric"
+              autocomplete="new-password"
+              class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent" 
+            />
+          </div>
+          <div class="mb-6">
+            <label for="confirmPin" class="block text-gray-700 text-sm font-bold mb-2">Conferma Nuovo PIN:</label>
+            <input 
+              type="password" 
+              id="confirmPin" 
+              v-model="confirmPin" 
+              required 
+              minlength="4" 
+              pattern="\d*"
+              inputmode="numeric"
+              autocomplete="new-password"
+              class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent" 
+            />
+          </div>
+
+          <!-- Messaggi di Errore/Successo -->
+          <p v-if="pinErrorMessage" class="error-message text-red-500 text-sm mb-4 text-center">{{ pinErrorMessage }}</p>
+          <p v-if="pinSuccessMessage" class="success-message text-green-600 text-sm mb-4 text-center">{{ pinSuccessMessage }}</p>
+
+          <button 
+            type="submit" 
+            :disabled="isSettingPin" 
+            class="w-full btn btn-primary bg-purple-600 hover:bg-purple-700 text-white" 
+            :class="{ 'opacity-50 cursor-not-allowed': isSettingPin }"
+          >
+            {{ isSettingPin ? 'Salvataggio...' : 'Salva PIN' }}
+          </button>
+        </form>
+        <p class="text-xs text-gray-500 mt-4 italic">Ricorda: Il PIN viene utilizzato insieme al tuo codice studente per accedere.</p>
       </div>
 
       <!-- Potremmo aggiungere qui la sezione per lo storico acquisti -->

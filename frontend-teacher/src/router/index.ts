@@ -162,6 +162,12 @@ const router = createRouter({
       name: 'assigned-pathways',
       component: () => import('../views/AssignedPathwaysView.vue'), // Nuova vista
       meta: { requiresAuth: true }
+    }, // Aggiungo virgola
+    { // Nuova rotta per il profilo docente
+      path: '/profile',
+      name: 'profile',
+      component: () => import('../views/ProfileView.vue'),
+      meta: { requiresAuth: true }
     }
     // Add other teacher routes here later (e.g., student-progress-detail)
   ]

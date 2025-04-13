@@ -1,4 +1,4 @@
-# Riepilogo Stato Avanzamento Progetto (13 Aprile 2025, ~15:35)
+# Riepilogo Stato Avanzamento Progetto (13 Aprile 2025, ~16:55)
 
 ## 1. Progettazione
 
@@ -170,6 +170,9 @@
    *   Sostituito sfondo immagine casuale con sfondi a gradiente colorati che ciclano ad ogni domanda (`QuizAttemptView.vue`).
    *   Aggiunta transizione di dissolvenza all'apparizione delle domande (`QuizAttemptView.vue`).
    *   Corretto tipo `AttemptDetails` in `api/quiz.ts` per includere `newly_earned_badges`, risolvendo errori TypeScript.
+*   **Aggiunto link alla pagina di login docenti** in `LoginView.vue`.
+*   **Aggiunta funzionalità per impostare/modificare il PIN** nella vista `ProfileView.vue`.
+*   **Corretto errore di build** in `ProfileView.vue` causato da tag CDATA errati.
 
 ## 12. Dati di Test
 
@@ -184,6 +187,10 @@
 *   **Funzionalità Precedenti:** Mantenute (upload quiz, gestione ricompense, consegne, grading, progressi, stile Tailwind, interceptor 401, etc.).
 *   **Correzioni UI/UX:** Rimossa textarea metadati da form domande, corretto salvataggio automatico opzioni, corretti errori HTML.
 *   **Applicati stili bottoni standard:** Utilizzate classi `.btn-*` nelle viste e componenti principali per coerenza visiva.
+*   **Aggiunto link alla pagina di login studenti** in `LoginView.vue`.
+*   **Creata nuova vista `ProfileView.vue`** per permettere al docente di cambiare la propria password.
+*   **Aggiunta rotta `/profile`** in `router/index.ts` per la nuova vista profilo.
+*   **Corretto errore di build** in `ProfileView.vue` causato da tag CDATA errati.
 
 ## 14. Dockerizzazione Produzione
 

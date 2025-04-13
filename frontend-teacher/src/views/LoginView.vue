@@ -43,9 +43,14 @@ const handleLogin = async () => {
       </button>
       <p v-if="errorMessage" class="error-message text-red-500 text-sm mt-4 text-center">{{ errorMessage }}</p>
     </form>
+    <div class="mt-4 text-center">
+      <a href="/studenti/login" class="text-sm text-indigo-200 hover:text-white transition-colors duration-200">
+        Sei uno studente? Accedi qui
+      </a>
+    </div>
   </div>
 </template>
 
 <style scoped>
-/* Rimuoviamo gli stili precedenti */
+/* Stili specifici se necessari */
 </style>
