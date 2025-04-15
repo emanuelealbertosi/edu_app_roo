@@ -1,6 +1,6 @@
-import apiClient from './config';
+import apiClient, { publicApiClient } from './config'; // Importa anche publicApiClient
 import axios, { AxiosError } from 'axios';
-
+import type { Student } from './students'; // Importa tipo Student se definito altrove
 // Tipi per TypeScript
 interface LoginCredentials {
   student_code: string; // Cambiato da email
@@ -103,7 +103,44 @@ const AuthService = {
       }
       return false;
     }
+  },
+
+  // --- Funzioni per Registrazione Studente ---
+
+  /**
+   * Valida un token di registrazione.
+   * @param token - L'UUID del token da validare.
+   * @returns Promise con i dati del token se valido (nome docente, nome gruppo).
+   */
+  async validateRegistrationToken(token: string): Promise<{ teacher_name: string; group_name: string | null }> {
+    try {
+      // Usa publicApiClient perché questa chiamata non richiede autenticazione
+      const response = await publicApiClient.get<{ teacher_name: string; group_name: string | null }>(`/register/validate-token/${token}/`);
+      return response.data;
+    } catch (error) {
+      console.error(`Errore validazione token ${token}:`, error);
+      throw error; // Rilancia per gestione nel componente
+    }
+  },
+
+  /**
+   * Completa la registrazione di uno studente usando un token valido.
+   * @param payload - Dati di registrazione (token, nome, cognome, pin).
+   * @returns Promise con i dati dello studente creato.
+   */
+  async completeRegistration(payload: { token: string; first_name: string; last_name: string; pin: string }): Promise<Student> {
+    try {
+      // Usa publicApiClient
+      const response = await publicApiClient.post<Student>('/register/complete/', payload);
+      // Non salviamo token/utente qui, il componente di registrazione
+      // potrebbe reindirizzare al login o gestire il login automatico.
+      return response.data;
+    } catch (error) {
+      console.error('Errore durante la registrazione:', error);
+      throw error;
+    }
   }
+
 };
 
 export default AuthService;

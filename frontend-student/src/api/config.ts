@@ -77,4 +77,50 @@ apiClient.interceptors.response.use(
   }
 );
 
-export default apiClient;
+// Crea una seconda istanza axios SENZA interceptor per il token
+// Utile per endpoint pubblici come la registrazione o la validazione del token
+export const publicApiClient = axios.create({
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/',
+  headers: {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json'
+  },
+  timeout: 30000
+});
+
+// Interceptor solo per tracciare inizio/fine richiesta (senza token)
+publicApiClient.interceptors.request.use(
+  config => {
+    const uiStore = useUiStore();
+    uiStore.apiRequestStarted();
+    return config;
+  },
+  error => {
+    const uiStore = useUiStore();
+    uiStore.apiRequestEnded();
+    return Promise.reject(error);
+  }
+);
+
+publicApiClient.interceptors.response.use(
+  response => {
+    const uiStore = useUiStore();
+    uiStore.apiRequestEnded();
+    return response;
+  },
+  error => {
+    // Gestione errori simile, ma senza logout automatico su 401
+    if (error.response) {
+      console.error('Public API Error:', error.response.data);
+    } else if (error.request) {
+      console.error('No response received (Public API):', error.request);
+    } else {
+      console.error('Request error (Public API):', error.message);
+    }
+    const uiStore = useUiStore();
+    uiStore.apiRequestEnded();
+    return Promise.reject(error);
+  }
+);
+
+export default apiClient; // Esporta l'istanza principale come default

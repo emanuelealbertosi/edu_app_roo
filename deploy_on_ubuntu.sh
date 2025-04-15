@@ -8,9 +8,7 @@
 
 # --- Variabili Configurabili (Immagini Docker Hub) ---
 DOCKERHUB_USERNAME="albertosiemanuele" # Il tuo username Docker Hub
-BACKEND_IMAGE="${DOCKERHUB_USERNAME}/edu-app-backend:latest"
-STUDENT_FRONTEND_IMAGE="${DOCKERHUB_USERNAME}/edu-app-frontend-student:latest"
-TEACHER_FRONTEND_IMAGE="${DOCKERHUB_USERNAME}/edu-app-frontend-teacher:latest"
+# Le variabili delle immagini verranno definite dopo aver chiesto il tag all'utente
 DB_IMAGE="postgres:15-alpine"
 PROJECT_DIR_NAME="edu_app_deployment" # Nome della directory
 # Ottieni il percorso assoluto della directory dello script
@@ -32,6 +30,8 @@ check_dependency() {
              echo "Nota: Potrebbe essere necessario installare 'docker-compose-plugin' se usi Docker Desktop o versioni recenti."
         fi
         exit 1
+    elif [ "$1" == "git" ]; then
+         echo "Puoi installare Git seguendo la guida: https://git-scm.com/book/en/v2/Getting-Started-Installing-Git"
     fi
 }
 
@@ -56,6 +56,7 @@ if command_exists "docker-compose"; then
     COMPOSE_CMD="docker-compose"
 elif command_exists "docker" && docker compose version >/dev/null 2>&1; then
     COMPOSE_CMD="docker compose"
+check_dependency "git" # Aggiunto controllo per Git
 else
     echo "Errore: Docker Compose (V1 'docker-compose' o V2 plugin 'docker compose') non trovato."
     echo "Per favore, installalo seguendo la guida ufficiale: https://docs.docker.com/compose/install/"
@@ -70,6 +71,15 @@ mkdir -p "$PROJECT_DIR"
 cd "$PROJECT_DIR" || exit 1 # Entra nella directory o esci se fallisce
 echo "Directory di lavoro corrente: $(pwd)"
 
+# --- Aggiornamento da Git ---
+echo "Tentativo di aggiornare il codice sorgente dal repository Git (branch master)..."
+if git pull origin master; then
+    echo "Codice sorgente aggiornato con successo."
+else
+    echo "Attenzione: 'git pull' fallito. Potrebbe essere necessario clonare il repository manualmente o risolvere conflitti."
+    # Decidi se uscire o continuare. Per ora continuiamo, ma l'utente è avvisato.
+    # exit 1 # Decommenta per uscire in caso di fallimento del pull
+fi
 
 # --- Raccolta Interattiva delle Variabili d'Ambiente ---
 echo "---------------------------------------------------------------------"
@@ -123,6 +133,15 @@ read -p "Origini CORS permesse (separati da virgola) [Default: ${DEFAULT_CORS_OR
 CORS_ALLOWED_ORIGINS_VAR=${CORS_ALLOWED_ORIGINS_VAR:-${DEFAULT_CORS_ORIGINS}}
 
 # Superuser
+# Tag Docker
+read -p "Inserisci il tag Docker da utilizzare per le immagini (es. v1.0.0) [latest]: " DOCKER_TAG_VAR
+DOCKER_TAG_VAR=${DOCKER_TAG_VAR:-latest}
+echo "Tag Docker selezionato: ${DOCKER_TAG_VAR}"
+
+# Definisci le variabili delle immagini usando il tag fornito
+BACKEND_IMAGE="${DOCKERHUB_USERNAME}/edu-app-backend:${DOCKER_TAG_VAR}"
+STUDENT_FRONTEND_IMAGE="${DOCKERHUB_USERNAME}/edu-app-frontend-student:${DOCKER_TAG_VAR}"
+TEACHER_FRONTEND_IMAGE="${DOCKERHUB_USERNAME}/edu-app-frontend-teacher:${DOCKER_TAG_VAR}"
 read -p "Username Superuser Django [admin_prod]: " DJANGO_SUPERUSER_USERNAME_VAR # Usiamo _VAR
 DJANGO_SUPERUSER_USERNAME_VAR=${DJANGO_SUPERUSER_USERNAME_VAR:-admin_prod}
 

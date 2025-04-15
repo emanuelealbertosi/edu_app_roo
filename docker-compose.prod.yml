@@ -68,6 +68,7 @@ services:
       - "80:80" # Espone la porta 80 dell'host
     volumes:
       - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro # Monta la configurazione Nginx
+      - ./index.html:/usr/share/nginx/html/index.html:ro # Monta la homepage statica
       - media_data:/usr/share/nginx/media:ro # Monta i media per servirli direttamente
     depends_on:
       - backend

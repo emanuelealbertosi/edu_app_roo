@@ -45,6 +45,7 @@
               <th>Descrizione</th>
               <th>Creato il</th>
               <th>Azioni</th>
+              <th>Statistiche</th> <!-- Nuova colonna -->
             </tr>
           </thead>
           <tbody>
@@ -56,27 +57,72 @@
                 <!-- Applicato stile Tailwind -->
                 <button @click="editQuizTemplate(template.id)" class="btn btn-warning text-sm mr-2">Modifica</button> <!-- Funzione aggiornata -->
                 <!-- Applicato stile Tailwind -->
-                <button @click="deleteQuizTemplate(template.id)" class="btn btn-danger text-sm">Elimina</button> <!-- Funzione aggiornata -->
+                <button @click="deleteQuizTemplate(template.id)" class="btn btn-danger text-sm mr-2">Elimina</button> <!-- Funzione aggiornata -->
+                <!-- Pulsante Statistiche -->
+                <button @click="showStats(template.id)" class="btn btn-info btn-sm">Statistiche</button>
               </td>
-            </tr>
-          </tbody>
+           </tr>
+         </tbody>
         </table>
       </ul>
     </div>
     <div v-else class="no-quizzes">
       Nessun template di quiz trovato. <!-- Testo aggiornato -->
     </div>
+
+    <!-- Sezione Statistiche (mostrata condizionalmente) -->
+    <div v-if="selectedTemplateStats || isLoadingStats || statsError" class="stats-section mt-6 p-4 border rounded shadow-md bg-gray-50">
+      <div class="flex justify-between items-center mb-3">
+        <h2 class="text-lg font-semibold">Statistiche Template: {{ selectedTemplateStats?.template_title || 'Caricamento...' }}</h2>
+        <button @click="closeStats" class="btn btn-secondary btn-xs">Chiudi</button>
+      </div>
+
+      <div v-if="isLoadingStats" class="loading">Caricamento statistiche...</div>
+      <div v-else-if="statsError" class="error-message">Errore caricamento statistiche: {{ statsError }}</div>
+      <div v-else-if="selectedTemplateStats">
+        <dl class="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2 text-sm">
+          <div class="bg-white px-2 py-1 rounded border">
+            <dt class="font-medium text-gray-500">Istanze Create</dt>
+            <dd class="text-gray-900 font-semibold">{{ selectedTemplateStats.total_instances_created }}</dd>
+          </div>
+          <div class="bg-white px-2 py-1 rounded border">
+            <dt class="font-medium text-gray-500">Assegnazioni Totali</dt>
+            <dd class="text-gray-900 font-semibold">{{ selectedTemplateStats.total_assignments }}</dd>
+          </div>
+          <div class="bg-white px-2 py-1 rounded border">
+            <dt class="font-medium text-gray-500">Tentativi Totali</dt>
+            <dd class="text-gray-900 font-semibold">{{ selectedTemplateStats.total_attempts }}</dd>
+          </div>
+          <div class="bg-white px-2 py-1 rounded border">
+            <dt class="font-medium text-gray-500">Punteggio Medio (Completati)</dt>
+            <dd class="text-gray-900 font-semibold">{{ selectedTemplateStats.average_score?.toFixed(1) ?? 'N/A' }}</dd>
+          </div>
+          <div class="bg-white px-2 py-1 rounded border">
+            <dt class="font-medium text-gray-500">% Completamento</dt>
+            <dd class="text-gray-900 font-semibold">{{ selectedTemplateStats.completion_rate?.toFixed(1) ?? 'N/A' }}%</dd>
+          </div>
+        </dl>
+      </div>
+    </div>
+
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-// Importa API per i template del docente, il tipo QuizTemplate e la nuova funzione di upload
-import { fetchTeacherQuizTemplates, deleteTeacherQuizTemplate, uploadQuizTemplateFromFile, type QuizTemplate } from '@/api/quizzes'; // Aggiunto uploadQuizTemplateFromFile
+// Importa API per i template del docente, statistiche, tipi e upload
+import {
+  fetchTeacherQuizTemplates,
+  deleteTeacherQuizTemplate,
+  uploadQuizTemplateFromFile,
+  fetchQuizTemplateStats, // Importa funzione statistiche
+  type QuizTemplate,
+  type QuizTemplateStats // Importa tipo statistiche
+} from '@/api/quizzes';
 
 const templates = ref<QuizTemplate[]>([]); // Rinominato e usa tipo QuizTemplate
-const isLoading = ref(false);
+const isLoading = ref(false); // Loading lista template
 const router = useRouter();
 const error = ref<string | null>(null);
 const showUploadForm = ref(false); // Stato per mostrare/nascondere il form
@@ -85,8 +131,13 @@ const uploadTitle = ref('');
 const isUploading = ref(false);
 const uploadError = ref<string | null>(null);
 
+// Stato per statistiche
+const selectedTemplateStats = ref<QuizTemplateStats | null>(null);
+const isLoadingStats = ref(false);
+const statsError = ref<string | null>(null);
+
 const loadTemplates = async () => {
-   isLoading.value = true;
+  isLoading.value = true;
    error.value = null;
    try {
        templates.value = await fetchTeacherQuizTemplates(); // Usa API per template docente
@@ -169,6 +220,29 @@ const submitUploadForm = async () => {
     isUploading.value = false;
   }
 };
+
+// --- Funzioni Statistiche ---
+
+const showStats = async (templateId: number) => {
+  selectedTemplateStats.value = null; // Resetta precedente
+  statsError.value = null;
+  isLoadingStats.value = true;
+  try {
+    selectedTemplateStats.value = await fetchQuizTemplateStats(templateId);
+  } catch (err: any) {
+    console.error(`Errore recupero statistiche per template ${templateId}:`, err);
+    statsError.value = err.response?.data?.detail || err.message || 'Errore sconosciuto';
+  } finally {
+    isLoadingStats.value = false;
+  }
+};
+
+const closeStats = () => {
+  selectedTemplateStats.value = null;
+  statsError.value = null;
+  isLoadingStats.value = false;
+};
+
 </script>
 
 <style scoped>
@@ -212,5 +286,8 @@ th {
 
 .actions {
   margin-bottom: 20px;
+}
+.stats-section {
+  /* Stili aggiuntivi se necessario */
 }
 </style>

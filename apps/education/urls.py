@@ -2,7 +2,7 @@ from django.urls import path, include
 from rest_framework_nested import routers # Import nested routers
 from .views import (
     QuizTemplateViewSet, QuestionTemplateViewSet, AnswerOptionTemplateViewSet,
-    QuizViewSet, QuestionViewSet, AnswerOptionViewSet, PathwayViewSet,
+    QuizViewSet, PathwayViewSet, # Ripristinato PathwayViewSet
     StudentDashboardViewSet, StudentQuizAttemptViewSet, TeacherGradingViewSet,
     AttemptViewSet, # Importa la nuova viewset
     StudentAssignedQuizzesView, StudentAssignedPathwaysView, # Importa le nuove view
@@ -16,7 +16,7 @@ from .views import (
 router = routers.DefaultRouter()
 router.register(r'quiz-templates', QuizTemplateViewSet, basename='quiz-template') # Admin
 router.register(r'quizzes', QuizViewSet, basename='quiz') # Gestione Quiz (Docente/Admin)
-router.register(r'pathways', PathwayViewSet, basename='pathway') # Gestione Percorsi (Docente/Admin)
+router.register(r'pathways', PathwayViewSet, basename='pathway') # Gestione Percorsi (Docente/Admin) - RIPRISTINATO
 router.register(r'attempts', AttemptViewSet, basename='attempt') # Gestione Tentativi Specifici (Studente)
 # Endpoint specifici Studente/Docente
 # router.register(r'student/dashboard', StudentDashboardViewSet, basename='student-dashboard') # Usare APIView semplice? -> Usiamo path diretto sotto
@@ -34,15 +34,19 @@ quiz_templates_router.register(r'questions', QuestionTemplateViewSet, basename='
 question_templates_router = routers.NestedDefaultRouter(quiz_templates_router, r'questions', lookup='question_template')
 question_templates_router.register(r'options', AnswerOptionTemplateViewSet, basename='question-template-options')
 
-# /quizzes/{quiz_pk}/questions/
-quizzes_router = routers.NestedDefaultRouter(router, r'quizzes', lookup='quiz')
-quizzes_router.register(r'questions', QuestionViewSet, basename='quiz-questions')
-# Registra StudentQuizAttemptViewSet qui per l'azione start_attempt
-quizzes_router.register(r'attempts', StudentQuizAttemptViewSet, basename='quiz-attempts')
+# /quizzes/{quiz_pk}/questions/ - ROUTER RIMOSSO (QuestionViewSet obsoleto)
+# quizzes_router = routers.NestedDefaultRouter(router, r'quizzes', lookup='quiz')
+# quizzes_router.register(r'questions', QuestionViewSet, basename='quiz-questions')
 
-# /quizzes/{quiz_pk}/questions/{question_pk}/options/
-questions_router = routers.NestedDefaultRouter(quizzes_router, r'questions', lookup='question')
-questions_router.register(r'options', AnswerOptionViewSet, basename='question-options')
+# /quizzes/{quiz_pk}/attempts/ - Registra StudentQuizAttemptViewSet per l'azione start_attempt
+quiz_attempts_router = routers.NestedDefaultRouter(router, r'quizzes', lookup='quiz')
+quiz_attempts_router.register(r'attempts', StudentQuizAttemptViewSet, basename='quiz-attempts')
+# La riga seguente causava NameError perché quizzes_router è stato commentato:
+# quizzes_router.register(r'attempts', StudentQuizAttemptViewSet, basename='quiz-attempts')
+
+# /quizzes/{quiz_pk}/questions/{question_pk}/options/ - ROUTER RIMOSSO (dipendeva da quizzes_router)
+# questions_router = routers.NestedDefaultRouter(quizzes_router, r'questions', lookup='question')
+# questions_router.register(r'options', AnswerOptionViewSet, basename='question-options')
 
 # /pathway-templates/{pathway_template_pk}/quiz-templates/
 pathway_templates_router = routers.NestedDefaultRouter(router, r'pathway-templates', lookup='pathway_template')
@@ -73,8 +77,9 @@ urlpatterns = [
     # Include i router annidati
     path('', include(quiz_templates_router.urls)),
     path('', include(question_templates_router.urls)),
-    path('', include(quizzes_router.urls)),
-    path('', include(questions_router.urls)),
+    path('', include(quiz_attempts_router.urls)), # Aggiunto router per tentativi quiz
+    # path('', include(quizzes_router.urls)), # Rimosso
+    # path('', include(questions_router.urls)), # Rimosso
     path('', include(pathway_templates_router.urls)),
     path('', include(teacher_quiz_templates_router.urls)),
     path('', include(teacher_question_templates_router.urls)),

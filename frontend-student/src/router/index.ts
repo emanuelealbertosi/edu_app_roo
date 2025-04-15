@@ -16,6 +16,7 @@ const router = createRouter({
       path: '/login',
       name: 'login',
       component: () => import('../views/LoginView.vue'),
+      meta: { hideNav: true }, // Aggiunto meta per nascondere nav
       // Evita che utenti già autenticati possano accedere alla pagina di login
       beforeEnter: (to, from, next) => {
         if (AuthService.isAuthenticated()) {
@@ -24,6 +25,23 @@ const router = createRouter({
           next()
         }
       }
+    },
+    {
+      // Rotta per la registrazione studente tramite token
+      path: '/register/:token',
+      name: 'register',
+      component: () => import('../views/RegisterView.vue'),
+      meta: { hideNav: true }, // Aggiunto meta per nascondere nav
+      // Questa rotta è pubblica, non richiede autenticazione
+      // Ma non dovrebbe essere accessibile se si è già loggati
+      beforeEnter: (to, from, next) => {
+        if (AuthService.isAuthenticated()) {
+          next('/dashboard'); // Reindirizza alla dashboard se già loggato
+        } else {
+          next();
+        }
+      },
+      props: true // Passa il token come prop alla vista
     },
     {
       path: '/dashboard',

@@ -6,7 +6,7 @@ from docx import Document as DocxDocument
 import markdown as md_parser # Rinominato per evitare conflitti
 from rest_framework import serializers, status
 from rest_framework.exceptions import ValidationError
-from django.db import transaction
+from django.db import transaction, models # Aggiunto models
 from django.utils import timezone
 from django.core.files.uploadedfile import UploadedFile
 
@@ -501,9 +501,6 @@ class QuizTemplateUploadSerializer(serializers.Serializer):
         title = validated_data['title']
         teacher: User = self.context['request'].user
 
-        if not isinstance(teacher, User) or not teacher.is_teacher:
-             raise ValidationError("Solo i docenti possono caricare template di quiz.")
-
         file_content = io.BytesIO(uploaded_file.read())
         file_ext = '.' + uploaded_file.name.split('.')[-1].lower()
 
@@ -516,7 +513,7 @@ class QuizTemplateUploadSerializer(serializers.Serializer):
             elif file_ext == '.md':
                 text = self._extract_text_from_md(file_content)
             else:
-                raise ValidationError("Tipo di file non gestito internamente (template).")
+                raise ValidationError("Tipo di file non gestito internamente.")
         except ValidationError as e:
              raise e
         except Exception as e:
@@ -559,18 +556,18 @@ class QuizTemplateUploadSerializer(serializers.Serializer):
             )
             questions_to_create.append(question_template)
 
-        created_question_templates = QuestionTemplate.objects.bulk_create(questions_to_create)
-        question_template_map = {(qt.text, qt.order): qt for qt in created_question_templates}
+        created_questions = QuestionTemplate.objects.bulk_create(questions_to_create)
+        question_map = {(q.text, q.order): q for q in created_questions}
 
         for q_data in parsed_questions:
-             question_template_obj = question_template_map.get((q_data['text'], q_data['order']))
-             if not question_template_obj:
+             question_obj = question_map.get((q_data['text'], q_data['order']))
+             if not question_obj:
                  logger.warning(f"Domanda template '{q_data['text'][:50]}...' (ordine {q_data['order']}) non trovata dopo bulk_create.")
                  continue
 
              for opt_data in q_data['options']:
                  option_template = AnswerOptionTemplate(
-                     question_template=question_template_obj,
+                     question_template=question_obj,
                      text=opt_data['text'],
                      is_correct=opt_data['is_correct'],
                      order=opt_data['order']
@@ -580,371 +577,364 @@ class QuizTemplateUploadSerializer(serializers.Serializer):
         if options_to_create:
             AnswerOptionTemplate.objects.bulk_create(options_to_create)
 
-        logger.info(f"Creato QuizTemplate '{quiz_template.title}' (ID: {quiz_template.id}) con {len(created_question_templates)} domande da {uploaded_file.name} per docente {teacher.id}")
+        logger.info(f"Creato QuizTemplate '{quiz_template.title}' (ID: {quiz_template.id}) con {len(created_questions)} domande da {uploaded_file.name}")
         return QuizTemplateSerializer(quiz_template, context=self.context).data
 
 
-# --- Serializers per Assegnazione ---
+# --- Assignment Serializers ---
 
 class QuizAssignmentSerializer(serializers.ModelSerializer):
     """ Serializer per assegnare Quiz a Studenti. """
-    # Dichiarazione esplicita dei campi per controllo in __init__
+    # Permette di specificare quiz o template, ma non entrambi
     quiz = serializers.PrimaryKeyRelatedField(
-        queryset=Quiz.objects.all(),
-        required=True, # Default, modificato in __init__
-        allow_null=False # Default, modificato in __init__
+        queryset=Quiz.objects.all(), required=False, allow_null=True
     )
     student = serializers.PrimaryKeyRelatedField(
-        queryset=Student.objects.filter(is_active=True),
-        required=True
+        queryset=Student.objects.all(), required=True
     )
     quiz_template_id = serializers.IntegerField(
         write_only=True, required=False, allow_null=True,
-        help_text="ID del QuizTemplate da cui creare e assegnare un nuovo Quiz."
+        help_text="ID del QuizTemplate da cui creare e assegnare un'istanza di Quiz."
     )
-    # Campi read-only
-    student_username = serializers.CharField(source='student.unique_identifier', read_only=True)
-    quiz_title = serializers.CharField(source='quiz.title', read_only=True)
+    quiz_title = serializers.CharField(source='quiz.title', read_only=True) # Titolo del quiz assegnato
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        initial_data = kwargs.get('data', {})
-        if initial_data and initial_data.get('quiz_template_id'):
-            if 'quiz' in self.fields:
-                self.fields['quiz'].required = False
-                self.fields['quiz'].allow_null = True
+    # Rimosso __init__ e validazione complessa, gestita nella view
 
     class Meta:
         model = QuizAssignment
-        # Includi tutti i campi dichiarati sopra + quelli del modello gestiti automaticamente
         fields = [
-            'id', 'student', 'student_username', 'quiz', 'quiz_title',
-            'assigned_at', 'due_date', 'quiz_template_id'
+            'id', 'quiz', 'quiz_title', 'student', 'assigned_by', 'assigned_at', 'due_date', # Aggiunto assigned_by
+            'quiz_template_id' # Campo per input
         ]
-        read_only_fields = ['assigned_at', 'student_username', 'quiz_title']
-        extra_kwargs = {
-        }
+        read_only_fields = ['id', 'assigned_at', 'quiz_title']
 
-    def validate(self, attrs):
-        """ Assicura che sia fornito quiz o quiz_template_id, ma non entrambi. """
-        quiz = attrs.get('quiz')
-        quiz_template_id = attrs.get('quiz_template_id')
-
-        if not quiz and not quiz_template_id:
-            raise ValidationError("È necessario fornire 'quiz' (ID del quiz esistente) o 'quiz_template_id'.")
-        if quiz and quiz_template_id:
-            raise ValidationError("Fornire 'quiz' o 'quiz_template_id', non entrambi.")
-
-        return attrs
-
-# --- Serializer Specifico per Azione Assegnazione Quiz da Template ---
 
 class QuizAssignActionSerializer(serializers.Serializer):
    """
-   Serializer specifico per validare i dati dell'azione 'assign_student' del QuizViewSet
-   quando si assegna da un template. Non eredita da ModelSerializer.
+   Serializer specifico per l'azione di assegnazione quiz da template.
+   Non è un ModelSerializer.
    """
-   student = serializers.PrimaryKeyRelatedField(
-       queryset=Student.objects.filter(is_active=True),
-       required=True,
-       help_text="ID dello studente a cui assegnare il quiz."
-   )
-   quiz_template_id = serializers.IntegerField(
-       required=True,
-       allow_null=False, # Deve essere fornito per questa azione
-       help_text="ID del QuizTemplate da cui creare e assegnare un nuovo Quiz."
-   )
-   due_date = serializers.DateTimeField(
-       required=False,
-       allow_null=True,
-       help_text="Optional deadline for the quiz assignment."
-   )
+   student = serializers.PrimaryKeyRelatedField(queryset=Student.objects.all(), required=True)
+   quiz_template_id = serializers.IntegerField(required=True)
+   due_date = serializers.DateTimeField(required=False, allow_null=True)
 
    def validate_quiz_template_id(self, value):
-       """Verifica che il template esista."""
-       try:
-           QuizTemplate.objects.get(pk=value)
-       except QuizTemplate.DoesNotExist:
-           raise ValidationError(f"QuizTemplate con ID {value} non trovato.")
+       if not QuizTemplate.objects.filter(pk=value).exists():
+           raise ValidationError("Quiz Template non trovato.")
        return value
 
-# --- Serializer Specifico per Azione Assegnazione Percorso da Template ---
 
 class PathwayAssignActionSerializer(serializers.Serializer):
     """
-    Serializer specifico per validare i dati dell'azione 'assign_student_pathway'
-    quando si assegna da un template. Non eredita da ModelSerializer.
+    Serializer specifico per l'azione di assegnazione percorso da template.
+    Non è un ModelSerializer.
     """
-    student = serializers.PrimaryKeyRelatedField(
-        queryset=Student.objects.filter(is_active=True),
-        required=True,
-        help_text="ID dello studente a cui assegnare il percorso."
-    )
-    pathway_template_id = serializers.IntegerField(
-        required=True,
-        allow_null=False, # Deve essere fornito per questa azione
-        help_text="ID del PathwayTemplate da cui creare e assegnare un nuovo Percorso."
-    )
-
-    def validate_pathway_template_id(self, value):
-        """Verifica che il template esista."""
-        try:
-            PathwayTemplate.objects.get(pk=value)
-        except PathwayTemplate.DoesNotExist:
-            raise ValidationError(f"PathwayTemplate con ID {value} non trovato.")
-        return value
+    student = serializers.PrimaryKeyRelatedField(queryset=Student.objects.all(), required=True)
+    # pathway_template_id = serializers.IntegerField(required=True) # Rimosso, l'ID viene dall'URL
+    due_date = serializers.DateTimeField(required=False, allow_null=True) # Aggiunto per coerenza con Quiz
 
 
 class PathwayAssignmentSerializer(serializers.ModelSerializer):
     """ Serializer per assegnare Percorsi a Studenti. """
-    # Dichiarazione esplicita del campo pathway per poterlo modificare in __init__
     pathway = serializers.PrimaryKeyRelatedField(
-        queryset=Pathway.objects.all(),
-        required=True, # Default a True, modificato in __init__ se necessario
-        allow_null=False, # Default a False, modificato in __init__ se necessario
-        help_text="ID del Percorso esistente da assegnare (alternativo a pathway_template_id)."
+        queryset=Pathway.objects.all(), required=False, allow_null=True
     )
-    # Campo student è obbligatorio di default
-    student = serializers.PrimaryKeyRelatedField(queryset=Student.objects.filter(is_active=True))
-    pathway_template_id = serializers.IntegerField(write_only=True, required=False, allow_null=True,
-                                                   help_text="ID del PathwayTemplate da cui creare e assegnare un nuovo Percorso.")
-    student_username = serializers.CharField(source='student.unique_identifier', read_only=True)
+    student = serializers.PrimaryKeyRelatedField(
+        queryset=Student.objects.all(), required=True
+    )
+    pathway_template_id = serializers.IntegerField(
+        write_only=True, required=False, allow_null=True,
+        help_text="ID del PathwayTemplate da cui creare e assegnare un'istanza di Pathway."
+    )
     pathway_title = serializers.CharField(source='pathway.title', read_only=True)
 
-    def __init__(self, *args, **kwargs):
-        # Esegui l'init standard del serializer
-        super().__init__(*args, **kwargs)
-
-        # Controlla se pathway_template_id è nei dati iniziali
-        initial_data = kwargs.get('data', {})
-        if initial_data and initial_data.get('pathway_template_id'):
-            # Se pathway_template_id è fornito, rendi pathway non obbligatorio
-            if 'pathway' in self.fields:
-                self.fields['pathway'].required = False
-                self.fields['pathway'].allow_null = True
+    # Rimosso __init__ e validazione complessa, gestita nella view
 
     class Meta:
         model = PathwayAssignment
-        # 'pathway' è dichiarato sopra, quindi deve essere incluso qui
-        fields = [
-            'id', 'student', 'student_username', 'pathway', 'pathway_title',
-            'assigned_at', 'pathway_template_id'
-        ]
-        read_only_fields = ['assigned_at', 'student_username', 'pathway_title']
-        extra_kwargs = {
-        }
-
-    def validate(self, attrs):
-        """ Validazione custom per gestire pathway vs pathway_template_id. """
-        initial_pathway = self.initial_data.get('pathway')
-        pathway_template_id = attrs.get('pathway_template_id')
-
-        if not initial_pathway and not pathway_template_id:
-            raise ValidationError("È necessario fornire 'pathway' (ID del percorso esistente) o 'pathway_template_id'.")
-        if initial_pathway and pathway_template_id:
-            raise ValidationError("Fornire 'pathway' o 'pathway_template_id', non entrambi.")
-
-        if initial_pathway:
-            try:
-                pathway_instance = Pathway.objects.get(pk=initial_pathway)
-                attrs['pathway'] = pathway_instance
-            except Pathway.DoesNotExist:
-                raise ValidationError({'pathway': f"Percorso con ID {initial_pathway} non trovato."})
-            except (TypeError, ValueError):
-                 raise ValidationError({'pathway': "L'ID del percorso deve essere un numero intero."})
-
-        if pathway_template_id and 'pathway' not in attrs:
-             attrs['pathway'] = None
-
-        return attrs
+        fields = '__all__' # Aggiunto per specificare i campi
 
 
-# --- Serializers per Svolgimento e Risultati ---
+# Rimosso serializer duplicato ed errato
+
+class QuizAssignmentDetailSerializer(serializers.ModelSerializer):
+    """ Serializer per visualizzare gli studenti a cui è assegnato un quiz specifico. """
+    student_id = serializers.IntegerField(source='student.id')
+    student_full_name = serializers.CharField(source='student.full_name')
+    student_code = serializers.CharField(source='student.student_code')
+    student_username = serializers.CharField(source='student.student_code') # CORRETTO: Usa student_code come username
+    assigned_at = serializers.DateTimeField(format="%Y-%m-%d %H:%M")
+    due_date = serializers.DateTimeField(format="%Y-%m-%d %H:%M", allow_null=True)
+
+    class Meta:
+        model = QuizAssignment
+        fields = ['id', 'student_id', 'student_full_name', 'student_username', 'student_code', 'assigned_at', 'due_date'] # student_username ora punta a student_code
+
+
+class PathwayAssignmentDetailSerializer(serializers.ModelSerializer):
+    """ Serializer per visualizzare gli studenti a cui è assegnato un percorso specifico. """
+    student_id = serializers.IntegerField(source='student.id')
+    student_full_name = serializers.CharField(source='student.full_name')
+    student_code = serializers.CharField(source='student.student_code')
+    student_username = serializers.CharField(source='student.student_code') # Aggiunto username (che punta a code)
+    assigned_at = serializers.DateTimeField(format="%Y-%m-%d %H:%M")
+
+    class Meta:
+        model = PathwayAssignment
+        # Aggiunto fields per includere i campi definiti sopra
+        fields = ['id', 'student_id', 'student_full_name', 'student_username', 'student_code', 'assigned_at']
+        fields = ['id', 'student_id', 'student_full_name', 'student_username', 'student_code', 'assigned_at'] # Assicurati che student_id sia qui
+
+
+# --- Attempt & Progress Serializers ---
 
 class StudentAnswerSerializer(serializers.ModelSerializer):
     """ Serializer per inviare/visualizzare le risposte dello studente. """
-    question_text = serializers.CharField(source='question.text', read_only=True)
-    question_type = serializers.CharField(source='question.question_type', read_only=True)
+    # Rende question scrivibile per l'invio della risposta
+    question = serializers.PrimaryKeyRelatedField(queryset=Question.objects.all())
 
     class Meta:
         model = StudentAnswer
         fields = [
-            'id', 'quiz_attempt', 'question', 'question_text', 'question_type',
-            'selected_answers', 'is_correct', 'score', 'answered_at'
+            'id', 'quiz_attempt', 'question', 'selected_options', 'answer_text',
+            'is_correct', 'points_awarded'
         ]
-        read_only_fields = ['quiz_attempt', 'question', 'question_text', 'question_type', 'is_correct', 'score', 'answered_at']
-
-    def validate_selected_answers(self, value):
-        return value
+        read_only_fields = ['id', 'quiz_attempt', 'is_correct', 'points_awarded']
 
 
 class QuizAttemptSerializer(serializers.ModelSerializer):
     """ Serializer base per i tentativi di quiz. """
-    student_info = StudentSerializer(source='student', read_only=True)
+    student_name = serializers.CharField(source='student.full_name', read_only=True)
     quiz_title = serializers.CharField(source='quiz.title', read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
-    # Campo per includere i badge appena guadagnati
+    # Aggiungiamo i badge guadagnati
     newly_earned_badges = SimpleBadgeSerializer(many=True, read_only=True)
 
     class Meta:
         model = QuizAttempt
         fields = [
-            'id', 'student', 'student_info', 'quiz', 'quiz_title',
-            'started_at', 'completed_at', 'score', 'status', 'status_display',
-            'newly_earned_badges' # Aggiunto il nuovo campo
+            'id', 'quiz', 'quiz_title', 'student', 'student_name', 'status', 'status_display',
+            'score', 'started_at', 'completed_at', 'newly_earned_badges' # Corretto start_time->started_at, end_time->completed_at
         ]
         read_only_fields = [
-            'student', 'student_info', 'quiz', 'quiz_title', 'started_at',
-            'completed_at', 'score', 'status', 'status_display',
-            'newly_earned_badges'
+            'id', 'quiz', 'quiz_title', 'student', 'student_name', 'status', 'status_display',
+            'score', 'started_at', 'completed_at', 'newly_earned_badges' # Corretto start_time->started_at, end_time->completed_at
         ]
 
     def to_representation(self, instance):
-        """ Aggiunge i badge appena guadagnati dal contesto alla rappresentazione. """
+        """ Arrotonda lo score a 2 decimali se non è None. """
         representation = super().to_representation(instance)
-        newly_earned = self.context.get('newly_earned_badges', [])
-        if newly_earned:
-            # Serializza solo i Badge associati agli EarnedBadge
-            badges_to_serialize = [earned.badge for earned in newly_earned]
-            representation['newly_earned_badges'] = SimpleBadgeSerializer(badges_to_serialize, many=True).data
-        else:
-            representation['newly_earned_badges'] = [] # Assicura che sia sempre una lista
+        score = representation.get('score')
+        if score is not None:
+            try:
+                representation['score'] = round(float(score), 2)
+            except (ValueError, TypeError):
+                representation['score'] = None # O 0.0, a seconda di come vuoi gestire errori
         return representation
 
 
 class QuizAttemptDetailSerializer(QuizAttemptSerializer):
     """ Serializer dettagliato per un tentativo, include risposte date e info aggiuntive. """
-    # Rinominiamo 'student_answers' in 'given_answers' per coerenza con il piano e il frontend
-    given_answers = StudentAnswerSerializer(source='student_answers', many=True, read_only=True)
-    # Includiamo i dettagli del quiz per accedere alla soglia e al numero totale domande
-    quiz = QuizSerializer(read_only=True)
-    # Campi calcolati per il frontend
-    completion_threshold = serializers.SerializerMethodField()
-    total_questions = serializers.SerializerMethodField()
+    # Eredita i campi da QuizAttemptSerializer
+    student_answers = StudentAnswerSerializer(many=True, read_only=True)
+    # Potremmo aggiungere qui i dettagli del quiz se necessario
+    quiz_details = QuizSerializer(source='quiz', read_only=True)
+    # Calcola il numero di risposte corrette
     correct_answers_count = serializers.SerializerMethodField()
 
     class Meta(QuizAttemptSerializer.Meta): # Eredita Meta dal genitore
-        # Aggiungi i nuovi campi calcolati e i campi nidificati
-        # Rimuoviamo 'student_answers' originale e aggiungiamo 'given_answers' e gli altri
-        fields = [f for f in QuizAttemptSerializer.Meta.fields if f != 'student_answers'] + [
-            'quiz',
-            'given_answers',
-            'completion_threshold',
-            'total_questions',
-            'correct_answers_count'
+        fields = QuizAttemptSerializer.Meta.fields + [
+            'student_answers', 'quiz_details', 'correct_answers_count'
         ]
-
-    def get_completion_threshold(self, obj: QuizAttempt) -> float | None:
-        """ Recupera la soglia di completamento dai metadati del quiz. """
-        default_threshold = 0.6
-        threshold = obj.quiz.metadata.get('completion_threshold', default_threshold)
-        try:
-            threshold = max(0.0, min(1.0, float(threshold)))
-        except (ValueError, TypeError):
-            threshold = default_threshold
-        # Moltiplica per 100 per restituire una percentuale intera o float
-        return threshold * 100
-
-    def get_total_questions(self, obj: QuizAttempt) -> int:
-        """ Conta il numero totale di domande nel quiz associato. """
-        # Usiamo .count() che è efficiente
-        return obj.quiz.questions.count()
+        # read_only_fields sono ereditati e vanno bene
 
     def get_correct_answers_count(self, obj: QuizAttempt) -> int:
-        """ Conta il numero di risposte corrette date in questo tentativo. """
-        # Assicurati che le risposte siano state caricate (se usi prefetch_related nella view)
-        # Altrimenti, esegue una query qui.
-        # Usiamo la relazione inversa 'student_answers' definita nel modello QuizAttempt
+        """ Conta le risposte corrette per questo tentativo. """
         return obj.student_answers.filter(is_correct=True).count()
 
 
 class PathwayProgressSerializer(serializers.ModelSerializer):
     """ Serializer per il progresso dello studente in un percorso. """
-    student_info = StudentSerializer(source='student', read_only=True)
+    student_name = serializers.CharField(source='student.full_name', read_only=True)
     pathway_title = serializers.CharField(source='pathway.title', read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
 
     class Meta:
         model = PathwayProgress
         fields = [
-            'id', 'student', 'student_info', 'pathway', 'pathway_title',
-            'last_completed_quiz_order', 'completed_at', 'status', 'status_display'
+            'id', 'pathway', 'pathway_title', 'student', 'student_name', 'status', 'status_display',
+            'completed_quizzes', 'start_time', 'end_time', 'points_earned'
         ]
-        read_only_fields = fields
+        read_only_fields = fields # Tutti i campi sono di sola lettura qui
 
 
 # --- Serializers per Dashboard Studente ---
 
 class SimpleQuizAttemptSerializer(serializers.ModelSerializer):
-    """ Serializer semplificato per l'ultimo tentativo, usato nella dashboard. """
+    """ Serializer minimale per l'ultimo tentativo, usato nella dashboard. """
     class Meta:
         model = QuizAttempt
-        fields = ['id', 'score', 'status', 'completed_at']
+        fields = ['id', 'status', 'score', 'end_time']
 
 
 class StudentQuizDashboardSerializer(QuizSerializer):
     """ Serializer per i quiz nella dashboard studente, include stato ultimo tentativo. """
-    latest_attempt = serializers.SerializerMethodField()
-    attempts_count = serializers.SerializerMethodField()
+    latest_attempt = SimpleQuizAttemptSerializer(read_only=True) # Campo annotato dalla view
 
-    class Meta(QuizSerializer.Meta):
-        fields = QuizSerializer.Meta.fields + ['latest_attempt', 'attempts_count']
+    class Meta(QuizSerializer.Meta): # Eredita Meta da QuizSerializer
+        fields = QuizSerializer.Meta.fields + ['latest_attempt']
 
     def get_latest_attempt(self, obj):
-        student = self.context.get('student')
-        if student:
-            # Seleziona solo i campi necessari per SimpleQuizAttemptSerializer
-            latest = obj.attempts.filter(student=student).order_by('-started_at').only(
-                'id', 'score', 'status', 'completed_at'
-            ).first()
-            if latest:
-                return SimpleQuizAttemptSerializer(latest).data
+        # Questo metodo non è più necessario se usiamo l'annotazione nella view
+        # Se non usiamo l'annotazione, dovremmo implementarlo qui
+        # request = self.context.get('request')
+        # if request and hasattr(request, 'user') and isinstance(request.user, Student):
+        #     attempt = obj.attempts.filter(student=request.user).order_by('-start_time').first()
+        #     if attempt:
+        #         return SimpleQuizAttemptSerializer(attempt).data
         return None
-
-    def get_attempts_count(self, obj):
-        student = self.context.get('student')
-        if student:
-            return obj.attempts.filter(student=student).count()
-        return 0
 
 
 class SimplePathwayProgressSerializer(serializers.ModelSerializer):
-    """ Serializer semplificato per l'ultimo progresso, usato nella dashboard. """
+    """ Serializer minimale per l'ultimo progresso, usato nella dashboard. """
     class Meta:
         model = PathwayProgress
-        fields = ['id', 'last_completed_quiz_order', 'status', 'completed_at']
+        fields = ['id', 'status', 'end_time']
 
 
 class StudentPathwayDashboardSerializer(PathwaySerializer):
     """ Serializer per i percorsi nella dashboard studente, include stato ultimo progresso. """
-    latest_progress = serializers.SerializerMethodField()
-    total_quizzes = serializers.IntegerField(source='quizzes.count', read_only=True) # Conteggio quiz nel percorso
+    latest_progress = SimplePathwayProgressSerializer(read_only=True) # Campo annotato dalla view
 
-    class Meta(PathwaySerializer.Meta):
-        fields = PathwaySerializer.Meta.fields + ['latest_progress', 'total_quizzes']
+    class Meta(PathwaySerializer.Meta): # Eredita Meta da PathwaySerializer
+        fields = PathwaySerializer.Meta.fields + ['latest_progress']
 
     def get_latest_progress(self, obj):
-        student = self.context.get('student')
-        if student:
-            latest = obj.progresses.filter(student=student).first()
-            if latest:
-                return SimplePathwayProgressSerializer(latest).data
+        # Metodo non necessario se usiamo l'annotazione nella view
+        # request = self.context.get('request')
+        # if request and hasattr(request, 'user') and isinstance(request.user, Student):
+        #     progress = obj.progresses.filter(student=request.user).order_by('-start_time').first()
+        #     if progress:
+        #         return SimplePathwayProgressSerializer(progress).data
         return None
 
 
-# --- Serializer per Svolgimento Percorso ---
+# --- Serializers per Svolgimento Percorso ---
 
 class NextPathwayQuizSerializer(serializers.ModelSerializer):
     """ Serializer per restituire il prossimo quiz da svolgere in un percorso. """
     class Meta:
         model = Quiz
-        fields = ['id', 'title', 'description']
+        fields = ['id', 'title', 'description'] # Info base del quiz
 
 
 class PathwayAttemptDetailSerializer(PathwaySerializer):
-    """ Serializer per visualizzare i dettagli di un percorso durante lo svolgimento. """
-    current_progress = SimplePathwayProgressSerializer(read_only=True)
-    next_quiz = NextPathwayQuizSerializer(read_only=True)
+    """
+    Serializer per la vista di dettaglio di un percorso durante lo svolgimento.
+    Include informazioni sul prossimo quiz da fare.
+    """
+    next_quiz = serializers.SerializerMethodField()
+    progress_status = serializers.CharField(source='latest_progress.get_status_display', read_only=True, default='Non iniziato') # Aggiunto stato progresso
 
     class Meta(PathwaySerializer.Meta):
-        fields = PathwaySerializer.Meta.fields + ['current_progress', 'next_quiz']
+        fields = PathwaySerializer.Meta.fields + ['next_quiz', 'progress_status']
+
+    def get_next_quiz(self, obj: Pathway) -> dict | None:
+        """ Determina il prossimo quiz non completato nel percorso per lo studente corrente. """
+        student = self.context['request'].user
+        if not isinstance(student, Student):
+            return None # O solleva errore?
+
+        # Trova l'ordine dell'ultimo quiz completato (con successo) in questo percorso
+        last_completed_quiz_order = QuizAttempt.objects.filter(
+            student=student,
+            quiz__pathwayquiz__pathway=obj, # Filtra per tentativi di quiz in questo percorso
+            status=QuizAttempt.AttemptStatus.COMPLETED,
+            # Aggiungere controllo score >= soglia se necessario
+        ).aggregate(max_order=models.Max('quiz__pathwayquiz__order'))['max_order']
+
+        next_order = 0 if last_completed_quiz_order is None else last_completed_quiz_order + 1
+
+        # Trova il prossimo PathwayQuiz in ordine
+        next_pathway_quiz = obj.pathwayquiz_set.filter(order=next_order).select_related('quiz').first()
+
+        if next_pathway_quiz:
+            return NextPathwayQuizSerializer(next_pathway_quiz.quiz).data
+        else:
+            # Se non c'è un prossimo quiz, il percorso potrebbe essere completato
+            # (o c'è un problema con l'ordine)
+            return None
+
+
+# --- Serializers per Vista Gestione Studenti (Docente) ---
+
+class StudentQuizAssignmentSerializer(serializers.ModelSerializer):
+    """ Serializer per visualizzare i quiz assegnati a uno studente. """
+    quiz_title = serializers.CharField(source='quiz.title', read_only=True)
+    quiz_description = serializers.CharField(source='quiz.description', read_only=True, allow_null=True)
+    assigned_at = serializers.DateTimeField(format="%Y-%m-%d %H:%M")
+    due_date = serializers.DateTimeField(format="%Y-%m-%d %H:%M", allow_null=True)
+
+    class Meta:
+        model = QuizAssignment
+        fields = ['id', 'quiz', 'quiz_title', 'quiz_description', 'assigned_at', 'due_date']
+        read_only_fields = fields
+
+
+class StudentPathwayAssignmentSerializer(serializers.ModelSerializer):
+    """ Serializer per visualizzare i percorsi assegnati a uno studente. """
+    pathway_title = serializers.CharField(source='pathway.title', read_only=True)
+    pathway_description = serializers.CharField(source='pathway.description', read_only=True, allow_null=True)
+    assigned_at = serializers.DateTimeField(format="%Y-%m-%d %H:%M")
+
+    class Meta:
+        model = PathwayAssignment
+        fields = ['id', 'pathway', 'pathway_title', 'pathway_description', 'assigned_at']
+        read_only_fields = fields
+
+
+# --- Serializer per Statistiche Template Quiz ---
+
+class QuizTemplateStatsSerializer(serializers.Serializer):
+    """ Serializer per le statistiche aggregate di un QuizTemplate. """
+    template_id = serializers.IntegerField(read_only=True)
+    template_title = serializers.CharField(read_only=True)
+    total_instances_created = serializers.IntegerField(read_only=True, default=0)
+    total_assignments = serializers.IntegerField(read_only=True, default=0)
+    total_attempts = serializers.IntegerField(read_only=True, default=0)
+    average_score = serializers.FloatField(read_only=True, allow_null=True) # Media punteggi tentativi completati
+    completion_rate = serializers.FloatField(read_only=True, allow_null=True) # Percentuale tentativi completati sul totale
+
+    def to_representation(self, instance):
+        """ Arrotonda i float a 2 decimali se non sono None. """
+        representation = super().to_representation(instance)
+        avg_score = representation.get('average_score')
+        comp_rate = representation.get('completion_rate')
+        if avg_score is not None:
+            try: representation['average_score'] = round(float(avg_score), 2)
+            except (ValueError, TypeError): representation['average_score'] = None
+        if comp_rate is not None:
+            try: representation['completion_rate'] = round(float(comp_rate) * 100, 1) # Mostra come percentuale
+            except (ValueError, TypeError): representation['completion_rate'] = None
+        return representation
+
+# --- Serializer per Statistiche Template Percorsi ---
+
+class PathwayTemplateStatsSerializer(serializers.Serializer):
+    """ Serializer per le statistiche aggregate di un PathwayTemplate. """
+    template_id = serializers.IntegerField(read_only=True)
+    template_title = serializers.CharField(read_only=True)
+    total_instances_created = serializers.IntegerField(read_only=True, default=0)
+    total_assignments = serializers.IntegerField(read_only=True, default=0)
+    total_progress_started = serializers.IntegerField(read_only=True, default=0) # Numero di studenti che hanno iniziato
+    total_progress_completed = serializers.IntegerField(read_only=True, default=0) # Numero di studenti che hanno completato
+    completion_rate = serializers.FloatField(read_only=True, allow_null=True) # Percentuale completati su iniziati
+
+    def to_representation(self, instance):
+        """ Arrotonda i float a 1 decimale se non sono None. """
+        representation = super().to_representation(instance)
+        comp_rate = representation.get('completion_rate')
+        if comp_rate is not None:
+            try: representation['completion_rate'] = round(float(comp_rate) * 100, 1) # Mostra come percentuale
+            except (ValueError, TypeError): representation['completion_rate'] = None
+        return representation

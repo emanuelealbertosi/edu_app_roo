@@ -289,3 +289,80 @@ export const assignQuizToStudent = async (payload: AssignQuizPayload): Promise<Q
     }
 };
 // es. gestione domande, assegnazione studenti, etc.
+
+// Interfaccia per i dettagli di un'assegnazione specifica di un quiz
+// (basata su QuizAssignmentDetailSerializer)
+export interface QuizAssignmentDetail {
+  id: number; // ID dell'assegnazione
+  student_id: number; // ID dello studente (CORRETTO)
+  student_username: string;
+  student_full_name: string;
+  assigned_at: string;
+  due_date: string | null;
+}
+
+// Interfaccia per la risposta completa dell'endpoint assignments per quiz
+export interface QuizAssignmentsResponse {
+  assignments: QuizAssignmentDetail[];
+  total_assigned: number;
+  total_completed: number;
+}
+
+/**
+ * Recupera l'elenco degli studenti a cui è stata assegnata una specifica istanza di quiz.
+ * @param quizId L'ID del quiz.
+ */
+export const fetchQuizAssignments = async (quizId: number): Promise<QuizAssignmentsResponse> => {
+  try {
+    // L'URL per l'azione custom è /education/quizzes/{quiz_pk}/assignments/
+    const response: AxiosResponse<QuizAssignmentsResponse> = await apiClient.get(`/education/quizzes/${quizId}/assignments/`);
+    // Restituisce l'intero oggetto risposta
+    return response.data;
+  } catch (error) {
+    console.error(`Errore durante il recupero delle assegnazioni per il quiz ${quizId}:`, error);
+    throw error;
+  }
+};
+
+/**
+ * Disassegna un quiz da uno studente eliminando l'assegnazione.
+ * @param assignmentId L'ID dell'oggetto QuizAssignment da eliminare.
+ */
+export const unassignQuizFromStudent = async (assignmentId: number): Promise<void> => {
+    try {
+        // L'URL per l'azione custom è /education/quizzes/unassign-student/{assignment_pk}/
+        await apiClient.delete(`/education/quizzes/unassign-student/${assignmentId}/`);
+    } catch (error) {
+        console.error(`Errore durante la disassegnazione del quiz (Assignment ID: ${assignmentId}):`, error);
+        // Potresti voler gestire errori specifici (es. 403, 404)
+        throw error;
+    }
+};
+
+// --- Statistiche Template Quiz ---
+
+// Interfaccia basata su QuizTemplateStatsSerializer
+export interface QuizTemplateStats {
+  template_id: number;
+  template_title: string;
+  total_instances_created: number;
+  total_assignments: number;
+  total_attempts: number;
+  average_score: number | null;
+  completion_rate: number | null; // Già in percentuale (es. 75.5 per 75.5%)
+}
+
+/**
+ * Recupera le statistiche aggregate per un specifico QuizTemplate.
+ * @param templateId L'ID del QuizTemplate.
+ */
+export const fetchQuizTemplateStats = async (templateId: number): Promise<QuizTemplateStats> => {
+  try {
+    // L'URL per l'azione custom è /education/teacher/quiz-templates/{template_pk}/statistics/
+    const response: AxiosResponse<QuizTemplateStats> = await apiClient.get(`/education/teacher/quiz-templates/${templateId}/statistics/`);
+    return response.data;
+  } catch (error) {
+    console.error(`Errore durante il recupero delle statistiche per il template quiz ${templateId}:`, error);
+    throw error;
+  }
+};

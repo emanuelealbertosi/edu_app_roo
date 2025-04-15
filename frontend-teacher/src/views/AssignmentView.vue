@@ -91,7 +91,7 @@ import { ref, onMounted, computed, watch } from 'vue';
 import { fetchStudents, type Student } from '@/api/students';
 // Importa API per contenuti esistenti e template
 import { fetchQuizzes, fetchTeacherQuizTemplates, assignQuizToStudent, type Quiz, type QuizTemplate, type AssignQuizPayload, type QuizAssignmentResponse } from '@/api/quizzes'; // Usa fetchTeacherQuizTemplates
-import { fetchPathways, fetchPathwayTemplates, assignPathwayToStudent, type Pathway, type PathwayTemplate, type AssignPathwayPayload, type PathwayAssignmentResponse } from '@/api/pathways';
+import { fetchPathways, fetchPathwayTemplates, assignPathwayToStudent, type Pathway, type PathwayTemplate, type AssignPathwayPayload, type PathwayAssignment } from '@/api/pathways'; // Corretto tipo importato
 // Rimosso import axios non più necessario per assignApiCall
 
 // --- Stato Selezione Contenuto ---
@@ -250,9 +250,10 @@ const assignContent = async () => {
      } else if (selectedContentType.value === 'pathway') {
        const payload: AssignPathwayPayload = {
          student: studentId, // Usa 'student' come chiave, atteso dal serializer
-         pathway_template_id: selectedTemplateId.value as number // Assegna sempre da template
+         // pathway_template_id: selectedTemplateId.value as number // Non più necessario nel payload
        };
-       await assignPathwayToStudent(payload); // Chiamata API dentro else if
+       // Passa l'ID del template come primo argomento
+       await assignPathwayToStudent(selectedTemplateId.value as number, payload);
        successfulAssignments++;
      }
    } catch (error: any) { // Catch è correttamente dentro il for loop ora

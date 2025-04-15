@@ -37,6 +37,13 @@ const router = createRouter({
       meta: { requiresAuth: true }
     },
     {
+      path: '/students/:id', // Rotta con parametro dinamico per ID studente
+      name: 'student-detail',
+      component: () => import('../views/StudentDetailView.vue'), // Lazy load del nuovo componente
+      props: route => ({ studentId: Number(route.params.id) }), // Passa studentId come prop numerica
+      meta: { requiresAuth: true }
+    },
+    {
       path: '/quiz-templates/new', // Aggiornato path
       name: 'quiz-template-new', // Aggiornato nome rotta
       component: () => import('../views/QuizTemplateFormView.vue'), // Usa nuova vista form template

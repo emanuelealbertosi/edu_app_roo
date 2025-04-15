@@ -1,4 +1,4 @@
-# Riepilogo Stato Avanzamento Progetto (13 Aprile 2025, ~17:33)
+# Riepilogo Stato Avanzamento Progetto (16 Aprile 2025, ~10:35)
 
 ## 1. Progettazione
 
@@ -39,6 +39,13 @@
 *   **Correzione Migrazioni Inconsistenti:** Risolto problema `InconsistentMigrationHistory` per `education.0012` usando `--fake`.
 *   **Modifica Immagine Badge:** Modificato campo `image_url` in `image` (`ImageField`) nel modello `Badge` per permettere upload. Creata e applicata migrazione `rewards.0004`.
 *   **Migliorato Help Text Badge:** Aggiornato `help_text` per `trigger_condition` nel modello `Badge` con esempi chiari.
+*   **Aggiunti Gruppi Studenti:**
+    *   Aggiunto modello `StudentGroup` (`apps/users/models.py`) con relazione `ForeignKey` da `Student`.
+    *   Rimosso campo M2M ridondante da `StudentGroup` dopo refactoring.
+    *   Create e applicate migrazioni `users.0003` e `users.0004`.
+*   **Aggiunti Token Registrazione Studenti:**
+    *   Aggiunto modello `StudentRegistrationToken` (`apps/users/models.py`) per gestire token temporanei con scadenza.
+    *   Creata e applicata migrazione `users.0005`.
 
 ## 5. Autenticazione e API Base
 
@@ -87,6 +94,40 @@
 *   **Corretto errore API caricamento Badge Studente:** Risolto `ImproperlyConfigured` in `BadgeSerializer` correggendo il campo `image_url` in `image`.
 *   **Corretta logica soglia superamento quiz:** Modificato `QuizAttempt.assign_completion_points` per leggere correttamente la soglia (`completion_threshold`) dai metadati del `Quiz` (invece di un campo inesistente) e confrontarla con il punteggio percentuale calcolato.
 *   **Aggiunto endpoint profilo utente:** Aggiunta azione `@action me` a `UserViewSet` (`apps/users/views.py`) per permettere agli utenti autenticati (inclusi docenti) di recuperare i propri dati tramite `/api/admin/users/me/`.
+*   **Implementata disassegnazione contenuti:**
+    *   Aggiunte azioni `unassign_student` a `QuizViewSet` e `unassign_student_pathway` a `PathwayViewSet` per eliminare `QuizAssignment` e `PathwayAssignment`.
+    *   Aggiunta azione `get_student_assignments` a `StudentViewSet` per recuperare le assegnazioni di un singolo studente.
+    *   Creati `StudentQuizAssignmentSerializer` e `StudentPathwayAssignmentSerializer` per formattare i dati delle assegnazioni.
+*   **Implementata creazione studenti da docente:**
+    *   Creato `TeacherStudentCreateSerializer` per gestire la creazione con generazione automatica di codice e PIN.
+    *   Aggiornato `StudentViewSet` per usare il nuovo serializer per l'azione `create` da parte dei docenti.
+*   **Implementata Dashboard Docente (Base):**
+    *   Creata view API `TeacherDashboardDataView` per fornire dati aggregati (conteggio studenti, template, valutazioni pendenti).
+    *   Aggiornata la vista `DashboardView.vue` per recuperare e visualizzare questi dati e fornire link rapidi.
+*   **Implementata visualizzazione dettagli assegnazioni:**
+    *   Aggiunte azioni `get_assignments` a `QuizViewSet` e `PathwayViewSet` per recuperare gli studenti assegnati a un contenuto specifico.
+    *   Creati `QuizAssignmentDetailSerializer` e `PathwayAssignmentDetailSerializer`.
+    *   Aggiornate le viste `AssignedQuizzesView.vue` e `AssignedPathwaysView.vue` per mostrare gli studenti assegnati e permettere la disassegnazione da questa vista.
+*   **Aggiunta Statistica Punteggio Medio:**
+    *   Aggiornata `TeacherStudentProgressSummaryView` per calcolare il punteggio medio dei quiz completati per studente.
+    *   Aggiornato `StudentProgressSummarySerializer` e la vista `StudentProgressView.vue` per mostrare questa statistica.
+*   **Implementata API Gestione Gruppi Studenti:**
+    *   Aggiunto `StudentGroupSerializer` e aggiornati `StudentSerializer`, `TeacherStudentCreateSerializer` (`apps/users/serializers.py`).
+    *   Aggiunta `StudentGroupViewSet` (`apps/users/views.py`) per CRUD gruppi da parte del docente.
+    *   Aggiornato `StudentViewSet` per permettere assegnazione a gruppo.
+    *   Registrata rotta `/api/teacher/groups/` in `apps/users/urls.py`.
+*   **Implementata API Registrazione Studenti con Token:**
+    *   Aggiunti serializer `StudentRegistrationTokenSerializer`, `StudentRegistrationTokenCreateSerializer`, `StudentSelfRegisterSerializer` (`apps/users/serializers.py`).
+    *   Aggiunte viste `StudentRegistrationTokenViewSet`, `ValidateStudentRegistrationTokenView`, `StudentSelfRegisterView` (`apps/users/views.py`).
+    *   Registrate rotte `/api/teacher/registration-tokens/`, `/api/register/validate-token/<uuid:token>/`, `/api/register/complete/` in `apps/users/urls.py`.
+    *   **Corretto errore 405 (Method Not Allowed)** su `/api/teacher/registration-tokens/` modificando la classe base di `StudentRegistrationTokenViewSet` da `ReadOnlyModelViewSet` per includere `CreateModelMixin`.
+    *   **Corretti errori API registrazione studente:**
+        *   Risolto `AttributeError: 'UUID' object has no attribute 'replace'` modificando l'URL pattern da `<uuid:token>` a `<str:token>` in `apps/users/urls.py`.
+        *   Risolto `NameError: name 'settings' is not defined` importando `settings` in `apps/users/serializers.py`.
+        *   Risolto `NameError: name 'timedelta' is not defined` importando `timedelta` in `config/settings.py`.
+        *   Risolto `AttributeError: 'Student' object has no attribute 'token'` modificando `StudentSelfRegisterView` per usare `StudentSerializer` per la risposta JSON.
+    *   **Modificata logica token registrazione:** I token ora rimangono attivi fino alla scadenza (impostata a 4 giorni in `settings.py`) e non vengono più disattivati dopo il primo utilizzo (modificato `StudentSelfRegisterSerializer`).
+    *   **Corretta risposta API registrazione:** Modificato `StudentSerializer` per includere `student_code` nella risposta JSON dopo la creazione.
 
 ## 6. Interfaccia Admin
 
@@ -125,11 +166,11 @@
 
 *   Il server di sviluppo Django è in esecuzione (`python manage.py runserver`).
 *   L'interfaccia di amministrazione (`/admin/`) è accessibile e migliorata con `django-json-widget`. Permette ora la gestione dei Badge con upload di immagini.
-*   Gli endpoint API per Admin/Docente e Studente sono funzionanti, inclusi quelli per wallet e badge.
+*   Gli endpoint API per Admin/Docente e Studente sono funzionanti, inclusi quelli per wallet, badge, assegnazioni, disassegnazioni, creazione studenti, dati dashboard docente, **gestione gruppi studenti** e **registrazione studenti tramite token**.
 *   La logica per il calcolo punteggio/punti per Quiz e Percorsi è implementata.
 *   Il codice è versionato su GitHub.
 *   Il database contiene dati di test generati dal comando `seed_test_data`.
-*   Il frontend studenti (`frontend-student`) è funzionante con le funzionalità principali implementate e stile base Tailwind CSS applicato.
+*   Il frontend studenti (`frontend-student`) è funzionante con le funzionalità principali implementate e stile base Tailwind CSS applicato. **Aggiunta pagina di registrazione tramite token.**
 *   Il frontend docenti (`frontend-teacher`) è stato **refattorizzato** per adottare il flusso basato sui template:
     *   Le sezioni "Quiz Templates" e "Template Percorsi" gestiscono ora i template.
     *   La sezione "Assegna" permette di assegnare contenuti solo a partire dai template.
@@ -139,6 +180,14 @@
     *   **Aggiunta funzionalità upload template quiz da file.**
     *   **Corretta gestione domande/opzioni template (visualizzazione e salvataggio automatico).**
     *   **Corretti errori di sintassi HTML.**
+    *   **Implementata funzionalità di disassegnazione contenuti** nella vista "Gestione Studenti".
+    *   **Implementata funzionalità di creazione studenti** (con codice/PIN automatici) nella vista "Gestione Studenti".
+    *   **Implementata Dashboard Docente (Base)** con statistiche rapide e link.
+    *   **Implementata visualizzazione dettagli assegnazioni** nelle viste "Quiz Assegnati" e "Percorsi Assegnati".
+    *   **Aggiunta Statistica Punteggio Medio** alla vista "Progressi Studenti".
+    *   **Implementata gestione Gruppi Studenti** nella vista "Gestione Studenti".
+    *   **Implementata gestione Token Registrazione (con QR Code)** nella vista "Dashboard Docente".
+    *   **Corretto errore di build** in `StudentsView.vue`.
 
 ## 10. Raffinamento Codice
 
@@ -165,7 +214,7 @@
 *   **Risolto problema caricamento pagina storico acquisti** (richiesto riavvio server Vite).
 *   **Corretti errori di rendering:** Risolti `InvalidCharacterError` e `TypeError: Cannot read properties of null (reading 'parentNode')` legati a commenti HTML mal posizionati e gestione transizioni/HMR.
 *   **Corretta logica notifica badge:** Spostata la logica di notifica da `QuizResultView` a `QuizAttemptView` per usare l'array `newly_earned_badges` dalla risposta API `completeAttempt`.
-*   **Corretto errore icona badge rotta:** Identificato e risolto problema con `ImageField` e serializer. Creato file SVG placeholder.
+*   **Corretto errore icona badge rotta:** Identificato e risolto problema con `ImageField` e serializer. Creato file SVG placeholder. Corretto errore API caricamento badge.
 *   **Migliorata UX Svolgimento Quiz:**
    *   Sostituita animazione iniziale "Pronti? Via!" con contatore "3, 2, 1, Via!" su sfondo azzurro (`QuizAttemptView.vue`).
    *   Sostituito sfondo immagine casuale con sfondi a gradiente colorati che ciclano ad ogni domanda (`QuizAttemptView.vue`).
@@ -174,6 +223,9 @@
 *   **Aggiunto link alla pagina di login docenti** in `LoginView.vue`.
 *   **Aggiunta funzionalità per impostare/modificare il PIN** nella vista `ProfileView.vue`.
 *   **Corretto errore di build** in `ProfileView.vue` causato da tag CDATA errati.
+*   **Aggiunta pagina Registrazione Studente (`RegisterView.vue`)** con validazione token e creazione account. **Aggiornato messaggio di successo** per includere codice studente e PIN. **Corretta logica** per mostrare il codice studente ricevuto dall'API. **Nascosta navbar** principale in questa pagina e in quella di login.
+*   **Aggiornato API client (`auth.ts`)** con funzioni per validazione token e registrazione.
+*   **Aggiunta rotta `/register/:token`** al router (`router/index.ts`) con metadati per nascondere la navbar.
 
 ## 12. Dati di Test
 
@@ -195,6 +247,15 @@
 *   **Corretto recupero dati profilo docente:**
     *   Modificato `api/auth.ts` per usare l'endpoint corretto `/api/admin/users/me/`.
     *   Modificato `stores/auth.ts` per recuperare i dati utente dopo il login e all'avvio, correggendo l'ordine di salvataggio dei token e risolvendo l'errore "Refresh token missing". Ora l'username corretto viene visualizzato nel profilo.
+*   **Implementata disassegnazione contenuti:** Aggiunta possibilità di visualizzare le assegnazioni per studente e disassegnarle nella vista `StudentsView.vue`.
+*   **Implementata creazione studenti:** Aggiunta possibilità per i docenti di creare studenti (con codice/PIN automatici) dalla vista `StudentsView.vue`.
+*   **Implementata Dashboard Docente (Base):** Aggiornata la vista `DashboardView.vue` per mostrare statistiche (studenti, template, valutazioni pendenti) e link rapidi.
+*   **Implementata visualizzazione dettagli assegnazioni:** Aggiunta possibilità di vedere gli studenti assegnati a un quiz/percorso dalle viste `AssignedQuizzesView` e `AssignedPathwaysView`.
+*   **Aggiunta Statistica Punteggio Medio:** Aggiunta visualizzazione del punteggio medio dei quiz completati nella vista `StudentProgressView.vue`.
+*   **Implementata gestione Gruppi Studenti:** Aggiunta sezione dedicata in `StudentsView.vue` per CRUD gruppi e assegnazione studenti.
+*   **Implementata gestione Token Registrazione:** Aggiunta sezione in `DashboardView.vue` per creare/visualizzare/gestire token, mostrare QR code e **mostrare/copiare il link testuale**. **Corretto refresh automatico** della lista token dopo la creazione. **Corretta generazione URL QR code** per usare l'origine dinamica (`window.location.origin`) invece di un valore cablato.
+*   **Corretto errore build:** Risolto problema `Element is missing end tag` in `StudentsView.vue`.
+*   **Implementata modifica gruppo studente esistente:** Aggiunta funzionalità inline nella tabella di `StudentsView.vue` per cambiare o rimuovere l'associazione di gruppo di uno studente.
 
 ## 14. Dockerizzazione Produzione
 
@@ -226,5 +287,19 @@
     *   Aggiunta creazione badge "Primo Quiz Completato" nello script `seed_test_data`.
     *   **Corretto errore icona badge rotta:** Identificato e risolto problema con `ImageField` e serializer. Creato file SVG placeholder. Corretto errore API caricamento badge.
     *   **Migliorata interfaccia svolgimento quiz:** Vedi sezione 11.
-   
-   ## Prossimi Passi Previsti (vedi NEXT_STEPS.md)
+
+## 16. Homepage
+
+*   Creata pagina `index.html` nella root del progetto come punto di ingresso principale con link alle aree Studente e Docente.
+*   **Configurato Nginx e Docker Compose** (`nginx.conf`, `docker-compose.prod.yml`, `docker-compose.prod.static.yml`, `docker-compose.local-prod-test.yml`) per servire correttamente `index.html` dalla root (`/`).
+
+## 17. Deployment e Troubleshooting (Produzione)
+
+*   **Debug Immagini Docker:** Affrontato problema di caricamento tag specifici (`v4-beta`) in produzione rispetto a `:latest`. Verificato push su Docker Hub, analizzata logica script deployment (`deploy_env_only.sh`), verificato file compose sul server. Ritaggate immagini in `v4`. Provata build `--no-cache`. Identificata differenza tra build locale (`docker-compose.local-prod-test.yml`) e pull da Docker Hub (produzione).
+*   **Debug Errore 403 Homepage:** Risolto errore "403 Forbidden" per `index.html` in produzione forzando la ricreazione dei container (`down` e `up --force-recreate`) per assicurare il caricamento della configurazione Nginx e del mount del volume corretti. Verificato che gli script di deployment includano già `down` e `up --force-recreate`.
+*   **Debug Spazio Disco Esaurito:** Identificato errore "no space left on device" durante il pull delle immagini. Verificato utilizzo disco (`df -h`), confermata partizione `/` piena. Analizzato spazio occupato da Docker (`du -sh /var/lib/docker/`). Eseguita pulizia Docker (`docker system prune -a -f`) escludendo i volumi.
+*   **Aggiornamento Script Deployment:**
+    *   Modificato `deploy_on_ubuntu.sh` per eseguire `git pull origin master` all'inizio e per chiedere interattivamente il tag Docker da utilizzare.
+    *   Modificato `deploy_env_only.sh` per chiedere interattivamente il tag Docker e aggiunto output di debug per verificare la sostituzione del tag nel file compose temporaneo.
+
+## Prossimi Passi Previsti (vedi NEXT_STEPS.md)

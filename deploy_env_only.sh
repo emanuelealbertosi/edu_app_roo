@@ -177,6 +177,10 @@ if [ "${DOCKER_VERSION_VAR}" != "latest" ]; then
     # Usa sed per sostituire :latest con :${DOCKER_VERSION_VAR}
     sed -i "s/:latest/:${DOCKER_VERSION_VAR}/g" "${TEMP_COMPOSE_FILE}"
     echo "File Docker Compose modificato per utilizzare la versione ${DOCKER_VERSION_VAR}"
+    # DEBUG: Mostra il contenuto del file temporaneo dopo la modifica
+    echo "--- DEBUG: Contenuto di ${TEMP_COMPOSE_FILE} dopo sed ---"
+    cat "${TEMP_COMPOSE_FILE}"
+    echo "--- FINE DEBUG ---"
 else
     echo "Utilizzo della versione latest come richiesto"
 fi

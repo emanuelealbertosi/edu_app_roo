@@ -126,7 +126,8 @@ const QuizService = {
   async startAttempt(quizId: number): Promise<QuizAttempt> {
     try {
       // Aggiunto prefisso completo relativo a /api/
-      const response = await apiClient.post(`student/quizzes/${quizId}/attempts/start-attempt/`);
+      // Corretto prefisso URL da 'student/' a 'education/'
+      const response = await apiClient.post(`education/quizzes/${quizId}/attempts/start-attempt/`);
       return response.data;
     } catch (error) {
       console.error(`Error starting attempt for quiz ${quizId}:`, error);

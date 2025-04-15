@@ -15,6 +15,7 @@ export interface Pathway {
     teacher: number;
     teacher_username: string;
     title: string;
+    source_template: number | null; // Aggiunto per fixare errore TS in AssignedPathwaysView
     description: string | null;
     metadata: Record<string, any> | null;
     created_at: string; // Formato ISO 8601
@@ -242,36 +243,40 @@ export const removeQuizTemplateFromPathwayTemplate = async (pathwayTemplateId: n
 
 // --- API per Assegnazione Percorsi ---
 
-// Interfaccia per i dati di assegnazione Pathway
+// Interfaccia per i dati inviati all'azione assign_student_pathway
 export interface AssignPathwayPayload {
-    student: number; // Modificato da student_id a student
-    pathway_id?: number | null; // ID del percorso esistente
-    pathway_template_id?: number | null; // ID del template da cui creare
+    student: number; // ID dello studente a cui assegnare
+    due_date?: string | null; // Data di scadenza opzionale (formato ISO 8601)
 }
 
-// Interfaccia per la risposta dell'assegnazione (basata sul serializer)
-export interface PathwayAssignmentResponse {
-    status: string;
-    assignment: {
-        id: number;
-        student: number;
-        student_username: string;
-        pathway: number;
-        pathway_title: string;
-        assigned_at: string;
-    };
+// Interfaccia per la risposta dell'assegnazione (basata su PathwayAssignmentSerializer)
+// Assumiamo che il backend restituisca direttamente i dati dell'assegnazione
+export interface PathwayAssignment {
+    id: number;
+    student: number;
+    student_username: string; // Potrebbe essere aggiunto dal serializer
+    pathway: number;
+    pathway_title: string; // Potrebbe essere aggiunto dal serializer
+    assigned_by: number;
+    assigned_by_username: string; // Potrebbe essere aggiunto dal serializer
+    assigned_at: string;
+    due_date: string | null;
 }
 
 /**
- * Assegna un percorso (esistente o da template) a uno studente.
+ * Assegna un percorso a uno studente, creandolo da un template.
+ * @param pathwayTemplateId L'ID del PathwayTemplate da cui creare e assegnare.
+ * @param payload Oggetto contenente 'student' (ID studente) e opzionalmente 'due_date'.
  */
-export const assignPathwayToStudent = async (payload: AssignPathwayPayload): Promise<PathwayAssignmentResponse> => {
+export const assignPathwayToStudent = async (pathwayTemplateId: number, payload: AssignPathwayPayload): Promise<PathwayAssignment> => {
     try {
-        // L'URL per l'azione custom è /education/pathways/assign-student/
-        const response: AxiosResponse<PathwayAssignmentResponse> = await apiClient.post('/education/pathways/assign-student/', payload);
+        // L'URL corretto è sull'endpoint del template
+        const url = `/education/pathway-templates/${pathwayTemplateId}/assign-student/`;
+        console.log(`[api/pathways] Assegnazione percorso da template ${pathwayTemplateId} a studente ${payload.student}. URL: ${url}`);
+        const response: AxiosResponse<PathwayAssignment> = await apiClient.post(url, payload);
         return response.data;
     } catch (error) {
-        console.error('Errore durante l\'assegnazione del percorso:', error);
+        console.error(`Errore durante l'assegnazione del percorso dal template ${pathwayTemplateId}:`, error);
         throw error;
     }
 };
@@ -312,5 +317,58 @@ export const removeQuizFromPathway = async (pathwayId: number, pathwayQuizId: nu
     } catch (error) {
         console.error(`Errore durante la rimozione del quiz (relazione ID ${pathwayQuizId}) dal percorso ${pathwayId}:`, error);
         throw error; // Rilancia l'errore per gestirlo nel componente Vue
+    }
+};
+// Interfaccia per i dettagli di un'assegnazione specifica di un percorso
+// (basata su PathwayAssignmentDetailSerializer)
+export interface PathwayAssignmentDetail {
+  id: number; // ID dell'assegnazione
+  student_id: number; // ID dello studente (CORRETTO)
+  student_username: string;
+  student_full_name: string;
+  assigned_at: string;
+}
+
+// Interfaccia per le statistiche aggregate delle assegnazioni di un percorso
+export interface PathwayAssignmentStats {
+  assigned_count: number;
+  started_count: number;
+  completed_count: number;
+}
+
+// Interfaccia per la risposta completa dell'endpoint assignments per percorsi
+export interface PathwayAssignmentsResponse {
+  assignments: PathwayAssignmentDetail[];
+  stats: PathwayAssignmentStats;
+}
+
+/**
+ * Recupera l'elenco degli studenti a cui è stata assegnata una specifica istanza di percorso
+ * e le statistiche aggregate.
+ * @param pathwayId L'ID del percorso.
+ */
+export const fetchPathwayAssignments = async (pathwayId: number): Promise<PathwayAssignmentsResponse> => {
+  try {
+    // L'URL per l'azione custom è /education/pathways/{pathway_pk}/assignments/
+    const response: AxiosResponse<PathwayAssignmentsResponse> = await apiClient.get(`/education/pathways/${pathwayId}/assignments/`);
+    return response.data;
+  } catch (error) {
+    console.error(`Errore durante il recupero delle assegnazioni per il percorso ${pathwayId}:`, error);
+    throw error;
+  }
+};
+
+/**
+ * Disassegna un percorso da uno studente eliminando l'assegnazione.
+ * @param assignmentId L'ID dell'oggetto PathwayAssignment da eliminare.
+ */
+export const unassignPathwayFromStudent = async (assignmentId: number): Promise<void> => {
+    try {
+        // L'URL per l'azione custom è /education/pathways/unassign-student/{assignment_pk}/
+        await apiClient.delete(`/education/pathways/unassign-student/${assignmentId}/`);
+    } catch (error) {
+        console.error(`Errore durante la disassegnazione del percorso (Assignment ID: ${assignmentId}):`, error);
+        // Potresti voler gestire errori specifici (es. 403, 404)
+        throw error;
     }
 };

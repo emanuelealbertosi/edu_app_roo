@@ -1,7 +1,12 @@
+import uuid
+from datetime import timedelta
+from django.utils import timezone
+from django.conf import settings # Per accedere a eventuali settings custom
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 from django.contrib.auth.hashers import make_password, check_password # Add imports
+
 class UserRole(models.TextChoices):
     ADMIN = 'ADMIN', _('Admin')
     TEACHER = 'TEACHER', _('Teacher')
@@ -60,16 +65,42 @@ class User(AbstractUser):
         return self.role == UserRole.TEACHER
 
 
+class StudentGroup(models.Model):
+    """
+    Modello che rappresenta un gruppo di studenti gestito da un docente.
+    Gli studenti appartengono a un gruppo tramite il campo ForeignKey 'group' nel modello Student.
+    """
+    name = models.CharField(_('Group Name'), max_length=100)
+    teacher = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE, # Se il docente viene eliminato, elimina anche i gruppi associati
+        related_name='student_groups',
+        limit_choices_to={'role': UserRole.TEACHER}, # Assicura che si possa collegare solo a Docenti
+        verbose_name=_('Teacher')
+    )
+    created_at = models.DateTimeField(_('Created At'), auto_now_add=True)
+    updated_at = models.DateTimeField(_('Updated At'), auto_now=True)
+
+    class Meta:
+        verbose_name = _('Student Group')
+        verbose_name_plural = _('Student Groups')
+        unique_together = ('name', 'teacher') # Un docente non può avere due gruppi con lo stesso nome
+        ordering = ['teacher', 'name']
+
+    def __str__(self):
+        return f"{self.name} ({self.teacher.username})"
+
+
 class Student(models.Model):
     """
     Modello che rappresenta uno Studente.
-    Collegato a un Docente (User con role=TEACHER).
+    Collegato a un Docente (User con role=TEACHER) e opzionalmente a un Gruppo.
     """
     teacher = models.ForeignKey(
         User,
-        on_delete=models.CASCADE, # Se il docente viene eliminato, elimina anche gli studenti associati? O SET_NULL? O PROTECT? Decidiamo CASCADE per ora.
+        on_delete=models.CASCADE,
         related_name='students',
-        limit_choices_to={'role': UserRole.TEACHER}, # Assicura che si possa collegare solo a Docenti
+        limit_choices_to={'role': UserRole.TEACHER},
         verbose_name=_('Teacher')
     )
     student_code = models.CharField(
@@ -78,14 +109,21 @@ class Student(models.Model):
         unique=True,
         help_text=_('Codice univoco identificativo dello studente (es. matricola).')
     )
-    pin_hash = models.CharField( # Memorizza l'hash del PIN
+    pin_hash = models.CharField(
         _('PIN Hash'),
         max_length=128,
         help_text=_('Hash del PIN numerico per l\'accesso studente.')
-        # Non impostare un default, deve essere impostato alla creazione
     )
     first_name = models.CharField(_('First Name'), max_length=150)
     last_name = models.CharField(_('Last Name'), max_length=150)
+    group = models.ForeignKey(
+        StudentGroup,
+        on_delete=models.SET_NULL, # Se il gruppo viene eliminato, lo studente perde l'associazione
+        related_name='members', # Nome relazione inversa da Gruppo a Studente (membri)
+        null=True,
+        blank=True,
+        verbose_name=_('Group')
+    )
     is_active = models.BooleanField(
         _('Active'),
         default=True,
@@ -124,12 +162,12 @@ class Student(models.Model):
         Raises:
             ValueError: If the PIN is not numeric or doesn't meet length requirements.
         """
-        # Aggiungere validazione per assicurarsi che sia numerico e di lunghezza adeguata?
         if not raw_pin or not raw_pin.isdigit():
              raise ValueError("Il PIN deve essere numerico.")
-        # Esempio: lunghezza minima 4 cifre
-        if len(raw_pin) < 4:
-             raise ValueError("Il PIN deve essere di almeno 4 cifre.")
+        # Usa la lunghezza definita nelle settings o un default
+        min_pin_length = getattr(settings, 'STUDENT_PIN_MIN_LENGTH', 4)
+        if len(raw_pin) < min_pin_length:
+             raise ValueError(f"Il PIN deve essere di almeno {min_pin_length} cifre.")
         self.pin_hash = make_password(raw_pin)
 
     def check_pin(self, raw_pin):
@@ -144,3 +182,51 @@ class Student(models.Model):
         """
         return check_password(raw_pin, self.pin_hash)
 
+
+class StudentRegistrationToken(models.Model):
+    """
+    Token temporaneo per permettere l'auto-registrazione degli studenti.
+    """
+    token = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    teacher = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='registration_tokens',
+        limit_choices_to={'role': UserRole.TEACHER},
+        verbose_name=_('Teacher')
+    )
+    group = models.ForeignKey(
+        StudentGroup,
+        on_delete=models.CASCADE, # Se il gruppo viene eliminato, il token non è più valido per quel gruppo
+        related_name='registration_tokens',
+        null=True,
+        blank=True, # Permette token non legati a un gruppo specifico (assegnati solo al docente)
+        verbose_name=_('Group (Optional)')
+    )
+    created_at = models.DateTimeField(_('Created At'), auto_now_add=True)
+    expires_at = models.DateTimeField(_('Expires At'))
+    is_active = models.BooleanField(
+        _('Active'),
+        default=True,
+        help_text=_('Indica se il token può essere ancora utilizzato.')
+    )
+
+    class Meta:
+        verbose_name = _('Student Registration Token')
+        verbose_name_plural = _('Student Registration Tokens')
+        ordering = ['-created_at']
+
+    def save(self, *args, **kwargs):
+        if not self.expires_at:
+            # Imposta scadenza default (es. 24 ore) se non specificata
+            validity_duration = getattr(settings, 'STUDENT_REGISTRATION_TOKEN_VALIDITY', timedelta(hours=24))
+            self.expires_at = timezone.now() + validity_duration
+        super().save(*args, **kwargs)
+
+    def is_valid(self):
+        """ Controlla se il token è attivo e non scaduto. """
+        return self.is_active and self.expires_at > timezone.now()
+
+    def __str__(self):
+        group_name = f" ({self.group.name})" if self.group else ""
+        return f"Token for {self.teacher.username}{group_name} - Expires: {self.expires_at.strftime('%Y-%m-%d %H:%M')}"

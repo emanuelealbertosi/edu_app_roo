@@ -16,6 +16,7 @@
             <th>Quiz Completati</th>
             <th>Percorsi Completati</th>
             <th>Punti Totali</th>
+            <th>Punteggio Medio Quiz (%)</th> <!-- Nuova colonna -->
             <th>Azioni</th>
           </tr>
         </thead>
@@ -26,6 +27,7 @@
             <td>{{ summary.completed_quizzes_count ?? 0 }}</td>
             <td>{{ summary.completed_pathways_count ?? 0 }}</td>
             <td>{{ summary.total_points_earned ?? 0 }}</td>
+            <td>{{ summary.average_quiz_score !== null ? summary.average_quiz_score : '-' }}</td> <!-- Nuova cella -->
             <td>
               <button @click="viewDetails(summary.student_id)" class="btn btn-link text-sm">Dettagli</button>
             </td>
@@ -53,6 +55,7 @@ interface StudentProgressSummary {
   completed_quizzes_count: number | null; // Potrebbe essere null se non annotato
   completed_pathways_count: number | null;
   total_points_earned: number | null;
+  average_quiz_score: number | null; // Aggiunto campo
 }
 
 const router = useRouter();

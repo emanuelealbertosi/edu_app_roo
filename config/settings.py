@@ -14,6 +14,7 @@ from dotenv import load_dotenv # Aggiunto import
 import dj_database_url
 import sys
 from pathlib import Path
+from datetime import timedelta # Aggiunto per usare timedelta nelle impostazioni
 
 # Carica le variabili d'ambiente da .env (per sviluppo locale)
 # Questo dovrebbe essere fatto il prima possibile
@@ -208,6 +209,9 @@ AUTHENTICATION_BACKENDS = [
     'apps.users.backends.StudentCodeBackend',    # Backend custom per Studenti
 ]
 
+# Impostazioni specifiche dell'applicazione
+STUDENT_PIN_MIN_LENGTH = 4 # Lunghezza minima del PIN per la registrazione studente
+STUDENT_REGISTRATION_TOKEN_VALIDITY = timedelta(days=4) # Durata validità token registrazione (4 giorni)
 
 # Django REST Framework Configuration
 # https://www.django-rest-framework.org/api-guide/settings/

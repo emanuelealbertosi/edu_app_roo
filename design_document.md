@@ -41,6 +41,7 @@ edu_app_roo/
 ├── manage.py
 ├── Dockerfile          # Per containerizzare l'app
 └── docker-compose.yml  # Per orchestrare servizi (app, db, ecc.)
+├── index.html          # Homepage statica principale
 ```
 
 ## 4. Schema del Database (PostgreSQL - Modelli Chiave)
@@ -48,6 +49,8 @@ edu_app_roo/
 ```mermaid
 erDiagram
     USER ||--o{ STUDENT : "è_docente_di"
+    USER ||--o{ STUDENT_GROUP : "gestisce"
+    USER ||--o{ STUDENT_REGISTRATION_TOKEN : "crea_token_per"
     USER ||--o{ QUIZ_TEMPLATE : "creato_da (Admin)"
     USER ||--o{ QUIZ : "creato_da (Docente)"
     USER ||--o{ PATHWAY : "creato_da (Docente)"
@@ -60,6 +63,7 @@ erDiagram
     STUDENT ||--o{ WALLET : "possiede"
     STUDENT ||--o{ REWARD_PURCHASE : "acquista"
     STUDENT }|..|{ REWARD : "disponibile_per (specifico)"
+    STUDENT ||--o{ STUDENT_GROUP : "appartiene_a"
 
     WALLET ||--o{ POINT_TRANSACTION : "ha_transazioni"
 
@@ -81,6 +85,9 @@ erDiagram
     REWARD ||--o{ REWARD_PURCHASE : "è_acquistata_in"
     REWARD }|..|{ REWARD_STUDENT_SPECIFIC_AVAILABILITY : "ha_disponibilità_specifica"
 
+    STUDENT_GROUP ||--o{ STUDENT : "ha_membro"
+    STUDENT_GROUP ||--o{ STUDENT_REGISTRATION_TOKEN : "ha_token_per"
+
 
     USER {
         int id PK
@@ -96,10 +103,12 @@ erDiagram
 
     STUDENT {
         int id PK
-        int user_id FK "Docente associato"
+        int teacher_id FK "Docente associato"
+        string student_code UK "Codice univoco studente"
+        string pin_hash "Hash del PIN"
         string first_name
         string last_name
-        string unique_identifier "Codice o username studente"
+        int group_id FK NULL "Gruppo di appartenenza (opzionale)"
         datetime created_at
         bool is_active
     }
@@ -271,6 +280,23 @@ erDiagram
         string description "Descrizione per l'Admin"
         string data_type "string, integer, boolean, json"
     }
+
+    STUDENT_GROUP {
+        int id PK
+        int teacher_id FK "Docente proprietario"
+        string name
+        datetime created_at
+        datetime updated_at
+    }
+
+    STUDENT_REGISTRATION_TOKEN {
+        uuid token PK
+        int teacher_id FK "Docente creatore"
+        int group_id FK NULL "Gruppo associato (opzionale)"
+        datetime created_at
+        datetime expires_at
+        bool is_active
+    }
 ```
 
 ## 5. Tipologie di Domande Supportate
@@ -336,9 +362,19 @@ erDiagram
     *   `GET, PUT /api/admin/settings/{setting_key}/`
 *   **Docente - Gestione Studenti:**
     *   `GET, POST /api/students/`
-    *   `GET, PUT, PATCH, DELETE /api/students/{student_id}/`
+    *   `GET, PUT, PATCH, DELETE /api/students/{student_id}/` (PATCH permette modifica `group_id`)
+*   **Docente - Gestione Gruppi:**
+    *   `GET, POST /api/teacher/groups/`
+    *   `GET, PUT, PATCH, DELETE /api/teacher/groups/{group_id}/`
+*   **Docente - Gestione Token Registrazione:**
+    *   `GET, POST /api/teacher/registration-tokens/`
+    *   `GET, DELETE /api/teacher/registration-tokens/{token_uuid}/`
+    *   `POST /api/teacher/registration-tokens/{token_uuid}/deactivate/` (Azione custom)
 *   **Docente - Gestione Contenuti:**
     *   `GET, POST /api/quizzes/`
+*   **Registrazione Studente (Pubblica):**
+    *   `GET /api/register/validate-token/{token_str}/` (Validazione token)
+    *   `POST /api/register/complete/` (Completamento registrazione)
     *   `POST /api/quizzes/create-from-template/`
     *   `GET, PUT, PATCH, DELETE /api/quizzes/{quiz_id}/` (+ sub-routes domande/opzioni)
     *   `POST /api/quizzes/{quiz_id}/assign/{student_id}/` (o gestione assegnazioni separata)

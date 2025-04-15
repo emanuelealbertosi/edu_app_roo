@@ -10,7 +10,7 @@ const router = useRouter();
 const route = useRoute();
 
 // Nasconde la navbar nella pagina di login
-const showNavbar = computed(() => route.name !== 'login');
+const showNavbar = computed(() => !route.meta.hideNav); // Usa il meta field per decidere
 
 const handleLogout = () => { // Rimosso async e nextTick
   authStore.logout(); // Lo store ora gestisce il redirect

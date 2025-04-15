@@ -90,9 +90,15 @@ const deleteReward = async (id: number) => {
     console.log(`Ricompensa ${id} eliminata.`); // Log di successo
   } catch (err: any) {
     console.error(`Errore eliminazione ricompensa ${id}:`, err);
-    // Usa il messaggio specifico dall'errore lanciato da deleteRewardApi se disponibile
-    error.value = `Errore eliminazione ricompensa: ${err.message || 'Errore sconosciuto'}`;
-    // Attenzione: potrebbe essere un ProtectedError (409) se già acquistata
+    // Controlla se l'errore è un errore Axios con status 409
+    if (err.response && err.response.status === 409) {
+      // Mostra un alert specifico per l'errore 409 (Conflict)
+      alert(`Impossibile eliminare la ricompensa (ID: ${id}). È già stata acquistata da uno o più studenti.`);
+      error.value = null; // Non mostrare l'errore generico in questo caso
+    } else {
+      // Per altri errori, mostra il messaggio generico
+      error.value = `Errore eliminazione ricompensa: ${err.response?.data?.detail || err.message || 'Errore sconosciuto'}`;
+    }
   }
 };
 </script>

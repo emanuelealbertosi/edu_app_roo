@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EduApp - Benvenuti</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #f0f4f8;
+            margin: 0;
+        }
+        .container {
+            text-align: center;
+            background-color: #ffffff;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+        }
+        .links a {
+            display: inline-block;
+            margin: 10px 15px;
+            padding: 12px 25px;
+            border-radius: 5px;
+            text-decoration: none;
+            font-weight: bold;
+            transition: background-color 0.3s ease;
+        }
+        .student-link {
+            background-color: #3b82f6; /* blue-500 */
+            color: white;
+        }
+        .student-link:hover {
+            background-color: #2563eb; /* blue-600 */
+        }
+        .teacher-link {
+            background-color: #10b981; /* green-500 */
+            color: white;
+        }
+        .teacher-link:hover {
+            background-color: #059669; /* green-600 */
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Benvenuti in EduApp</h1>
+        <p>Seleziona il tuo ruolo per accedere:</p>
+        <div class="links">
+            <a href="/studenti/login" class="student-link">Area Studente</a>
+            <a href="/docenti/login" class="teacher-link">Area Docente</a>
+            <!-- Potremmo aggiungere un link all'admin Django se necessario -->
+            <!-- <a href="/admin/">Admin</a> -->
+        </div>
+    </div>
+</body>
+</html>
