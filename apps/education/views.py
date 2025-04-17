@@ -11,6 +11,7 @@ from django.core.exceptions import PermissionDenied # Import PermissionDenied Dj
 from django.db.models import F, OuterRef, Subquery, Count, Prefetch, Avg, Case, When, FloatField # Import Avg, Case, When, FloatField
 from apps.users.permissions import IsAdminUser, IsTeacherUser, IsStudentAuthenticated # Import permessi specifici
 from apps.users.models import User, Student # Import User e Student
+from apps.rewards.serializers import SimpleBadgeSerializer # Importa il serializer per i badge
 from .models import (
     QuizTemplate, QuestionTemplate, AnswerOptionTemplate,
     Quiz, Question, AnswerOption, Pathway, PathwayQuiz,
@@ -20,7 +21,7 @@ from .models import (
 from .serializers import (
     QuizTemplateSerializer, QuestionTemplateSerializer, AnswerOptionTemplateSerializer,
     QuizSerializer, QuestionSerializer, AnswerOptionSerializer, PathwaySerializer, PathwayQuizSerializer, # Aggiunto PathwayQuizSerializer
-    QuizAttemptSerializer, StudentAnswerSerializer, PathwayProgressSerializer,
+    QuizAttemptSerializer, StudentAnswerSerializer, PathwayProgressSerializer, # Importa StudentAnswerSerializer
     QuizAttemptDetailSerializer, # Importa il nuovo serializer
     StudentQuizDashboardSerializer, StudentPathwayDashboardSerializer, # Importa i nuovi serializer
     QuizUploadSerializer, # Aggiunto QuizUploadSerializer
@@ -30,7 +31,8 @@ from .serializers import (
     # Nuovi Serializer per Template Percorsi e Assegnazioni
     PathwayTemplateSerializer, PathwayQuizTemplateSerializer,
     QuizAssignmentSerializer, PathwayAssignmentSerializer, QuizAssignmentDetailSerializer, PathwayAssignmentDetailSerializer, # Importa nuovi serializer
-    QuizTemplateStatsSerializer, PathwayTemplateStatsSerializer # Importa i serializer per le statistiche
+    QuizTemplateStatsSerializer, PathwayTemplateStatsSerializer, # Importa i serializer per le statistiche
+    # SimpleBadgeSerializer è importato sopra
 )
 from .permissions import (
     IsAdminOrReadOnly, IsQuizTemplateOwnerOrAdmin, IsQuizOwnerOrAdmin, IsPathwayOwnerOrAdmin, # Updated IsPathwayOwner -> IsPathwayOwnerOrAdmin
@@ -500,7 +502,7 @@ class TeacherQuizTemplateViewSet(viewsets.ModelViewSet):
             )
         )
 
-        # Calcola completion rate (evita divisione per zero)
+        # Calcola completion rate (basato sui tentativi)
         total_attempts = stats.get('total_attempts', 0)
         completed_attempts = stats.get('completed_attempts', 0)
         completion_rate = (completed_attempts / total_attempts * 1.0) if total_attempts > 0 else None
@@ -512,6 +514,7 @@ class TeacherQuizTemplateViewSet(viewsets.ModelViewSet):
             'total_instances_created': stats.get('total_instances_created', 0),
             'total_assignments': stats.get('total_assignments', 0),
             'total_attempts': total_attempts,
+            'completed_attempts': completed_attempts,
             'average_score': stats.get('average_score'),
             'completion_rate': completion_rate,
         }
@@ -519,7 +522,8 @@ class TeacherQuizTemplateViewSet(viewsets.ModelViewSet):
         serializer = QuizTemplateStatsSerializer(data)
         return Response(serializer.data)
 
-# --- ViewSets Nidificati per Docenti (Gestione Domande/Opzioni Template Quiz) ---
+
+# --- ViewSet per Docenti (Gestione Questioni/Opzioni Template) ---
 
 class TeacherQuestionTemplateViewSet(viewsets.ModelViewSet): # Aggiunta azione question_ids
     """ API endpoint per le Question Templates gestite da Docenti nel contesto di un loro QuizTemplate. """
@@ -527,245 +531,239 @@ class TeacherQuestionTemplateViewSet(viewsets.ModelViewSet): # Aggiunta azione q
     permission_classes = [permissions.IsAuthenticated, IsTeacherUser] # Solo Docenti
 
     def get_queryset(self):
-        """ Filtra le domande per il template specificato e verifica ownership. """
-        quiz_template = get_object_or_404(QuizTemplate, pk=self.kwargs['quiz_template_pk'])
-        # Verifica che il docente loggato sia il proprietario del template
-        if quiz_template.teacher != self.request.user:
-             raise DRFPermissionDenied("Non hai accesso a questo template di quiz.")
+        """ Filtra per mostrare solo le domande del template specificato e appartenente al docente. """
+        quiz_template_pk = self.kwargs.get('quiz_template_pk')
+        quiz_template = get_object_or_404(QuizTemplate, pk=quiz_template_pk, teacher=self.request.user)
         return QuestionTemplate.objects.filter(quiz_template=quiz_template).order_by('order')
 
     def perform_create(self, serializer):
-        """ Associa la domanda al template corretto e calcola l'ordine. """
-        quiz_template = get_object_or_404(QuizTemplate, pk=self.kwargs['quiz_template_pk'])
-        if quiz_template.teacher != self.request.user:
-             raise DRFPermissionDenied("Non puoi aggiungere domande a questo template di quiz.")
+        """ Associa la domanda al template del docente e gestisce l'ordine. """
+        quiz_template_pk = self.kwargs.get('quiz_template_pk')
+        quiz_template = get_object_or_404(QuizTemplate, pk=quiz_template_pk, teacher=self.request.user)
         # Calcola il prossimo ordine disponibile
-        last_order = QuestionTemplate.objects.filter(quiz_template=quiz_template).aggregate(Max('order'))['order__max']
-        next_order = 0 if last_order is None else last_order + 1 # Ordine 0-based
+        last_order = QuestionTemplate.objects.filter(quiz_template=quiz_template).aggregate(max_order=AggregateMax('order'))['max_order']
+        next_order = 0 if last_order is None else last_order + 1
         serializer.save(quiz_template=quiz_template, order=next_order)
 
     @transaction.atomic
     def perform_destroy(self, instance):
         """ Elimina la domanda template e riordina le successive. """
         quiz_template = instance.quiz_template
-        # Verifica ownership prima di eliminare (doppio controllo)
-        if quiz_template.teacher != self.request.user:
-             raise DRFPermissionDenied("Non puoi eliminare domande da questo template di quiz.")
-
         deleted_order = instance.order
         instance.delete()
-
-        # Riordina le domande template successive
+        # Riordina le domande successive nello stesso template
         questions_to_reorder = QuestionTemplate.objects.filter(
             quiz_template=quiz_template,
             order__gt=deleted_order
         ).order_by('order')
-        updated_count = questions_to_reorder.update(order=F('order') - 1)
-        logger.info(f"Riordinate {updated_count} domande nel template quiz {quiz_template.id} dopo eliminazione ordine {deleted_order}.")
+        for question in questions_to_reorder:
+            question.order -= 1
+            question.save(update_fields=['order'])
 
-    # Modificato: detail=False perché l'azione opera sul template (tramite quiz_template_pk), non su una singola domanda (pk)
+    # Azione per ottenere solo gli ID delle domande in ordine
     @action(detail=False, methods=['get'], url_path='question-ids', permission_classes=[permissions.IsAuthenticated, IsTeacherUser])
     def question_ids(self, request, quiz_template_pk=None): # Rimosso pk non necessario
-        """
-        Restituisce un elenco ordinato degli ID delle domande template
-        per il template quiz specificato (quiz_template_pk).
-        Utile per la navigazione sequenziale nel frontend.
-        """
-        quiz_template = get_object_or_404(QuizTemplate, pk=quiz_template_pk)
-        # Verifica ownership
-        if quiz_template.teacher != self.request.user:
-             raise DRFPermissionDenied("Non hai accesso a questo template di quiz.")
-
-        # Recupera gli ID ordinati
-        ordered_ids = list(QuestionTemplate.objects.filter(quiz_template=quiz_template)
-                                                .order_by('order')
-                                                .values_list('id', flat=True))
-
-        return Response(ordered_ids, status=status.HTTP_200_OK)
+        """ Restituisce un elenco ordinato degli ID delle domande per un dato template del docente. """
+        quiz_template = get_object_or_404(QuizTemplate, pk=quiz_template_pk, teacher=request.user)
+        question_ids = QuestionTemplate.objects.filter(quiz_template=quiz_template).order_by('order').values_list('id', flat=True)
+        return Response(list(question_ids))
 
 
 class TeacherAnswerOptionTemplateViewSet(viewsets.ModelViewSet):
-     """ API endpoint per le Answer Option Templates gestite da Docenti. """
-     serializer_class = AnswerOptionTemplateSerializer
-     permission_classes = [permissions.IsAuthenticated, IsTeacherUser] # Solo Docenti
+    """ API endpoint per le Answer Option Templates gestite da Docenti. """ # Corretta indentazione (4 spazi)
+    serializer_class = AnswerOptionTemplateSerializer
+    permission_classes = [permissions.IsAuthenticated, IsTeacherUser] # Solo Docenti
 
-     def get_queryset(self):
-         """ Filtra le opzioni per la domanda template specificata e verifica ownership. """
-         question_template = get_object_or_404(QuestionTemplate, pk=self.kwargs['question_template_pk'])
-         # Verifica ownership tramite il quiz template padre
-         if question_template.quiz_template.teacher != self.request.user:
-              raise DRFPermissionDenied("Non hai accesso a questa domanda template.")
-         return AnswerOptionTemplate.objects.filter(question_template=question_template).order_by('order')
+    def get_queryset(self): # Corretta indentazione (4 spazi)
+        """ Filtra per le opzioni della domanda specificata, verificando che appartenga al docente. """
+        question_template_pk = self.kwargs.get('question_template_pk')
+        # Verifica che la domanda appartenga a un template del docente
+        question_template = get_object_or_404(
+            QuestionTemplate.objects.select_related('quiz_template'), # Ottimizza query
+            pk=question_template_pk,
+            quiz_template__teacher=self.request.user
+        )
+        return AnswerOptionTemplate.objects.filter(question_template=question_template).order_by('order')
 
-     def perform_create(self, serializer):
-         """ Associa l'opzione alla domanda template corretta e calcola l'ordine. """
-         question_template = get_object_or_404(QuestionTemplate, pk=self.kwargs['question_template_pk'])
-         if question_template.quiz_template.teacher != self.request.user:
-              raise DRFPermissionDenied("Non puoi aggiungere opzioni a questa domanda template.")
-         # Calcola il prossimo ordine disponibile
-         last_order = AnswerOptionTemplate.objects.filter(question_template=question_template).aggregate(Max('order'))['order__max']
-         next_order = 1 if last_order is None else last_order + 1
-         serializer.save(question_template=question_template, order=next_order)
+    def perform_create(self, serializer): # Corretta indentazione (4 spazi)
+        """ Associa l'opzione alla domanda template del docente e gestisce l'ordine. """
+        question_template_pk = self.kwargs.get('question_template_pk')
+        question_template = get_object_or_404(QuestionTemplate, pk=question_template_pk, quiz_template__teacher=self.request.user)
+        # Calcola il prossimo ordine disponibile per questa domanda
+        last_order = AnswerOptionTemplate.objects.filter(question_template=question_template).aggregate(max_order=AggregateMax('order'))['max_order']
+        next_order = 0 if last_order is None else last_order + 1
+        serializer.save(question_template=question_template, order=next_order)
 
-     def perform_destroy(self, instance):
-         """ Elimina l'opzione template. """
-         # Verifica ownership prima di eliminare
-         if instance.question_template.quiz_template.teacher != self.request.user:
-              raise DRFPermissionDenied("Non puoi eliminare opzioni da questa domanda template.")
-         instance.delete()
+    def perform_destroy(self, instance): # Assicura 4 spazi qui
+        """ Elimina l'opzione e riordina le successive per la stessa domanda. """
+        question_template = instance.question_template
+        deleted_order = instance.order
+        instance.delete()
+        # Riordina le opzioni successive per la stessa domanda
+        options_to_reorder = AnswerOptionTemplate.objects.filter( # Assicura 8 spazi qui
+            question_template=question_template,
+            order__gt=deleted_order
+        ).order_by('order')
+        for option in options_to_reorder:
+            option.order -= 1
+            option.save(update_fields=['order'])
 
 
+# --- ViewSet per Docenti (Quiz Concreti) ---
 
-
-
-# --- ViewSets per Docenti (Contenuti Concreti) ---
 class QuizViewSet(viewsets.ModelViewSet):
     """ API endpoint per i Quiz concreti (Docente). """
     serializer_class = QuizSerializer
-    # Modificato: Usiamo permessi più generali a livello di ViewSet.
-    # IsAuthenticated garantisce che l'utente sia loggato.
-    # (IsTeacherUser | IsAdminUser) garantisce che sia un docente o un admin.
-    # La logica di get_queryset e i permessi a livello di oggetto (controllati da DRF per retrieve/update/delete)
-    # gestiranno l'accesso specifico ai dati.
-    # Usiamo IsQuizOwnerOrAdmin per gestire l'accesso a livello di oggetto
-    permission_classes = [permissions.IsAuthenticated, IsQuizOwnerOrAdmin]
+    permission_classes = [permissions.IsAuthenticated, IsTeacherUser] # Solo Docenti
+
+    # Rimosso get_permissions per usare permission_classes standard
 
     def get_queryset(self):
-        """
-        Filtra i quiz: l'admin vede tutto, il docente vede solo i propri.
-        IsQuizOwnerOrAdmin gestirà l'accesso specifico per retrieve/update/delete.
-        """
+        """ Filtra per mostrare solo i quiz creati dal docente loggato. """
         user = self.request.user
-
-        if isinstance(user, User) and user.is_admin:
-            # Admin vede tutto
-            return Quiz.objects.all().select_related('teacher')
-        elif isinstance(user, User) and user.is_teacher: # Manteniamo user.is_teacher se è corretto nel contesto
-            # Docente vede solo i propri quiz
-            # Docente vede solo i propri quiz CHE SONO STATI ASSEGNATI almeno una volta
-            # Usiamo assignments__isnull=False per filtrare e distinct() per evitare duplicati
-            # se un quiz è assegnato a più studenti.
-            return Quiz.objects.filter(
-                teacher=user,
-                assignments__isnull=False # Filtra per quelli con almeno un'assegnazione
-            ).select_related('teacher').distinct()
-        # Altri tipi di utenti (es. Studente) non dovrebbero poter accedere a questa view
-        # a causa dei permessi, ma per sicurezza restituiamo un queryset vuoto.
+        # Assicurati che l'utente sia un docente
+        if isinstance(user, User) and user.is_teacher:
+            # Precarica le domande per ottimizzare (se necessario nel list view)
+            return Quiz.objects.filter(teacher=user).prefetch_related('questions')
         return Quiz.objects.none()
 
     def perform_create(self, serializer):
-        if not isinstance(self.request.user, User) or not self.request.user.is_teacher:
-             raise serializers.ValidationError("Solo i Docenti possono creare quiz.")
-        serializer.save(teacher=self.request.user)
+        """ Associa automaticamente il docente creatore. """
+        # Non è necessario controllare di nuovo il ruolo qui perché IsTeacherUser lo fa già
+        # Imposta available_from/until se forniti, altrimenti potrebbero essere null
+        available_from = serializer.validated_data.get('available_from')
+        available_until = serializer.validated_data.get('available_until')
+        serializer.save(teacher=self.request.user, available_from=available_from, available_until=available_until)
 
     # --- Funzioni Helper per Creazione da Template ---
     def _create_quiz_instance_from_template(self, template: QuizTemplate, teacher: User, title_override: str = None) -> Quiz:
         """
-        Crea una nuova istanza di Quiz (con domande e opzioni) a partire da un QuizTemplate.
+        Crea una nuova istanza di Quiz (con domande e opzioni concrete)
+        a partire da un QuizTemplate.
+        Questa funzione è pensata per essere chiamata internamente da altre azioni (es. assign_student).
         """
         try:
             with transaction.atomic():
+                # 1. Crea l'istanza Quiz
                 new_quiz = Quiz.objects.create(
-                    teacher=teacher,
+                    teacher=teacher, # Il docente che assegna/crea è il proprietario
                     source_template=template,
-                    title=title_override or template.title, # Usa override se fornito
+                    title=title_override or template.title,
                     description=template.description,
-                    # Copia i metadati, ma potremmo volerli modificare/filtrare
                     metadata=template.metadata.copy() if template.metadata else {}
+                    # available_from/until possono essere impostati dopo o durante l'assegnazione
                 )
-                questions_to_create = []
-                options_to_create_map = {} # Mappa: q_template.id -> lista di opzioni da creare
 
-                question_order_counter = 0 # Inizializza contatore ordine a 0 PRIMA del ciclo
-                for q_template in template.question_templates.prefetch_related('answer_option_templates').order_by('order'):
+                # 2. Itera sulle QuestionTemplate del QuizTemplate
+                question_templates = template.question_templates.prefetch_related('answer_option_templates').order_by('order')
+
+                questions_to_create = []
+                options_to_create = []
+                question_map = {} # Mappa temporanea per collegare opzioni a domande appena create
+
+                for qt in question_templates:
+                    # 3. Prepara l'oggetto Question concreto
                     new_question = Question(
                         quiz=new_quiz,
-                        text=q_template.text,
-                        question_type=q_template.question_type,
-                        order=question_order_counter, # Assegna ordine sequenziale 0-based
-                        metadata=q_template.metadata.copy() if q_template.metadata else {}
+                        text=qt.text,
+                        question_type=qt.question_type,
+                        order=qt.order,
+                        metadata=qt.metadata.copy() if qt.metadata else {}
                     )
                     questions_to_create.append(new_question)
-                    question_order_counter += 1 # Incrementa contatore per la prossima domanda
-                    # Prepara le opzioni per il bulk create dopo aver creato le domande
-                    options_to_create_map[q_template.id] = []
-                    for opt_template in q_template.answer_option_templates.order_by('order'):
-                         options_to_create_map[q_template.id].append(
-                             AnswerOption(
-                                 # question sarà impostato dopo la creazione delle domande
-                                 text=opt_template.text,
-                                 is_correct=opt_template.is_correct,
-                                 order=opt_template.order
-                             )
-                         )
+                    # Memorizza riferimento temporaneo per le opzioni
+                    question_map[qt.id] = {'instance': new_question, 'options': list(qt.answer_option_templates.order_by('order'))}
 
-                # Crea le domande in blocco
+                # 4. Crea le Question in blocco
                 created_questions = Question.objects.bulk_create(questions_to_create)
 
-                # Mappa per recuperare le domande create e associare le opzioni
-                created_question_map = {q.order: q for q in created_questions}
-                options_final_list = []
-
-                # Associa le opzioni alle domande appena create
-                for q_template_id, options_list in options_to_create_map.items():
-                    # Trova la domanda corrispondente basandosi sull'ordine (assumendo che l'ordine sia preservato)
-                    # Questo è un punto debole se l'ordine non è garantito o unico durante la creazione.
-                    # Un approccio più robusto potrebbe usare un identificatore temporaneo.
-                    q_template_order = QuestionTemplate.objects.get(id=q_template_id).order # Recupera l'ordine originale
-                    newly_created_question = created_question_map.get(q_template_order)
-
-                    if newly_created_question:
-                        for option in options_list:
-                            option.question = newly_created_question
-                            options_final_list.append(option)
-                    else:
-                         logger.warning(f"Impossibile trovare la domanda creata corrispondente al template Q ID {q_template_id} per il quiz {new_quiz.id}")
+                # Aggiorna la mappa con gli ID reali delle domande create
+                # Ricostruisci la mappa basata sugli oggetti creati per sicurezza
+                final_question_map = {}
+                for created_q in created_questions:
+                     # Trova il template corrispondente (assumendo testo+ordine univoco nel template)
+                     matching_template_id = None
+                     for qt_id, q_map_item in question_map.items():
+                         if q_map_item['instance'].text == created_q.text and q_map_item['instance'].order == created_q.order:
+                             matching_template_id = qt_id
+                             break
+                     if matching_template_id:
+                         final_question_map[matching_template_id] = {'instance': created_q, 'options': question_map[matching_template_id]['options']}
+                     else:
+                          logger.warning(f"Impossibile trovare il template corrispondente per la domanda creata: '{created_q.text}' (Quiz: {new_quiz.id})")
 
 
-                # Crea le opzioni in blocco
-                if options_final_list:
-                    AnswerOption.objects.bulk_create(options_final_list)
+                # 5. Itera sulle AnswerOptionTemplate e prepara le AnswerOption concrete
+                for qt_id, q_map_item in final_question_map.items():
+                    question_instance = q_map_item['instance']
+                    for aot in q_map_item['options']:
+                        options_to_create.append(
+                            AnswerOption(
+                                question=question_instance,
+                                text=aot.text,
+                                is_correct=aot.is_correct,
+                                order=aot.order
+                            )
+                        )
+
+                # 6. Crea le AnswerOption in blocco
+                if options_to_create:
+                    AnswerOption.objects.bulk_create(options_to_create)
 
                 logger.info(f"Creata istanza Quiz ID {new_quiz.id} da Template ID {template.id} per Docente {teacher.id}")
                 return new_quiz
         except Exception as e:
             logger.error(f"Errore atomico durante creazione Quiz da template {template.id}: {e}", exc_info=True)
-            # Rilancia l'eccezione per far fallire la richiesta API esterna
-            raise
+            raise # Rilancia per far fallire la richiesta API esterna
 
 
-    # L'azione create_from_template ora usa l'helper
+    # --- Azioni Specifiche ---
+
     @action(detail=False, methods=['post'], url_path='create-from-template', permission_classes=[permissions.IsAuthenticated, IsTeacherUser])
     def create_from_template(self, request):
+        """
+        Crea una nuova istanza di Quiz a partire da un QuizTemplate esistente.
+        Richiede 'template_id' e opzionalmente 'title_override' nel body.
+        """
         template_id = request.data.get('template_id')
-        title_override = request.data.get('title') # Titolo opzionale per l'istanza
+        title_override = request.data.get('title_override')
 
         if not template_id:
-            return Response({'template_id': 'Questo campo è richiesto.'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'detail': 'template_id è richiesto.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        template = get_object_or_404(QuizTemplate, pk=template_id)
+        try:
+            # Il docente può usare solo i propri template o quelli globali (admin=None)?
+            # Per ora, assumiamo possa usare solo i propri o quelli admin.
+            template = get_object_or_404(
+                QuizTemplate,
+                Q(pk=template_id) & (Q(teacher=request.user) | Q(admin__isnull=False, teacher__isnull=True))
+            )
+        except QuizTemplate.DoesNotExist:
+             return Response({'detail': 'Template non trovato o non accessibile.'}, status=status.HTTP_404_NOT_FOUND)
+        except ValueError:
+             return Response({'detail': 'template_id non valido.'}, status=status.HTTP_400_BAD_REQUEST)
+
 
         try:
             new_quiz = self._create_quiz_instance_from_template(template, request.user, title_override)
             serializer = self.get_serializer(new_quiz)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         except Exception as e:
-            # L'helper ora rilancia l'eccezione
-            logger.error(f"Fallimento creazione Quiz da template {template_id} per utente {request.user.id}: {e}", exc_info=True)
-            return Response({'detail': f'Errore durante la creazione da template: {e}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            # _create_quiz_instance_from_template logga già l'errore
+            return Response({'detail': f'Errore durante la creazione del quiz dal template: {e}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    # --- Azioni Specifiche Docente ---
 
     @action(detail=False, methods=['post'], url_path='upload', permission_classes=[permissions.IsAuthenticated, IsTeacherUser], parser_classes=[parsers.MultiPartParser, parsers.FormParser])
     def upload_quiz(self, request, *args, **kwargs):
         """
-        Permette a un docente di caricare un file (PDF, DOCX, MD) per creare un quiz.
+        Permette a un docente di caricare un file (PDF, DOCX, MD) per creare un Quiz concreto.
         Richiede 'file' e 'title' nei dati della richiesta (form-data).
         """
+        # Usa QuizUploadSerializer definito in serializers.py
         serializer = QuizUploadSerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
             try:
-                # Il metodo create del serializer gestisce l'estrazione, il parsing e la creazione
+                # Il metodo create del serializer gestisce l'estrazione, il parsing e la creazione del quiz
                 quiz_data = serializer.save() # .save() chiama .create()
                 # Restituisce i dati del quiz creato (formattati da QuizSerializer dentro QuizUploadSerializer)
                 return Response(quiz_data, status=status.HTTP_201_CREATED)
@@ -782,64 +780,108 @@ class QuizViewSet(viewsets.ModelViewSet):
             logger.warning(f"Errore di validazione dati upload quiz da utente {request.user.id}: {serializer.errors}")
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    # Modificata per usare QuizAssignmentSerializer e gestire creazione da template
+
     @action(detail=False, methods=['post'], url_path='assign-student', permission_classes=[permissions.IsAuthenticated, IsTeacherUser])
     def assign_student(self, request):
-        """Assegna un Quiz a uno studente, creandolo da un template."""
-        # Usa il serializer specifico per l'azione di assegnazione da template
-        from .serializers import QuizAssignActionSerializer, QuizAssignmentSerializer # Importa entrambi
+        """
+        Assegna un Quiz esistente (o uno creato da template al volo) a uno o più studenti.
+        Input:
+        {
+            "quiz_id": <id_quiz_esistente> (opzionale, alternativo a template_id)
+            "template_id": <id_template> (opzionale, alternativo a quiz_id, crea nuovo quiz)
+            "title_override": "Titolo specifico per questo quiz" (opzionale, usato con template_id)
+            "student_ids": [<id_studente_1>, <id_studente_2>, ...],
+            "due_date": "YYYY-MM-DDTHH:MM:SSZ" (opzionale)
+        }
+        """
+        # Importa i serializer necessari qui per evitare import circolari
+        from .serializers import QuizAssignActionSerializer, QuizAssignmentSerializer
+
         action_serializer = QuizAssignActionSerializer(data=request.data, context={'request': request})
+        if not action_serializer.is_valid():
+            logger.warning(f"Errore validazione QuizAssignActionSerializer da utente {request.user.id}: {action_serializer.errors}")
+            return Response(action_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        if action_serializer.is_valid():
-            quiz_template_id = action_serializer.validated_data.get('quiz_template_id')
-            student = action_serializer.validated_data.get('student')
-            due_date = action_serializer.validated_data.get('due_date')
+        validated_data = action_serializer.validated_data
+        quiz_instance_from_id = validated_data.get('quiz_id') # Oggetto Quiz o None
+        template_object = validated_data.get('quiz_template_id') # Oggetto QuizTemplate o None
+        title_override = validated_data.get('title_override') # Stringa o None
+        students = validated_data.get('students') # Lista di oggetti Student
+        due_date = validated_data.get('due_date')
+        teacher = request.user
 
-            quiz_to_assign = None
-            template = get_object_or_404(QuizTemplate, pk=quiz_template_id)
+        quiz_instance = None
 
-            # Verifica ownership del template (o se è admin)
-            if not request.user.is_admin and template.teacher != request.user and template.admin != request.user:
-                raise DRFPermissionDenied("Non puoi usare questo template di quiz.")
+        # --- Logica per ottenere/creare il Quiz ---
+        if quiz_instance_from_id:
+            # Usa l'istanza del quiz esistente validata dal serializer
+            quiz_instance = quiz_instance_from_id
+            # Il controllo ownership è già stato fatto nel serializer
+            logger.debug(f"Using existing quiz instance ID: {quiz_instance.id}")
 
-            # Crea l'istanza Quiz dal template
+        elif template_object:
+            # Crea un nuovo quiz dal template object validato dal serializer
+            # Il controllo ownership è già stato fatto nel serializer
+            logger.debug(f"Creating new quiz instance from template ID: {template_object.id}")
             try:
-                quiz_to_assign = self._create_quiz_instance_from_template(template, request.user)
+                quiz_instance = self._create_quiz_instance_from_template(template_object, teacher, title_override)
+                logger.debug(f"Successfully created new quiz instance ID: {quiz_instance.id}")
             except Exception as e:
-                logger.error(f"Fallimento creazione Quiz da template {quiz_template_id} durante assegnazione a studente {student.id}: {e}", exc_info=True)
+                logger.error(f"Error creating quiz instance from template {template_object.id}: {e}", exc_info=True)
                 return Response({'detail': f'Errore durante la creazione del quiz dal template: {e}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-            # Verifica se l'assegnazione esiste già
-            existing_assignment = QuizAssignment.objects.filter(quiz=quiz_to_assign, student=student).first()
-            if existing_assignment:
-                # Se esiste già, potremmo aggiornare la due_date o restituire un errore/successo specifico
-                pass # Aggiunto per risolvere IndentationError
-            # Se l'assegnazione non esiste, creala
-            else:
-                assignment_data = {
-                    'quiz': quiz_to_assign.id,
-                    'student': student.id,
-                    'assigned_by': request.user.id,
-                    'due_date': due_date
-                }
-                # Usa QuizAssignmentSerializer per creare l'assegnazione
-                assignment_serializer = QuizAssignmentSerializer(data=assignment_data)
-                if assignment_serializer.is_valid():
-                    assignment = assignment_serializer.save()
-                    logger.info(f"Docente {request.user.id} ha assegnato il quiz {quiz_to_assign.id} (da template {quiz_template_id}) allo studente {student.id}")
-                    return Response(assignment_serializer.data, status=status.HTTP_201_CREATED)
-                else:
-                    logger.error(f"Errore validazione QuizAssignmentSerializer durante assegnazione quiz {quiz_to_assign.id} a studente {student.id}: {assignment_serializer.errors}")
-                    # Se la creazione dell'assegnazione fallisce dopo aver creato il quiz,
-                    # potremmo voler eliminare il quiz appena creato per evitare istanze orfane?
-                    # quiz_to_assign.delete() # Considerare questa opzione
-                    return Response(assignment_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         else:
-             # Se action_serializer non è valido
-             logger.warning(f"Errore validazione QuizAssignActionSerializer da utente {request.user.id}: {action_serializer.errors}")
-             return Response(action_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            # Questo caso non dovrebbe mai essere raggiunto grazie alla validazione del serializer
+            logger.error("assign_student reached 'else' block after serializer validation. This should not happen.")
+            return Response({'detail': 'Errore interno: Specificare quiz_id o template_id.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    # Modificata per accettare DELETE e assignment_pk nell'URL
+        # --- Logica di Assegnazione ---
+        assignments_created = []
+        assignments_failed = []
+        assignments_existing = []
+
+        for student in students:
+            # Verifica se l'assegnazione esiste già
+            existing_assignment = QuizAssignment.objects.filter(quiz=quiz_instance, student=student).first()
+            if existing_assignment:
+                logger.warning(f"Tentativo di riassegnare quiz {quiz_instance.id} a studente {student.id}")
+                assignments_existing.append({'student_id': student.id, 'assignment_id': existing_assignment.id})
+                # Potremmo aggiornare la due_date? Per ora saltiamo.
+                continue
+
+            # Crea l'assegnazione
+            assignment_data = {
+                'quiz': quiz_instance.id,
+                'student': student.id,
+                'assigned_by': teacher.id,
+                'due_date': due_date
+            }
+            assignment_serializer = QuizAssignmentSerializer(data=assignment_data)
+            if assignment_serializer.is_valid():
+                try:
+                    assignment = assignment_serializer.save()
+                    assignments_created.append(assignment_serializer.data)
+                    logger.info(f"Docente {teacher.id} ha assegnato il quiz {quiz_instance.id} allo studente {student.id}")
+                except IntegrityError as e: # Cattura potenziali errori di integrità (es. vincoli DB)
+                     logger.error(f"Errore DB durante creazione assegnazione quiz {quiz_instance.id} a studente {student.id}: {e}")
+                     assignments_failed.append({'student_id': student.id, 'error': str(e)})
+                except Exception as e: # Cattura altri errori imprevisti
+                     logger.error(f"Errore imprevisto durante creazione assegnazione quiz {quiz_instance.id} a studente {student.id}: {e}", exc_info=True)
+                     assignments_failed.append({'student_id': student.id, 'error': 'Errore sconosciuto'})
+            else:
+                logger.error(f"Errore validazione QuizAssignmentSerializer per studente {student.id}: {assignment_serializer.errors}")
+                assignments_failed.append({'student_id': student.id, 'error': assignment_serializer.errors})
+
+        # --- Risposta Riassuntiva ---
+        response_status = status.HTTP_201_CREATED if assignments_created and not assignments_failed else status.HTTP_207_MULTI_STATUS
+        return Response({
+            'quiz_id': quiz_instance.id,
+            'quiz_title': quiz_instance.title,
+            'assignments_created': assignments_created,
+            'assignments_existing': assignments_existing,
+            'assignments_failed': assignments_failed
+        }, status=response_status)
+
+
     @action(detail=False, methods=['delete'], url_path=r'unassign-student/(?P<assignment_pk>\d+)', permission_classes=[IsAdminUser | IsTeacherUser])
     def unassign_student(self, request, assignment_pk=None):
         """
@@ -853,7 +895,6 @@ class QuizViewSet(viewsets.ModelViewSet):
             return Response({'detail': 'Assegnazione non trovata.'}, status=status.HTTP_404_NOT_FOUND)
 
         # Verifica permessi: Admin può sempre, Docente solo se è il proprietario del quiz associato
-        # Nota: IsTeacherUser nei permission_classes dell'action garantisce che sia un docente o admin
         if not request.user.is_staff and assignment.quiz.teacher != request.user:
              raise DRFPermissionDenied("Non puoi disassegnare studenti da questo quiz.")
 
@@ -863,140 +904,249 @@ class QuizViewSet(viewsets.ModelViewSet):
         logger.info(f"Docente/Admin {request.user.id} ha disassegnato lo studente {student_id} (Assignment ID: {assignment_pk}) dal quiz {quiz_id}")
         return Response({'detail': 'Studente disassegnato con successo dal quiz.'}, status=status.HTTP_204_NO_CONTENT)
 
+
     @action(detail=True, methods=['get'], url_path='assignments', permission_classes=[IsAdminUser | IsTeacherUser])
     def get_assignments(self, request, pk=None):
-        """
-        Recupera l'elenco degli studenti a cui è assegnato questo quiz.
-        Gestisce il caso in cui il quiz potrebbe non avere più assegnazioni.
-        """
-        # Recupera il quiz direttamente per evitare il filtro del get_queryset
-        try:
-            quiz = Quiz.objects.select_related('teacher').get(pk=pk)
-        except Quiz.DoesNotExist:
-            return Response({'detail': 'Quiz non trovato.'}, status=status.HTTP_404_NOT_FOUND)
-
-        # Applica manualmente i permessi a livello di oggetto
-        self.check_object_permissions(request, quiz)
-
+        """ Recupera l'elenco degli studenti a cui è assegnato questo quiz. """
+        # Importa il serializer qui per evitare import circolari
+        from .serializers import QuizAssignmentDetailSerializer
+        quiz = self.get_object() # Applica permessi
         assignments = QuizAssignment.objects.filter(quiz=quiz).select_related('student')
 
-        # Calcola quanti hanno completato (con successo)
-        completion_threshold = quiz.metadata.get('completion_threshold', 100)
-        max_score = quiz.get_max_possible_score()
-        required_score = (completion_threshold / 100.0) * max_score if max_score > 0 else 0
+        # Log per debug
+        logger.debug(f"[get_assignments - Quiz] Quiz ID: {quiz.id}, Found assignments queryset: {assignments}")
 
-        completed_count = QuizAttempt.objects.filter(
+        # Calcola statistiche (opzionale, ma utile)
+        # Conta tentativi completati per questo quiz
+        completed_attempts_count = QuizAttempt.objects.filter(
             quiz=quiz,
-            status=QuizAttempt.AttemptStatus.COMPLETED,
-            score__gte=required_score
+            status__in=[QuizAttempt.AttemptStatus.COMPLETED, QuizAttempt.AttemptStatus.FAILED] # Considera sia passati che falliti
         ).values('student').distinct().count()
 
-        logger.debug(f"[get_assignments] Quiz ID: {quiz.id}, Found assignments queryset: {assignments}")
+        # Calcola punteggio medio sui tentativi completati (solo quelli con punteggio)
+        average_score_agg = QuizAttempt.objects.filter(
+            quiz=quiz,
+            status__in=[QuizAttempt.AttemptStatus.COMPLETED, QuizAttempt.AttemptStatus.FAILED],
+            score__isnull=False
+        ).aggregate(average_score=Avg('score'))
+        average_score = average_score_agg.get('average_score')
+
         serializer = QuizAssignmentDetailSerializer(assignments, many=True)
-        logger.debug(f"[get_assignments] Serialized data for assignments: {serializer.data}")
+        logger.debug(f"[get_assignments - Quiz] Serialized data for assignments: {serializer.data}")
+
         data = {
             'assignments': serializer.data,
-            'total_assigned': assignments.count(), # Questo sarà 0 se non ci sono assegnazioni
-            'total_completed': completed_count,
+            'stats': { # Aggiunge statistiche alla risposta
+                 'assigned_count': assignments.count(),
+                 'completed_attempts_count': completed_attempts_count,
+                 'average_score': round(average_score, 2) if average_score is not None else None,
+            }
         }
-        # Restituisce 200 OK anche se 'assignments' è vuoto
         return Response(data)
 
 
+    # Azione per rimuovere un Quiz da un Pathway (agisce sul modello PathwayQuiz)
     @action(detail=True, methods=['delete'], url_path='remove-quiz/(?P<pathway_quiz_pk>[^/.]+)', permission_classes=[permissions.IsAuthenticated, IsPathwayOwnerOrAdmin])
     def remove_quiz(self, request, pk=None, pathway_quiz_pk=None):
-        """ Rimuove un Quiz da un Percorso e riordina quelli successivi. """
-        pathway = self.get_object() # Verifica permesso sul percorso
+        """
+        Rimuove questo Quiz da un Percorso specifico.
+        Richiede l'ID della relazione PathwayQuiz nell'URL.
+        Verifica che l'utente sia il proprietario del Percorso.
+        """
+        quiz = self.get_object() # Quiz su cui si agisce (pk)
 
         try:
+            # Trova la relazione specifica Pathway-Quiz
             pathway_quiz_entry = get_object_or_404(
-                PathwayQuiz,
+                PathwayQuiz.objects.select_related('pathway'), # Precarica il percorso per controllo permessi
                 pk=pathway_quiz_pk,
-                pathway=pathway # Assicura che l'entry appartenga al percorso corretto
+                quiz=quiz # Assicura che sia la relazione per questo quiz
             )
+        except (ValueError, TypeError):
+             return Response({'detail': 'ID relazione Pathway-Quiz non valido.'}, status=status.HTTP_400_BAD_REQUEST)
+        except PathwayQuiz.DoesNotExist: # Già gestito da get_object_or_404 ma esplicito
+             return Response({'detail': 'Relazione Pathway-Quiz non trovata.'}, status=status.HTTP_404_NOT_FOUND)
 
-            deleted_order = pathway_quiz_entry.order
-            quiz_title = pathway_quiz_entry.quiz.title
-            pathway_quiz_entry.delete()
 
-            # Riordina i quiz successivi nello stesso percorso
-            quizzes_to_reorder = PathwayQuiz.objects.filter(
-                pathway=pathway,
-                order__gt=deleted_order
-            ).order_by('order')
+        pathway = pathway_quiz_entry.pathway
 
+        # Verifica permessi sul Percorso
+        if not request.user.is_staff and pathway.teacher != request.user:
+             raise DRFPermissionDenied("Non puoi modificare questo percorso.")
+
+        deleted_order = pathway_quiz_entry.order
+        pathway_quiz_entry.delete()
+
+        # Riordina i quiz successivi nello stesso percorso
+        quizzes_to_reorder = PathwayQuiz.objects.filter(
+            pathway=pathway,
+            order__gt=deleted_order
+        ).order_by('order')
+        for pq in quizzes_to_reorder:
+            pq.order -= 1
+            pq.save(update_fields=['order'])
+
+        logger.info(f"Quiz {quiz.id} rimosso dal Percorso {pathway.id} (Relazione ID: {pathway_quiz_pk}) da utente {request.user.id}")
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    # --- Azione per Studente: Iniziare un Tentativo ---
+    # Spostato da StudentQuizAttemptViewSet
+    @action(detail=True, methods=['post'], url_path='start-attempt', permission_classes=[permissions.IsAuthenticated, IsStudentAuthenticated]) # Aggiunto permesso IsStudentAuthenticated
+    def start_attempt(self, request, pk=None): # pk è l'ID del Quiz
+        """
+        Permette a uno studente autenticato di iniziare un nuovo tentativo per un quiz specifico.
+        Verifica che lo studente sia assegnato al quiz (direttamente o tramite percorso).
+        Verifica che non ci siano tentativi in corso per lo stesso quiz.
+        Verifica eventuali limiti di tentativi (se implementati).
+        """
+        student = request.user # Ora request.user è l'istanza Student
+        quiz_pk = pk # L'ID del quiz è ora nel pk dell'URL
+
+        try:
+            quiz = Quiz.objects.get(pk=quiz_pk)
+        except Quiz.DoesNotExist:
+            return Response({'detail': 'Quiz non trovato.'}, status=status.HTTP_404_NOT_FOUND)
+
+        # 1. Verifica Assegnazione (Diretta o Tramite Percorso)
+        is_assigned_directly = QuizAssignment.objects.filter(
+            quiz=quiz,
+            student=student
+        ).exists()
+
+        is_in_assigned_pathway = Pathway.objects.filter(
+            assignments__student=student, # Assegnato allo studente
+            quizzes=quiz # Contiene questo quiz
+        ).exists()
+
+        if not is_assigned_directly and not is_in_assigned_pathway:
+             logger.warning(f"Tentativo non autorizzato di iniziare quiz {quiz_pk} da studente {student.id} (non assegnato).")
+             return Response({'detail': 'Non sei assegnato a questo quiz.'}, status=status.HTTP_403_FORBIDDEN)
+
+        # 2. Verifica Date Disponibilità Quiz (se impostate)
+        now = timezone.now()
+        if quiz.available_from and now < quiz.available_from:
+            return Response({'detail': f'Questo quiz non è ancora disponibile. Sarà disponibile dal {quiz.available_from.strftime("%d/%m/%Y %H:%M")}.'}, status=status.HTTP_403_FORBIDDEN)
+        if quiz.available_until and now > quiz.available_until:
+            return Response({'detail': f'Questo quiz non è più disponibile. La data limite era il {quiz.available_until.strftime("%d/%m/%Y %H:%M")}.'}, status=status.HTTP_403_FORBIDDEN)
+
+
+        # 3. Verifica Tentativi Esistenti
+        in_progress_attempt = QuizAttempt.objects.filter(
+            quiz=quiz,
+            student=student,
+            status__in=[QuizAttempt.AttemptStatus.IN_PROGRESS, QuizAttempt.AttemptStatus.PENDING_GRADING]
+        ).first()
+
+        if in_progress_attempt:
+            logger.info(f"Studente {student.id} ha tentato di iniziare quiz {quiz_pk} ma ha già un tentativo {in_progress_attempt.status} (ID: {in_progress_attempt.id}).")
+            # Usa il serializer corretto per la risposta (QuizAttemptSerializer o uno specifico)
+            # Assumiamo che QuizAttemptSerializer sia definito e importato
+            from .serializers import QuizAttemptSerializer # Importa qui se non già fatto globalmente
+            serializer = QuizAttemptSerializer(in_progress_attempt, context={'request': request})
+            return Response(serializer.data, status=status.HTTP_200_OK) # Restituisce il tentativo esistente
+
+        # 4. Verifica Limite Tentativi
+        max_attempts = quiz.metadata.get('max_attempts')
+        if max_attempts is not None:
+             try:
+                 max_attempts = int(max_attempts)
+                 completed_attempts_count = QuizAttempt.objects.filter(
+                     quiz=quiz,
+                     student=student,
+                     status__in=[QuizAttempt.AttemptStatus.COMPLETED, QuizAttempt.AttemptStatus.FAILED]
+                 ).count()
+                 if completed_attempts_count >= max_attempts:
+                     logger.warning(f"Studente {student.id} ha raggiunto il limite di {max_attempts} tentativi per quiz {quiz_pk}.")
+                     return Response({'detail': f'Hai raggiunto il numero massimo di tentativi ({max_attempts}) per questo quiz.'}, status=status.HTTP_403_FORBIDDEN)
+             except (ValueError, TypeError):
+                  logger.error(f"Valore non valido per 'max_attempts' nei metadati del quiz {quiz_pk}: {quiz.metadata.get('max_attempts')}")
+
+
+        # 5. Crea Nuovo Tentativo
+        try:
             with transaction.atomic():
-                for i, entry in enumerate(quizzes_to_reorder):
-                    entry.order = deleted_order + i # Ricalcola ordine sequenziale
-                    entry.save(update_fields=['order'])
+                blocking_attempt = QuizAttempt.objects.select_for_update().filter(
+                    quiz=quiz,
+                    student=student,
+                    status__in=[QuizAttempt.AttemptStatus.IN_PROGRESS, QuizAttempt.AttemptStatus.PENDING_GRADING]
+                ).first()
+                if blocking_attempt:
+                     logger.warning(f"Race condition rilevata: Studente {student.id} ha già un tentativo {blocking_attempt.status} (ID: {blocking_attempt.id}) per quiz {quiz_pk}.")
+                     from .serializers import QuizAttemptSerializer # Importa qui se non già fatto globalmente
+                     serializer = QuizAttemptSerializer(blocking_attempt, context={'request': request})
+                     return Response(serializer.data, status=status.HTTP_409_CONFLICT)
 
-            logger.info(f"Rimosso quiz '{quiz_title}' dal percorso {pathway.id} e riordinati {quizzes_to_reorder.count()} quiz successivi.")
-            return Response(status=status.HTTP_204_NO_CONTENT)
-        except Http404:
-            return Response({'detail': 'Quiz non trovato in questo percorso.'}, status=status.HTTP_404_NOT_FOUND)
+                new_attempt = QuizAttempt.objects.create(
+                    student=student,
+                    quiz=quiz,
+                    status=QuizAttempt.AttemptStatus.IN_PROGRESS
+                )
+                logger.info(f"Studente {student.id} ha iniziato un nuovo tentativo {new_attempt.id} per il quiz {quiz_pk}")
+                from .serializers import QuizAttemptSerializer # Importa qui se non già fatto globalmente
+                serializer = QuizAttemptSerializer(new_attempt, context={'request': request})
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
         except Exception as e:
-             logger.error(f"Errore durante rimozione quiz {pathway_quiz_pk} da percorso {pk}: {e}", exc_info=True)
-             return Response({'detail': 'Errore interno durante la rimozione del quiz.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+             logger.error(f"Errore durante la creazione del tentativo per quiz {quiz_pk} da studente {student.id}: {e}", exc_info=True)
+             return Response({'detail': 'Errore interno durante la creazione del tentativo.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-# --- ViewSets per Studenti ---
+# --- ViewSet per Dashboard Studente ---
 
 class StudentDashboardViewSet(viewsets.ViewSet):
      """ Endpoint per lo studente per vedere cosa gli è stato assegnato. """
-     permission_classes = [permissions.IsAuthenticated, IsStudentAuthenticated] # Usa il permesso specifico
+     permission_classes = [permissions.IsAuthenticated, IsStudentAuthenticated] # Solo studenti autenticati
 
      def list(self, request):
          student = request.user # Ora request.user è l'istanza Student grazie al middleware/auth backend
+         if not isinstance(student, Student):
+              logger.error(f"Errore: request.user non è un'istanza Student nella StudentDashboardViewSet per user ID {request.user.id}")
+              return Response({"detail": "Errore interno: impossibile identificare lo studente."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-         # Recupera Quiz assegnati non ancora completati o falliti (se possono essere ritentati)
-         assigned_quizzes = QuizAssignment.objects.filter(
-             student=student
-         ).select_related('quiz', 'quiz__teacher')\
-          .exclude(quiz__attempts__student=student, quiz__attempts__status__in=[QuizAttempt.AttemptStatus.COMPLETED, QuizAttempt.AttemptStatus.FAILED]) # Escludi se c'è un tentativo COMPLETED o FAILED
-          # TODO: Aggiungere logica per tentativi multipli se implementata
+         # Recupera ID dei Quiz assegnati direttamente
+         assigned_quiz_ids = QuizAssignment.objects.filter(
+             student=student,
+             # Filtra per date se necessario (es. quiz non ancora disponibili o scaduti?)
+             # quiz__available_from__lte=timezone.now(),
+             # quiz__available_until__gte=timezone.now(), # O gestisci null
+         ).values_list('quiz_id', flat=True)
 
-         # Recupera Percorsi assegnati non ancora completati
-         assigned_pathways = PathwayAssignment.objects.filter(
-             student=student
-         ).select_related('pathway', 'pathway__teacher')\
-          .exclude(pathway__progresses__student=student, pathway__progresses__status=PathwayProgress.ProgressStatus.COMPLETED)
+         # Recupera ID dei Percorsi assegnati
+         assigned_pathway_ids = PathwayAssignment.objects.filter(
+             student=student,
+             # Filtra per date se necessario
+         ).values_list('pathway_id', flat=True)
 
-         # Annotazione per l'ultimo tentativo/progresso (potrebbe essere ottimizzata)
-         # Nota: Questa logica è complessa e potrebbe essere spostata in manager custom o servizi
-         latest_quiz_attempt = QuizAttempt.objects.filter(
-             quiz=OuterRef('quiz_id'), student=student
-         ).order_by('-start_time')
-         assigned_quizzes = assigned_quizzes.annotate(
-             latest_attempt_data=Subquery(latest_quiz_attempt.values('pk')[:1]) # Subquery per ID ultimo tentativo
+         # Recupera ID dei Quiz contenuti nei percorsi assegnati
+         quiz_ids_in_assigned_pathways = PathwayQuiz.objects.filter(
+             pathway_id__in=assigned_pathway_ids
+         ).values_list('quiz_id', flat=True)
+
+         # Combina tutti gli ID dei quiz rilevanti (diretti + da percorsi)
+         unique_quiz_ids = set(assigned_quiz_ids) | set(quiz_ids_in_assigned_pathways)
+
+         # Recupera gli oggetti Quiz e Pathway
+         # Ottimizza precaricando i tentativi/progressi per lo studente corrente
+         student_attempts_prefetch = Prefetch(
+             'attempts',
+             queryset=QuizAttempt.objects.filter(student=student).order_by('-started_at'),
+             to_attr='student_attempts_for_dashboard' # Nome attributo per evitare conflitti
          )
-         # Recupera gli oggetti QuizAttempt effettivi basati sugli ID
-         latest_attempt_ids = [a.latest_attempt_data for a in assigned_quizzes if a.latest_attempt_data]
-         latest_attempts_dict = {a.id: a for a in QuizAttempt.objects.filter(pk__in=latest_attempt_ids)}
-
-         latest_pathway_progress = PathwayProgress.objects.filter(
-             pathway=OuterRef('pathway_id'), student=student
-         ).order_by('-start_time')
-         assigned_pathways = assigned_pathways.annotate(
-             latest_progress_data=Subquery(latest_pathway_progress.values('pk')[:1])
+         quizzes = Quiz.objects.filter(id__in=unique_quiz_ids).select_related('teacher').prefetch_related(
+             student_attempts_prefetch
          )
-         latest_progress_ids = [p.latest_progress_data for p in assigned_pathways if p.latest_progress_data]
-         latest_progress_dict = {p.id: p for p in PathwayProgress.objects.filter(pk__in=latest_progress_ids)}
 
-
-         # Serializza i dati passando l'ultimo tentativo/progresso nel contesto o direttamente
-         # Questo approccio con subquery e recupero separato è un po' macchinoso.
-         # Un approccio alternativo è usare SerializerMethodField nei serializer Dashboard.
-
-         quiz_serializer = StudentQuizDashboardSerializer(
-             [a.quiz for a in assigned_quizzes], # Passa gli oggetti Quiz
-             many=True,
-             context={'request': request, 'latest_attempts': latest_attempts_dict} # Passa i tentativi nel contesto
+         student_progress_prefetch = Prefetch(
+             'progresses',
+             queryset=PathwayProgress.objects.filter(student=student).order_by('-updated_at'),
+             to_attr='student_progress_for_dashboard'
          )
-         pathway_serializer = StudentPathwayDashboardSerializer(
-             [p.pathway for p in assigned_pathways], # Passa gli oggetti Pathway
-             many=True,
-             context={'request': request, 'latest_progress': latest_progress_dict} # Passa i progressi nel contesto
+         pathways = Pathway.objects.filter(id__in=assigned_pathway_ids).select_related('teacher').prefetch_related(
+             student_progress_prefetch
          )
+
+         # Serializza i dati per la risposta
+         quiz_serializer = StudentQuizDashboardSerializer(quizzes, many=True, context={'request': request})
+         pathway_serializer = StudentPathwayDashboardSerializer(pathways, many=True, context={'request': request})
 
          return Response({
              'assigned_quizzes': quiz_serializer.data,
@@ -1004,318 +1154,403 @@ class StudentDashboardViewSet(viewsets.ViewSet):
          })
 
 
-class StudentQuizAttemptViewSet(viewsets.GenericViewSet):
-    """ Gestisce l'inizio di un Quiz da parte dello Studente (spostato da QuizViewSet). """
-    permission_classes = [permissions.IsAuthenticated, IsStudentAuthenticated]
-    serializer_class = QuizAttemptSerializer # Serializer di default
-
-    # Azione per iniziare un nuovo tentativo
-    @action(detail=False, methods=['post'], url_path='start-attempt') # Impostato detail=False, agisce sulla collezione per un quiz
-    def start_attempt(self, request, pk=None): # pk ora è quiz_pk
-         quiz = get_object_or_404(Quiz, pk=pk)
-         student = request.user # Assicurato da IsStudentAuthenticated
-
-         # 1. Verifica Assegnazione (Quiz singolo o tramite Percorso)
-         is_assigned_directly = QuizAssignment.objects.filter(quiz=quiz, student=student).exists()
-         # Verifica se il quiz fa parte di un percorso assegnato allo studente
-         is_in_assigned_pathway = Pathway.objects.filter(
-             pathwayquiz__quiz=quiz, # Il quiz è in un PathwayQuiz...
-             assignments__student=student # ...e quel Pathway è assegnato allo studente
-         ).exists()
-
-         if not is_assigned_directly and not is_in_assigned_pathway:
-              logger.warning(f"Studente {student.id} ha tentato di iniziare il quiz {quiz.id} non assegnato.")
-              raise DRFPermissionDenied("Non sei autorizzato a iniziare questo quiz.")
-
-         # 2. Verifica Disponibilità Temporale (se impostata)
-         now = timezone.now()
-         if quiz.available_from and now < quiz.available_from:
-             raise ValidationError("Questo quiz non è ancora disponibile.")
-         if quiz.available_until and now > quiz.available_until:
-             raise ValidationError("Questo quiz non è più disponibile.")
-
-         # 3. Verifica Tentativi Precedenti (Logica tentativi multipli non implementata)
-         existing_attempt = QuizAttempt.objects.filter(
-             quiz=quiz,
-             student=student,
-             status__in=[QuizAttempt.AttemptStatus.IN_PROGRESS, QuizAttempt.AttemptStatus.COMPLETED, QuizAttempt.AttemptStatus.FAILED]
-         ).first()
-         if existing_attempt:
-              # Se esiste già un tentativo (in corso, completato o fallito), non permettere di iniziarne un altro
-              # TODO: Gestire logica tentativi multipli se necessaria
-              logger.warning(f"Studente {student.id} ha tentato di iniziare nuovamente il quiz {quiz.id} (tentativo esistente: {existing_attempt.id})")
-              return Response({'detail': 'Hai già iniziato o completato questo quiz.'}, status=status.HTTP_400_BAD_REQUEST)
-
-         # 4. Crea il nuovo tentativo
-         try:
-             with transaction.atomic(): # Assicura atomicità
-                 attempt = QuizAttempt.objects.create(quiz=quiz, student=student)
-                 # Crea StudentAnswer vuoti per ogni domanda (opzionale, ma utile per tracciare)
-                 # questions = quiz.questions.all()
-                 # StudentAnswer.objects.bulk_create([
-                 #     StudentAnswer(quiz_attempt=attempt, question=q) for q in questions
-                 # ])
-                 logger.info(f"Studente {student.id} ha iniziato il tentativo {attempt.id} per il quiz {quiz.id}")
-                 serializer = self.get_serializer(attempt)
-                 return Response(serializer.data, status=status.HTTP_201_CREATED)
-         except Exception as e:
-              logger.error(f"Errore durante la creazione del tentativo per quiz {quiz.id}, studente {student.id}: {e}", exc_info=True)
-              return Response({'detail': 'Errore interno durante l\'inizio del tentativo.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
+# --- ViewSet per Azioni Studente su Tentativo Specifico ---
 
 class AttemptViewSet(viewsets.GenericViewSet):
+
+        # 1. Verifica Assegnazione (Diretta o Tramite Percorso)
+        is_assigned_directly = QuizAssignment.objects.filter(
+            quiz=quiz,
+            student=student
+        ).exists()
+
+        is_in_assigned_pathway = Pathway.objects.filter(
+            assignments__student=student, # Assegnato allo studente
+            quizzes=quiz # Contiene questo quiz
+        ).exists()
+
+        # 2. Verifica Date Disponibilità Quiz (se impostate)
+        now = timezone.now()
+# --- ViewSet per Azioni Studente su Tentativo Specifico ---
+
+class AttemptViewSet(viewsets.GenericViewSet):
+    pass # Aggiunto pass per risolvere IndentationError (può essere rimosso ora)
     """ Gestisce le azioni su un tentativo di quiz specifico (submit, complete). """
     queryset = QuizAttempt.objects.all()
+    serializer_class = QuizAttemptSerializer # Serializer di base
     permission_classes = [permissions.IsAuthenticated, IsStudentOwnerForAttempt] # Solo lo studente proprietario
 
+    # Override per usare serializer diversi in base all'azione
     def get_serializer_class(self):
-        if self.action == 'details':
-            return QuizAttemptDetailSerializer
-        # Altre azioni potrebbero usare serializer specifici o nessuno
-        return QuizAttemptSerializer # Default
+        if self.action == 'submit_answer':
+            return StudentAnswerSerializer
+        elif self.action == 'details': # Aggiunta azione details
+             return QuizAttemptDetailSerializer
+        # Aggiungere altri casi se necessario
+        return super().get_serializer_class()
 
     @action(detail=True, methods=['get'])
     def details(self, request, pk=None):
-        """ Restituisce i dettagli completi di un tentativo, incluse le risposte. """
-        attempt = self.get_object() # Applica IsStudentOwnerForAttempt
-        serializer = self.get_serializer(attempt)
+        """ Restituisce i dettagli completi di un tentativo. """
+        attempt = self.get_object() # Applica permessi
+        serializer = self.get_serializer(attempt) # Usa QuizAttemptDetailSerializer
         return Response(serializer.data)
 
     @action(detail=True, methods=['get'], url_path='current-question')
     def current_question(self, request, pk=None):
         """ Restituisce la prossima domanda non risposta per il tentativo specificato. """
-        attempt = self.get_object()
-        if attempt.status != QuizAttempt.AttemptStatus.IN_PROGRESS:
-            return Response({'detail': 'Questo tentativo non è in corso.'}, status=status.HTTP_400_BAD_REQUEST)
+        attempt = self.get_object() # Applica permessi
 
-        answered_question_ids = StudentAnswer.objects.filter(quiz_attempt=attempt).values_list('question_id', flat=True)
+        if attempt.status != QuizAttempt.AttemptStatus.IN_PROGRESS:
+            return Response({'detail': 'Questo tentativo non è più in corso.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Trova l'ordine massimo tra le risposte già date per questo tentativo
+        last_answered_order = attempt.student_answers.aggregate(max_order=AggregateMax('question__order'))['max_order']
+        next_order = 0 if last_answered_order is None else last_answered_order + 1
+
+        # Trova la prossima domanda nel quiz con quell'ordine
         next_question = Question.objects.filter(
-            quiz=attempt.quiz
-        ).exclude(
-            id__in=answered_question_ids
-        ).order_by('order').first()
+            quiz=attempt.quiz,
+            order=next_order
+        ).prefetch_related('answer_options').first() # Precarica le opzioni
 
         if next_question:
-            # Serializza la domanda (senza la risposta corretta)
-            serializer = QuestionSerializer(next_question, context={'request': request})
-            # Rimuovi 'is_correct' dalle opzioni prima di inviare
-            data = serializer.data
-            if 'answer_options' in data:
-                 for option in data['answer_options']:
-                     option.pop('is_correct', None)
-            return Response(data)
+            serializer = QuestionSerializer(next_question)
+            return Response(serializer.data)
         else:
-            # Nessuna domanda successiva, il quiz dovrebbe essere completato
-            return Response({'detail': 'Tutte le domande sono state risposte.'}, status=status.HTTP_200_OK)
+            # Non ci sono più domande
+            logger.info(f"[current_question] Nessuna domanda successiva trovata per tentativo {pk}. Restituzione 404.")
+            return Response({'detail': 'Tutte le domande sono state risposte.'}, status=status.HTTP_404_NOT_FOUND)
 
 
     @action(detail=True, methods=['post'], url_path='submit-answer')
     def submit_answer(self, request, pk=None):
         """
-        Invia la risposta dello studente per una specifica domanda del tentativo.
-        Calcola subito il punteggio se la domanda è a correzione automatica.
+        Permette allo studente di inviare una risposta per una domanda specifica
+        all'interno di un tentativo in corso.
+        Input:
+        {
+            "question_id": <id_domanda>,
+            "selected_answers": { ... dati specifici per tipo domanda ... }
+            // Esempio MC_SINGLE: { "answer_option_id": <id_opzione_scelta> }
+            // Esempio MC_MULTI: { "answer_option_ids": [<id1>, <id2>, ...] }
+            // Esempio TF: { "is_true": true/false }
+            // Esempio FILL_BLANK: { "answers": ["risposta1", "risposta2"] }
+            // Esempio OPEN_MANUAL: { "answer_text": "Testo della risposta aperta" }
+        }
         """
-        attempt = self.get_object()
+        attempt = self.get_object() # Applica permessi (IsStudentOwnerForAttempt)
+        logger.debug(f"[SubmitAnswer Attempt {pk}] Received raw data: {request.data}")
+
+
         if attempt.status != QuizAttempt.AttemptStatus.IN_PROGRESS:
-            return Response({'detail': 'Questo tentativo non è in corso.'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'detail': 'Questo tentativo non è più in corso.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        serializer = StudentAnswerSerializer(data=request.data, context={'request': request})
-        if serializer.is_valid():
-            question_id = serializer.validated_data['question'].id
-            question = get_object_or_404(Question, pk=question_id, quiz=attempt.quiz) # Assicura che la domanda sia del quiz giusto
+        # Validazione dati input base
+        question_id = request.data.get('question_id')
+        selected_answers_data = request.data.get('selected_answers')
 
-            # Verifica se è già stata data una risposta per questa domanda nel tentativo
-            if StudentAnswer.objects.filter(quiz_attempt=attempt, question=question).exists():
-                return Response({'detail': 'Hai già risposto a questa domanda.'}, status=status.HTTP_400_BAD_REQUEST)
+        if question_id is None or selected_answers_data is None:
+            return Response({'detail': 'question_id e selected_answers sono richiesti.'}, status=status.HTTP_400_BAD_REQUEST)
 
-            student_answer: StudentAnswer = serializer.save(quiz_attempt=attempt)
+        # Trova la domanda e verifica che appartenga al quiz del tentativo
+        try:
+            question = Question.objects.prefetch_related('answer_options').get(pk=question_id, quiz=attempt.quiz)
+            logger.debug(f"[SubmitAnswer Attempt {pk}] Found Question ID: {question.id}, Type: {question.question_type}")
+        except Question.DoesNotExist:
+            return Response({'detail': 'Domanda non trovata o non appartenente a questo quiz.'}, status=status.HTTP_404_NOT_FOUND)
+        except (ValueError, TypeError):
+             return Response({'detail': 'question_id non valido.'}, status=status.HTTP_400_BAD_REQUEST)
 
-            # Calcola punteggio e correttezza per tipi auto-correggibili
-            points_awarded = 0
-            is_correct = None # Null per manuale, True/False per automatico
 
+        # Verifica se è la domanda corretta da rispondere (opzionale ma consigliato)
+        last_answered_order = attempt.student_answers.aggregate(max_order=AggregateMax('question__order'))['max_order']
+        expected_order = 0 if last_answered_order is None else last_answered_order + 1
+        if question.order != expected_order:
+             logger.warning(f"[SubmitAnswer Attempt {pk}] Tentativo di rispondere a domanda {question_id} (ordine {question.order}) fuori sequenza. Atteso ordine {expected_order}.")
+             # Potremmo restituire un errore o semplicemente ignorare e procedere?
+             # Per ora, restituiamo un errore per forzare la sequenza.
+             return Response({'detail': f'Stai tentando di rispondere alla domanda {question.order} ma dovresti rispondere alla {expected_order}.'}, status=status.HTTP_400_BAD_REQUEST)
+
+
+        # Validazione specifica per tipo di domanda e creazione/aggiornamento StudentAnswer
+        serializer = self.get_serializer(data={
+            'quiz_attempt': attempt.id,
+            'question': question.id,
+            'selected_answers': selected_answers_data
+        })
+
+        if not serializer.is_valid():
+            logger.warning(f"[SubmitAnswer Attempt {pk}] Serializer validation failed: {serializer.errors}")
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        logger.debug(f"[SubmitAnswer Attempt {pk}] Serializer validation for selected_answers successful.")
+
+        # --- Logica di Correzione e Calcolo Punteggio ---
+        # Questa logica potrebbe essere spostata nel metodo save() di StudentAnswer
+        # o rimanere qui per ora.
+        is_correct = None
+        score = 0.0
+        validated_data = serializer.validated_data # Dati validati dal serializer
+
+        try:
             if question.question_type in [QuestionType.MULTIPLE_CHOICE_SINGLE, QuestionType.TRUE_FALSE]:
+                logger.debug(f"[SubmitAnswer Attempt {pk}] Handling MC_SINGLE/TF")
                 correct_option = question.answer_options.filter(is_correct=True).first()
-                selected_option_id = serializer.validated_data.get('selected_options', [None])[0] # Prende il primo ID
-                is_correct = (correct_option is not None and selected_option_id == correct_option.id)
-                if is_correct:
-                    points_awarded = question.metadata.get('points', 1) # Default a 1 punto
+                selected_option_id = validated_data['selected_answers'].get('answer_option_id')
+                logger.debug(f"[SubmitAnswer Attempt {pk}] Correct Option ID: {correct_option.id if correct_option else 'None'}, Selected Option ID: {selected_option_id}")
+                if correct_option and selected_option_id == correct_option.id:
+                    is_correct = True
+                    score = float(question.metadata.get('points_per_correct_answer', 1.0))
+                else:
+                    is_correct = False
+                    score = 0.0
 
             elif question.question_type == QuestionType.MULTIPLE_CHOICE_MULTIPLE:
-                correct_option_ids = set(question.answer_options.filter(is_correct=True).values_list('id', flat=True))
-                selected_option_ids = set(serializer.validated_data.get('selected_options', []))
-                is_correct = (correct_option_ids == selected_option_ids) # Devono corrispondere esattamente
-                if is_correct:
-                    points_awarded = question.metadata.get('points', 1)
+                 logger.debug(f"[SubmitAnswer Attempt {pk}] Handling MC_MULTI")
+                 correct_option_ids = set(question.answer_options.filter(is_correct=True).values_list('id', flat=True))
+                 selected_option_ids = set(validated_data['selected_answers'].get('answer_option_ids', []))
+                 logger.debug(f"[SubmitAnswer Attempt {pk}] Correct Option IDs: {correct_option_ids}, Selected Option IDs: {selected_option_ids}")
+                 if selected_option_ids == correct_option_ids:
+                     is_correct = True
+                     score = float(question.metadata.get('points_per_correct_answer', 1.0))
+                 else:
+                     is_correct = False
+                     score = 0.0 # O calcolare punteggio parziale? Per ora tutto o niente.
 
             elif question.question_type == QuestionType.FILL_BLANK:
-                correct_answers = [ans.strip().lower() for ans in question.metadata.get('correct_answers', []) if ans]
-                submitted_answer = serializer.validated_data.get('answer_text', '').strip().lower()
-                is_correct = submitted_answer in correct_answers
-                if is_correct:
-                    points_awarded = question.metadata.get('points', 1)
+                 logger.debug(f"[SubmitAnswer Attempt {pk}] Handling FILL_BLANK")
+                 correct_answers_list = question.metadata.get('correct_answers', [])
+                 case_sensitive = question.metadata.get('case_sensitive', False)
+                 student_answers_list = validated_data['selected_answers'].get('answers', [])
+                 points_per_blank = float(question.metadata.get('points_per_blank', 1.0))
+                 correct_count = 0
+
+                 logger.debug(f"[SubmitAnswer Attempt {pk}] Correct Answers: {correct_answers_list}, Case Sensitive: {case_sensitive}, Student Answers: {student_answers_list}")
+
+                 # Assicura che ci sia lo stesso numero di risposte fornite e attese
+                 if len(student_answers_list) == len(correct_answers_list):
+                     all_correct = True
+                     for i, correct_ans_options in enumerate(correct_answers_list):
+                         student_ans = student_answers_list[i]
+                         # correct_ans_options può essere una stringa o una lista di stringhe accettabili
+                         is_blank_correct = False
+                         possible_correct = [correct_ans_options] if isinstance(correct_ans_options, str) else correct_ans_options
+                         for possible in possible_correct:
+                             if case_sensitive:
+                                 if student_ans == possible:
+                                     is_blank_correct = True
+                                     break
+                             else:
+                                 if student_ans.lower() == possible.lower():
+                                     is_blank_correct = True
+                                     break
+                         if is_blank_correct:
+                             correct_count += 1
+                         else:
+                             all_correct = False
+                     is_correct = all_correct # True solo se tutti i blank sono corretti
+                     score = correct_count * points_per_blank # Punteggio basato sui blank corretti
+                 else:
+                      logger.warning(f"[SubmitAnswer Attempt {pk}] Numero di risposte FILL_BLANK ({len(student_answers_list)}) non corrisponde al numero atteso ({len(correct_answers_list)}).")
+                      is_correct = False
+                      score = 0.0
+
 
             elif question.question_type == QuestionType.OPEN_ANSWER_MANUAL:
-                # Lascia is_correct=None e points_awarded=0, verranno impostati dal docente
-                is_correct = None
-                points_awarded = 0
-            else:
-                 logger.error(f"Tipo domanda non gestito {question.question_type} per domanda {question.id}")
-                 # Considera cosa fare qui, forse sollevare un errore?
+                 logger.debug(f"[SubmitAnswer Attempt {pk}] Handling OPEN_MANUAL")
+                 # La correttezza e il punteggio verranno assegnati manualmente dal docente
+                 is_correct = None
+                 score = 0.0 # Default a 0, verrà aggiornato dal docente
 
-            # Aggiorna la risposta dello studente
-            student_answer.is_correct = is_correct
-            student_answer.points_awarded = points_awarded
-            student_answer.save()
+            # Salva la risposta dello studente
+            # Usiamo update_or_create per gestire eventuali reinvii della stessa domanda (anche se la logica dell'ordine dovrebbe prevenirlo)
+            student_answer, created = StudentAnswer.objects.update_or_create(
+                quiz_attempt=attempt,
+                question=question,
+                defaults={
+                    'selected_answers': validated_data['selected_answers'],
+                    'is_correct': is_correct,
+                    'score': score,
+                    'answered_at': timezone.now() # Aggiorna timestamp
+                }
+            )
 
-            # Restituisci la risposta salvata (o solo un successo?)
+            # Restituisci la risposta salvata (o aggiornata)
+            # Usa un serializer diverso se vuoi restituire più dettagli
             response_serializer = StudentAnswerSerializer(student_answer)
+            logger.info(f"[SubmitAnswer Attempt {pk}] Successfully submitted answer for Question {question.id}. Response: {response_serializer.data}")
             return Response(response_serializer.data, status=status.HTTP_201_CREATED)
-        else:
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+             # Cattura eccezioni generiche che potrebbero verificarsi durante la logica di correzione o salvataggio
+             logger.error(f"[SubmitAnswer Attempt {pk}] Error processing answer for Question {question.id}: {e}", exc_info=True)
+             return Response({"detail": "Errore interno durante l'elaborazione della risposta."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
     @action(detail=True, methods=['post'], url_path='complete')
     def complete_attempt(self, request, pk=None):
         """
-        Marca un tentativo come completato dallo studente.
-        Calcola il punteggio finale se tutte le domande sono auto-correggibili.
-        Altrimenti, imposta lo stato a PENDING_GRADING.
-        Assegna punti al wallet e badge.
+        Marca un tentativo come completato.
+        Calcola il punteggio finale se non ci sono domande a correzione manuale.
+        Assegna punti al wallet se il quiz è superato.
         """
-        attempt = self.get_object()
+        attempt = self.get_object() # Applica permessi
+
         if attempt.status != QuizAttempt.AttemptStatus.IN_PROGRESS:
-            return Response({'detail': 'Questo tentativo non è in corso o è già stato completato.'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'detail': 'Questo tentativo non è in corso o è già stato completato/valutato.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        now = timezone.now()
-        attempt.end_time = now
+        # Verifica se tutte le domande hanno una risposta
+        answered_count = attempt.student_answers.count()
+        total_questions = attempt.quiz.questions.count()
+        if answered_count < total_questions:
+             # Potremmo permettere il completamento anche con domande mancanti? Per ora no.
+             return Response({'detail': f'Non puoi completare il tentativo finché non hai risposto a tutte le {total_questions} domande (risposte date: {answered_count}).'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Verifica se ci sono risposte manuali non ancora valutate
+        # Verifica se ci sono domande in attesa di valutazione manuale
         has_pending_manual = attempt.student_answers.filter(
             question__question_type=QuestionType.OPEN_ANSWER_MANUAL,
-            is_correct__isnull=True # Cerca quelle non ancora valutate
+            is_correct__isnull=True # Non ancora valutate
         ).exists()
 
         if has_pending_manual:
+            # Se ci sono domande manuali non valutate, imposta lo stato su PENDING_GRADING
             attempt.status = QuizAttempt.AttemptStatus.PENDING_GRADING
-            attempt.score = None # Il punteggio finale verrà calcolato dopo la valutazione manuale
-            logger.info(f"Tentativo {attempt.id} impostato a PENDING_GRADING.")
+            attempt.completed_at = timezone.now() # Registra comunque il tempo di completamento
+            attempt.save(update_fields=['status', 'completed_at'])
+            logger.info(f"Tentativo {attempt.id} per Quiz {attempt.quiz.id} marcato come PENDING_GRADING.")
+            # Restituisci i dettagli aggiornati del tentativo
+            serializer = self.get_serializer(attempt) # Usa il serializer di default o QuizAttemptDetailSerializer?
+            return Response(serializer.data, status=status.HTTP_200_OK)
         else:
-            # Tutte le domande sono auto-corrette o già valutate manualmente
-            final_score = attempt.calculate_final_score() # Usa il metodo del modello
-            attempt.score = final_score
+            # Se non ci sono domande manuali o sono già state valutate, calcola il punteggio finale e completa
+            try:
+                with transaction.atomic():
+                    # Calcola punteggio finale (somma degli score delle singole risposte)
+                    final_score = attempt.calculate_final_score() # Usa il metodo del modello
+                    attempt.score = final_score
+                    attempt.completed_at = timezone.now()
 
-            # Determina lo stato finale (COMPLETED o FAILED)
-            completion_threshold = attempt.quiz.metadata.get('completion_threshold', 50) # Default 50%
-            max_score = attempt.get_max_possible_score()
-            percentage_score = (final_score / max_score * 100) if max_score > 0 else 0
+                    # Determina lo stato finale (COMPLETED o FAILED) e assegna punti/badge
+                    # Questa logica è ora incapsulata in assign_completion_points
+                    newly_earned_badges = attempt.assign_completion_points() # Questo metodo imposta anche lo stato
+                    # Log IMMEDIATAMENTE dopo la chiamata per vedere se l'attributo esiste sull'istanza
+                    logger.info(f"[VIEW] After assign_completion_points: points_earned exists? {hasattr(attempt, 'points_earned')}, Value: {getattr(attempt, 'points_earned', 'N/A')}")
 
-            if percentage_score >= completion_threshold:
-                 attempt.status = QuizAttempt.AttemptStatus.COMPLETED
-                 logger.info(f"Tentativo {attempt.id} COMPLETATO con punteggio {final_score}/{max_score} ({percentage_score:.1f}%)")
-            else:
-                 attempt.status = QuizAttempt.AttemptStatus.FAILED
-                 logger.info(f"Tentativo {attempt.id} FALLITO con punteggio {final_score}/{max_score} ({percentage_score:.1f}%)")
+                    # Salva tutte le modifiche al tentativo
+                    attempt.save()
 
-            # Assegna punti e badge solo se completato con successo
-            if attempt.status == QuizAttempt.AttemptStatus.COMPLETED:
-                 earned_badges = attempt.assign_completion_points() # Questo metodo ora restituisce i badge
-                 # Aggiungi i badge guadagnati all'istanza per il serializer
-                 attempt.newly_earned_badges = earned_badges # Assicurati che il serializer lo gestisca
-                 # Aggiorna il progresso del percorso, se applicabile
-                 attempt.update_pathway_progress()
+                    # Aggiorna il progresso nel percorso, se applicabile
+                    attempt.update_pathway_progress()
+
+                    # Restituisci i dettagli completi, inclusi i nuovi badge
+                    serializer = QuizAttemptDetailSerializer(attempt) # Usa il serializer dettagliato
+                    response_data = serializer.data
+                    # Assicurati che newly_earned_badges sia incluso se presente
+                    if newly_earned_badges:
+                         # Serializza i badge semplici
+                         badge_serializer = SimpleBadgeSerializer(newly_earned_badges, many=True)
+                         response_data['newly_earned_badges'] = badge_serializer.data
+                    else:
+                         response_data['newly_earned_badges'] = [] # Assicura che sia sempre presente
+
+                    # Log spostato qui, dopo che tutti i calcoli, salvataggi e aggiornamenti sono avvenuti
+                    # Si accede a attempt.points_earned che è un attributo dell'istanza, non del DB
+                    logger.info(f"Tentativo {attempt.id} per Quiz {attempt.quiz.id} completato. Score: {attempt.score}, Stato: {attempt.status}, Punti: {getattr(attempt, 'points_earned', 'N/A')}") # Usiamo getattr per sicurezza
+
+                    return Response(response_data, status=status.HTTP_200_OK)
+
+            except Exception as e:
+                 logger.error(f"Errore durante il completamento/calcolo punteggio del tentativo {attempt.id}: {e}", exc_info=True)
+                 return Response({'detail': 'Errore interno durante il completamento del tentativo.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-        attempt.save()
-
-        # Restituisci i dettagli del tentativo aggiornato
-        serializer = self.get_serializer(attempt) # Usa il serializer di default o QuizAttemptDetailSerializer?
-        return Response(serializer.data, status=status.HTTP_200_OK)
-
-
-# --- ViewSet per Docenti (Valutazione Manuale) ---
-
+# --- ViewSet per Docenti (Grading) ---
 class TeacherGradingViewSet(viewsets.GenericViewSet):
     """ Endpoint per Docenti per visualizzare e correggere risposte manuali. """
-    permission_classes = [permissions.IsAuthenticated, IsTeacherUser]
-    # Non usiamo un queryset standard qui, le azioni recuperano i dati necessari
+    queryset = StudentAnswer.objects.filter(
+        question__question_type=QuestionType.OPEN_ANSWER_MANUAL
+    ) # Queryset base per risposte manuali
+    serializer_class = StudentAnswerSerializer # Serializer per visualizzare/aggiornare risposte
+    permission_classes = [permissions.IsAuthenticated, IsTeacherUser] # Solo docenti
 
     def get_queryset(self):
-        # Restituisce le risposte manuali non valutate per i quiz del docente
+        """ Filtra le risposte manuali per i quiz appartenenti al docente loggato. """
         user = self.request.user
-        if not user.is_teacher:
-            return StudentAnswer.objects.none()
-        return StudentAnswer.objects.filter(
-            quiz_attempt__quiz__teacher=user,
-            question__question_type=QuestionType.OPEN_ANSWER_MANUAL,
-            is_correct__isnull=True
-        ).select_related(
-            'quiz_attempt', 'quiz_attempt__student', 'question', 'quiz_attempt__quiz'
-        ).order_by('quiz_attempt__started_at', 'question__order') # Corretto start_time -> started_at
+        # Assicurati che sia un docente
+        if isinstance(user, User) and user.is_teacher:
+            # Filtra le risposte dove il quiz del tentativo associato appartiene al docente
+            return StudentAnswer.objects.filter(
+                question__question_type=QuestionType.OPEN_ANSWER_MANUAL,
+                quiz_attempt__quiz__teacher=user
+            ).select_related('quiz_attempt', 'question', 'quiz_attempt__student', 'quiz_attempt__quiz')
+        return StudentAnswer.objects.none()
 
-
+    # Azione per listare le risposte PENDING (is_correct is NULL)
     @action(detail=False, methods=['get'], url_path='pending')
     def list_pending(self, request):
-        """ Elenca le risposte manuali pendenti per il docente. """
-        # Applicare manualmente il controllo dei permessi qui se necessario
-        # (anche se IsTeacherUser dovrebbe bastare a livello di ViewSet)
-        # if not request.user.is_teacher:
-        #     return Response({"detail": "Accesso negato."}, status=status.HTTP_403_FORBIDDEN)
+        """ Lista le risposte manuali in attesa di valutazione per il docente loggato. """
+        # Applica il filtro del queryset base e aggiungi il filtro per is_correct=None
+        pending_answers = self.get_queryset().filter(is_correct__isnull=True).order_by('answered_at')
 
-        queryset = self.get_queryset()
-        # Serializza usando StudentAnswerSerializer o uno dedicato?
-        # StudentAnswerSerializer va bene, ma potremmo volere più contesto.
-        serializer = StudentAnswerSerializer(queryset, many=True)
+        # Verifica permessi (get_queryset dovrebbe già filtrare per docente)
+        # Controllo manuale ridondante ma sicuro
+        # if not all(ans.quiz_attempt.quiz.teacher == request.user for ans in pending_answers):
+        #      logger.error(f"Tentativo di accesso non autorizzato a risposte pendenti da utente {request.user.id}")
+        #      # Non sollevare PermissionDenied qui, semplicemente non mostrare dati non autorizzati
+        #      # Il filtro queryset è il modo corretto per gestire questo.
+
+        serializer = self.get_serializer(pending_answers, many=True)
         return Response(serializer.data)
-
 
     @action(detail=True, methods=['post'], url_path='grade')
     def grade_answer(self, request, pk=None):
         """ Permette al docente di assegnare un punteggio a una risposta manuale. """
-        try:
-            student_answer = StudentAnswer.objects.select_related(
-                'quiz_attempt', 'quiz_attempt__quiz', 'question'
-            ).get(pk=pk)
-        except StudentAnswer.DoesNotExist:
-            raise Http404("Risposta non trovata.")
+        student_answer = self.get_object() # Applica permessi (tramite get_queryset)
 
-        # Verifica permessi: il docente deve essere il proprietario del quiz associato
-        quiz_teacher = student_answer.quiz_attempt.quiz.teacher
-        if not request.user.is_admin and quiz_teacher != request.user:
-             logger.warning(f"Docente {request.user.id} ha tentato di valutare risposta {pk} non sua.")
-             # Usiamo DRFPermissionDenied per coerenza con altri controlli
-             raise DRFPermissionDenied("Non puoi valutare questa risposta.")
-
+        # Verifica che la risposta sia effettivamente manuale e non ancora valutata
         if student_answer.question.question_type != QuestionType.OPEN_ANSWER_MANUAL:
-            return Response({'detail': 'Questa risposta non richiede valutazione manuale.'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'detail': 'Questa non è una risposta a una domanda aperta.'}, status=status.HTTP_400_BAD_REQUEST)
         if student_answer.is_correct is not None:
             return Response({'detail': 'Questa risposta è già stata valutata.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Valida l'input del docente
-        is_correct_input = request.data.get('is_correct')
-        points_awarded_input = request.data.get('points_awarded')
+        # Validazione input docente
+        score_str = request.data.get('score')
+        is_correct_str = request.data.get('is_correct') # Accetta 'true'/'false' o booleano
 
-        if is_correct_input is None or points_awarded_input is None:
-            return Response({'detail': 'I campi "is_correct" (boolean) e "points_awarded" (integer) sono richiesti.'}, status=status.HTTP_400_BAD_REQUEST)
+        if score_str is None or is_correct_str is None:
+             return Response({'detail': 'score e is_correct sono richiesti.'}, status=status.HTTP_400_BAD_REQUEST)
 
+        # Converti e valida score
         try:
-            is_correct = bool(is_correct_input)
-            points_awarded = int(points_awarded_input)
-            # Verifica che i punti non superino il massimo per la domanda (se definito)
-            max_points = student_answer.question.metadata.get('points', 1) # Default a 1 se non specificato
-            if points_awarded < 0 or points_awarded > max_points:
-                 raise ValueError(f"I punti devono essere tra 0 e {max_points}.")
-        except (ValueError, TypeError) as e:
-            return Response({'detail': f'Input non valido: {e}'}, status=status.HTTP_400_BAD_REQUEST)
+            score = float(score_str)
+            max_score = float(student_answer.question.metadata.get('max_score', 1.0)) # Default a 1 se non specificato
+            if score < 0 or score > max_score:
+                 raise ValueError(f"Il punteggio deve essere tra 0 e {max_score}.")
+        except (ValueError, TypeError):
+             return Response({'detail': f'Punteggio non valido. Deve essere un numero tra 0 e {student_answer.question.metadata.get("max_score", "N/D")}.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Converti e valida is_correct
+        if isinstance(is_correct_str, bool):
+            is_correct = is_correct_str
+        elif isinstance(is_correct_str, str):
+            if is_correct_str.lower() == 'true':
+                is_correct = True
+            elif is_correct_str.lower() == 'false':
+                is_correct = False
+            else:
+                 return Response({'detail': 'is_correct deve essere true o false.'}, status=status.HTTP_400_BAD_REQUEST)
+        else:
+             return Response({'detail': 'is_correct deve essere un booleano o una stringa "true"/"false".'}, status=status.HTTP_400_BAD_REQUEST)
+
 
         # Aggiorna la risposta dello studente
+        student_answer.score = score
         student_answer.is_correct = is_correct
-        student_answer.points_awarded = points_awarded
-        student_answer.save()
-        logger.info(f"Docente {request.user.id} ha valutato risposta {student_answer.id}: correct={is_correct}, points={points_awarded}")
+        student_answer.save(update_fields=['score', 'is_correct'])
+        logger.info(f"Docente {request.user.id} ha valutato risposta {student_answer.id} (Tentativo: {student_answer.quiz_attempt.id}) con score={score}, is_correct={is_correct}")
 
-
-        # Controlla se tutte le risposte manuali del tentativo sono state valutate
+        # --- Logica post-valutazione ---
+        # Verifica se TUTTE le domande manuali del tentativo sono state valutate
         attempt = student_answer.quiz_attempt
         all_manual_answers_graded = not attempt.student_answers.filter(
             question__question_type=QuestionType.OPEN_ANSWER_MANUAL,
@@ -1323,153 +1558,152 @@ class TeacherGradingViewSet(viewsets.GenericViewSet):
         ).exists()
 
         if all_manual_answers_graded and attempt.status == QuizAttempt.AttemptStatus.PENDING_GRADING:
-            # Ricalcola punteggio finale e aggiorna stato tentativo
-            final_score = attempt.calculate_final_score()
-            attempt.score = final_score
-
-            # Determina stato finale
-            completion_threshold = attempt.quiz.metadata.get('completion_threshold', 50)
-            max_score = attempt.get_max_possible_score()
-            percentage_score = (final_score / max_score * 100) if max_score > 0 else 0
-
-            if percentage_score >= completion_threshold:
-                 attempt.status = QuizAttempt.AttemptStatus.COMPLETED
-                 logger.info(f"Tentativo {attempt.id} COMPLETATO (post-grading) con punteggio {final_score}/{max_score} ({percentage_score:.1f}%)")
-                 # Assegna punti e badge
-                 earned_badges = attempt.assign_completion_points()
-                 attempt.newly_earned_badges = earned_badges # Per eventuale risposta API
-                 # Aggiorna progresso percorso
-                 attempt.update_pathway_progress()
-            else:
-                 attempt.status = QuizAttempt.AttemptStatus.FAILED
-                 logger.info(f"Tentativo {attempt.id} FALLITO (post-grading) con punteggio {final_score}/{max_score} ({percentage_score:.1f}%)")
-                 # Non assegnare punti/badge se fallito
-
-            attempt.save()
-            logger.info(f"Stato tentativo {attempt.id} aggiornato a {attempt.status} dopo valutazione manuale.")
-
+            logger.info(f"Tutte le risposte manuali per il tentativo {attempt.id} sono state valutate. Procedo al completamento finale.")
+            try:
+                with transaction.atomic():
+                    # Ricalcola punteggio finale e assegna punti/badge
+                    final_score = attempt.calculate_final_score()
+                    attempt.score = final_score
+                    # Riassegna punti e stato (COMPLETED/FAILED)
+                    newly_earned_badges = attempt.assign_completion_points()
+                    # Salva le modifiche finali al tentativo
+                    attempt.save()
+                    # Aggiorna progresso percorso
+                    attempt.update_pathway_progress()
+                    logger.info(f"Tentativo {attempt.id} completato finalizzato dopo valutazione manuale. Score: {attempt.score}, Stato: {attempt.status}")
+                    # Qui potresti inviare una notifica allo studente
+            except Exception as e:
+                 logger.error(f"Errore durante il completamento finale del tentativo {attempt.id} dopo valutazione manuale: {e}", exc_info=True)
+                 # Non bloccare la risposta del docente, ma logga l'errore
 
         # Restituisci la risposta aggiornata
-        serializer = StudentAnswerSerializer(student_answer)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        serializer = self.get_serializer(student_answer)
+        return Response(serializer.data)
 
 
-# --- Viste Generiche per Studente (Elenco Assegnazioni) ---
+# --- View Generiche per Studenti (Lista Quiz/Percorsi Assegnati) ---
 
 class StudentAssignedQuizzesView(generics.ListAPIView):
     """
-    Restituisce l'elenco dei Quiz assegnati allo studente autenticato,
-    insieme allo stato dell'ultimo tentativo.
+    Restituisce l'elenco dei Quiz assegnati allo studente autenticato.
+    Utilizza StudentQuizDashboardSerializer per includere info sull'ultimo tentativo.
     """
     serializer_class = StudentQuizDashboardSerializer
     permission_classes = [permissions.IsAuthenticated, IsStudentAuthenticated]
 
     def get_queryset(self):
         student = self.request.user # Assicurato da IsStudentAuthenticated
+        if not isinstance(student, Student):
+             logger.error(f"Errore: request.user non è un'istanza Student nella StudentAssignedQuizzesView per user ID {request.user.id}")
+             # Restituisci un queryset vuoto o solleva un errore?
+             return Quiz.objects.none()
 
-        # Ottieni gli ID dei quiz assegnati direttamente
-        direct_assignment_ids = QuizAssignment.objects.filter(
+        # Recupera ID dei Quiz assegnati direttamente
+        assigned_quiz_ids = QuizAssignment.objects.filter(
             student=student
         ).values_list('quiz_id', flat=True)
 
-        # Ottieni gli ID dei quiz assegnati tramite percorsi
-        pathway_assignment_quiz_ids = PathwayQuiz.objects.filter(
+        # Recupera ID dei Quiz contenuti nei percorsi assegnati allo studente
+        quiz_ids_in_assigned_pathways = PathwayQuiz.objects.filter(
             pathway__assignments__student=student # Filtra per percorsi assegnati allo studente
         ).values_list('quiz_id', flat=True)
 
-        # Combina gli ID e rendili unici
-        assigned_quiz_ids = set(direct_assignment_ids) | set(pathway_assignment_quiz_ids)
+        # Combina gli ID unici
+        unique_quiz_ids = set(assigned_quiz_ids) | set(quiz_ids_in_assigned_pathways)
 
-        # Filtra i Quiz in base agli ID assegnati
-        queryset = Quiz.objects.filter(id__in=assigned_quiz_ids).select_related('teacher').prefetch_related(
-             Prefetch(
-                 'attempts',
-                 queryset=QuizAttempt.objects.filter(student=student).order_by('-started_at'),
-                 to_attr='student_attempts_ordered' # Nome attributo per accedere ai tentativi ordinati
-             )
+        # Filtra i Quiz per ID e precarica i tentativi dello studente
+        student_attempts_prefetch = Prefetch(
+            'attempts',
+            queryset=QuizAttempt.objects.filter(student=student).order_by('-started_at'),
+            to_attr='student_attempts_for_dashboard'
         )
-        # Annotazione rimossa, gestita nel serializer o con prefetch
-        return queryset.order_by('-created_at') # O altro ordinamento desiderato
+        queryset = Quiz.objects.filter(id__in=unique_quiz_ids).select_related('teacher').prefetch_related(
+            student_attempts_prefetch
+        )
+        return queryset
 
     def get_serializer_context(self):
-        # Passa la request per accedere all'utente nel serializer (se necessario)
-        return {'request': self.request}
-
+        """ Aggiunge la request al contesto per accedere all'utente nel serializer. """
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
 
 class StudentAssignedPathwaysView(generics.ListAPIView):
     """
-    Restituisce l'elenco dei Percorsi assegnati allo studente autenticato,
-    insieme allo stato dell'ultimo progresso.
+    Restituisce l'elenco dei Percorsi assegnati allo studente autenticato.
+    Utilizza StudentPathwayDashboardSerializer per includere info sul progresso.
     """
     serializer_class = StudentPathwayDashboardSerializer
     permission_classes = [permissions.IsAuthenticated, IsStudentAuthenticated]
 
     def get_queryset(self):
         student = self.request.user
+        if not isinstance(student, Student):
+             logger.error(f"Errore: request.user non è un'istanza Student nella StudentAssignedPathwaysView per user ID {request.user.id}")
+             return Pathway.objects.none()
+
+        # Recupera ID dei Percorsi assegnati
         assigned_pathway_ids = PathwayAssignment.objects.filter(
             student=student
         ).values_list('pathway_id', flat=True)
 
-        queryset = Pathway.objects.filter(id__in=assigned_pathway_ids).select_related('teacher').prefetch_related(
-             Prefetch(
-                 'progresses', # Usa il related_name corretto 'progresses'
-                 queryset=PathwayProgress.objects.filter(student=student).order_by('-started_at'),
-                 to_attr='student_progress_ordered'
-             )
+        # Filtra i Percorsi per ID e precarica il progresso dello studente
+        student_progress_prefetch = Prefetch(
+            'progresses',
+            queryset=PathwayProgress.objects.filter(student=student).order_by('-completed_at'), # Usa completed_at
+            to_attr='student_progress_for_dashboard'
         )
-        return queryset.order_by('-created_at')
+        queryset = Pathway.objects.filter(id__in=assigned_pathway_ids).select_related('teacher').prefetch_related(
+            student_progress_prefetch
+        )
+        return queryset
 
     def get_serializer_context(self):
-        return {'request': self.request}
+        """ Aggiunge la request al contesto. """
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
 
 
-# --- Vista Dettaglio Svolgimento Percorso ---
+# --- View Dettaglio Percorso per Studente ---
 
 class PathwayAttemptDetailView(generics.RetrieveAPIView):
     """
-    Restituisce i dettagli di un percorso per lo studente che lo sta svolgendo,
-    includendo informazioni sul prossimo quiz.
+    Restituisce i dettagli di un Percorso specifico per lo studente autenticato,
+    includendo lo stato di avanzamento e il prossimo quiz da affrontare.
     """
     queryset = Pathway.objects.prefetch_related(
-        'pathwayquiz_set__quiz', # Precarica i quiz nel percorso
-        # Precarica anche i tentativi dello studente per i quiz di questo percorso
-        Prefetch(
-            'pathwayquiz_set__quiz__attempts',
-             queryset=QuizAttempt.objects.filter(student=OuterRef(OuterRef('student_id'))).order_by('-started_at'), # Filtra per studente (richiede contesto) - NON FUNZIONA DIRETTAMENTE QUI
-             to_attr='student_attempts'
-        )
+        'quizzes', 'progresses', 'assignments' # Precarica relazioni utili
     )
-    serializer_class = PathwayAttemptDetailSerializer
-    permission_classes = [permissions.IsAuthenticated, IsStudentAuthenticated]
+    serializer_class = PathwayAttemptDetailSerializer # Usa il serializer specifico
+    permission_classes = [permissions.IsAuthenticated, IsStudentAuthenticated] # Solo studenti
 
     def get_object(self):
-        """ Recupera il percorso e verifica che sia assegnato allo studente. """
-        pathway_id = self.kwargs.get('pathway_id')
+        """
+        Recupera il percorso e verifica che sia assegnato allo studente.
+        Passa lo studente al contesto del serializer.
+        """
+        pathway = super().get_object()
         student = self.request.user
-        pathway = get_object_or_404(self.get_queryset(), pk=pathway_id)
 
         # Verifica assegnazione
-        is_assigned = PathwayAssignment.objects.filter(pathway=pathway, student=student).exists()
+        is_assigned = PathwayAssignment.objects.filter(
+            pathway=pathway,
+            student=student
+        ).exists()
+
         if not is_assigned:
-            raise Http404("Percorso non assegnato a questo studente.")
+            logger.warning(f"Studente {student.id} ha tentato di accedere al percorso {pathway.id} non assegnato.")
+            raise PermissionDenied("Non sei assegnato a questo percorso.")
 
-        # Filtra i tentativi DOPO aver recuperato il percorso
-        # Questo è meno efficiente ma necessario perché OuterRef non funziona come sperato qui
-        pathway.student_attempts_for_pathway = QuizAttempt.objects.filter(
-            student=student,
-            quiz__pathwayquiz__pathway=pathway
-        ).order_by('-start_time')
-
-        # Recupera l'ultimo progresso per questo studente e percorso
-        pathway.latest_progress = PathwayProgress.objects.filter(
-            pathway=pathway, student=student
-        ).order_by('-start_time').first()
-
+        # Passa lo studente al contesto per usarlo nel serializer
+        self.serializer_context = self.get_serializer_context()
+        self.serializer_context['student'] = student
 
         return pathway
 
     def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()
-        # Passa lo studente nel contesto per get_next_quiz
-        serializer = self.get_serializer(instance, context={'request': request})
+        # Usa il contesto aggiornato con lo studente
+        serializer = self.get_serializer(instance, context=self.serializer_context)
         return Response(serializer.data)

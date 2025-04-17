@@ -41,8 +41,9 @@ const AuthService = {
       
       // Salviamo il token e i dati utente in localStorage per uso futuro
       if (response.data && response.data.access && response.data.student) { // Verifica 'access' e 'student'
-        localStorage.setItem('auth_token', response.data.access); // Usa 'access'
-        localStorage.setItem('user', JSON.stringify(response.data.student)); // Usa 'student'
+        localStorage.setItem('auth_token', response.data.access); // Salva access token
+        localStorage.setItem('refresh_token', response.data.refresh); // Salva refresh token
+        localStorage.setItem('user', JSON.stringify(response.data.student));
       }
       
       return response.data;
@@ -102,6 +103,34 @@ const AuthService = {
         this.logout();
       }
       return false;
+    }
+  },
+// Rimuovo la riga 109 che contiene la parentesi graffa e virgola extra
+
+  /**
+   * Richiede un nuovo access token usando il refresh token.
+   * @returns Promise con il nuovo access token o lancia un errore.
+   */
+  async refreshToken(): Promise<string> {
+    const refreshToken = localStorage.getItem('refresh_token');
+    if (!refreshToken) {
+      throw new Error('Refresh token non trovato.');
+    }
+    try {
+      // Usa publicApiClient perché l'access token potrebbe essere scaduto
+      const response = await publicApiClient.post<{ access: string }>('student/auth/token/refresh/', {
+        refresh: refreshToken
+      });
+      const newAccessToken = response.data.access;
+      // Aggiorna il token di accesso in localStorage
+      localStorage.setItem('auth_token', newAccessToken);
+      console.log("Token di accesso aggiornato con successo.");
+      return newAccessToken;
+    } catch (error) {
+      console.error('Errore durante il refresh del token:', error);
+      // Se il refresh fallisce (es. refresh token scaduto), esegui il logout
+      this.logout();
+      throw new Error('Impossibile aggiornare la sessione. Effettuare nuovamente il login.');
     }
   },
 

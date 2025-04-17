@@ -17,7 +17,7 @@
       <div>
          <div class="form-group" v-if="selectedContentType === 'quiz'">
           <label for="quiz-template-select">Seleziona Template Quiz:</label>
-          <select id="quiz-template-select" v-model="selectedTemplateId" :disabled="isLoadingQuizTemplates" class="w-full p-2 border rounded">
+          <select id="quiz-template-select" v-model.number="selectedTemplateId" :disabled="isLoadingQuizTemplates" class="w-full p-2 border rounded">
             <option disabled value="">{{ isLoadingQuizTemplates ? 'Caricamento...' : 'Seleziona un Template Quiz' }}</option>
             <option v-for="template in availableQuizTemplates" :key="template.id" :value="template.id">
               {{ template.title }}
@@ -233,50 +233,96 @@ const assignContent = async () => {
  assignmentError.value = null;
  assignmentSuccess.value = null;
 
- const studentsToAssign = [...selectedStudentIds.value]; // Copia l'array
- let successfulAssignments = 0;
- const failedAssignmentsInfo: { studentId: number; error: string }[] = [];
+ // Logica differenziata per Quiz e Percorsi
 
- for (const studentId of studentsToAssign) {
+ if (selectedContentType.value === 'quiz') {
+   // --- Assegnazione Quiz (Chiamata Singola) ---
    try {
-     if (selectedContentType.value === 'quiz') {
-       const payload: AssignQuizPayload = {
-         student: studentId, // Usa 'student' come chiave, atteso dal serializer
-         due_date: dueDate.value || null, // Includi data scadenza
-         quiz_template_id: selectedTemplateId.value as number // Assegna sempre da template
-       };
-       await assignQuizToStudent(payload); // Chiamata API dentro if
-       successfulAssignments++;
-     } else if (selectedContentType.value === 'pathway') {
-       const payload: AssignPathwayPayload = {
-         student: studentId, // Usa 'student' come chiave, atteso dal serializer
-         // pathway_template_id: selectedTemplateId.value as number // Non più necessario nel payload
-       };
-       // Passa l'ID del template come primo argomento
-       await assignPathwayToStudent(selectedTemplateId.value as number, payload);
-       successfulAssignments++;
+     const basePayload: Partial<AssignQuizPayload> = {
+       student_ids: [...selectedStudentIds.value],
+       due_date: dueDate.value || null,
+     };
+     // Forza la conversione in numero e controlla che sia valido
+     const templateIdValue = selectedTemplateId.value;
+     const templateIdNumber = parseInt(String(templateIdValue), 10); // Converti a stringa poi a numero base 10
+
+     if (!isNaN(templateIdNumber) && templateIdValue !== '') { // Controlla se è un numero valido e non deriva da stringa vuota
+       basePayload.quiz_template_id = templateIdNumber; // Usa il numero convertito
+     } else {
+       console.error("Tentativo di assegnazione con ID Template Quiz non valido:", templateIdValue);
+       throw new Error(`ID Template Quiz non valido o mancante (valore: ${templateIdValue}).`);
      }
-   } catch (error: any) { // Catch è correttamente dentro il for loop ora
-       let errorMessage = `Studente ${studentId}: ${error.response?.data?.detail || error.response?.data?.status || error.message || 'Errore sconosciuto'}`;
-       console.error(`Errore assegnazione a studente ${studentId}:`, error);
-       failedAssignmentsInfo.push({ studentId, error: errorMessage });
-   }
- } // Fine ciclo for
-
- isAssigning.value = false;
-
- if (failedAssignmentsInfo.length > 0) {
-     // Mostra un errore generale e dettagli in console o in un'area dedicata
-     assignmentError.value = `Errore durante l'assegnazione a ${failedAssignmentsInfo.length} studenti. Dettagli: ${failedAssignmentsInfo.map((f: any) => f.error).join('; ')}`; // Aggiunto tipo any a f
- }
- if (successfulAssignments > 0) {
-     assignmentSuccess.value = `Contenuto assegnato con successo a ${successfulAssignments} studenti.`;
-     // Resetta selezione dopo successo
+     const payload = basePayload as AssignQuizPayload;
+     const response = await assignQuizToStudent(payload);
+     assignmentSuccess.value = response.status || `Quiz assegnato con successo a ${selectedStudentIds.value.length} studenti.`;
+     // Resetta selezione
      selectedStudentIds.value = [];
-     // selectedContentId.value = ''; // Non più necessario
-     selectedTemplateId.value = ''; // Resetta solo il template
-     dueDate.value = null; // Resetta data scadenza
+     selectedTemplateId.value = '';
+     dueDate.value = null;
+   } catch (error: any) {
+     console.error(`Errore durante l'assegnazione del quiz:`, error);
+     const backendError = error.response?.data;
+     let errorMessage = 'Errore sconosciuto durante l\'assegnazione del quiz.';
+     // ... (logica estrazione errore come prima) ...
+     if (backendError) {
+         if (typeof backendError === 'string') { errorMessage = backendError; }
+         else if (backendError.detail) { errorMessage = backendError.detail; }
+         else if (backendError.non_field_errors) { errorMessage = backendError.non_field_errors.join(', '); }
+         else if (backendError.student_ids) { errorMessage = `Errore studenti: ${backendError.student_ids.join(', ')}`; }
+         else { try { errorMessage = JSON.stringify(backendError); } catch (e) { /* Ignora */ } }
+     } else if (error.message) { errorMessage = error.message; }
+     assignmentError.value = `Errore Quiz: ${errorMessage}`;
+   } finally {
+     isAssigning.value = false;
+   }
+
+ } else if (selectedContentType.value === 'pathway') {
+   // --- Assegnazione Percorsi (Ciclo For) ---
+   const studentsToAssign = [...selectedStudentIds.value];
+   let successfulAssignments = 0;
+   const failedAssignmentsInfo: { studentId: number; error: string }[] = [];
+
+   const templateId = selectedTemplateId.value;
+   if (!templateId || typeof templateId !== 'number') {
+       assignmentError.value = "ID Template Percorso non valido o mancante.";
+       isAssigning.value = false;
+       return; // Esce se manca l'ID del template
+   }
+
+   for (const studentId of studentsToAssign) {
+     try {
+       const payload: AssignPathwayPayload = {
+         student: studentId, // Payload corretto per percorsi
+         // due_date non è previsto per i percorsi nell'API attuale
+       };
+       await assignPathwayToStudent(templateId, payload); // Passa templateId e payload
+       successfulAssignments++;
+     } catch (error: any) {
+       let errorMessage = `Studente ${studentId}: ${error.response?.data?.detail || error.response?.data?.status || error.message || 'Errore sconosciuto'}`;
+       console.error(`Errore assegnazione percorso a studente ${studentId}:`, error);
+       failedAssignmentsInfo.push({ studentId, error: errorMessage });
+     }
+   } // Fine ciclo for percorsi
+
+   isAssigning.value = false; // Spostato dopo il ciclo
+
+   if (failedAssignmentsInfo.length > 0) {
+     assignmentError.value = `Errore durante l'assegnazione del percorso a ${failedAssignmentsInfo.length} studenti. Dettagli: ${failedAssignmentsInfo.map(f => f.error).join('; ')}`;
+   }
+   if (successfulAssignments > 0) {
+     assignmentSuccess.value = `Percorso assegnato con successo a ${successfulAssignments} studenti.`;
+     // Resetta selezione
+     selectedStudentIds.value = [];
+     selectedTemplateId.value = '';
+     // dueDate non è usato per i percorsi
+   }
  }
+
+ // Resetta i messaggi dopo qualche secondo (spostato fuori dai blocchi if/else)
+ setTimeout(() => {
+     assignmentError.value = null;
+     assignmentSuccess.value = null;
+ }, 5000);
 
   // Resetta i messaggi dopo qualche secondo
   setTimeout(() => {

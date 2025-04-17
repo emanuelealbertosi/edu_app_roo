@@ -1,5 +1,7 @@
 import axios from 'axios';
-import { useUiStore } from '@/stores/ui'; // Importa lo store UI
+import { useUiStore } from '@/stores/ui';
+import AuthService from './auth'; // Importa AuthService per il refresh
+import router from '@/router'; // Importa il router per il redirect al login
 
 // Crea un'istanza axios configurata per l'API
 const apiClient = axios.create({
@@ -49,29 +51,51 @@ apiClient.interceptors.response.use(
     uiStore.apiRequestEnded();
     return response;
   },
-  error => {
+  async error => { // Trasforma in async per await su refreshToken
+    const originalRequest = error.config;
+    const uiStore = useUiStore(); // Ottieni lo store UI
+
     // Gestione degli errori standard
     if (error.response) {
-      // Errore server (status code non 2xx)
       console.error('API Error:', error.response.data);
-      
-      // Se riceviamo un 401 (Unauthorized), potremmo voler reindirizzare al login
-      if (error.response.status === 401) {
-        // Qui potremmo gestire il logout
-        localStorage.removeItem('auth_token');
-        // In un'app reale, potremmo usare il router per reindirizzare
-        // router.push('/login');
+
+      // Gestione specifica per 401 Unauthorized (Token scaduto/invalido)
+      // Aggiungi _retry per evitare loop infiniti se anche il refresh fallisce con 401
+      if (error.response.status === 401 && !originalRequest._retry) {
+        originalRequest._retry = true; // Marca la richiesta come ritentata
+        try {
+          console.log('Tentativo di refresh del token...');
+          const newAccessToken = await AuthService.refreshToken();
+          console.log('Refresh token riuscito.');
+          // Aggiorna l'header di Axios per le richieste future
+          axios.defaults.headers.common['Authorization'] = 'Bearer ' + newAccessToken;
+          // Aggiorna l'header della richiesta originale fallita
+          originalRequest.headers['Authorization'] = 'Bearer ' + newAccessToken;
+          // Ritenta la richiesta originale con il nuovo token
+          return apiClient(originalRequest);
+        } catch (refreshError: any) {
+          console.error('Refresh token fallito:', refreshError.message || refreshError);
+          // Se il refresh fallisce, esegui il logout e reindirizza al login
+          AuthService.logout(); // Assicura pulizia localStorage
+          // Usa l'istanza del router importata
+          router.push({ name: 'login', query: { sessionExpired: 'true' } });
+          // Reietta l'errore originale o quello del refresh per fermare la catena
+          uiStore.apiRequestEnded(); // Segnala fine richiesta
+          return Promise.reject(refreshError);
+        }
+      } else if (error.response.status === 401 && originalRequest._retry) {
+         // Se anche il refresh ritorna 401, evita loop e fai logout
+         console.error('Refresh token ha restituito 401. Logout forzato.');
+         AuthService.logout();
+         router.push({ name: 'login', query: { sessionExpired: 'true' } });
       }
     } else if (error.request) {
-      // Richiesta fatta ma nessuna risposta ricevuta
       console.error('No response received:', error.request);
     } else {
-      // Errore nella configurazione della richiesta
       console.error('Request error:', error.message);
     }
-    
-    // Segnala fine richiesta anche in caso di errore
-    const uiStore = useUiStore();
+
+    // Segnala fine richiesta anche in caso di errore non gestito dal refresh
     uiStore.apiRequestEnded();
     return Promise.reject(error);
   }

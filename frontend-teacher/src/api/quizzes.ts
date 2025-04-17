@@ -250,11 +250,11 @@ export const uploadQuiz = async (file: File, title: string): Promise<Quiz> => {
         throw error;
     }
 };
-// Interfaccia per i dati di assegnazione Quiz
+// Interfaccia per i dati di assegnazione Quiz (ora supporta assegnazione multipla)
 export interface AssignQuizPayload {
-    student: number; // Modificato da student_id a student
-    quiz_id?: number | null; // ID del quiz esistente
-    quiz_template_id?: number | null; // ID del template da cui creare
+    student_ids: number[]; // Lista di ID studenti a cui assegnare
+    quiz_id?: number | null; // ID del quiz esistente (non usato se si assegna da template)
+    quiz_template_id?: number | null; // ID del template da cui creare e assegnare
     due_date?: string | null; // Data di scadenza opzionale (formato ISO 8601)
 }
 

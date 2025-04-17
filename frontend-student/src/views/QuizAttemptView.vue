@@ -72,31 +72,32 @@ async function fetchCurrentQuestion() {
   isLoading.value = true; // Potrebbe essere un loading diverso per la domanda
   error.value = null; // Resetta errore precedente
   try {
-    currentQuestion.value = await QuizService.getCurrentQuestion(attempt.value.id);
-    userAnswer.value = null; // Resetta la risposta precedente
-  } catch (err: any) {
-    // Se l'API restituisce 404 o un errore specifico quando non ci sono più domande,
-    // potremmo gestirlo qui per indicare la fine del quiz.
-    // Altrimenti, potrebbe essere un errore generico.
-    if (err.response && err.response.status === 404) {
-       // Probabilmente il quiz è finito, ma l'endpoint /current-question/ non è pensato per questo.
-       // L'azione di completamento è separata.
-       console.log("Nessuna domanda successiva trovata, considerare il completamento.");
-       currentQuestion.value = null; // Indica che non ci sono più domande da mostrare
+    // getCurrentQuestion ora ritorna Question | null
+    const nextQuestion = await QuizService.getCurrentQuestion(attempt.value.id);
+
+    if (nextQuestion) {
+      // È una domanda valida
+      currentQuestion.value = nextQuestion;
+      console.log('Current Question Object:', JSON.parse(JSON.stringify(currentQuestion.value))); // Log per debug ordine
+      userAnswer.value = null; // Resetta la risposta precedente
     } else {
-      console.error("Errore durante il recupero della domanda:", err);
-      if (err.response?.data?.detail) {
-          error.value = `Errore caricamento domanda: ${err.response.data.detail}`;
-      } else {
-          error.value = "Impossibile caricare la domanda successiva.";
-      }
-      // Cancella l'errore dopo 7 secondi
-      setTimeout(() => { error.value = null; }, 7000);
-      error.value = "Impossibile caricare la domanda successiva.";
+      // getCurrentQuestion ha restituito null, significa fine quiz o errore 404 gestito
+      console.log("fetchCurrentQuestion: Ricevuto null da getCurrentQuestion, il quiz è terminato o si è verificato un errore 404 gestito.");
+      currentQuestion.value = null; // Imposta a null per mostrare il pulsante Completa
     }
-    currentQuestion.value = null; // Assicura che non venga mostrata una domanda vecchia in caso di errore
+  } catch (err: any) {
+    // Gestisce solo errori NON gestiti da getCurrentQuestion (es. 500, network error)
+    console.error("Errore non gestito durante il recupero della domanda:", err);
+     if (err.response?.data?.detail) {
+        error.value = `Errore caricamento domanda: ${err.response.data.detail}`;
+    } else {
+        error.value = "Impossibile caricare la domanda successiva.";
+    }
+    // Cancella l'errore dopo 7 secondi
+    setTimeout(() => { error.value = null; }, 7000);
+    currentQuestion.value = null; // Assicura che non venga mostrata una domanda vecchia in caso di errore grave
   } finally {
-    isLoading.value = false;
+    isLoading.value = false; // Assicurati che isLoading sia gestito correttamente
   }
 }
 
@@ -108,6 +109,13 @@ async function submitAnswerHandler() {
   isSubmitting.value = true;
   error.value = null;
   try {
+    // Log dettagliato prima dell'invio
+    console.log('Submitting answer with:', {
+        attemptId: attempt.value.id,
+        questionId: currentQuestion.value.id,
+        // Usiamo JSON.stringify/parse per fare una deep copy e loggare lo stato esatto al momento della chiamata
+        answerPayload: JSON.parse(JSON.stringify(userAnswer.value))
+    });
     const result = await QuizService.submitAnswer(
       attempt.value.id,
       currentQuestion.value.id,
@@ -300,7 +308,7 @@ watch(currentQuestion, (newQuestion, oldQuestion) => {
         <transition name="question-fade" mode="out-in" appear>
            <!-- Blocco Domanda Effettivo -->
           <div :key="currentQuestion.id" class="question-container bg-purple-50 bg-opacity-90 border border-purple-200 p-6 rounded-lg mb-6 shadow-md">
-            <h3 class="text-lg font-semibold text-purple-700 mb-3">Domanda {{ currentQuestion.order + 1 }}</h3>
+            <h3 class="text-lg font-semibold text-purple-700 mb-3">Domanda {{ currentQuestion.order }}</h3>
             <p class="question-text text-gray-800 text-lg mb-5">{{ currentQuestion.text }}</p>
 
             <!-- Renderizza dinamicamente il componente domanda corretto -->

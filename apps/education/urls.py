@@ -38,13 +38,11 @@ question_templates_router.register(r'options', AnswerOptionTemplateViewSet, base
 # quizzes_router = routers.NestedDefaultRouter(router, r'quizzes', lookup='quiz')
 # quizzes_router.register(r'questions', QuestionViewSet, basename='quiz-questions')
 
-# /quizzes/{quiz_pk}/attempts/ - Registra StudentQuizAttemptViewSet per l'azione start_attempt
-quiz_attempts_router = routers.NestedDefaultRouter(router, r'quizzes', lookup='quiz')
-quiz_attempts_router.register(r'attempts', StudentQuizAttemptViewSet, basename='quiz-attempts')
-# La riga seguente causava NameError perché quizzes_router è stato commentato:
-# quizzes_router.register(r'attempts', StudentQuizAttemptViewSet, basename='quiz-attempts')
+# /quizzes/{quiz_pk}/attempts/ - ROUTER RIMOSSO (l'azione start_attempt è ora in QuizViewSet)
+# quiz_attempts_router = routers.NestedDefaultRouter(router, r'quizzes', lookup='quiz')
+# quiz_attempts_router.register(r'attempts', StudentQuizAttemptViewSet, basename='quiz-attempts')
 
-# /quizzes/{quiz_pk}/questions/{question_pk}/options/ - ROUTER RIMOSSO (dipendeva da quizzes_router)
+# /quizzes/{quiz_pk}/questions/{question_pk}/options/ - ROUTER RIMOSSO
 # questions_router = routers.NestedDefaultRouter(quizzes_router, r'questions', lookup='question')
 # questions_router.register(r'options', AnswerOptionViewSet, basename='question-options')
 
@@ -77,7 +75,7 @@ urlpatterns = [
     # Include i router annidati
     path('', include(quiz_templates_router.urls)),
     path('', include(question_templates_router.urls)),
-    path('', include(quiz_attempts_router.urls)), # Aggiunto router per tentativi quiz
+    # path('', include(quiz_attempts_router.urls)), # Rimosso
     # path('', include(quizzes_router.urls)), # Rimosso
     # path('', include(questions_router.urls)), # Rimosso
     path('', include(pathway_templates_router.urls)),

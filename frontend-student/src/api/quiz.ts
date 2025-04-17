@@ -95,11 +95,11 @@ export interface OpenAnswerManualAnswer {
   text: string;
 }
 
-export type Answer = 
-  | MultipleChoiceSingleAnswer 
-  | MultipleChoiceMultipleAnswer 
-  | TrueFalseAnswer 
-  | FillBlankAnswer 
+export type Answer =
+  | MultipleChoiceSingleAnswer
+  | MultipleChoiceMultipleAnswer
+  | TrueFalseAnswer
+  | FillBlankAnswer
   | OpenAnswerManualAnswer;
 
 /**
@@ -152,14 +152,27 @@ const QuizService = {
   /**
    * Ottiene la domanda corrente/successiva per un tentativo
    */
-  async getCurrentQuestion(attemptId: number): Promise<Question> {
+  async getCurrentQuestion(attemptId: number): Promise<Question | null> { // Modificato tipo di ritorno
     try {
       // Aggiunto prefisso completo relativo a /api/
       const response = await apiClient.get(`student/attempts/${attemptId}/current-question/`);
-      return response.data;
-    } catch (error) {
-      console.error(`Error fetching current question for attempt ${attemptId}:`, error);
-      throw error;
+      // Controlla se la risposta contiene dati validi per una domanda
+      if (response.data && response.data.id) {
+          return response.data as Question;
+      } else {
+          // Se non ci sono dati validi (es. API restituisce {} o {detail: ...}), ritorna null
+          console.log("getCurrentQuestion: API response indicates no next question.", response.data);
+          return null;
+      }
+    } catch (error: any) { // Aggiunto :any
+        // Se l'errore è un 404 Not Found, probabilmente significa che non ci sono più domande.
+        // Altri errori (500, network) dovrebbero essere lanciati.
+        if (error.response && error.response.status === 404) {
+            console.log(`getCurrentQuestion: Received 404 for attempt ${attemptId}, assuming end of quiz.`);
+            return null;
+        }
+        console.error(`Error fetching current question for attempt ${attemptId}:`, error);
+        throw error; // Rilancia altri errori
     }
   },
 
@@ -167,14 +180,14 @@ const QuizService = {
    * Invia una risposta per una domanda
    */
   async submitAnswer(
-    attemptId: number, 
-    questionId: number, 
+    attemptId: number,
+    questionId: number,
     answer: Answer
   ): Promise<{ is_correct: boolean | null; message?: string }> {
     try {
       // Aggiunto prefisso completo relativo a /api/
       const response = await apiClient.post(`student/attempts/${attemptId}/submit-answer/`, {
-        question_id: questionId,
+        question_id: questionId, // Corretto: Usa 'question_id' come atteso dal backend
         selected_answers: answer
       });
       return response.data;
