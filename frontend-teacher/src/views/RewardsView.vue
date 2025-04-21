@@ -1,45 +1,47 @@
 <template>
-  <div class="rewards-view">
-    <h1>Gestione Ricompense</h1>
-    <p>Qui puoi visualizzare, creare e modificare le ricompense disponibili per gli studenti.</p>
-    <div class="actions">
-      <!-- Applicato stile Tailwind -->
+  <div class="rewards-view p-4 md:p-6"> <!-- Added padding -->
+    <h1 class="text-2xl font-semibold mb-4">Gestione Ricompense</h1> <!-- Styled heading -->
+    <p class="text-gray-600 mb-6">Qui puoi visualizzare, creare e modificare le ricompense disponibili per gli studenti.</p> <!-- Styled paragraph -->
+    <div class="actions mb-6"> <!-- Added margin -->
       <button @click="createNewReward" class="btn btn-primary">Crea Nuova Ricompensa</button>
     </div>
 
-    <div v-if="isLoading" class="loading">Caricamento ricompense...</div>
-    <div v-else-if="error" class="error-message">
-      Errore nel caricamento delle ricompense: {{ error }}
+    <div v-if="isLoading" class="text-center py-10 text-gray-500">Caricamento ricompense...</div> <!-- Styled loading -->
+    <div v-else-if="error" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6" role="alert"> <!-- Styled error -->
+      <strong class="font-bold">Errore!</strong>
+      <span class="block sm:inline"> Errore nel caricamento delle ricompense: {{ error }}</span>
     </div>
-    <div v-else-if="rewards.length > 0" class="rewards-list">
-      <table>
-        <thead>
+    <!-- Responsive Table Container -->
+    <div v-else-if="rewards.length > 0" class="overflow-x-auto shadow-md rounded-lg mt-6">
+      <table class="min-w-full divide-y divide-gray-200 bg-white">
+        <thead class="bg-gray-50">
           <tr>
-            <th>Nome</th>
-            <th>Descrizione</th>
-            <th>Costo (Punti)</th>
-            <th>Stato</th> <!-- Modificato da Disponibilità -->
-            <th>Azioni</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nome</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Descrizione</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Costo (Punti)</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stato</th> <!-- Modificato da Disponibilità -->
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Azioni</th>
           </tr>
         </thead>
-        <tbody>
-          <tr v-for="reward in rewards" :key="reward.id">
-            <td>{{ reward.name }}</td>
-            <td>{{ reward.description || '-' }}</td>
-            <!-- Corretto: usa cost_points invece di cost -->
-            <td>{{ reward.cost_points }}</td>
-            <td>{{ reward.is_active ? 'Attiva' : 'Non Attiva' }}</td>
-            <td>
-              <!-- Applicato stile Tailwind -->
-              <button @click="editReward(reward.id)" class="btn btn-warning text-sm mr-2">Modifica</button>
-              <!-- Applicato stile Tailwind -->
-              <button @click="deleteReward(reward.id)" class="btn btn-danger text-sm">Elimina</button>
+        <tbody class="bg-white divide-y divide-gray-200">
+          <tr v-for="reward in rewards" :key="reward.id" class="hover:bg-gray-50 transition-colors duration-150">
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ reward.name }}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ reward.description || '-' }}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ reward.cost_points }}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm">
+              <span :class="reward.is_active ? 'text-green-600' : 'text-red-600'">
+                {{ reward.is_active ? 'Attiva' : 'Non Attiva' }}
+              </span>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2"> <!-- Added space-x-2 -->
+              <button @click="editReward(reward.id)" class="btn btn-warning btn-sm">Modifica</button> <!-- Added btn-sm -->
+              <button @click="deleteReward(reward.id)" class="btn btn-danger btn-sm">Elimina</button> <!-- Added btn-sm -->
             </td>
           </tr>
         </tbody>
       </table>
     </div>
-    <div v-else class="no-rewards">
+    <div v-else class="text-center py-10 text-gray-500"> <!-- Styled no rewards -->
       Nessuna ricompensa trovata.
     </div>
   </div>
@@ -98,45 +100,5 @@ const deleteReward = async (id: number) => {
 </script>
 
 <style scoped>
-/* Stili simili a QuizzesView/PathwaysView */
-.rewards-view {
-  padding: 20px;
-}
-.actions {
-  margin-bottom: 20px;
-}
-/* Rimosso stile .actions button */
-/* .actions button { ... } */
-/* .actions button:hover { ... } */
-
-.loading, .error-message, .no-rewards {
-  margin-top: 20px;
-  font-style: italic;
-  color: #666;
-}
-.error-message {
-  color: red;
-  font-weight: bold;
-}
-.rewards-list {
-  margin-top: 20px;
-}
-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 15px;
-}
-th, td {
-  border: 1px solid #ddd;
-  padding: 8px;
-  text-align: left;
-}
-th {
-  background-color: #f2f2f2;
-}
-/* Rimosso stile td button */
-/* td button { ... } */
-/* Rimosso stile td button.delete */
-/* td button.delete { ... } */
-/* td button.delete:hover { ... } */
+/* Stili specifici rimossi in favore di Tailwind */
 </style>

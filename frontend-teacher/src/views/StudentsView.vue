@@ -1,35 +1,37 @@
 <template>
-  <div class="students-view">
-    <h1>Gestione Studenti</h1>
-    <p>Elenco degli studenti associati al tuo account.</p>
+  <div class="students-view p-4 md:p-6"> <!-- Added padding -->
+    <h1 class="text-2xl font-semibold mb-4">Gestione Studenti</h1> <!-- Styled heading -->
+    <p class="text-gray-600 mb-6">Elenco degli studenti associati al tuo account.</p> <!-- Styled paragraph -->
 
-    <div v-if="isLoading" class="loading">Caricamento studenti...</div>
-    <div v-else-if="error" class="error-message">
-      Errore nel caricamento degli studenti: {{ error }}
+    <div v-if="isLoading" class="text-center py-10 text-gray-500">Caricamento studenti...</div> <!-- Styled loading -->
+    <div v-else-if="error" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6" role="alert"> <!-- Styled error -->
+      <strong class="font-bold">Errore!</strong>
+      <span class="block sm:inline"> Errore nel caricamento degli studenti: {{ error }}</span>
     </div>
-    <div v-else-if="students.length > 0" class="students-list">
-      <table>
-        <thead>
+    <!-- Responsive Table Container -->
+    <div v-else-if="students.length > 0" class="overflow-x-auto shadow-md rounded-lg mt-6">
+      <table class="min-w-full divide-y divide-gray-200 bg-white">
+        <thead class="bg-gray-50">
           <tr>
-            <th>Nome</th>
-            <th>Cognome</th>
-            <th>Codice Studente</th>
-            <th>Username</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nome</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cognome</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Codice Studente</th> <!-- Ripristinato -->
+            <!-- <th>Username</th> --> <!-- Rimosso come da richiesta -->
             <!-- Aggiungere altre colonne se necessario -->
           </tr>
         </thead>
-        <tbody>
-          <tr v-for="student in students" :key="student.id">
-            <td>{{ student.first_name }}</td>
-            <td>{{ student.last_name }}</td>
-            <td>{{ student.student_code }}</td>
-            <td>{{ student.username }}</td>
+        <tbody class="bg-white divide-y divide-gray-200">
+          <tr v-for="student in students" :key="student.id" class="hover:bg-gray-50 transition-colors duration-150">
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ student.first_name }}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ student.last_name }}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ student.student_code }}</td> <!-- Ripristinato -->
+            <!-- <td>{{ student.username }}</td> --> <!-- Rimosso come da richiesta -->
             <!-- Aggiungere altre celle se necessario -->
           </tr>
         </tbody>
       </table>
     </div>
-    <div v-else class="no-students">
+    <div v-else class="text-center py-10 text-gray-500"> <!-- Styled no students -->
       Nessuno studente trovato.
     </div>
   </div>
@@ -48,6 +50,7 @@ onMounted(async () => {
   error.value = null;
   try {
     students.value = await fetchStudents();
+    // console.log('Studenti ricevuti:', students.value); // Rimosso log di debug
   } catch (err: any) {
     console.error("Errore nel recupero degli studenti:", err);
     error.value = err.message || 'Si è verificato un errore sconosciuto.';
@@ -59,39 +62,6 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.students-view {
-  padding: 20px;
-}
-
-.loading,
-.error-message,
-.no-students {
-  margin-top: 20px;
-  font-style: italic;
-  color: #666;
-}
-
-.error-message {
-  color: red;
-  font-weight: bold;
-}
-
-.students-list {
-  margin-top: 20px;
-}
-
-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-th, td {
-  border: 1px solid #ddd;
-  padding: 8px;
-  text-align: left;
-}
-
-th {
-  background-color: #f2f2f2;
-}
+/* Stili specifici rimossi in favore di Tailwind */
+/* Puoi aggiungere qui stili molto specifici se necessario */
 </style>

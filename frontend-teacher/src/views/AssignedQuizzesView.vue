@@ -1,41 +1,43 @@
 <template>
-  <div class="assigned-quizzes-view">
-    <h1>Quiz Assegnati (Istanze)</h1>
-    <p>Qui puoi visualizzare le istanze concrete dei quiz che hai assegnato.</p>
+  <div class="assigned-quizzes-view p-4 md:p-6"> <!-- Added padding -->
+    <h1 class="text-2xl font-semibold mb-4">Quiz Assegnati (Istanze)</h1> <!-- Styled heading -->
+    <p class="text-gray-600 mb-6">Qui puoi visualizzare le istanze concrete dei quiz che hai assegnato.</p> <!-- Styled paragraph -->
     <!-- Non c'è un pulsante "Crea" qui, le istanze vengono create tramite assegnazione -->
 
-    <div v-if="isLoading" class="loading">Caricamento quiz assegnati...</div>
-    <div v-else-if="error" class="error-message">
-      Errore nel caricamento dei quiz assegnati: {{ error }}
+    <div v-if="isLoading" class="text-center py-10 text-gray-500">Caricamento quiz assegnati...</div> <!-- Styled loading -->
+    <div v-else-if="error" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6" role="alert"> <!-- Styled error -->
+      <strong class="font-bold">Errore!</strong>
+      <span class="block sm:inline"> Errore nel caricamento dei quiz assegnati: {{ error }}</span>
     </div>
-    <div v-else-if="assignedQuizzes.length > 0" class="quizzes-list">
-      <table>
-        <thead>
+    <!-- Responsive Table Container -->
+    <div v-else-if="assignedQuizzes.length > 0" class="overflow-x-auto shadow-md rounded-lg mt-6">
+      <table class="min-w-full divide-y divide-gray-200 bg-white">
+        <thead class="bg-gray-50">
           <tr>
-            <th>Titolo Istanza</th>
-            <th>Descrizione</th>
-            <th>Template Sorgente</th>
-            <th>Creato il</th>
-            <th>Azioni</th> <!-- Azioni limitate sulle istanze? -->
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Titolo Istanza</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Descrizione</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Template Sorgente</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Creato il</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Azioni</th> <!-- Azioni limitate sulle istanze? -->
           </tr>
         </thead>
-        <tbody>
-          <tr v-for="quiz in assignedQuizzes" :key="quiz.id">
-            <td>{{ quiz.title }}</td>
-            <td>{{ quiz.description || '-' }}</td>
-            <td>{{ quiz.source_template ? `ID: ${quiz.source_template}` : 'Nessuno (Creato manualmente)' }}</td>
-            <td>{{ new Date(quiz.created_at).toLocaleDateString() }}</td>
-            <td>
+        <tbody class="bg-white divide-y divide-gray-200">
+          <tr v-for="quiz in assignedQuizzes" :key="quiz.id" class="hover:bg-gray-50 transition-colors duration-150">
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ quiz.title }}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ quiz.description || '-' }}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ quiz.source_template ? `ID: ${quiz.source_template}` : 'N/D' }}</td> <!-- Simplified display -->
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ new Date(quiz.created_at).toLocaleDateString() }}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2"> <!-- Added space-x-2 -->
               <!-- Forse solo visualizzazione dettagli o statistiche? Modifica/Eliminazione potrebbe essere problematica -->
-              <button @click="viewQuizDetails(quiz.id)" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-2 rounded text-sm mr-2">Dettagli</button>
+              <button @click="viewQuizDetails(quiz.id)" class="btn btn-info btn-sm">Dettagli</button> <!-- Changed style -->
               <!-- L'eliminazione di un'istanza assegnata potrebbe richiedere logica aggiuntiva (es. rimuovere assegnazioni) -->
-              <!-- <button @click="deleteAssignedQuiz(quiz.id)" class="delete bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded text-sm">Elimina Istanza</button> -->
+              <!-- <button @click="deleteAssignedQuiz(quiz.id)" class="btn btn-danger btn-sm">Elimina Istanza</button> -->
             </td>
           </tr>
         </tbody>
       </table>
     </div>
-    <div v-else class="no-quizzes">
+    <div v-else class="text-center py-10 text-gray-500"> <!-- Styled no quizzes -->
       Nessun quiz assegnato trovato.
     </div>
   </div>
@@ -93,33 +95,5 @@ const deleteAssignedQuiz = async (id: number) => {
 </script>
 
 <style scoped>
-/* Stili simili a QuizTemplatesView */
-.assigned-quizzes-view {
-  padding: 20px;
-}
-.loading, .error-message, .no-quizzes {
-  margin-top: 20px;
-  font-style: italic;
-  color: #666;
-}
-.error-message {
-  color: red;
-  font-weight: bold;
-}
-.quizzes-list {
-  margin-top: 20px;
-}
-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 15px;
-}
-th, td {
-  border: 1px solid #ddd;
-  padding: 8px;
-  text-align: left;
-}
-th {
-  background-color: #f2f2f2;
-}
+/* Stili specifici rimossi in favore di Tailwind */
 </style>

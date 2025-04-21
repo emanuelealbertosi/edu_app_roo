@@ -1,70 +1,67 @@
 <template>
-  <div class="quiz-templates-view"> <!-- Rinominato selettore CSS -->
-    <h1>Gestione Template Quiz</h1> <!-- Titolo aggiornato -->
-    <p>Qui puoi visualizzare, creare e modificare i tuoi template di quiz.</p> <!-- Descrizione aggiornata -->
-    <div class="actions">
-      <!-- Applicato stile Tailwind -->
-      <button @click="createNewQuizTemplate" class="btn btn-primary mr-2">Crea Nuovo Template</button>
-      <!-- Aggiunto pulsante Carica da File -->
+  <div class="quiz-templates-view p-4 md:p-6"> <!-- Added padding -->
+    <h1 class="text-2xl font-semibold mb-4">Gestione Template Quiz</h1> <!-- Styled heading -->
+    <p class="text-gray-600 mb-6">Qui puoi visualizzare, creare e modificare i tuoi template di quiz.</p> <!-- Styled paragraph -->
+    <div class="actions mb-6 flex space-x-2"> <!-- Added margin and flex for buttons -->
+      <button @click="createNewQuizTemplate" class="btn btn-primary">Crea Nuovo Template</button>
       <button @click="toggleUploadForm" class="btn btn-success">Carica Template da File</button>
     </div>
 
     <!-- Form di Upload (mostrato/nascosto) -->
-    <div v-if="showUploadForm" class="upload-form mt-4 p-4 border rounded bg-gray-100">
-      <h2 class="text-lg font-semibold mb-2">Carica Template da File (.pdf, .docx, .md)</h2>
+    <div v-if="showUploadForm" class="upload-form mt-4 p-4 border rounded bg-gray-50 shadow-sm mb-6"> <!-- Styled form container -->
+      <h2 class="text-lg font-semibold mb-3">Carica Template da File (.pdf, .docx, .md)</h2>
       <form @submit.prevent="submitUploadForm">
-        <div class="mb-3">
+        <div class="mb-4"> <!-- Increased margin -->
           <label for="templateTitle" class="block text-sm font-medium text-gray-700 mb-1">Titolo del Template:</label>
           <input type="text" id="templateTitle" v-model="uploadTitle" required class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md p-2">
         </div>
-        <div class="mb-3">
+        <div class="mb-4"> <!-- Increased margin -->
           <label for="templateFile" class="block text-sm font-medium text-gray-700 mb-1">Seleziona File:</label>
-          <input type="file" id="templateFile" @change="handleFileUpload" accept=".pdf,.docx,.md" required class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+          <input type="file" id="templateFile" @change="handleFileUpload" accept=".pdf,.docx,.md" required class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"> <!-- Added cursor-pointer -->
         </div>
-        <div class="flex justify-end space-x-2">
+        <div class="flex justify-end space-x-3"> <!-- Increased space -->
            <button type="button" @click="toggleUploadForm" class="btn btn-secondary">Annulla</button>
            <button type="submit" :disabled="isUploading" class="btn btn-success">
-             {{ isUploading ? 'Caricamento...' : 'Carica Template' }}
+             <span v-if="isUploading">
+               <i class="fas fa-spinner fa-spin mr-1"></i> Caricamento... <!-- Added spinner -->
+             </span>
+             <span v-else>Carica Template</span>
            </button>
         </div>
-        <p v-if="uploadError" class="text-red-500 text-sm mt-2">{{ uploadError }}</p>
+        <p v-if="uploadError" class="text-red-600 text-sm mt-3">{{ uploadError }}</p> <!-- Adjusted color and margin -->
       </form>
     </div>
-    <div v-if="isLoading" class="loading">Caricamento template quiz...</div> <!-- Testo aggiornato -->
-    <div v-else-if="error" class="error-message">
-      Errore nel caricamento dei template quiz: {{ error }} <!-- Testo aggiornato -->
+    <div v-if="isLoading" class="text-center py-10 text-gray-500">Caricamento template quiz...</div> <!-- Styled loading -->
+    <div v-else-if="error" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6" role="alert"> <!-- Styled error -->
+       <strong class="font-bold">Errore!</strong>
+       <span class="block sm:inline"> Errore nel caricamento dei template quiz: {{ error }}</span>
     </div>
-    <div v-else-if="templates.length > 0" class="quizzes-list"> <!-- Usa variabile 'templates' -->
-      <!-- Tabella o lista dei template quiz -->
-      <ul>
-        <!-- Tabella o lista dei template quiz -->
-        <table>
-          <thead>
-            <tr>
-              <th>Titolo</th>
-              <th>Descrizione</th>
-              <th>Creato il</th>
-              <th>Azioni</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="template in templates" :key="template.id"> <!-- Usa variabile 'template' -->
-              <td>{{ template.title }}</td>
-              <td>{{ template.description || '-' }}</td>
-              <td>{{ new Date(template.created_at).toLocaleDateString() }}</td>
-              <td>
-                <!-- Applicato stile Tailwind -->
-                <button @click="editQuizTemplate(template.id)" class="btn btn-warning text-sm mr-2">Modifica</button> <!-- Funzione aggiornata -->
-                <!-- Applicato stile Tailwind -->
-                <button @click="deleteQuizTemplate(template.id)" class="btn btn-danger text-sm">Elimina</button> <!-- Funzione aggiornata -->
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </ul>
+    <!-- Responsive Table Container -->
+    <div v-else-if="templates.length > 0" class="overflow-x-auto shadow-md rounded-lg mt-6">
+      <table class="min-w-full divide-y divide-gray-200 bg-white">
+        <thead class="bg-gray-50">
+          <tr>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Titolo</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Descrizione</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Creato il</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Azioni</th>
+          </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-gray-200">
+          <tr v-for="template in templates" :key="template.id" class="hover:bg-gray-50 transition-colors duration-150"> <!-- Usa variabile 'template' -->
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ template.title }}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ template.description || '-' }}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ new Date(template.created_at).toLocaleDateString() }}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2"> <!-- Added space-x-2 -->
+              <button @click="editQuizTemplate(template.id)" class="btn btn-warning btn-sm">Modifica</button> <!-- Added btn-sm -->
+              <button @click="deleteQuizTemplate(template.id)" class="btn btn-danger btn-sm">Elimina</button> <!-- Added btn-sm -->
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </div>
-    <div v-else class="no-quizzes">
-      Nessun template di quiz trovato. <!-- Testo aggiornato -->
+    <div v-else class="text-center py-10 text-gray-500"> <!-- Styled no templates -->
+      Nessun template di quiz trovato.
     </div>
   </div>
 </template>
@@ -172,45 +169,15 @@ const submitUploadForm = async () => {
 </script>
 
 <style scoped>
-/* Stili simili a QuizzesView, ma con selettore aggiornato */
-.quiz-templates-view {
-  padding: 20px;
-}
+/* Stili specifici rimossi in favore di Tailwind */
+/* Puoi aggiungere qui stili molto specifici se necessario */
 
-.loading,
-.error-message,
-.no-quizzes { /* Mantenuto nome classe per semplicità */
-  margin-top: 20px;
-  font-style: italic;
-  color: #666;
+/* Stile per spinner (se usi Font Awesome) */
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
-
-.error-message {
-  color: red;
-  font-weight: bold;
-}
-
-.quizzes-list { /* Mantenuto nome classe per semplicità */
-  margin-top: 20px;
-}
-
-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 15px;
-}
-
-th, td {
-  border: 1px solid #ddd;
-  padding: 8px;
-  text-align: left;
-}
-
-th {
-  background-color: #f2f2f2;
-}
-
-.actions {
-  margin-bottom: 20px;
+.fa-spinner {
+  animation: spin 1s linear infinite;
 }
 </style>

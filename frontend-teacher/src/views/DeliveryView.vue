@@ -1,29 +1,41 @@
 <template>
-  <div class="delivery-view">
-    <h1>Consegna Ricompense</h1>
+  <div class="delivery-view p-4 md:p-6"> <!-- Added padding -->
+    <h1 class="text-2xl font-semibold mb-6">Consegna Ricompense</h1> <!-- Styled heading -->
 
-    <div v-if="isLoading" class="loading">Caricamento consegne pendenti...</div>
-    <div v-if="error" class="error-message">{{ error }}</div>
+    <div v-if="isLoading" class="text-center py-10 text-gray-500">Caricamento consegne pendenti...</div> <!-- Styled loading -->
+    <div v-if="error" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6" role="alert"> <!-- Styled error -->
+       <strong class="font-bold">Errore!</strong>
+       <span class="block sm:inline"> {{ error }}</span>
+    </div>
 
-    <div v-if="!isLoading &amp;&amp; pendingDeliveries.length === 0" class="empty-message">
+    <div v-if="!isLoading && pendingDeliveries.length === 0" class="text-center py-10 text-gray-500"> <!-- Styled empty message -->
       Nessuna ricompensa in attesa di consegna.
     </div>
 
-    <div v-else class="delivery-list">
-      <div v-for="purchase in pendingDeliveries" :key="purchase.id" class="delivery-item">
-        <h3>{{ purchase.reward_info.name }}</h3>
-        <p><strong>Studente:</strong> {{ purchase.student_info.full_name }} ({{ purchase.student_info.student_code }})</p>
-        <p><strong>Acquistato il:</strong> {{ formatDate(purchase.purchased_at) }}</p>
-        <p><strong>Costo:</strong> {{ purchase.points_spent }} punti</p>
-        <div class="delivery-actions">
-          <textarea v-model="deliveryNotes[purchase.id]" placeholder="Note sulla consegna (opzionale)"></textarea>
-          <!-- Applicato stile Tailwind -->
+    <!-- Styled List Container -->
+    <div v-else class="delivery-list space-y-4"> <!-- Use space-y for gap -->
+      <!-- Styled List Item Card -->
+      <div v-for="purchase in pendingDeliveries" :key="purchase.id" class="delivery-item bg-white p-4 rounded-lg shadow-md border border-gray-200">
+        <h3 class="text-lg font-semibold mb-2 text-gray-800">{{ purchase.reward_info.name }}</h3>
+        <p class="text-sm text-gray-600 mb-1"><strong class="font-medium text-gray-700">Studente:</strong> {{ purchase.student_info.full_name }} ({{ purchase.student_info.student_code }})</p>
+        <p class="text-sm text-gray-600 mb-1"><strong class="font-medium text-gray-700">Acquistato il:</strong> {{ formatDate(purchase.purchased_at) }}</p>
+        <p class="text-sm text-gray-600 mb-3"><strong class="font-medium text-gray-700">Costo:</strong> {{ purchase.points_spent }} punti</p>
+        <!-- Styled Actions Area -->
+        <div class="delivery-actions mt-3 pt-3 border-t border-gray-200 flex flex-col sm:flex-row sm:items-center sm:space-x-3 space-y-2 sm:space-y-0">
+          <textarea
+            v-model="deliveryNotes[purchase.id]"
+            placeholder="Note sulla consegna (opzionale)"
+            class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:flex-grow text-sm border-gray-300 rounded-md p-2 resize-none h-16 sm:h-auto"
+          ></textarea>
           <button
             @click="markAsDelivered(purchase.id)"
             :disabled="isDelivering[purchase.id]"
-            class="btn btn-success"
+            class="btn btn-success btn-sm w-full sm:w-auto flex-shrink-0"
           >
-            {{ isDelivering[purchase.id] ? 'Consegna...' : 'Segna come Consegnato' }}
+             <span v-if="isDelivering[purchase.id]">
+               <i class="fas fa-spinner fa-spin mr-1"></i> Consegna...
+             </span>
+             <span v-else>Segna come Consegnato</span>
           </button>
         </div>
       </div>
@@ -92,50 +104,12 @@ function formatDate(dateString: string | null): string {
 </script>
 
 <style scoped>
-.delivery-view {
-  padding: 20px;
+/* Stili specifici rimossi in favore di Tailwind */
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
-.loading, .error-message, .empty-message {
-  margin-top: 15px;
-  padding: 10px;
-  border-radius: 4px;
+.fa-spinner {
+  animation: spin 1s linear infinite;
 }
-.error-message {
-  color: red;
-  background-color: #fdd;
-}
-.empty-message {
-  color: #666;
-}
-.delivery-list {
-  margin-top: 20px;
-  display: grid;
-  gap: 20px;
-}
-.delivery-item {
-  border: 1px solid #ccc;
-  padding: 15px;
-  border-radius: 5px;
-  background-color: #f9f9f9;
-}
-.delivery-item h3 {
-  margin-top: 0;
-}
-.delivery-actions {
-  margin-top: 10px;
-  display: flex;
-  gap: 10px;
-  align-items: center;
-}
-.delivery-actions textarea {
-  flex-grow: 1;
-  min-height: 40px;
-  resize: vertical;
-  padding: 5px;
-  border: 1px solid #ccc;
-  border-radius: 3px;
-}
-/* Rimosso stile .delivery-actions button */
-/* .delivery-actions button { ... } */
-/* .delivery-actions button:disabled { ... } */
 </style>

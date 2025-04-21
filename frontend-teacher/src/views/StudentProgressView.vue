@@ -1,39 +1,41 @@
 <template>
-  <div class="student-progress-view">
-    <h1>Progressi Studenti</h1>
-    <p>Sommario dei progressi degli studenti associati.</p>
+  <div class="student-progress-view p-4 md:p-6"> <!-- Added padding -->
+    <h1 class="text-2xl font-semibold mb-4">Progressi Studenti</h1> <!-- Styled heading -->
+    <p class="text-gray-600 mb-6">Sommario dei progressi degli studenti associati.</p> <!-- Styled paragraph -->
 
-    <div v-if="isLoading" class="loading">Caricamento progressi...</div>
-    <div v-else-if="error" class="error-message">
-      Errore nel caricamento dei progressi: {{ error }}
+    <div v-if="isLoading" class="text-center py-10 text-gray-500">Caricamento progressi...</div> <!-- Styled loading -->
+    <div v-else-if="error" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6" role="alert"> <!-- Styled error -->
+      <strong class="font-bold">Errore!</strong>
+      <span class="block sm:inline"> Errore nel caricamento dei progressi: {{ error }}</span>
     </div>
-    <div v-else-if="progressSummaries.length > 0" class="progress-list">
-      <table>
-        <thead>
+    <!-- Responsive Table Container -->
+    <div v-else-if="progressSummaries.length > 0" class="overflow-x-auto shadow-md rounded-lg mt-6">
+      <table class="min-w-full divide-y divide-gray-200 bg-white">
+        <thead class="bg-gray-50">
           <tr>
-            <th>Studente</th>
-            <th>Username</th>
-            <th>Quiz Completati</th>
-            <th>Percorsi Completati</th>
-            <th>Punti Totali</th>
-            <th>Azioni</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Studente</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Codice Studente</th> <!-- Modificato da Username -->
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quiz Completati</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Percorsi Completati</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Punti Totali</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Azioni</th>
           </tr>
         </thead>
-        <tbody>
-          <tr v-for="summary in progressSummaries" :key="summary.student_id">
-            <td>{{ summary.full_name }}</td>
-            <td>{{ summary.username }}</td>
-            <td>{{ summary.completed_quizzes_count ?? 0 }}</td>
-            <td>{{ summary.completed_pathways_count ?? 0 }}</td>
-            <td>{{ summary.total_points_earned ?? 0 }}</td>
-            <td>
-              <button @click="viewDetails(summary.student_id)" class="btn btn-link text-sm">Dettagli</button>
+        <tbody class="bg-white divide-y divide-gray-200">
+          <tr v-for="summary in progressSummaries" :key="summary.student_id" class="hover:bg-gray-50 transition-colors duration-150">
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ summary.full_name }}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ summary.student_code }}</td> <!-- Modificato da username -->
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ summary.completed_quizzes_count ?? 0 }}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ summary.completed_pathways_count ?? 0 }}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ summary.total_points_earned ?? 0 }}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+              <button @click="viewDetails(summary.student_id)" class="btn btn-link btn-sm">Dettagli</button> <!-- Added btn-sm -->
             </td>
           </tr>
         </tbody>
       </table>
     </div>
-    <div v-else class="no-progress">
+    <div v-else class="text-center py-10 text-gray-500"> <!-- Styled no progress -->
       Nessun dato sui progressi trovato per i tuoi studenti.
     </div>
   </div>
@@ -49,7 +51,7 @@ import type { AxiosResponse } from 'axios';
 interface StudentProgressSummary {
   student_id: number;
   full_name: string;
-  username: string;
+  student_code: string; // Modificato da username
   completed_quizzes_count: number | null; // Potrebbe essere null se non annotato
   completed_pathways_count: number | null;
   total_points_earned: number | null;
@@ -87,38 +89,5 @@ const viewDetails = (studentId: number) => {
 </script>
 
 <style scoped>
-/* Stili simili alle altre viste tabella */
-.student-progress-view {
-  padding: 20px;
-}
-.loading, .error-message, .no-progress {
-  margin-top: 20px;
-  font-style: italic;
-  color: #666;
-}
-.error-message {
-  color: red;
-  font-weight: bold;
-}
-.progress-list {
-  margin-top: 20px;
-}
-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 15px;
-}
-th, td {
-  border: 1px solid #ddd;
-  padding: 8px;
-  text-align: left;
-}
-th {
-  background-color: #f2f2f2;
-}
-td button {
-  margin-right: 5px;
-  padding: 3px 8px;
-  cursor: pointer;
-}
+/* Stili specifici rimossi in favore di Tailwind */
 </style>

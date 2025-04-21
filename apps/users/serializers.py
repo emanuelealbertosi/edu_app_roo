@@ -75,6 +75,7 @@ class StudentSerializer(serializers.ModelSerializer):
             'teacher_username', # Nome utente del docente (sola lettura)
             'first_name',
             'last_name',
+            'student_code', # Aggiunto campo mancante
             'is_active',
             'created_at',
             'full_name', # Proprietà del modello (sola lettura)
@@ -107,7 +108,7 @@ class StudentProgressSummarySerializer(serializers.Serializer):
     """
     student_id = serializers.IntegerField(read_only=True, source='id') # ID dello studente
     full_name = serializers.CharField(read_only=True)
-    username = serializers.CharField(read_only=True) # Aggiunto username per riferimento
+    student_code = serializers.CharField(read_only=True) # Sostituito username con student_code
     # Campi aggregati (verranno calcolati nella view con annotazioni)
     completed_quizzes_count = serializers.IntegerField(read_only=True, default=0)
     completed_pathways_count = serializers.IntegerField(read_only=True, default=0)

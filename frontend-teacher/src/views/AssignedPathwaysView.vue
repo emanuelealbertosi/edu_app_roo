@@ -1,38 +1,40 @@
 <template>
-  <div class="assigned-pathways-view">
-    <h1>Percorsi Assegnati (Istanze)</h1>
-    <p>Qui puoi visualizzare le istanze concrete dei percorsi che hai assegnato.</p>
+  <div class="assigned-pathways-view p-4 md:p-6"> <!-- Added padding -->
+    <h1 class="text-2xl font-semibold mb-4">Percorsi Assegnati (Istanze)</h1> <!-- Styled heading -->
+    <p class="text-gray-600 mb-6">Qui puoi visualizzare le istanze concrete dei percorsi che hai assegnato.</p> <!-- Styled paragraph -->
 
-    <div v-if="isLoading" class="loading">Caricamento percorsi assegnati...</div>
-    <div v-else-if="error" class="error-message">
-      Errore nel caricamento dei percorsi assegnati: {{ error }}
+    <div v-if="isLoading" class="text-center py-10 text-gray-500">Caricamento percorsi assegnati...</div> <!-- Styled loading -->
+    <div v-else-if="error" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6" role="alert"> <!-- Styled error -->
+      <strong class="font-bold">Errore!</strong>
+      <span class="block sm:inline"> Errore nel caricamento dei percorsi assegnati: {{ error }}</span>
     </div>
-    <div v-else-if="assignedPathways.length > 0" class="pathways-list">
-      <table>
-        <thead>
+    <!-- Responsive Table Container -->
+    <div v-else-if="assignedPathways.length > 0" class="overflow-x-auto shadow-md rounded-lg mt-6">
+      <table class="min-w-full divide-y divide-gray-200 bg-white">
+        <thead class="bg-gray-50">
           <tr>
-            <th>Titolo Istanza</th>
-            <th>Descrizione</th>
-            <th>Template Sorgente</th>
-            <th>Creato il</th>
-            <th>Azioni</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Titolo Istanza</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Descrizione</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Template Sorgente</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Creato il</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Azioni</th>
           </tr>
         </thead>
-        <tbody>
-          <tr v-for="pathway in assignedPathways" :key="pathway.id">
-            <td>{{ pathway.title }}</td>
-            <td>{{ pathway.description || '-' }}</td>
-            <td>{{ pathway.source_template ? `ID: ${pathway.source_template}` : 'Nessuno (Creato manualmente)' }}</td> <!-- Assumendo che source_template sia aggiunto al serializer Pathway -->
-            <td>{{ new Date(pathway.created_at).toLocaleDateString() }}</td>
-            <td>
-              <button @click="viewPathwayDetails(pathway.id)" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-2 rounded text-sm mr-2">Dettagli</button>
-              <!-- <button @click="deleteAssignedPathway(pathway.id)" class="delete bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded text-sm">Elimina Istanza</button> -->
+        <tbody class="bg-white divide-y divide-gray-200">
+          <tr v-for="pathway in assignedPathways" :key="pathway.id" class="hover:bg-gray-50 transition-colors duration-150">
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ pathway.title }}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ pathway.description || '-' }}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ pathway.source_template ? `ID: ${pathway.source_template}` : 'N/D' }}</td> <!-- Simplified display -->
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ new Date(pathway.created_at).toLocaleDateString() }}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2"> <!-- Added space-x-2 -->
+              <button @click="viewPathwayDetails(pathway.id)" class="btn btn-info btn-sm">Dettagli</button> <!-- Changed style -->
+              <!-- <button @click="deleteAssignedPathway(pathway.id)" class="btn btn-danger btn-sm">Elimina Istanza</button> -->
             </td>
           </tr>
         </tbody>
       </table>
     </div>
-    <div v-else class="no-pathways">
+    <div v-else class="text-center py-10 text-gray-500"> <!-- Styled no pathways -->
       Nessun percorso assegnato trovato.
     </div>
   </div>
@@ -90,33 +92,5 @@ const deleteAssignedPathway = async (id: number) => {
 </script>
 
 <style scoped>
-/* Stili simili a PathwayTemplatesView */
-.assigned-pathways-view {
-  padding: 20px;
-}
-.loading, .error-message, .no-pathways {
-  margin-top: 20px;
-  font-style: italic;
-  color: #666;
-}
-.error-message {
-  color: red;
-  font-weight: bold;
-}
-.pathways-list {
-  margin-top: 20px;
-}
-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 15px;
-}
-th, td {
-  border: 1px solid #ddd;
-  padding: 8px;
-  text-align: left;
-}
-th {
-  background-color: #f2f2f2;
-}
+/* Stili specifici rimossi in favore di Tailwind */
 </style>

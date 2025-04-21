@@ -1,43 +1,44 @@
 <template>
-  <div class="grading-view">
-    <h1>Valutazioni Manuali Pendenti</h1>
-    <p>Elenco delle risposte aperte in attesa di valutazione.</p>
+  <div class="grading-view p-4 md:p-6"> <!-- Added padding -->
+    <h1 class="text-2xl font-semibold mb-4">Valutazioni Manuali Pendenti</h1> <!-- Styled heading -->
+    <p class="text-gray-600 mb-6">Elenco delle risposte aperte in attesa di valutazione.</p> <!-- Styled paragraph -->
 
-    <div v-if="isLoading" class="loading">Caricamento risposte...</div>
-    <div v-else-if="error" class="error-message">
-      Errore nel caricamento delle risposte: {{ error }}
+    <div v-if="isLoading" class="text-center py-10 text-gray-500">Caricamento risposte...</div> <!-- Styled loading -->
+    <div v-else-if="error" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6" role="alert"> <!-- Styled error -->
+      <strong class="font-bold">Errore!</strong>
+      <span class="block sm:inline"> Errore nel caricamento delle risposte: {{ error }}</span>
     </div>
-    <div v-else-if="pendingAnswers.length > 0" class="answers-list">
-      <ul>
-        <li v-for="answer in pendingAnswers" :key="answer.id">
-          <div class="answer-details">
-            <p><strong>Domanda:</strong> {{ answer.question_text }}</p>
-            <p><strong>Risposta Studente:</strong></p>
-            <pre>{{ answer.selected_answers?.answer_text || '(Nessuna risposta fornita)' }}</pre>
-            <p><small>Tentativo ID: {{ answer.quiz_attempt }} | Risposta ID: {{ answer.id }}</small></p>
-          </div>
-          <div class="grading-actions">
-            <!-- Form/pulsanti per assegnare punteggio/correttezza -->
-            <p>Form valutazione da implementare</p>
-            <!-- Applicato stile Tailwind -->
-            <button
-                @click="gradeAnswer(answer.id, true, 1)"
-                class="btn btn-success text-sm mr-2"
-            >
-                Corretta (1pt)
-            </button>
-            <!-- Applicato stile Tailwind -->
-            <button
-                @click="gradeAnswer(answer.id, false, 0)"
-                class="btn btn-danger text-sm"
-            >
-                Errata (0pt)
-            </button>
-          </div>
-        </li>
-      </ul>
+    <!-- Styled List Container -->
+    <div v-else-if="pendingAnswers.length > 0" class="answers-list space-y-4"> <!-- Use space-y for gap -->
+      <!-- Styled List Item Card -->
+      <div v-for="answer in pendingAnswers" :key="answer.id" class="bg-white p-4 rounded-lg shadow-md border border-gray-200 flex flex-col md:flex-row md:items-start md:space-x-4">
+        <div class="answer-details flex-grow mb-4 md:mb-0">
+          <p class="text-sm text-gray-500 mb-1">Domanda:</p>
+          <p class="font-medium text-gray-800 mb-2">{{ answer.question_text }}</p>
+          <p class="text-sm text-gray-500 mb-1">Risposta Studente:</p>
+          <pre class="bg-gray-50 p-3 rounded border border-gray-200 text-sm text-gray-700 whitespace-pre-wrap break-words mb-2">{{ answer.selected_answers?.answer_text || '(Nessuna risposta fornita)' }}</pre>
+          <p class="text-xs text-gray-400">Tentativo ID: {{ answer.quiz_attempt }} | Risposta ID: {{ answer.id }}</p>
+        </div>
+        <!-- Styled Actions Area -->
+        <div class="grading-actions flex-shrink-0 flex flex-col space-y-2 md:w-40">
+          <!-- TODO: Implementare un form più completo per punteggio variabile se necessario -->
+          <!-- <p class="text-xs text-gray-500 mb-2">Valutazione Rapida:</p> -->
+          <button
+              @click="gradeAnswer(answer.id, true, 1)"
+              class="btn btn-success btn-sm w-full"
+          >
+              Corretta (1pt)
+          </button>
+          <button
+              @click="gradeAnswer(answer.id, false, 0)"
+              class="btn btn-danger btn-sm w-full"
+          >
+              Errata (0pt)
+          </button>
+        </div>
+      </div>
     </div>
-    <div v-else class="no-answers">
+    <div v-else class="text-center py-10 text-gray-500"> <!-- Styled no answers -->
       Nessuna risposta in attesa di valutazione.
     </div>
   </div>
@@ -108,50 +109,8 @@ const gradeAnswer = async (answerId: number, isCorrect: boolean, score: number |
 </script>
 
 <style scoped>
-.grading-view {
-  padding: 20px;
+/* Stili specifici rimossi in favore di Tailwind */
+pre { /* Assicura che il font monospace sia applicato */
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 }
-.loading, .error-message, .no-answers {
-  margin-top: 20px;
-  font-style: italic;
-  color: #666;
-}
-.error-message {
-  color: red;
-  font-weight: bold;
-}
-.answers-list {
-  margin-top: 20px;
-}
-.answers-list ul {
-  list-style: none;
-  padding: 0;
-}
-.answers-list li {
-  border: 1px solid #eee;
-  border-radius: 4px;
-  margin-bottom: 15px;
-  padding: 15px;
-  display: flex;
-  justify-content: space-between;
-  gap: 20px;
-}
-.answer-details {
-  flex-grow: 1;
-}
-.answer-details pre {
-    background-color: #f8f8f8;
-    padding: 10px;
-    border: 1px solid #ddd;
-    border-radius: 3px;
-    white-space: pre-wrap; /* Va a capo automaticamente */
-    word-wrap: break-word;
-}
-.grading-actions {
-    min-width: 150px;
-    text-align: right;
-}
-/* Rimosso stile .grading-actions button */
-/* .grading-actions button { ... } */
-
 </style>

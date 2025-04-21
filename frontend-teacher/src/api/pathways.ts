@@ -18,6 +18,7 @@ export interface Pathway {
     description: string | null;
     metadata: Record<string, any> | null;
     created_at: string; // Formato ISO 8601
+    source_template: number | null; // Aggiunto per coerenza con il modello backend
     quiz_details: PathwayQuizDetail[]; // Read-only
 }
 // --- Template Interfaces ---
