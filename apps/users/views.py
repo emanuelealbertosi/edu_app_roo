@@ -3,13 +3,18 @@ from rest_framework import viewsets, permissions, serializers, generics
 from rest_framework.decorators import action # Import action
 from rest_framework.response import Response # Import Response
 from django.db import models # Importa models
-from django.db.models import Count, Sum, Q, OuterRef, Subquery
-from .models import User, Student, UserRole
+from django.db.models import Count, Sum, Q, OuterRef, Subquery, F # Aggiungi F
+from .models import User, Student, UserRole, RegistrationToken # Aggiungi RegistrationToken
 # Importa tutti i serializer necessari
-from .serializers import UserSerializer, StudentSerializer, UserCreateSerializer, StudentProgressSummarySerializer
+from .serializers import (
+    UserSerializer, StudentSerializer, UserCreateSerializer,
+    StudentProgressSummarySerializer, RegistrationTokenSerializer, # Aggiungi RegistrationTokenSerializer
+    StudentRegistrationSerializer # Aggiungi StudentRegistrationSerializer
+)
 # Importa modelli da altre app per le annotazioni
 from apps.education.models import QuizAttempt, PathwayProgress
 from apps.rewards.models import Wallet
+from rest_framework import mixins # Importa mixins
 
 # Get an instance of a logger
 logger = logging.getLogger(__name__)
@@ -230,3 +235,65 @@ class TeacherStudentProgressSummaryView(generics.ListAPIView):
 # TODO: Aggiungere azione a StudentViewSet per i dettagli del progresso
 # @action(detail=True, methods=['get'], url_path='progress-details')
 # def progress_details(self, request, pk=None): ...
+
+
+# --- Registration Token Views ---
+
+class RegistrationTokenViewSet(mixins.CreateModelMixin,
+                               mixins.ListModelMixin,
+                               mixins.RetrieveModelMixin,
+                               viewsets.GenericViewSet):
+    """
+    API endpoint che permette ai Docenti autenticati di creare e visualizzare
+    i propri token di registrazione per gli studenti.
+    """
+    serializer_class = RegistrationTokenSerializer
+    permission_classes = [permissions.IsAuthenticated, IsTeacherUser] # Solo Docenti
+
+    def get_queryset(self):
+        """ Restituisce solo i token creati dal docente autenticato. """
+        # Ordina per data di scadenza decrescente, mostrando prima i più recenti/validi
+        return RegistrationToken.objects.filter(teacher=self.request.user).order_by('-expires_at')
+
+    def perform_create(self, serializer):
+        """ Associa automaticamente il token al Docente autenticato durante la creazione. """
+        # Potremmo aggiungere logica qui, ad esempio limitare il numero di token attivi per docente.
+        logger.info(f"Teacher {self.request.user.username} is creating a new registration token.")
+        serializer.save(teacher=self.request.user)
+
+
+class StudentRegistrationView(generics.CreateAPIView):
+    """
+    API endpoint pubblico per la registrazione di un nuovo studente
+    utilizzando un token di registrazione valido.
+    """
+    serializer_class = StudentRegistrationSerializer
+    permission_classes = [permissions.AllowAny] # Accesso pubblico
+
+    def perform_create(self, serializer):
+        """
+        Esegue la creazione dello studente (la logica è nel serializer).
+        Logga l'evento.
+        """
+        # La validazione del token e la creazione dello studente/wallet
+        # avvengono nel metodo create del serializer.
+        student = serializer.save() # Il metodo save del serializer restituisce lo studente creato
+        logger.info(f"New student '{student.full_name}' (Code: {student.student_code}) registered successfully using token {serializer.validated_data['token']} for teacher {student.teacher.username}.")
+        return student # Restituisci l'oggetto studente creato
+
+    def create(self, request, *args, **kwargs):
+        """
+        Sovrascrive il metodo create per restituire i dati dello studente creato
+        utilizzando StudentSerializer invece dei dati del serializer di input.
+        """
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        student = self.perform_create(serializer) # perform_create ora restituisce lo studente
+        # Log dell'oggetto studente PRIMA della serializzazione per la risposta
+        logger.debug(f"Student object BEFORE response serialization: id={student.id}, name={student.full_name}, code={student.student_code}, active={student.is_active}")
+        # Ora serializza lo studente creato per la risposta
+        student_data = StudentSerializer(student, context=self.get_serializer_context()).data
+        # Log dei dati serializzati prima di inviarli
+        logger.debug(f"Serialized student data being returned after registration: {student_data}")
+        headers = self.get_success_headers(student_data) # Usa student_data per gli header
+        return Response(student_data, status=status.HTTP_201_CREATED, headers=headers)

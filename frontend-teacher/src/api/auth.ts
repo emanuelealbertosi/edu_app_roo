@@ -1,4 +1,4 @@
-import apiClient from './config';
+import apiClient from './apiClient'; // Correggi import
 
 // Define expected response structure for teacher/admin login
 interface LoginResponse {
@@ -39,8 +39,26 @@ export const loginTeacher = async (credentials: LoginCredentials): Promise<Login
   }
 };
 
-// Optional: Add function for token refresh if needed
-// export const refreshToken = async (refresh: string): Promise<{ access: string }> => { ... }
+// Function for token refresh
+interface RefreshTokenPayload {
+  refresh: string;
+}
+interface RefreshTokenResponse {
+  access: string;
+}
+export const refreshTokenTeacher = async (payload: RefreshTokenPayload): Promise<RefreshTokenResponse> => {
+  console.log('[api/auth] Attempting token refresh...');
+  try {
+    const response = await apiClient.post<RefreshTokenResponse>('/auth/token/refresh/', payload);
+    console.log('[api/auth] Token refresh successful.');
+    return response.data;
+  } catch (error: any) {
+    console.error('[api/auth] Token refresh API error:', error.response?.data || error.message, error);
+    // Non lanciare errore qui necessariamente, l'interceptor potrebbe gestirlo,
+    // ma è utile loggarlo. L'interceptor rilancerà se necessario.
+    throw new Error(error.response?.data?.detail || 'Token refresh failed');
+  }
+};
 
 // Optional: Add function for logout (e.g., blacklist token) if backend supports it
 // export const logoutTeacher = async (refresh: string): Promise<void> => { ... }

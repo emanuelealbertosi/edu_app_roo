@@ -1,5 +1,7 @@
 from rest_framework import serializers
-from .models import User, Student, UserRole
+from .models import User, Student, UserRole, RegistrationToken # Aggiungi RegistrationToken
+from django.utils import timezone # Aggiungi timezone
+from apps.rewards.models import Wallet # Importa Wallet
 
 class UserSerializer(serializers.ModelSerializer):
     """
@@ -118,3 +120,110 @@ class StudentProgressSummarySerializer(serializers.Serializer):
 
     # Nota: La view che usa questo serializer dovrà fornire un queryset
     # annotato con i campi aggregati (completed_quizzes_count, etc.).
+
+
+# --- Serializer per Token di Registrazione ---
+
+class RegistrationTokenSerializer(serializers.ModelSerializer):
+    """
+    Serializer per visualizzare i token di registrazione generati dai docenti.
+    Include il link di registrazione completo.
+    """
+    teacher_username = serializers.CharField(source='teacher.username', read_only=True)
+    registration_link = serializers.CharField(read_only=True) # Proprietà del modello
+    is_valid = serializers.BooleanField(read_only=True) # Proprietà del modello
+
+    class Meta:
+        model = RegistrationToken
+        fields = [
+            'token',
+            'teacher',
+            'teacher_username',
+            'created_at',
+            'expires_at',
+            'used_at',
+            'student', # ID dello studente registrato (se presente)
+            'is_valid',
+            'registration_link',
+        ]
+        read_only_fields = fields # Questo serializer è solo per la lettura
+
+
+class StudentRegistrationSerializer(serializers.Serializer):
+    """
+    Serializer per validare i dati inviati durante la registrazione
+    di uno studente tramite un token.
+    """
+    token = serializers.UUIDField(required=True)
+    first_name = serializers.CharField(max_length=150, required=True)
+    last_name = serializers.CharField(max_length=150, required=True)
+    # Il codice studente verrà generato automaticamente
+    pin = serializers.CharField(
+        write_only=True,
+        required=True,
+        style={'input_type': 'password'},
+        min_length=4, # Assicura una lunghezza minima per il PIN
+        validators=[lambda value: value.isdigit() or serializers.ValidationError("Il PIN deve essere numerico.")]
+    )
+
+    def validate_token(self, value):
+        """
+        Verifica che il token esista, sia valido (non scaduto, non usato)
+        e appartenga a un docente attivo.
+        """
+        try:
+            token_instance = RegistrationToken.objects.select_related('teacher').get(token=value)
+        except RegistrationToken.DoesNotExist:
+            raise serializers.ValidationError("Token di registrazione non valido o inesistente.")
+
+        if not token_instance.is_valid:
+            if token_instance.used_at:
+                raise serializers.ValidationError("Questo token di registrazione è già stato utilizzato.")
+            elif timezone.now() >= token_instance.expires_at:
+                raise serializers.ValidationError("Questo token di registrazione è scaduto.")
+            else: # Caso generico (dovrebbe essere coperto sopra)
+                 raise serializers.ValidationError("Token di registrazione non valido.")
+
+        if not token_instance.teacher.is_active:
+             raise serializers.ValidationError("Il docente associato a questo token non è più attivo.")
+
+        # Passa l'istanza del token al contesto per usarla nel metodo create
+        self.context['token_instance'] = token_instance
+        return value
+
+    def create(self, validated_data):
+        """
+        Crea il nuovo studente, lo associa al docente del token,
+        imposta il PIN, crea il Wallet e marca il token come usato.
+        """
+        token_instance = self.context['token_instance']
+        teacher = token_instance.teacher
+
+        # Genera un codice studente univoco (esempio semplice, potrebbe essere migliorato)
+        base_code = f"{validated_data['first_name'][:2]}{validated_data['last_name'][:2]}".lower()
+        unique_code = base_code
+        counter = 1
+        while Student.objects.filter(student_code=unique_code).exists():
+            unique_code = f"{base_code}{counter}"
+            counter += 1
+
+        # Crea lo studente
+        student = Student(
+            teacher=teacher,
+            first_name=validated_data['first_name'],
+            last_name=validated_data['last_name'],
+            student_code=unique_code,
+            is_active=True # Attivo di default
+        )
+        student.set_pin(validated_data['pin']) # Imposta l'hash del PIN
+        student.save()
+
+        # Non creare il Wallet qui, viene creato automaticamente dal segnale post_save
+        # Wallet.objects.create(student=student)
+
+        # Marca il token come usato
+        token_instance.used_at = timezone.now()
+        token_instance.student = student
+        token_instance.save(update_fields=['used_at', 'student'])
+
+        return student # Restituisce l'istanza dello studente creato

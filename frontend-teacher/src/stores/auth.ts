@@ -1,7 +1,7 @@
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
 import { useRouter } from 'vue-router' // Importa useRouter
-import * as authService from '@/api/auth' // Import auth service (including getTeacherProfile)
+import * as authService from '@/api/auth' // Import auth service (including getTeacherProfile and refreshTokenTeacher)
 
 // Define the shape of the user object for teachers (adjust as needed)
 interface TeacherUser {
@@ -156,7 +156,35 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  // TODO: Add action for token refresh
+  // Action for token refresh
+  async function refreshTokenAction() {
+    const currentRefreshToken = refreshToken.value;
+    if (!currentRefreshToken) {
+      console.error("Refresh Token Action: No refresh token available.");
+      clearAuthData(); // Logout if no refresh token
+      throw new Error("No refresh token available.");
+    }
+
+    loading.value = true; // Potrebbe essere utile indicare il caricamento
+    error.value = null;
+
+    try {
+      console.log("Attempting token refresh...");
+      const response = await authService.refreshTokenTeacher({ refresh: currentRefreshToken });
+      // Aggiorna solo l'access token, il refresh token rimane lo stesso (di solito)
+      accessToken.value = response.access;
+      localStorage.setItem('teacher_access_token', response.access);
+      console.log("Token refreshed successfully via action.");
+      // Non aggiornare user qui, solo il token
+    } catch (refreshError: any) {
+      console.error("Failed to refresh token via action:", refreshError);
+      error.value = refreshError.message || 'Failed to refresh token';
+      clearAuthData(); // Logout on refresh failure
+      throw refreshError; // Rilancia l'errore
+    } finally {
+      loading.value = false;
+    }
+  }
 
   // --- INITIALIZATION LOGIC ---
   // If we find a token on startup, try to fetch the user profile
@@ -181,6 +209,7 @@ export const useAuthStore = defineStore('auth', () => {
     logout,
     setAuthData, // Expose if needed externally
     clearAuthData, // Expose if needed externally
-    fetchUserProfile // Expose if needed (e.g., for manual refresh)
+    fetchUserProfile, // Expose if needed (e.g., for manual refresh)
+    refreshTokenAction // Expose the refresh action
   }
 })

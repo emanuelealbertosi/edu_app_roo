@@ -393,3 +393,12 @@ LOGGING = {
 DEBUG_TOOLBAR_CONFIG = {
     'SHOW_TOOLBAR_CALLBACK': lambda request: DEBUG,
 }
+
+# --- Custom Application Settings ---
+
+# Base URL for the student frontend application (including protocol and base path)
+# Used for generating links (e.g., registration links)
+FRONTEND_STUDENT_BASE_URL = os.getenv('FRONTEND_STUDENT_BASE_URL', 'http://localhost:5173/studenti/')
+# Ensure the base URL ends with a slash
+if not FRONTEND_STUDENT_BASE_URL.endswith('/'):
+    FRONTEND_STUDENT_BASE_URL += '/'

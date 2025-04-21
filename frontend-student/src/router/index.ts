@@ -110,6 +110,20 @@ const router = createRouter({
       component: () => import('../views/ProfileView.vue'),
       meta: { requiresAuth: true }
     },
+    // Rotta pubblica per la registrazione studente tramite token
+    {
+      path: '/register/student', // Il token sarà nella query string ?token=...
+      name: 'StudentRegistration',
+      component: () => import('../views/StudentRegistrationView.vue'),
+      beforeEnter: (to, from, next) => {
+        // Se l'utente è già autenticato, reindirizza alla dashboard
+        if (AuthService.isAuthenticated()) {
+          next('/dashboard');
+        } else {
+          next();
+        }
+      }
+    },
     // Rotta 404 per pagine non trovate
     {
       path: '/:pathMatch(.*)*',

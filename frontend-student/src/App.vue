@@ -9,8 +9,15 @@ const authStore = useAuthStore();
 const router = useRouter();
 const route = useRoute();
 
-// Nasconde la navbar nella pagina di login
-const showNavbar = computed(() => route.name !== 'login');
+// Definisci i nomi delle rotte che NON devono mostrare il layout principale (header/navbar)
+const publicRouteNames = ['login', 'StudentRegistration'];
+
+// Calcola se mostrare la navbar (e quindi applicare il layout principale)
+// Gestisce il caso in cui route.name sia null o undefined
+const showLayout = computed(() => {
+  const currentRouteName = route.name;
+  return currentRouteName !== null && currentRouteName !== undefined && !publicRouteNames.includes(currentRouteName.toString());
+});
 
 const handleLogout = () => { // Rimosso async e nextTick
   authStore.logout(); // Lo store ora gestisce il redirect
@@ -22,7 +29,7 @@ const handleLogout = () => { // Rimosso async e nextTick
   <NotificationContainer />
   <!-- Aggiungi il contenitore notifiche qui -->
   
-  <header v-if="showNavbar" class="fixed top-0 left-0 w-full bg-purple-800 text-white shadow-md z-10 p-4 flex justify-between items-center">
+  <header v-if="showLayout" class="fixed top-0 left-0 w-full bg-purple-800 text-white shadow-md z-10 p-4 flex justify-between items-center">
     <nav class="flex gap-6">
       <RouterLink to="/dashboard" class="py-1 hover:text-amber-300 border-b-2 border-transparent router-link-exact-active:border-amber-300 transition-colors duration-200">Dashboard</RouterLink>
       <RouterLink to="/shop" class="py-1 hover:text-amber-300 border-b-2 border-transparent router-link-exact-active:border-amber-300 transition-colors duration-200">Shop</RouterLink>
@@ -35,7 +42,8 @@ const handleLogout = () => { // Rimosso async e nextTick
        <button @click="handleLogout" class="bg-red-600 hover:bg-red-700 text-white text-sm font-medium py-2 px-4 rounded transition-colors duration-200">Logout</button>
     </div>
   </header>
-  <main class="pt-24 px-4 md:px-8">
+  <!-- Applica il padding top solo se il layout (e quindi l'header) è mostrato -->
+  <main :class="showLayout ? 'pt-24' : ''" class="px-4 md:px-8">
     <RouterView />
     <!-- Temporaneamente rimossa transition per debug InvalidCharacterError -->
     <!--

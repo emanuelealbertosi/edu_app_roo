@@ -2,6 +2,9 @@ from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 from django.contrib.auth.hashers import make_password, check_password # Add imports
+import uuid
+from django.utils import timezone
+from datetime import timedelta
 class UserRole(models.TextChoices):
     ADMIN = 'ADMIN', _('Admin')
     TEACHER = 'TEACHER', _('Teacher')
@@ -143,4 +146,92 @@ class Student(models.Model):
             bool: True if the PIN matches, False otherwise.
         """
         return check_password(raw_pin, self.pin_hash)
+
+
+class RegistrationToken(models.Model):
+    """
+    Modello per memorizzare i token univoci di registrazione per gli studenti,
+    generati dai docenti.
+    """
+    token = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False,
+        verbose_name=_('Token')
+    )
+    teacher = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE, # Se il docente viene eliminato, elimina anche i token associati
+        related_name='registration_tokens',
+        limit_choices_to={'role': UserRole.TEACHER},
+        verbose_name=_('Teacher'),
+        help_text=_('Il docente che ha generato questo token.')
+    )
+    created_at = models.DateTimeField(
+        _('Created At'),
+        auto_now_add=True,
+        help_text=_('Data e ora di creazione del token.')
+    )
+    expires_at = models.DateTimeField(
+        _('Expires At'),
+        help_text=_('Data e ora di scadenza del token.')
+        # Impostato nel metodo save
+    )
+    used_at = models.DateTimeField(
+        _('Used At'),
+        null=True,
+        blank=True,
+        help_text=_('Data e ora in cui il token è stato utilizzato per la registrazione.')
+    )
+    student = models.OneToOneField( # Un token può registrare un solo studente
+        Student,
+        on_delete=models.SET_NULL, # Se lo studente viene eliminato, non eliminare il token, ma scollega
+        null=True,
+        blank=True,
+        related_name='registration_token_used',
+        verbose_name=_('Student Registered'),
+        help_text=_('Lo studente che si è registrato utilizzando questo token.')
+    )
+
+    class Meta:
+        verbose_name = _('Registration Token')
+        verbose_name_plural = _('Registration Tokens')
+        ordering = ['-created_at']
+
+    def __str__(self):
+        # Formattazione sicura per evitare errori se expires_at è None (anche se save dovrebbe prevenirlo)
+        expires_str = self.expires_at.strftime('%Y-%m-%d %H:%M') if self.expires_at else "N/A"
+        return f"Token for {self.teacher.username} (Expires: {expires_str})"
+
+    def save(self, *args, **kwargs):
+        # Imposta la data di scadenza se non è già impostata (es. 7 giorni dalla creazione)
+        if not self.expires_at:
+            # Assicurati che timezone.now() sia chiamato qui per ottenere l'ora corrente al momento del salvataggio
+            self.expires_at = timezone.now() + timedelta(days=7) # Scadenza di default a 7 giorni
+        super().save(*args, **kwargs)
+
+    @property
+    def is_valid(self):
+        """ Verifica se il token è ancora valido (non scaduto e non utilizzato). """
+        # Assicurati che expires_at esista prima di confrontare
+        if not self.expires_at:
+            return False
+        return self.used_at is None and timezone.now() < self.expires_at
+
+    @property
+    def registration_link(self):
+        """ Genera l'URL di registrazione completo usando FRONTEND_STUDENT_BASE_URL dalle impostazioni. """
+        from django.conf import settings
+        from urllib.parse import urljoin # Per unire correttamente base URL e path
+
+        # Assicurati che la base URL finisca con '/'
+        base_url = settings.FRONTEND_STUDENT_BASE_URL
+        if not base_url.endswith('/'):
+             base_url += '/'
+
+        # Il path relativo per la registrazione (senza slash iniziale se base_url finisce con slash)
+        registration_path = f"register/student?token={self.token}"
+
+        # Unisci la base URL e il path relativo
+        return urljoin(base_url, registration_path)
 
