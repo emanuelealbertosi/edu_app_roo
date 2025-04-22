@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import { reactive } from 'vue'; // Importa reactive
 import { useNotificationStore, type Notification } from '@/stores/notification';
-// Rimosso import TrophyIcon
+import AnimatedBadge from '@/components/common/AnimatedBadge.vue'; // Importa AnimatedBadge
 
 const notificationStore = useNotificationStore();
 
@@ -24,20 +23,23 @@ const getNotificationClasses = (notification: Notification) => {
 <template>
   <div class="notification-container fixed bottom-5 right-5 z-50 space-y-3 max-w-sm w-full">
     <transition-group name="notification-item">
-      <div 
-        v-for="notification in notificationStore.notifications" 
+      <div
+        v-for="notification in notificationStore.notifications"
         :key="notification.id"
         class="notification-item border-l-4 p-4 rounded-md shadow-lg flex items-start space-x-3"
         :class="getNotificationClasses(notification)"
         role="alert"
       >
-        <!-- Icona (opzionale o specifica per tipo) -->
-        <!-- Icona: Mostra sempre TrophyIcon per badge, altrimenti icone specifiche -->
-        <div class="flex-shrink-0 w-10 h-10 flex items-center justify-center">
-          <template v-if="notification.type === 'badge'">
-             <span class="text-2xl">🏆</span> <!-- Sostituito con Emoji Trofeo -->
-             <!-- Rimosso testo di debug ICON -->
+        <!-- Icona / Badge -->
+        <div class="flex-shrink-0 w-12 h-12 flex items-center justify-center"> <!-- Leggermente più grande per badge -->
+          <template v-if="notification.type === 'badge' && notification.badgeInfo">
+             <!-- Usa AnimatedBadge, ridimensionato -->
+             <AnimatedBadge
+                :badge="notification.badgeInfo"
+                class="transform scale-75"
+             /> <!-- Tag auto-chiudente corretto, commento rimosso -->
           </template>
+          <!-- Icone per altri tipi -->
           <span v-else-if="notification.type === 'success'" class="text-xl">✅</span>
           <span v-else-if="notification.type === 'error'" class="text-xl">❌</span>
           <span v-else-if="notification.type === 'info'" class="text-xl">ℹ️</span>
@@ -47,14 +49,17 @@ const getNotificationClasses = (notification: Notification) => {
 
         <!-- Contenuto Testuale -->
         <div class="flex-grow">
-          <p v-if="notification.title" class="font-bold">{{ notification.title }}</p>
+          <!-- Mostra il nome del badge come titolo se presente -->
+          <p v-if="notification.badgeInfo?.name" class="font-bold">{{ notification.badgeInfo.name }}</p>
+          <!-- Altrimenti mostra il titolo generico se presente -->
+          <p v-else-if="notification.title" class="font-bold">{{ notification.title }}</p>
           <p class="text-sm">{{ notification.message }}</p>
         </div>
 
-        <!-- Pulsante Chiudi (opzionale) -->
-        <button 
-          @click="notificationStore.removeNotification(notification.id)" 
-          class="ml-auto -mx-1.5 -my-1.5 bg-transparent rounded-lg focus:ring-2 p-1.5 inline-flex h-8 w-8" 
+        <!-- Pulsante Chiudi (invariato) -->
+        <button
+          @click="notificationStore.removeNotification(notification.id)"
+          class="ml-auto -mx-1.5 -my-1.5 bg-transparent rounded-lg focus:ring-2 p-1.5 inline-flex h-8 w-8"
           :class="[
              {'text-green-500 focus:ring-green-400 hover:bg-green-200': notification.type === 'success'},
              {'text-red-500 focus:ring-red-400 hover:bg-red-200': notification.type === 'error'},

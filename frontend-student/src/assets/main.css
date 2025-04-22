@@ -4,6 +4,12 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  body {
+    @apply font-sans bg-brand-gray-light text-brand-gray-dark; /* Applica font e colori base */
+  }
+}
+
 /* Stili Base Bottoni (Esempio - da personalizzare) */
 @layer components {
   .btn {
@@ -30,19 +36,4 @@
   /* Aggiungere altre varianti se necessario (es. outline) */
 }
 
-/* Rimuoviamo anche questi stili residui */
-/*
-a,
-.green {
-  text-decoration: none;
-  color: hsla(160, 100%, 37%, 1);
-  transition: 0.4s;
-  padding: 3px;
-}
-
-@media (hover: hover) {
-  a:hover {
-    background-color: hsla(160, 100%, 37%, 0.2);
-  }
-}
-*/
+/* Stili residui rimossi */

@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { ref, onMounted, computed, shallowRef, watch } from 'vue'; // Aggiunto watch
-import { useRoute, useRouter } from 'vue-router';
+import { ref, onMounted, computed, shallowRef, watch, defineProps, defineEmits, onUnmounted } from 'vue'; // Aggiungere onUnmounted
+// Rimuovere useRoute
+// import { useRoute, useRouter } from 'vue-router';
+import { useRouter } from 'vue-router'; // Mantenere useRouter per ora, se serve per altro
 import QuizService, { type Question, type QuizAttempt, type Answer } from '@/api/quiz';
 // Importa i componenti delle domande
 import MultipleChoiceSingleQuestion from '@/components/quiz/questions/MultipleChoiceSingleQuestion.vue';
@@ -11,7 +13,17 @@ import OpenAnswerManualQuestion from '@/components/quiz/questions/OpenAnswerManu
 import { useAuthStore } from '@/stores/auth';
 import { useNotificationStore } from '@/stores/notification'; // Importa lo store notifiche
 
-// --- Sfondi e Animazioni ---
+// --- Props & Emits ---
+const props = defineProps<{
+  quizId: number; // Accetta quizId come prop
+}>();
+
+const emit = defineEmits<{
+  (e: 'close'): void; // Evento per chiudere la modale
+  (e: 'completed', attemptId: number): void; // Evento al completamento
+}>();
+
+// --- Sfondi e Animazioni (invariato) ---
 // Lista di classi Tailwind per i gradienti di sfondo
 const backgroundGradients = [
   'bg-gradient-to-br from-red-500 to-red-700',
@@ -28,11 +40,15 @@ const countdownValue = ref<number | string>(3); // Inizia da 3, poi diventa 'Via
 const countdownActive = ref(false); // Controlla l'intervallo
 
 // State
-const route = useRoute();
-const router = useRouter();
-const authStore = useAuthStore(); // Se necessario
+// Rimuovere useRoute
+// const route = useRoute();
+const router = useRouter(); // Mantenere per ora
+const authStore = useAuthStore();
 
-const quizId = computed(() => Number(route.params.quizId));
+// Rimuovere il computed basato sulla route
+// const quizId = computed(() => Number(route.params.quizId));
+// Usiamo direttamente props.quizId dove serve
+
 const attempt = ref<QuizAttempt | null>(null);
 const currentQuestion = ref<Question | null>(null);
 const userAnswer = ref<Answer | null>(null); // Da definire meglio in base al tipo di domanda
@@ -40,28 +56,36 @@ const isLoading = ref(false);
 const error = ref<string | null>(null);
 const isSubmitting = ref(false);
 const isCompleting = ref(false);
+const showFeedback = ref(false); // Nuovo: Controlla visibilità feedback
+const isCorrectFeedback = ref(false); // Nuovo: Indica se il feedback è per risposta corretta
+const feedbackTimeoutId = ref<number | null>(null); // Nuovo: Per gestire il timeout (tipo corretto per browser)
 
 // --- Funzioni Logiche ---
 
 async function startQuizAttempt() {
-  if (!quizId.value) {
+  // Usa props.quizId
+  if (!props.quizId) {
     error.value = "ID del quiz non valido.";
+    emit('close'); // Chiudi se l'ID non è valido
     return;
   }
   isLoading.value = true;
   error.value = null;
   try {
-    attempt.value = await QuizService.startAttempt(quizId.value);
-    await fetchCurrentQuestion(); // Carica la prima domanda subito dopo aver iniziato
-  } catch (err: any) { // Aggiunto :any per accedere a err.response
+    attempt.value = await QuizService.startAttempt(props.quizId); // Usa props.quizId
+    await fetchCurrentQuestion();
+  } catch (err: any) {
+    // ... (gestione errore invariata, ma potremmo emettere 'close' qui?)
     console.error("Errore durante l'avvio del tentativo:", err);
-    if (err.response?.data?.detail) {
-        error.value = `Errore avvio: ${err.response.data.detail}`;
-    } else {
-        error.value = "Impossibile avviare il tentativo di quiz. Controlla la connessione o riprova più tardi.";
-    }
-    // Cancella l'errore dopo 7 secondi
-    setTimeout(() => { error.value = null; }, 7000);
+     if (err.response?.data?.detail) {
+         error.value = `Errore avvio: ${err.response.data.detail}`;
+     } else {
+         error.value = "Impossibile avviare il tentativo di quiz. Controlla la connessione o riprova più tardi.";
+     }
+     // Cancella l'errore dopo 7 secondi
+     setTimeout(() => { error.value = null; }, 7000);
+     // Considera di chiudere la modale in caso di errore grave all'avvio
+     // emit('close');
   } finally {
     isLoading.value = false;
   }
@@ -101,22 +125,47 @@ async function fetchCurrentQuestion() {
 }
 
 async function submitAnswerHandler() {
-  if (!attempt.value || !currentQuestion.value || !userAnswer.value) {
-    error.value = "Impossibile inviare la risposta: mancano dati.";
+  if (!attempt.value || !currentQuestion.value || !userAnswer.value || isSubmitting.value) { // Aggiunto controllo isSubmitting
+    // error.value = "Impossibile inviare la risposta: mancano dati o invio già in corso."; // Modificato messaggio
+    // return; // Rimosso return per permettere reset errore
+    if (!isSubmitting.value) { // Mostra errore solo se non è già in corso un invio
+       error.value = "Impossibile inviare la risposta: mancano dati.";
+    }
     return;
   }
+
+  // Pulisci timeout precedente se esiste
+  if (feedbackTimeoutId.value) {
+    clearTimeout(feedbackTimeoutId.value);
+    feedbackTimeoutId.value = null;
+  }
+  showFeedback.value = false; // Nascondi feedback precedente
+
   isSubmitting.value = true;
   error.value = null;
+
   try {
+    // --- Assumiamo che l'API ritorni { is_correct: boolean, ... } ---
     const result = await QuizService.submitAnswer(
       attempt.value.id,
       currentQuestion.value.id,
       userAnswer.value
     );
-    console.log("Risposta inviata:", result); // Log per debug
-    // Dopo aver inviato la risposta, carica la domanda successiva
-    await fetchCurrentQuestion();
-  } catch (err: any) { // Aggiunto :any
+    console.log("Risposta inviata, risultato API:", result); // Log per debug
+
+    // Mostra feedback
+    isCorrectFeedback.value = result.is_correct ?? false; // Usa l'informazione dall'API (con fallback)
+    showFeedback.value = true;
+
+    // Nascondi feedback e carica prossima domanda dopo un ritardo
+    feedbackTimeoutId.value = setTimeout(async () => {
+      showFeedback.value = false;
+      feedbackTimeoutId.value = null; // Resetta ID timeout
+      isSubmitting.value = false; // Resetta isSubmitting qui dopo il feedback
+      await fetchCurrentQuestion(); // Carica prossima domanda
+    }, 1500); // Mostra feedback per 1.5 secondi
+
+  } catch (err: any) {
     console.error("Errore durante l'invio della risposta:", err);
      if (err.response?.data?.detail) {
         error.value = `Errore invio risposta: ${err.response.data.detail}`;
@@ -127,8 +176,17 @@ async function submitAnswerHandler() {
     }
      // Cancella l'errore dopo 7 secondi
     setTimeout(() => { error.value = null; }, 7000);
+    isSubmitting.value = false; // Resetta lo stato di invio in caso di errore
   } finally {
-    isSubmitting.value = false;
+    // isSubmitting viene resettato solo dopo il timeout o in caso di errore
+     if (!feedbackTimeoutId.value && !error.value) { // Se non c'è un timeout attivo (quindi non c'è stato successo) e non c'è errore
+        isSubmitting.value = false;
+     } else if (error.value) {
+        // Già gestito nel blocco catch
+     } else {
+        // Verrà resettato nel timeout
+        // isSubmitting.value = false; // Non resettare qui, ma nel timeout
+     }
   }
 }
 
@@ -145,22 +203,21 @@ async function completeAttemptHandler() {
     const notificationStore = useNotificationStore();
     if (finalAttemptDetails.newly_earned_badges && finalAttemptDetails.newly_earned_badges.length > 0) {
       console.log("Nuovi badge guadagnati:", finalAttemptDetails.newly_earned_badges);
-      finalAttemptDetails.newly_earned_badges.forEach((badge: any) => { // Usa 'any' o definisci un tipo/interfaccia per Badge
-        notificationStore.addBadgeNotification(
-          badge.id,
-          badge.name,
-          badge.image_url // Assicurati che questo campo sia restituito dal SimpleBadgeSerializer
-        );
+      // Assumiamo che newly_earned_badges contenga oggetti conformi a BadgeInfo (incluso animation_class)
+      finalAttemptDetails.newly_earned_badges.forEach((badge: any) => { // Usa 'any' o importa/definisci BadgeInfo
+        notificationStore.addBadgeNotification(badge); // Passa l'intero oggetto badge
       });
     }
     // --- Fine Logica Notifica Badge ---
 
-    // Reindirizza alla pagina dei risultati (da creare)
-    // Passando l'ID del tentativo completato
-    router.push({ name: 'QuizResult', params: { attemptId: attempt.value.id } });
-  } catch (err: any) { // Aggiunto :any
-    console.error("Errore durante il completamento del tentativo:", err);
-    if (err.response?.data?.detail) {
+    // --- Sostituisci router.push con emit ---
+    // router.push({ name: 'QuizResult', params: { attemptId: attempt.value.id } });
+    emit('completed', attempt.value.id); // Emetti evento con l'ID del tentativo
+
+  } catch (err: any) {
+    // ... (gestione errore invariata) ...
+     console.error("Errore durante il completamento del tentativo:", err);
+     if (err.response?.data?.detail) {
         error.value = `Errore completamento: ${err.response.data.detail}`;
     } else {
         error.value = "Impossibile completare il quiz. Riprova.";
@@ -241,6 +298,20 @@ watch(currentQuestion, (newQuestion, oldQuestion) => {
   }
 });
 
+// Aggiungi funzione per chiudere manualmente
+const handleClose = () => {
+  // Potremmo aggiungere una conferma se il tentativo è in corso
+  emit('close');
+};
+
+// Modifica onUnmounted per pulire anche il timeout del feedback
+onUnmounted(() => {
+  if (feedbackTimeoutId.value) {
+    clearTimeout(feedbackTimeoutId.value);
+  }
+  // ... (eventuale cleanup overflow body se necessario qui) ...
+});
+
 </script>
 
 <template>
@@ -251,10 +322,21 @@ watch(currentQuestion, (newQuestion, oldQuestion) => {
     <!-- Overlay per leggibilità -->
     <div class="absolute inset-0 bg-black bg-opacity-50 z-0"></div>
 
+    <!-- Pulsante Chiudi Modale (in alto a destra) -->
+     <button
+        @click="handleClose"
+        class="absolute top-4 right-4 z-20 text-white bg-black bg-opacity-30 hover:bg-opacity-50 rounded-full p-2 transition-colors"
+        aria-label="Chiudi svolgimento quiz"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+
     <!-- Contenuto principale sopra l'overlay -->
     <div class="main-content container mx-auto max-w-3xl relative z-10">
 
-      <!-- Animazione Iniziale -->
+      <!-- Animazione Iniziale (invariata) -->
       <!-- Animazione Iniziale con Contatore -->
       <transition name="start-anim">
         <div v-if="showStartAnimation" class="start-animation text-center mb-8 p-10 rounded-lg bg-blue-500 bg-opacity-90 shadow-xl">
@@ -268,7 +350,7 @@ watch(currentQuestion, (newQuestion, oldQuestion) => {
 
     <div v-if="isLoading && !attempt" class="loading bg-white bg-opacity-80 text-blue-700 px-4 py-3 rounded relative text-center mb-6 shadow">
       <p>Avvio del tentativo...</p>
-      {/* Spinner Tailwind */}
+      <!-- Spinner Tailwind -->
       <svg class="animate-spin h-5 w-5 text-blue-600 mx-auto mt-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -385,4 +467,22 @@ watch(currentQuestion, (newQuestion, oldQuestion) => {
 
 /* Eventuali altri stili specifici non coperti da Tailwind */
 
+/* Nuove Animazioni per Feedback */
+.feedback-fade-enter-active,
+.feedback-fade-leave-active {
+  transition: opacity 0.4s ease-out;
+}
+.feedback-fade-enter-from,
+.feedback-fade-leave-to {
+  opacity: 0;
+}
+.feedback-fade-enter-to,
+.feedback-fade-leave-from {
+  opacity: 1;
+}
+
+/* Stile aggiuntivo per l'overlay se necessario */
+.feedback-overlay {
+  /* backdrop-filter: blur(2px); /* Effetto blur opzionale */
+}
 </style>

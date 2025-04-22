@@ -1,15 +1,29 @@
 import { defineStore } from 'pinia';
 import DashboardService from '@/api/dashboard';
+import RewardsService, { type EarnedBadge, type Badge } from '@/api/rewards'; // Importa RewardsService e tipi
 import type { Quiz, Pathway, WalletInfo } from '@/api/dashboard';
+
+// Interfaccia BadgeInfo (se non importata da altrove)
+interface BadgeInfo extends Badge { // Estende Badge per includere potenzialmente animation_class
+  animation_class?: string | null;
+}
+// Interfaccia EarnedBadge (assicurati che abbia earned_at)
+interface EarnedBadgeInfo extends EarnedBadge {
+  badge: BadgeInfo; // Usa BadgeInfo estesa
+  earned_at: string; // Assicurati che esista questo campo
+}
+
 
 interface DashboardState {
   quizzes: Quiz[];
   pathways: Pathway[];
   wallet: WalletInfo | null;
+  earnedBadges: EarnedBadgeInfo[]; // Aggiunto stato per badge guadagnati
   loading: {
     quizzes: boolean;
     pathways: boolean;
     wallet: boolean;
+    badges: boolean; // Aggiunto loading per badge
   };
   error: string | null;
 }
@@ -19,10 +33,12 @@ export const useDashboardStore = defineStore('dashboard', {
     quizzes: [],
     pathways: [],
     wallet: null,
+    earnedBadges: [], // Inizializza array vuoto
     loading: {
       quizzes: false,
       pathways: false,
-      wallet: false
+      wallet: false,
+      badges: false, // Inizializza loading badge
     },
     error: null
   }),
@@ -83,27 +99,40 @@ export const useDashboardStore = defineStore('dashboard', {
     inProgressPathways(state): Pathway[] {
       return state.pathways.filter(pathway => 
         // Include percorsi senza progress (non iniziati) O quelli con stato IN_PROGRESS
-        !pathway.latest_progress || pathway.latest_progress.status === 'IN_PROGRESS' 
+        !pathway.latest_progress || pathway.latest_progress.status === 'IN_PROGRESS'
       );
-    }
-  },
-  
-  actions: {
+   },
+
+   // Nuovo getter per l'ultimo badge guadagnato
+   latestEarnedBadge(state): BadgeInfo | null {
+     if (!state.earnedBadges || state.earnedBadges.length === 0) {
+       return null;
+     }
+     // Ordina i badge per data (dal più recente al meno recente)
+     const sortedBadges = [...state.earnedBadges].sort((a, b) =>
+       new Date(b.earned_at).getTime() - new Date(a.earned_at).getTime()
+     );
+     // Restituisce le info del badge più recente
+     return sortedBadges[0].badge;
+   }
+ },
+
+ actions: {
     /**
      * Carica i dati della dashboard
      */
     async loadDashboard() {
       this.error = null;
+      // Aggiungi fetchEarnedBadges alle chiamate parallele
       await Promise.all([
         this.fetchQuizzes(),
         this.fetchPathways(),
-        this.fetchWallet()
+        this.fetchWallet(),
+        this.fetchEarnedBadges() // Chiama la nuova action
       ]);
     },
-    
-    /**
-     * Recupera i quiz assegnati
-     */
+
+    // Definiamo qui le funzioni fetch esistenti
     async fetchQuizzes() {
       this.loading.quizzes = true;
       try {
@@ -115,10 +144,6 @@ export const useDashboardStore = defineStore('dashboard', {
         this.loading.quizzes = false;
       }
     },
-    
-    /**
-     * Recupera i percorsi assegnati
-     */
     async fetchPathways() {
       this.loading.pathways = true;
       try {
@@ -132,10 +157,6 @@ export const useDashboardStore = defineStore('dashboard', {
         this.loading.pathways = false;
       }
     },
-    
-    /**
-     * Recupera le informazioni sul wallet
-     */
     async fetchWallet() {
       this.loading.wallet = true;
       try {
@@ -146,6 +167,22 @@ export const useDashboardStore = defineStore('dashboard', {
       } finally {
         this.loading.wallet = false;
       }
+    },
+
+    // Nuova action per recuperare i badge guadagnati
+    async fetchEarnedBadges() {
+      this.loading.badges = true;
+      try {
+        // Assicurati che il servizio e il tipo restituito siano corretti
+        this.earnedBadges = await RewardsService.getEarnedBadges() as EarnedBadgeInfo[];
+      } catch (error) {
+        console.error('Error in fetchEarnedBadges:', error);
+        // Non bloccare l'intera dashboard per errore badge, ma segnalalo
+        // this.error = 'Errore nel caricamento dei badge guadagnati';
+        console.warn('Errore nel caricamento dei badge guadagnati, la dashboard continuerà a caricarsi.');
+      } finally {
+        this.loading.badges = false;
+      }
     }
   }
-});
+}); // Chiusura defineStore

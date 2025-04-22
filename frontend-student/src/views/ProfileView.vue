@@ -3,8 +3,9 @@ import { computed, onMounted, ref } from 'vue'; // Aggiunto ref
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { useDashboardStore } from '@/stores/dashboard';
+import BaseButton from '@/components/common/BaseButton.vue'; // Importa BaseButton
 // TODO: Importare la funzione API per aggiornare il PIN quando sarà disponibile
-// import { updateUserPin } from '@/api/user'; 
+// import { updateUserPin } from '@/api/user';
 
 // State
 const router = useRouter();
@@ -87,105 +88,89 @@ const handleSetPin = async () => {
 
 <template>
   <div class="profile-view container mx-auto px-4 py-8">
-    <header class="profile-header bg-white p-4 md:p-6 rounded-lg shadow-md mb-8 flex justify-between items-center">
-      <h1 class="text-2xl md:text-3xl font-bold text-gray-800 flex items-center"><span class="text-3xl md:text-4xl mr-3">👤</span> Profilo Studente</h1>
-      <button @click="router.push('/dashboard')" class="back-button bg-gray-500 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-lg shadow transition-colors duration-200">Torna alla Dashboard</button>
+    <header class="profile-header bg-white p-4 md:p-6 rounded-lg shadow-md mb-8 flex flex-col md:flex-row justify-between items-center gap-4"> <!-- Aggiunto gap -->
+      <h1 class="text-2xl md:text-3xl font-bold text-kahoot-purple flex items-center"><span class="text-3xl md:text-4xl mr-3">👤</span> Profilo Studente</h1> <!-- Colore titolo aggiornato -->
+      <BaseButton variant="secondary" @click="router.push('/dashboard')">Torna alla Dashboard</BaseButton> <!-- Usa BaseButton -->
     </header>
-    
+
     <!-- Messaggio di errore caricamento -->
-     <div v-if="walletError" class="error-message bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6 rounded" role="alert">
-      <p>{{ walletError }}</p>
+     <div v-if="walletError" class="error-message bg-kahoot-red-light border-l-4 border-kahoot-red text-kahoot-red-dark p-4 mb-6 rounded" role="alert"> <!-- Colori errore aggiornati -->
+      <p class="font-semibold">{{ walletError }}</p>
     </div>
 
     <div class="profile-content grid grid-cols-1 md:grid-cols-2 gap-6">
       <div class="profile-card info-card bg-white rounded-lg shadow-md p-6">
-        <h2 class="text-xl font-semibold text-blue-700 mb-4 border-b pb-2">Informazioni Personali</h2>
-        <div class="info-item flex justify-between items-center py-2 border-b border-dashed border-gray-200">
-          <span class="info-label font-medium text-gray-600">Nome:</span>
-          <span class="info-value text-gray-800">{{ studentName }}</span>
+        <h2 class="text-xl font-semibold text-kahoot-blue mb-4 border-b pb-2">Informazioni Personali</h2> <!-- Colore titolo aggiornato -->
+        <div class="info-item flex justify-between items-center py-2 border-b border-dashed border-brand-gray-light"> <!-- Colore bordo aggiornato -->
+          <span class="info-label font-medium text-brand-gray-dark">Nome:</span> <!-- Colore testo aggiornato -->
+          <span class="info-value text-brand-gray-dark">{{ studentName }}</span> <!-- Colore testo aggiornato -->
         </div>
         <div class="info-item flex justify-between items-center py-2">
-          <span class="info-label font-medium text-gray-600">Codice Studente:</span>
-          <span class="info-value text-gray-800 font-mono">{{ studentCode }}</span>
+          <span class="info-label font-medium text-brand-gray-dark">Codice Studente:</span> <!-- Colore testo aggiornato -->
+          <span class="info-value text-brand-gray-dark font-mono">{{ studentCode }}</span> <!-- Colore testo aggiornato -->
         </div>
       </div>
 
       <div class="profile-card stats-card bg-white rounded-lg shadow-md p-6">
-        <h2 class="text-xl font-semibold text-green-700 mb-4 border-b pb-2">Statistiche</h2>
-        <div class="info-item flex justify-between items-center py-2 border-b border-dashed border-gray-200">
-          <span class="info-label font-medium text-gray-600">Punti Attuali:</span>
-          <span v-if="isLoadingWallet" class="loading-text text-sm italic text-gray-500">Caricamento...</span>
-          <span v-else class="info-value points text-2xl font-bold text-yellow-600">{{ currentPoints }} ✨</span>
+        <h2 class="text-xl font-semibold text-kahoot-green mb-4 border-b pb-2">Statistiche</h2> <!-- Colore titolo aggiornato -->
+        <div class="info-item flex justify-between items-center py-2 border-b border-dashed border-brand-gray-light"> <!-- Colore bordo aggiornato -->
+          <span class="info-label font-medium text-brand-gray-dark">Punti Attuali:</span> <!-- Colore testo aggiornato -->
+          <span v-if="isLoadingWallet" class="loading-text text-sm italic text-brand-gray">Caricamento...</span> <!-- Colore testo aggiornato -->
+          <span v-else class="info-value points text-2xl font-bold text-kahoot-yellow-dark">{{ currentPoints }} ✨</span> <!-- Colore punti aggiornato -->
         </div>
-        <!-- 
-        <div class="info-item">
-          <span class="info-label">Quiz Completati:</span>
-          <span class="info-value">{{ quizzesCompleted }}</span>
-        </div>
-        <div class="info-item">
-          <span class="info-label">Percorsi Completati:</span>
-          <span class="info-value">{{ pathwaysCompleted }}</span>
-        </div> 
-        -->
-        <p class="stats-placeholder text-sm text-gray-500 italic text-center mt-4">(Altre statistiche saranno disponibili prossimamente)</p>
+        
+        <p class="stats-placeholder text-sm text-brand-gray italic text-center mt-4">(Altre statistiche saranno disponibili prossimamente)</p> <!-- Colore testo aggiornato -->
       </div>
 
       <!-- Nuova Card per Impostare/Modificare PIN -->
-      <div class="profile-card pin-card bg-white rounded-lg shadow-md p-6 md:col-span-2"> 
-        <h2 class="text-xl font-semibold text-purple-700 mb-4 border-b pb-2">Imposta / Modifica PIN</h2>
+      <div class="profile-card pin-card bg-white rounded-lg shadow-md p-6 md:col-span-2">
+        <h2 class="text-xl font-semibold text-kahoot-purple mb-4 border-b pb-2">Imposta / Modifica PIN</h2> <!-- Colore titolo aggiornato -->
         <form @submit.prevent="handleSetPin">
           <div class="mb-4">
-            <label for="newPin" class="block text-gray-700 text-sm font-bold mb-2">Nuovo PIN (min. 4 cifre):</label>
-            <input 
-              type="password" 
-              id="newPin" 
-              v-model="newPin" 
-              required 
-              minlength="4" 
+            <label for="newPin" class="block text-brand-gray-dark text-sm font-bold mb-2">Nuovo PIN (min. 4 cifre):</label> <!-- Colore testo aggiornato -->
+            <input
+              type="password"
+              id="newPin"
+              v-model="newPin"
+              required
+              minlength="4"
               pattern="\d*"
               inputmode="numeric"
               autocomplete="new-password"
-              class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent" 
+              class="shadow appearance-none border rounded w-full py-2 px-3 text-brand-gray-dark leading-tight focus:outline-none focus:ring-2 focus:ring-kahoot-purple focus:border-transparent"
             />
           </div>
           <div class="mb-6">
-            <label for="confirmPin" class="block text-gray-700 text-sm font-bold mb-2">Conferma Nuovo PIN:</label>
-            <input 
-              type="password" 
-              id="confirmPin" 
-              v-model="confirmPin" 
-              required 
-              minlength="4" 
+            <label for="confirmPin" class="block text-brand-gray-dark text-sm font-bold mb-2">Conferma Nuovo PIN:</label> <!-- Colore testo aggiornato -->
+            <input
+              type="password"
+              id="confirmPin"
+              v-model="confirmPin"
+              required
+              minlength="4"
               pattern="\d*"
               inputmode="numeric"
               autocomplete="new-password"
-              class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent" 
+              class="shadow appearance-none border rounded w-full py-2 px-3 text-brand-gray-dark leading-tight focus:outline-none focus:ring-2 focus:ring-kahoot-purple focus:border-transparent"
             />
           </div>
 
           <!-- Messaggi di Errore/Successo -->
-          <p v-if="pinErrorMessage" class="error-message text-red-500 text-sm mb-4 text-center">{{ pinErrorMessage }}</p>
-          <p v-if="pinSuccessMessage" class="success-message text-green-600 text-sm mb-4 text-center">{{ pinSuccessMessage }}</p>
+          <p v-if="pinErrorMessage" class="error-message text-kahoot-red text-sm mb-4 text-center">{{ pinErrorMessage }}</p> <!-- Colore errore aggiornato -->
+          <p v-if="pinSuccessMessage" class="success-message text-kahoot-green-dark text-sm mb-4 text-center">{{ pinSuccessMessage }}</p> <!-- Colore successo aggiornato -->
 
-          <button 
-            type="submit" 
-            :disabled="isSettingPin" 
-            class="w-full btn btn-primary bg-purple-600 hover:bg-purple-700 text-white" 
-            :class="{ 'opacity-50 cursor-not-allowed': isSettingPin }"
+          <BaseButton
+            type="submit"
+            variant="primary"
+            :disabled="isSettingPin"
+            class="w-full"
           >
             {{ isSettingPin ? 'Salvataggio...' : 'Salva PIN' }}
-          </button>
+          </BaseButton>
         </form>
-        <p class="text-xs text-gray-500 mt-4 italic">Ricorda: Il PIN viene utilizzato insieme al tuo codice studente per accedere.</p>
+        <p class="text-xs text-brand-gray mt-4 italic">Ricorda: Il PIN viene utilizzato insieme al tuo codice studente per accedere.</p> <!-- Colore testo aggiornato -->
       </div>
 
-      <!-- Potremmo aggiungere qui la sezione per lo storico acquisti -->
-      <!-- 
-      <div class="profile-card purchases-card">
-        <h2>Storico Acquisti</h2>
-        <router-link to="/purchases">Vedi tutti gli acquisti</router-link>
-        </div> 
-      -->
     </div>
   </div>
 </template>

@@ -1,14 +1,27 @@
 import { ref } from 'vue';
 import { defineStore } from 'pinia';
 
+// Interfaccia semplificata per il Badge (da allineare con l'API backend)
+// Duplichiamo l'interfaccia qui o la importiamo da un file condiviso
+interface BadgeInfo {
+  id: number;
+  name: string;
+  description?: string | null;
+  image?: string | null;
+  animation_class?: string | null;
+}
+
 // Interfaccia per una singola notifica
 export interface Notification {
   id: number;
   message: string;
-  type: 'success' | 'error' | 'info' | 'warning' | 'badge'; // Tipi di notifica
-  duration?: number; // Durata in ms (opzionale, default gestito nel componente)
-  icon?: string; // URL icona o nome classe icona (es. per badge)
-  title?: string; // Titolo opzionale (es. nome badge)
+  type: 'success' | 'error' | 'info' | 'warning' | 'badge';
+  duration?: number;
+  // Modificato: icon e title diventano specifici per tipi non-badge
+  icon?: string; // Per tipi standard
+  title?: string; // Per tipi standard
+  // Nuovo: campo specifico per le notifiche badge
+  badgeInfo?: BadgeInfo;
 }
 
 // ID univoco per le notifiche
@@ -33,23 +46,22 @@ export const useNotificationStore = defineStore('notification', () => {
     }, duration);
   }
 
-  // Azione per aggiungere una notifica specifica per un badge, solo se non già notificata
-  function addBadgeNotification(badgeId: number, badgeName: string, badgeImageUrl: string | null) {
-      if (notifiedBadgeIds.value.has(badgeId)) {
-          console.log(`Badge ${badgeId} (${badgeName}) già notificato, skip.`);
-          return; // Non mostrare di nuovo la notifica
+  // Modificato: Accetta l'intero oggetto BadgeInfo
+  function addBadgeNotification(badge: BadgeInfo) {
+      if (notifiedBadgeIds.value.has(badge.id)) {
+          console.log(`Badge ${badge.id} (${badge.name}) già notificato, skip.`);
+          return;
       }
 
       addNotification({
-          title: "Traguardo Sbloccato!",
-          message: `Hai ottenuto il badge: ${badgeName}`,
+          // title: "Traguardo Sbloccato!", // Il titolo è ora nel badgeInfo
+          message: `Hai ottenuto il badge: ${badge.name}`,
           type: 'badge',
-          icon: badgeImageUrl || '/placeholder-badge.svg', // Usa placeholder se manca immagine
-          duration: 7000 // Durata leggermente più lunga per i badge
+          badgeInfo: badge, // Passa l'intero oggetto badge
+          duration: 7000
       });
 
-      // Aggiungi l'ID al set dei notificati
-      notifiedBadgeIds.value.add(badgeId);
+      notifiedBadgeIds.value.add(badge.id);
   }
 
   // Azione per rimuovere una notifica tramite ID

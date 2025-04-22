@@ -1,6 +1,11 @@
 <script setup lang="ts">
+import { ref, computed } from 'vue'; // Aggiungere ref e computed
 import { useRouter } from 'vue-router';
 import type { Quiz } from '@/api/dashboard';
+import BaseModal from '@/components/common/BaseModal.vue'; // Importare la modale
+import QuizDetailsView from '@/views/QuizDetailsView.vue'; // Importare la vista dettagli
+import QuizAttemptView from '@/views/QuizAttemptView.vue'; // Importare la vista tentativo
+import BaseButton from '@/components/common/BaseButton.vue'; // Importare BaseButton per il footer
 
 const props = defineProps<{
   quizzes: Quiz[];
@@ -25,11 +30,60 @@ const formatDate = (dateString: string | null): string => {
   });
 };
 
-// Inizia un nuovo tentativo per il quiz
-const startQuizAttempt = (quizId: number) => {
-  // Reindirizza alla rotta specifica per iniziare un tentativo
-  router.push({ name: 'quiz-start-attempt', params: { quizId } });
+// Stato per la modale dei dettagli (rinominato per chiarezza)
+const selectedQuizIdForDetails = ref<number | null>(null);
+const isDetailsModalOpen = ref(false);
+
+// Stato per la modale di tentativo
+const quizIdForAttempt = ref<number | null>(null);
+const isAttemptModalOpen = ref(false);
+
+// Computed per il titolo della modale dettagli (rinominato per chiarezza)
+const selectedQuizForDetails = computed(() => {
+  if (!selectedQuizIdForDetails.value) return null;
+  return props.quizzes.find(q => q.id === selectedQuizIdForDetails.value);
+});
+
+// Funzioni per modale dettagli (rinominate per chiarezza)
+const openDetailsModal = (quizId: number) => {
+  selectedQuizIdForDetails.value = quizId;
+  isDetailsModalOpen.value = true;
 };
+const closeDetailsModal = () => {
+  isDetailsModalOpen.value = false;
+  setTimeout(() => { selectedQuizIdForDetails.value = null; }, 300);
+};
+
+// Funzioni per modale tentativo
+const openAttemptModal = (quizId: number) => {
+  quizIdForAttempt.value = quizId;
+  isAttemptModalOpen.value = true;
+};
+const closeAttemptModal = () => {
+  isAttemptModalOpen.value = false;
+  // Potremmo voler ricaricare i dati della dashboard qui se l'utente chiude a metà
+  setTimeout(() => { quizIdForAttempt.value = null; }, 300);
+};
+
+// Gestisce l'avvio DALLA MODALE DETTAGLI
+const handleStartAttemptFromDetails = (quizId: number) => {
+  closeDetailsModal(); // Chiudi la modale dei dettagli
+  openAttemptModal(quizId); // Apri la modale di tentativo
+};
+
+// Gestisce l'avvio DAL PULSANTE NELLA LISTA
+const startQuizAttempt = (quizId: number) => {
+  openAttemptModal(quizId); // Apri la modale di tentativo
+};
+
+// Gestisce il completamento del tentativo dalla modale
+const handleAttemptCompleted = (attemptId: number) => {
+  closeAttemptModal(); // Chiudi la modale di tentativo
+  // Naviga alla pagina dei risultati
+  router.push({ name: 'QuizResult', params: { attemptId } });
+  // Potremmo voler ricaricare i dati della dashboard qui
+};
+
 
 // Genera un'etichetta di stato per il tentativo più recente
 const getAttemptStatusLabel = (quiz: Quiz): string => {
@@ -122,7 +176,15 @@ const shouldShowStartButton = (quiz: Quiz): boolean => {
     </div>
     
     <div v-else class="quiz-list space-y-4">
-      <div v-for="quiz in quizzes" :key="quiz.id" class="quiz-item bg-gray-50 rounded-lg p-4 shadow border-l-4 relative pb-16 hover:shadow-lg transition-shadow duration-200" :class="getStatusBorderClass(quiz)">
+      <!-- Aggiungere @click qui -->
+      <div
+        v-for="quiz in quizzes"
+        :key="quiz.id"
+        class="quiz-item bg-gray-50 rounded-lg p-4 shadow border-l-4 relative pb-16 hover:shadow-lg transition-shadow duration-200 cursor-pointer"
+        :class="getStatusBorderClass(quiz)"
+        @click="openDetailsModal(quiz.id)"
+      >
+        <!-- Contenuto dell'item (invariato, tranne il pulsante sotto) -->
         <div class="quiz-header flex justify-between items-center mb-2">
           <h3 class="font-semibold text-lg text-gray-800">{{ quiz.title }}</h3>
           <span :class="['quiz-status text-xs font-medium px-3 py-1 rounded-full', getStatusClass(quiz)]">{{ getAttemptStatusLabel(quiz) }}</span>
@@ -159,12 +221,56 @@ const shouldShowStartButton = (quiz: Quiz): boolean => {
         <button
           v-if="shouldShowStartButton(quiz)"
           @click.stop="startQuizAttempt(quiz.id)"
-          class="start-quiz-button absolute bottom-4 right-4 bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg shadow transition-colors duration-200"
+          class="start-quiz-button absolute bottom-4 right-4 bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg shadow transition-colors duration-200 z-10"
         >
           Inizia Quiz ▶
         </button>
       </div>
     </div>
+
+    <!-- Modale per i Dettagli del Quiz (aggiornare refs) -->
+    <BaseModal
+      :show="isDetailsModalOpen"
+      @close="closeDetailsModal"
+      :title="selectedQuizForDetails?.title || 'Dettagli Quiz'"
+    >
+      <QuizDetailsView
+        v-if="selectedQuizIdForDetails"
+        :id="String(selectedQuizIdForDetails)"
+      />
+       <template #footer>
+         <BaseButton variant="secondary" @click="closeDetailsModal">Chiudi</BaseButton>
+         <!-- Aggiungiamo un pulsante Inizia qui, che chiama la nostra funzione -->
+         <BaseButton
+            v-if="selectedQuizIdForDetails && shouldShowStartButton(selectedQuizForDetails!)"
+            variant="success"
+            @click="handleStartAttemptFromDetails(selectedQuizIdForDetails!)"
+          >
+            Inizia Quiz
+          </BaseButton>
+       </template>
+    </BaseModal>
+
+    <!-- Modale per lo Svolgimento del Quiz -->
+    <BaseModal
+      :show="isAttemptModalOpen"
+      @close="closeAttemptModal"
+      title="Svolgimento Quiz"
+    >
+      <!-- Usiamo un div wrapper per il v-if per non rimuovere la modale stessa -->
+      <div v-if="quizIdForAttempt">
+        <QuizAttemptView
+          :quiz-id="quizIdForAttempt"
+          @close="closeAttemptModal"
+          @completed="handleAttemptCompleted"
+        />
+      </div>
+       <!-- Nascondiamo il footer di default per questa modale -->
+       <!-- <template #footer>
+         <BaseButton variant="danger" @click="closeAttemptModal">Annulla Tentativo</BaseButton>
+       </template> -->
+    </BaseModal>
+
   </div>
 </template>
 

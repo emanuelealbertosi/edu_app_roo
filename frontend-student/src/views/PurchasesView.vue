@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import RewardsService, { type RewardPurchase } from '@/api/rewards';
+import BaseButton from '@/components/common/BaseButton.vue'; // Importa BaseButton
 
 // State
 const router = useRouter();
@@ -48,37 +49,38 @@ onMounted(() => {
 
 <template>
   <div class="purchases-view container mx-auto px-4 py-8">
-    <header class="purchases-header mb-8">
-      <h1 class="text-3xl font-bold text-gray-800 flex items-center"><span class="text-4xl mr-3">📜</span> Storico Acquisti</h1>
+    <header class="purchases-header mb-8 flex justify-between items-center"> <!-- Aggiunto flex per allineare bottone -->
+      <h1 class="text-3xl font-bold text-kahoot-purple flex items-center"><span class="text-4xl mr-3">📜</span> Storico Acquisti</h1> <!-- Colore titolo aggiornato -->
+      <BaseButton variant="secondary" @click="router.push('/dashboard')">Torna alla Dashboard</BaseButton> <!-- Bottone spostato qui -->
     </header>
 
-    <div v-if="isLoading" class="loading text-center py-10 text-gray-500">
+    <div v-if="isLoading" class="loading text-center py-10 text-brand-gray-dark"> <!-- Colore testo aggiornato -->
       <p>Caricamento storico...</p>
     </div>
 
-    <div v-if="error" class="error-message bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6 rounded flex justify-between items-center" role="alert">
-      <p>{{ error }}</p>
-      <button @click="fetchPurchaseHistory" class="retry-button bg-red-600 hover:bg-red-700 text-white text-sm font-medium py-1 px-3 rounded">Riprova</button>
+    <div v-if="error" class="error-message bg-kahoot-red-light border-l-4 border-kahoot-red text-kahoot-red-dark p-4 mb-6 rounded flex justify-between items-center" role="alert"> <!-- Colori errore aggiornati -->
+      <p class="font-semibold">{{ error }}</p>
+      <BaseButton variant="danger" size="sm" @click="fetchPurchaseHistory">Riprova</BaseButton> <!-- Usa BaseButton -->
     </div>
 
     <div v-if="!isLoading && !error" class="purchases-list-container bg-white p-6 rounded-lg shadow-md">
       <table v-if="purchaseHistory.length > 0" class="purchases-table w-full">
         <thead class="hidden md:table-header-group">
-          <tr class="bg-gray-100">
-            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ricompensa</th>
-            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Descrizione</th> <!-- Aggiunto Header -->
-            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Costo (Punti)</th>
-            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data Acquisto</th>
-            <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Stato</th>
-            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data Consegna</th>
-            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Note Consegna</th>
+          <tr class="bg-brand-gray-light"> <!-- Colore sfondo header aggiornato -->
+            <th class="px-4 py-3 text-left text-xs font-medium text-brand-gray-dark uppercase tracking-wider">Ricompensa</th> <!-- Colore testo header aggiornato -->
+            <th class="px-4 py-3 text-left text-xs font-medium text-brand-gray-dark uppercase tracking-wider">Descrizione</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-brand-gray-dark uppercase tracking-wider">Costo (Punti)</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-brand-gray-dark uppercase tracking-wider">Data Acquisto</th>
+            <th class="px-4 py-3 text-center text-xs font-medium text-brand-gray-dark uppercase tracking-wider">Stato</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-brand-gray-dark uppercase tracking-wider">Data Consegna</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-brand-gray-dark uppercase tracking-wider">Note Consegna</th>
           </tr>
         </thead>
-        <tbody class="text-sm text-gray-700">
-          <tr v-for="purchase in purchaseHistory" :key="purchase.id" class="border-b border-gray-200 md:border-none">
+        <tbody class="text-sm text-brand-gray-dark"> <!-- Colore testo body aggiornato -->
+          <tr v-for="purchase in purchaseHistory" :key="purchase.id" class="border-b border-brand-gray-light md:border-none"> <!-- Colore bordo aggiornato -->
             <td data-label="Ricompensa" class="px-4 py-3 whitespace-nowrap font-semibold">{{ purchase.reward_info.name }}</td>
-            <td data-label="Descrizione" class="px-4 py-3">{{ purchase.reward_info.description || '-' }}</td> <!-- Corretto accesso ai dati -->
-            <td data-label="Costo" class="points-spent px-4 py-3 whitespace-nowrap font-semibold">{{ purchase.points_spent }}</td>
+            <td data-label="Descrizione" class="px-4 py-3">{{ purchase.reward_info.description || '-' }}</td>
+            <td data-label="Costo" class="points-spent px-4 py-3 whitespace-nowrap font-semibold text-kahoot-purple">{{ purchase.points_spent }}</td> <!-- Colore punti spesi -->
             <td data-label="Data Acquisto" class="px-4 py-3 whitespace-nowrap">{{ formatDate(purchase.purchased_at) }}</td>
             <td data-label="Stato" class="status-cell px-4 py-3 text-center">
               <span v-if="purchase.status === 'PURCHASED'" title="Acquistato (In attesa di consegna)" class="text-2xl">⏳</span>
@@ -92,25 +94,20 @@ onMounted(() => {
         </tbody>
       </table>
       
-      <div v-else class="empty-message text-center py-10 text-gray-500">
+      <div v-else class="empty-message text-center py-10 text-brand-gray-dark"> <!-- Colore testo aggiornato -->
         <p class="mb-4">Non hai ancora effettuato nessun acquisto.</p>
-        <router-link to="/shop" class="go-to-shop-link inline-block bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg shadow transition-colors duration-200">Vai allo Shop</router-link>
+        <BaseButton variant="info" @click="router.push('/shop')">Vai allo Shop</BaseButton> <!-- Usa BaseButton -->
       </div>
     </div>
   </div>
 </template>
 
 <style scoped>
-/* Stili specifici rimasti (loading, error, empty, retry) o che richiedono override */
+/* Stili specifici rimasti (loading, error, empty) o che richiedono override */
 .loading, .error-message, .empty-message {
   /* Stili Tailwind applicati direttamente nel template */
 }
-.retry-button {
-  /* Stili Tailwind applicati direttamente nel template */
-}
-.go-to-shop-link {
-   /* Stili Tailwind applicati direttamente nel template */
-}
+/* Rimossi stili .retry-button e .go-to-shop-link */
 
 /* Manteniamo gli stili per la tabella responsiva */
 

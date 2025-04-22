@@ -6,21 +6,33 @@ import { useDashboardStore } from '@/stores/dashboard';
 import QuizList from '@/components/QuizList.vue';
 import PathwayList from '@/components/PathwayList.vue';
 import WalletCard from '@/components/WalletCard.vue';
+import BaseButton from '@/components/common/BaseButton.vue';
+import BaseTabs from '@/components/common/BaseTabs.vue';
+import AnimatedBadge from '@/components/common/AnimatedBadge.vue'; // Importa AnimatedBadge
 
 const authStore = useAuthStore();
 const dashboardStore = useDashboardStore();
 const router = useRouter();
 
 const isLoading = ref(true);
-const dashboardError = computed(() => dashboardStore.error); // Computed per l'errore
+const dashboardError = computed(() => dashboardStore.error);
+
+// Definisci i tab (invariato)
+const dashboardTabs = ref([
+  { name: 'Da Fare', slotName: 'todo' },
+  { name: 'Completati', slotName: 'completed' }
+]);
+
+// Accedi all'ultimo badge tramite getter
+const latestBadge = computed(() => dashboardStore.latestEarnedBadge);
+
 onMounted(async () => {
-  // Verifichiamo che l'utente sia autenticato quando la vista viene caricata
   const isAuthenticated = await authStore.checkAuth();
   if (!isAuthenticated) {
     router.push('/login');
     return;
   }
-  
+
   try {
     // Carichiamo tutti i dati della dashboard
     await dashboardStore.loadDashboard();
@@ -43,86 +55,100 @@ const goToShop = () => {
 </script>
 
 <template>
-  <div class="dashboard bg-gray-100 p-4 md:p-8 min-h-screen">
-    <header class="dashboard-header bg-white p-6 rounded-lg shadow-md mb-8 flex flex-col md:flex-row justify-between items-center">
-      <div class="user-info mb-4 md:mb-0 text-center md:text-left">
-        <h1 class="text-2xl font-bold text-purple-800 mb-1">Dashboard Studente</h1>
-        <p class="text-gray-600">Benvenuto, <strong class="font-semibold">{{ authStore.userFullName }}</strong>!</p>
-      </div>
-      <div class="header-actions flex gap-4">
-        <button @click="goToShop" class="shop-button bg-green-500 hover:bg-green-600 text-white font-medium py-2 px-5 rounded-lg shadow flex items-center gap-2 transition-colors duration-200">
-          <span class="text-xl">🛒</span> Shop Ricompense
-        </button>
-        <button @click="handleLogout" class="logout-button bg-red-500 hover:bg-red-600 text-white font-medium py-2 px-5 rounded-lg shadow flex items-center gap-2 transition-colors duration-200">
-          <span class="text-xl">🚪</span> Logout
-        </button>
+  <div class="dashboard bg-brand-gray-light p-4 md:p-8 min-h-screen">
+    <!-- Header Aggiornato -->
+    <header class="dashboard-header bg-white p-6 rounded-lg shadow-md mb-8 text-center md:text-left">
+      <h1 class="text-3xl md:text-4xl font-bold text-kahoot-purple mb-2">Dashboard Studente</h1>
+      <p class="text-brand-gray-dark mb-4">Benvenuto, <strong class="font-semibold">{{ authStore.userFullName }}</strong>!</p>
+      <div class="header-actions flex flex-col sm:flex-row justify-center md:justify-start gap-3 mt-2">
+        <BaseButton variant="success" @click="goToShop">
+          <span class="mr-2">🛒</span> Shop Ricompense
+        </BaseButton>
+        <BaseButton variant="danger" @click="handleLogout">
+          <span class="mr-2">🚪</span> Logout
+        </BaseButton>
       </div>
     </header>
 
-    <!-- Messaggio di errore generale -->
-    <div v-if="dashboardError &amp;&amp; !isLoading" class="error-message dashboard-error">
-      <p>{{ dashboardError }}</p>
-      <button @click="dashboardStore.loadDashboard" class="retry-button">Riprova Caricamento</button>
-    </div>
-    
-    <div v-if="isLoading" class="loading-container flex flex-col items-center justify-center p-12 text-center">
-      <div class="loading-spinner"></div>
-      <p class="mt-4 text-gray-600">Caricamento in corso...</p>
+    <!-- Messaggio di errore (invariato) -->
+    <div v-if="dashboardError && !isLoading" class="error-message dashboard-error bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative text-center mb-6 shadow">
+      <p class="font-semibold mb-2">{{ dashboardError }}</p>
+      <BaseButton variant="secondary" size="sm" @click="dashboardStore.loadDashboard">Riprova</BaseButton>
     </div>
 
+    <!-- Loading (invariato) -->
+    <div v-if="isLoading" class="loading-container flex flex-col items-center justify-center p-12 text-center">
+      <div class="loading-spinner"></div>
+      <p class="mt-4 text-brand-gray-dark">Caricamento in corso...</p>
+    </div>
+
+    <!-- Contenuto Principale con Tab -->
     <div v-else class="dashboard-content grid grid-cols-1 lg:grid-cols-3 gap-8">
-      <!-- Sezione wallet -->
-      <div class="wallet-section lg:col-span-1">
+      <!-- Sezione wallet e Ultimo Badge -->
+      <div class="wallet-section lg:col-span-1 flex flex-col gap-6"> <!-- Aggiunto flex e gap -->
         <WalletCard
           :wallet="dashboardStore.wallet"
           :loading="dashboardStore.loading.wallet"
         />
+        <!-- Visualizza l'ultimo badge guadagnato -->
+         <div class="bg-white p-4 rounded-lg shadow-md text-center">
+            <h3 class="text-lg font-semibold text-kahoot-cyan mb-3">Ultimo Traguardo</h3>
+            <div v-if="dashboardStore.loading.badges" class="text-sm text-brand-gray italic">Caricamento...</div>
+            <AnimatedBadge v-else-if="latestBadge" :badge="latestBadge" class="mx-auto"/>
+            <p v-else class="text-sm text-brand-gray italic">Nessun traguardo ancora raggiunto.</p>
+            <!-- Link alla pagina di tutti i badge -->
+            <router-link to="/badges" class="block text-sm text-kahoot-blue hover:underline mt-3">Vedi tutti i traguardi</router-link>
+         </div>
       </div>
-      
-      <!-- Sezione quiz e percorsi -->
-      <div class="educational-content lg:col-span-2 flex flex-col gap-8">
-        <!-- Quiz disponibili -->
-        <QuizList
-          :quizzes="dashboardStore.availableQuizzes"
-          title="Quiz Disponibili"
-          emptyMessage="Non ci sono quiz disponibili al momento."
-          :loading="dashboardStore.loading.quizzes"
-          :showStartButton="true"
-        />
 
-        <!-- Quiz in corso, falliti o in attesa di correzione -->
-        <QuizList
-          :quizzes="dashboardStore.inProgressOrFailedQuizzes"
-          title="Quiz da Continuare o Ritentare"
-          emptyMessage="Non hai quiz in corso o da ritentare."
-          :loading="dashboardStore.loading.quizzes"
-          :showStartButton="true"
-        />
+      <!-- Sezione Contenuti Educativi con Tab (invariata) -->
+      <div class="educational-content lg:col-span-2 bg-white p-6 rounded-lg shadow-md">
+        <BaseTabs :tabs="dashboardTabs">
+          <!-- Tab "Da Fare" -->
+          <template #todo>
+            <div class="space-y-6">
+              <QuizList
+                :quizzes="dashboardStore.availableQuizzes"
+                title="Quiz Disponibili"
+                emptyMessage="Non ci sono quiz disponibili al momento."
+                :loading="dashboardStore.loading.quizzes"
+                :showStartButton="true"
+              />
+              <QuizList
+                :quizzes="dashboardStore.inProgressOrFailedQuizzes"
+                title="Quiz da Continuare o Ritentare"
+                emptyMessage="Non hai quiz in corso o da ritentare."
+                :loading="dashboardStore.loading.quizzes"
+                :showStartButton="true"
+              />
+              <PathwayList
+                :pathways="dashboardStore.inProgressPathways"
+                title="Percorsi in Corso"
+                emptyMessage="Non hai percorsi in corso al momento."
+                :loading="dashboardStore.loading.pathways"
+              />
+            </div>
+          </template>
 
-        <!-- Percorsi in corso -->
-        <PathwayList
-          :pathways="dashboardStore.inProgressPathways"
-          title="Percorsi in Corso"
-          emptyMessage="Non hai percorsi in corso al momento."
-          :loading="dashboardStore.loading.pathways"
-        />
-
-        <!-- Quiz completati -->
-        <QuizList
-          :quizzes="dashboardStore.completedQuizzes"
-          title="Quiz Completati"
-          emptyMessage="Non hai ancora completato nessun quiz."
-          :loading="dashboardStore.loading.quizzes"
-        />
-
-        <!-- Percorsi completati -->
-        <PathwayList
-          :pathways="dashboardStore.completedPathways"
-          title="Percorsi Completati"
-          emptyMessage="Non hai ancora completato nessun percorso."
-          :loading="dashboardStore.loading.pathways"
-          :showResultLink="true"
-        />
+          <!-- Tab "Completati" -->
+          <template #completed>
+            <div class="space-y-6">
+              <QuizList
+                :quizzes="dashboardStore.completedQuizzes"
+                title="Quiz Completati"
+                emptyMessage="Non hai ancora completato nessun quiz."
+                :loading="dashboardStore.loading.quizzes"
+              />
+              <PathwayList
+                :pathways="dashboardStore.completedPathways"
+                title="Percorsi Completati"
+                emptyMessage="Non hai ancora completato nessun percorso."
+                :loading="dashboardStore.loading.pathways"
+                :showResultLink="true"
+              />
+            </div>
+          </template>
+        </BaseTabs>
       </div>
     </div>
   </div>
@@ -146,8 +172,8 @@ const goToShop = () => {
 .loading-spinner {
   width: 40px;
   height: 40px;
-  border: 4px solid rgba(0, 0, 0, 0.1);
-  border-left-color: var(--vt-c-indigo);
+  border: 4px solid theme('colors.kahoot-blue.light / 30%'); /* Usa colore tema con opacità */
+  border-left-color: theme('colors.kahoot-blue.DEFAULT'); /* Usa colore tema */
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin-bottom: 1rem;
@@ -160,28 +186,8 @@ const goToShop = () => {
 }
 
 /* Stili per messaggio errore dashboard */
-.error-message.dashboard-error {
-  margin-bottom: 2rem;
-  padding: 15px;
-  border-radius: 5px;
-  background-color: #f8d7da;
-  color: #721c24;
-  border: 1px solid #f5c6cb;
-  text-align: center;
-}
+/* Rimossi stili .error-message.dashboard-error perché ora applicati con Tailwind nel template */
 
-.retry-button {
-    margin-top: 10px;
-    padding: 5px 15px;
-    font-size: 0.9em;
-    cursor: pointer;
-    background-color: #6c757d;
-    color: white;
-    border: none;
-    border-radius: 3px;
-}
-.retry-button:hover {
-    background-color: #5a6268;
-}
+/* Rimosso stile .retry-button, ora gestito da BaseButton */
 
 </style>

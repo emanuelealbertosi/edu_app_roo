@@ -45,14 +45,7 @@ const handleLogout = () => { // Rimosso async e nextTick
   <!-- Applica il padding top solo se il layout (e quindi l'header) è mostrato -->
   <main :class="showLayout ? 'pt-24' : ''" class="px-4 md:px-8">
     <RouterView />
-    <!-- Temporaneamente rimossa transition per debug InvalidCharacterError -->
-    <!--
-    <RouterView v-slot="{ Component }">
-      <transition name="fade" mode="out-in">
-        <component :is="Component" />
-      </transition>
-    </RouterView>
-    -->
+    
   </main>
 </template>
 

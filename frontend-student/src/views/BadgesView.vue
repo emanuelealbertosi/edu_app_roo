@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
 import RewardsService, { type Badge, type EarnedBadge } from '@/api/rewards'; // Assumiamo che le interfacce siano in rewards
+import AnimatedBadge from '@/components/common/AnimatedBadge.vue'; // Importa il nuovo componente
 
 // State
 const allBadges = ref<Badge[]>([]);
@@ -40,67 +41,47 @@ onMounted(() => {
 <template>
   <div class="badges-view container mx-auto px-4 py-8">
     <header class="badges-header mb-8">
-      <h1 class="text-3xl font-bold text-gray-800 flex items-center">
+      <h1 class="text-3xl font-bold text-kahoot-purple flex items-center"> <!-- Colore titolo aggiornato -->
         <span class="text-4xl mr-3">🏆</span> I Miei Traguardi
       </h1>
     </header>
 
-    <div v-if="isLoading" class="loading text-center py-10 text-gray-500">
+    <div v-if="isLoading" class="loading text-center py-10 text-brand-gray-dark"> <!-- Colore testo aggiornato -->
       <p>Caricamento badge...</p>
-      <!-- Spinner rimosso -->
-      <svg class="animate-spin h-5 w-5 text-gray-500 mx-auto mt-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+      <svg class="animate-spin h-5 w-5 text-brand-gray mx-auto mt-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"> <!-- Colore spinner aggiornato -->
         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
       </svg>
     </div>
 
-    <div v-if="error" class="error-message bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6 rounded" role="alert">
-      <p>{{ error }}</p>
+    <div v-if="error" class="error-message bg-kahoot-red-light border-l-4 border-kahoot-red text-kahoot-red-dark p-4 mb-6 rounded" role="alert"> <!-- Colori errore aggiornati -->
+      <p class="font-semibold">{{ error }}</p>
     </div>
 
     <div v-if="!isLoading && !error" class="badges-grid grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
-      <div 
-        v-for="badge in allBadges" 
-        :key="badge.id" 
-        class="badge-card border rounded-lg p-4 text-center transition-all duration-300 ease-in-out"
+      <!-- Usa AnimatedBadge -->
+      <div
+        v-for="badge in allBadges"
+        :key="badge.id"
+        class="badge-wrapper transition-opacity duration-300"
         :class="{
-          'bg-white shadow-md transform hover:scale-105': earnedBadgeIds.has(badge.id),
-          'bg-gray-100 opacity-60 filter grayscale': !earnedBadgeIds.has(badge.id)
+          'opacity-50 filter grayscale hover:opacity-100 hover:filter-none': !earnedBadgeIds.has(badge.id)
         }"
       >
-        <img 
-          :src="badge.image_url || '/placeholder-badge.svg'"
-          :alt="badge.name" 
-          class="w-20 h-20 mx-auto mb-3 object-contain"
-          :class="{ 'opacity-50': !earnedBadgeIds.has(badge.id) }"
-        />
-        <h3 
-          class="font-semibold text-sm mb-1"
-          :class="{ 'text-gray-800': earnedBadgeIds.has(badge.id), 'text-gray-500': !earnedBadgeIds.has(badge.id) }"
-        >
-          {{ badge.name }}
-        </h3>
-        <p 
-          class="text-xs"
-          :class="{ 'text-gray-600': earnedBadgeIds.has(badge.id), 'text-gray-400': !earnedBadgeIds.has(badge.id) }"
-          :title="badge.description"
-        >
-          {{ badge.description }}
-        </p>
-         <p v-if="earnedBadgeIds.has(badge.id)" class="text-xs text-green-600 mt-2 font-medium">
-           Ottenuto!
+        <AnimatedBadge :badge="badge" />
+         <!-- Mostra data ottenimento se guadagnato -->
+         <p v-if="earnedBadgeIds.has(badge.id)" class="text-xs text-kahoot-green-dark mt-1 text-center">
+            <!-- TODO: Mostrare data effettiva da earnedBadges -->
+            Ottenuto!
          </p>
       </div>
     </div>
-     <div v-if="!isLoading && !error && allBadges.length === 0" class="text-center py-10 text-gray-500">
+     <div v-if="!isLoading && !error && allBadges.length === 0" class="text-center py-10 text-brand-gray-dark"> <!-- Colore testo aggiornato -->
         <p>Nessun badge definito al momento.</p>
      </div>
   </div>
 </template>
 
 <style scoped>
-/* Stili aggiuntivi se necessari */
-.badge-card img {
-  /* Potrebbe servire per gestire meglio immagini non quadrate */
-}
+/* Rimuoviamo gli stili specifici per .badge-card img */
 </style>
