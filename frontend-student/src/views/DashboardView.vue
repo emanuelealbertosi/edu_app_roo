@@ -55,7 +55,7 @@ const goToShop = () => {
 </script>
 
 <template>
-  <div class="dashboard bg-brand-gray-light p-4 md:p-8 min-h-screen">
+  <div class="dashboard bg-brand-gray-light p-4 md:p-8"> <!-- Rimossa classe min-h-screen -->
     <!-- Header Aggiornato -->
     <header class="dashboard-header bg-white p-6 rounded-lg shadow-md mb-8 text-center md:text-left">
       <h1 class="text-3xl md:text-4xl font-bold text-kahoot-purple mb-2">Dashboard Studente</h1>
@@ -86,11 +86,7 @@ const goToShop = () => {
     <div v-else class="dashboard-content grid grid-cols-1 lg:grid-cols-3 gap-8">
       <!-- Sezione wallet e Ultimo Badge -->
       <div class="wallet-section lg:col-span-1 flex flex-col gap-6"> <!-- Aggiunto flex e gap -->
-        <WalletCard
-          :wallet="dashboardStore.wallet"
-          :loading="dashboardStore.loading.wallet"
-        />
-        <!-- Visualizza l'ultimo badge guadagnato -->
+        <!-- Visualizza l'ultimo badge guadagnato (SPOSTATO SOPRA) -->
          <div class="bg-white p-4 rounded-lg shadow-md text-center">
             <h3 class="text-lg font-semibold text-kahoot-cyan mb-3">Ultimo Traguardo</h3>
             <div v-if="dashboardStore.loading.badges" class="text-sm text-brand-gray italic">Caricamento...</div>
@@ -99,6 +95,11 @@ const goToShop = () => {
             <!-- Link alla pagina di tutti i badge -->
             <router-link to="/badges" class="block text-sm text-kahoot-blue hover:underline mt-3">Vedi tutti i traguardi</router-link>
          </div>
+         <!-- Wallet Card (SPOSTATO SOTTO) -->
+        <WalletCard
+          :wallet="dashboardStore.wallet"
+          :loading="dashboardStore.loading.wallet"
+        />
       </div>
 
       <!-- Sezione Contenuti Educativi con Tab (invariata) -->

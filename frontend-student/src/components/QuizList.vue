@@ -5,6 +5,7 @@ import type { Quiz } from '@/api/dashboard';
 import BaseModal from '@/components/common/BaseModal.vue'; // Importare la modale
 import QuizDetailsView from '@/views/QuizDetailsView.vue'; // Importare la vista dettagli
 import QuizAttemptView from '@/views/QuizAttemptView.vue'; // Importare la vista tentativo
+import QuizResultView from '@/views/QuizResultView.vue'; // Importare la vista risultati
 import BaseButton from '@/components/common/BaseButton.vue'; // Importare BaseButton per il footer
 
 const props = defineProps<{
@@ -37,6 +38,10 @@ const isDetailsModalOpen = ref(false);
 // Stato per la modale di tentativo
 const quizIdForAttempt = ref<number | null>(null);
 const isAttemptModalOpen = ref(false);
+
+// Stato per la modale dei risultati
+const attemptIdForResult = ref<number | null>(null);
+const isResultModalOpen = ref(false);
 
 // Computed per il titolo della modale dettagli (rinominato per chiarezza)
 const selectedQuizForDetails = computed(() => {
@@ -79,9 +84,16 @@ const startQuizAttempt = (quizId: number) => {
 // Gestisce il completamento del tentativo dalla modale
 const handleAttemptCompleted = (attemptId: number) => {
   closeAttemptModal(); // Chiudi la modale di tentativo
-  // Naviga alla pagina dei risultati
-  router.push({ name: 'QuizResult', params: { attemptId } });
+  // Apri la modale dei risultati invece di navigare
+  attemptIdForResult.value = attemptId;
+  isResultModalOpen.value = true;
   // Potremmo voler ricaricare i dati della dashboard qui
+};
+
+// Funzione per chiudere la modale dei risultati
+const closeResultModal = () => {
+  isResultModalOpen.value = false;
+  setTimeout(() => { attemptIdForResult.value = null; }, 300); // Ritarda reset per animazione
 };
 
 
@@ -269,6 +281,25 @@ const shouldShowStartButton = (quiz: Quiz): boolean => {
        <!-- <template #footer>
          <BaseButton variant="danger" @click="closeAttemptModal">Annulla Tentativo</BaseButton>
        </template> -->
+    </BaseModal>
+
+    <!-- Nuova Modale per i Risultati del Quiz -->
+    <BaseModal
+      :show="isResultModalOpen"
+      @close="closeResultModal"
+      title="Risultati Quiz"
+    >
+      <!-- Usiamo un div wrapper per il v-if per non rimuovere la modale stessa -->
+      <div v-if="attemptIdForResult">
+        <QuizResultView
+          :attempt-id="attemptIdForResult"
+          @close="closeResultModal"
+        />
+      </div>
+      <!-- Nascondiamo il footer di default per questa modale -->
+      <!-- <template #footer>
+        <BaseButton variant="primary" @click="closeResultModal">Chiudi</BaseButton>
+      </template> -->
     </BaseModal>
 
   </div>

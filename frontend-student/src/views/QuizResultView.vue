@@ -1,25 +1,32 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { ref, onMounted, computed, defineProps, defineEmits } from 'vue'; // Aggiunto defineProps, defineEmits
+// Rimosso useRoute, useRouter
 import QuizService, { type AttemptDetails, type Question, type StudentAnswerResult } from '@/api/quiz';
 import RewardsService from '@/api/rewards'; // Importa RewardsService
 import { useNotificationStore } from '@/stores/notification'; // Importa store notifiche
 // import confetti from 'canvas-confetti'; // Per animazione successo
 
 // State
-const route = useRoute();
-const router = useRouter();
+// Rimosso route, router
 const attemptDetails = ref<AttemptDetails | null>(null);
 const notificationStore = useNotificationStore(); // Inizializza store notifiche
 const isLoading = ref(true);
 const error = ref<string | null>(null);
 const showConfetti = ref(false); // State per animazione successo
 
-const attemptId = computed(() => Number(route.params.attemptId));
+// --- Props & Emits ---
+const props = defineProps<{
+  attemptId: number; // Accetta attemptId come prop
+}>();
+
+const emit = defineEmits<{
+  (e: 'close'): void; // Evento per chiudere la modale
+}>();
 
 // Funzioni
 async function fetchAttemptResults() {
-  if (!attemptId.value) {
+  // Usa props.attemptId invece di attemptId.value (che era basato su route)
+  if (!props.attemptId) {
     error.value = "ID del tentativo non valido.";
     isLoading.value = false;
     return;
@@ -27,9 +34,11 @@ async function fetchAttemptResults() {
   isLoading.value = true;
   error.value = null;
   try {
-    attemptDetails.value = await QuizService.getAttemptDetails(attemptId.value);
+    // Usa props.attemptId
+    attemptDetails.value = await QuizService.getAttemptDetails(props.attemptId);
   } catch (err) {
-    console.error(`Errore durante il recupero dei risultati per il tentativo ${attemptId.value}:`, err);
+    // Usa props.attemptId nel log
+    console.error(`Errore durante il recupero dei risultati per il tentativo ${props.attemptId}:`, err);
     error.value = "Impossibile caricare i risultati del quiz. Riprova più tardi.";
     // Potrebbe essere utile gestire errori specifici (es. 404 Not Found)
   } finally {
@@ -150,6 +159,11 @@ onMounted(async () => { // reso async
   }
 });
 
+// Funzione per chiudere la modale
+const handleClose = () => {
+  emit('close');
+};
+
 </script>
 
 <template>
@@ -203,7 +217,8 @@ onMounted(async () => { // reso async
 
       <!-- Dettagli Quiz e Risposte rimossi come richiesto -->
 
-      <button @click="router.push('/dashboard')" class="back-button">Torna alla Dashboard</button>
+      <!-- Modificato per emettere 'close' invece di navigare -->
+      <button @click="handleClose" class="back-button">Chiudi</button>
     </div>
   </div>
 </template>
