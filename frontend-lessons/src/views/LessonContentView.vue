@@ -56,8 +56,16 @@
            <!-- Campi specifici per tipo -->
            <div v-if="newContent.content_type === 'html'" class="form-group">
               <label for="content-html">Contenuto HTML:</label>
-              <!-- Usa l'editor WYSIWYG -->
-              <WysiwygEditor id="content-html" v-model="newContent.html_content" />
+              <!-- Sostituito WysiwygEditor con textarea per permettere HTML grezzo -->
+              <textarea
+                id="content-html"
+                v-model="newContent.html_content"
+                rows="10"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 font-mono text-sm"
+                placeholder="Inserisci qui il tuo codice HTML..."
+                required
+              ></textarea>
+              <small class="text-xs text-gray-500 mt-1">Attenzione: Il codice inserito verrà visualizzato senza sanitizzazione.</small>
            </div>
            <div v-if="newContent.content_type === 'pdf' || newContent.content_type === 'ppt'" class="form-group">
                <label for="content-file">Seleziona File ({{ newContent.content_type.toUpperCase() }}):</label>
@@ -97,10 +105,10 @@ import { useRoute, useRouter } from 'vue-router';
 import { useLessonStore } from '@/stores/lessons';
 // Importa il modale di modifica e l'editor WYSIWYG usando percorsi relativi
 import LessonContentEditModal from '../components/features/lezioni/LessonContentEditModal.vue';
-import WysiwygEditor from '../components/WysiwygEditor.vue';
+// Rimosso import WysiwygEditor non più utilizzato
 
 // Importa i tipi corretti
-import type { Lesson, LessonContent } from '@/types/lezioni';
+import type { LessonContent } from '@/types/lezioni'; // Rimosso 'Lesson' non utilizzato
 
 const route = useRoute();
 const router = useRouter();

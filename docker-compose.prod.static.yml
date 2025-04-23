@@ -54,6 +54,17 @@ services:
       - media_data:/usr/share/nginx/media
     restart: unless-stopped
 
+  frontend-lessons:
+    # Assicurati che questa immagine sia corretta e aggiornata su Docker Hub
+    image: albertosiemanuele/edu-app-frontend-lessons:latest
+    # ports: # Rimosso, accesso tramite nginx-proxy
+    #  - "xxxx:80" # Sostituisci xxxx se necessario esporre una porta specifica (improbabile con proxy)
+    depends_on:
+      - backend
+    volumes: # Aggiunto volume media per servire file (se necessario)
+      - media_data:/usr/share/nginx/media
+    restart: unless-stopped
+
   nginx-proxy:
     image: nginx:alpine
     ports:
@@ -65,10 +76,13 @@ services:
       - media_data:/usr/share/nginx/media:ro
       # Monta gli statici raccolti per servirli direttamente da Nginx
       - static_data:/usr/share/nginx/static:ro
+      # Monta l'index.html statico
+      - ./index.html:/usr/share/nginx/html/index.html:ro
     depends_on:
       - backend
       - frontend-student
       - frontend-teacher
+      - frontend-lessons # Aggiunta dipendenza
     restart: unless-stopped
 
 volumes:

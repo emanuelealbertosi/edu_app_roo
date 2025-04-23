@@ -46,7 +46,8 @@ export const useSubjectStore = defineStore('subjects', {
       this.isLoading = true;
       this.error = null;
       try {
-        const response = await apiClient.get('/subjects/'); // Endpoint per listare le materie
+        // Aggiunto prefisso /lezioni/
+        const response = await apiClient.get('/lezioni/subjects/'); // Endpoint per listare le materie
         this.subjects = response.data;
       } catch (err: any) {
         console.error("Errore nel caricamento delle materie:", err);
@@ -61,7 +62,8 @@ export const useSubjectStore = defineStore('subjects', {
       this.isLoading = true;
       this.error = null;
       try {
-        const response = await apiClient.post('/subjects/', subjectData);
+        // Aggiunto prefisso /lezioni/
+        const response = await apiClient.post('/lezioni/subjects/', subjectData);
         // Aggiunge la nuova materia allo state locale (o ricarica la lista)
         this.subjects.push(response.data);
         return true; // Successo
@@ -80,7 +82,8 @@ export const useSubjectStore = defineStore('subjects', {
         this.isLoading = true;
         this.error = null;
         try {
-            const response = await apiClient.patch(`/subjects/${subjectId}/`, subjectData); // Usa PATCH per aggiornamenti parziali
+            // Aggiunto prefisso /lezioni/
+            const response = await apiClient.patch(`/lezioni/subjects/${subjectId}/`, subjectData); // Usa PATCH per aggiornamenti parziali
             // Aggiorna la materia nello state locale
             const index = this.subjects.findIndex(s => s.id === subjectId);
             if (index !== -1) {
@@ -100,7 +103,8 @@ export const useSubjectStore = defineStore('subjects', {
         this.isLoading = true;
         this.error = null;
         try {
-            await apiClient.delete(`/subjects/${subjectId}/`);
+            // Aggiunto prefisso /lezioni/
+            await apiClient.delete(`/lezioni/subjects/${subjectId}/`);
             // Rimuovi la materia dallo state locale
             this.subjects = this.subjects.filter(s => s.id !== subjectId);
             return true; // Successo

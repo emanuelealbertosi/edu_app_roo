@@ -92,7 +92,7 @@ const router = createRouter({
 // --- Navigation Guards ---
 import { useAuthStore } from '@/stores/auth'; // Importa lo store per le guardie
 
-router.beforeEach(async (to, from, next) => { // Rende la guardia async per poter chiamare checkInitialAuth
+router.beforeEach(async (to, _from, next) => { // Rende la guardia async per poter chiamare checkInitialAuth, rinominato 'from' non usato
   const authStore = useAuthStore();
 
   // Assicurati che lo stato iniziale sia caricato prima di controllare i permessi

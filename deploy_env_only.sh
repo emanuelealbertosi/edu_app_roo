@@ -213,6 +213,7 @@ echo "Puoi accedere ai servizi (potrebbe richiedere qualche istante per l'avvio 
 echo "  - Backend Django (Admin): http://${SERVER_IP}/admin/"
 echo "  - Frontend Docente:       http://${SERVER_IP}/docenti/"
 echo "  - Frontend Studente:      http://${SERVER_IP}/studenti/"
+echo "  - Frontend Lezioni:       http://${SERVER_IP}/lezioni/" # Aggiunto link Lezioni
 echo ""
 echo "Credenziali Admin (definite durante l'esecuzione dello script):"
 echo "  - Username: ${DJANGO_SUPERUSER_USERNAME_VAR}"

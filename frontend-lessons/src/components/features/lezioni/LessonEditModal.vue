@@ -67,7 +67,7 @@ import { ref, watch, computed } from 'vue';
 import { useSubjectStore } from '@/stores/subjects'; // Serve per nome materia in optgroup
 
 interface Topic { id: number; name: string; subject: number; }
-interface Subject { id: number; name: string; }
+// interface Subject { id: number; name: string; } // Rimosso - non utilizzato in questo file
 interface Lesson {
     id: number;
     title: string;

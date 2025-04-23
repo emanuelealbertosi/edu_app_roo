@@ -44,7 +44,8 @@ export const useTopicStore = defineStore('topics', {
     async fetchTopics(subjectId: number | null = null) {
       this.isLoading = true;
       this.error = null;
-      let url = '/topics/';
+      // Aggiunto prefisso /lezioni/
+      let url = '/lezioni/topics/';
       if (subjectId !== null) {
         url += `?subject_id=${subjectId}`; // Aggiunge il parametro di query per filtrare
       }
@@ -64,7 +65,8 @@ export const useTopicStore = defineStore('topics', {
       this.isLoading = true;
       this.error = null;
       try {
-        const response = await apiClient.post('/topics/', topicData);
+        // Aggiunto prefisso /lezioni/
+        const response = await apiClient.post('/lezioni/topics/', topicData);
         // Aggiunge o ricarica la lista
         // Potrebbe essere meglio ricaricare se l'ordinamento è importante
         // await this.fetchTopics(topicData.subject); // Ricarica per la materia specifica
@@ -84,7 +86,8 @@ export const useTopicStore = defineStore('topics', {
         this.isLoading = true;
         this.error = null;
         try {
-            const response = await apiClient.patch(`/topics/${topicId}/`, topicData);
+            // Aggiunto prefisso /lezioni/
+            const response = await apiClient.patch(`/lezioni/topics/${topicId}/`, topicData);
             const index = this.topics.findIndex(t => t.id === topicId);
             if (index !== -1) {
                 // Aggiorna mantenendo i campi non modificati
@@ -104,7 +107,8 @@ export const useTopicStore = defineStore('topics', {
         this.isLoading = true;
         this.error = null;
         try {
-            await apiClient.delete(`/topics/${topicId}/`);
+            // Aggiunto prefisso /lezioni/
+            await apiClient.delete(`/lezioni/topics/${topicId}/`);
             this.topics = this.topics.filter(t => t.id !== topicId);
             return true;
         } catch (err: any) {

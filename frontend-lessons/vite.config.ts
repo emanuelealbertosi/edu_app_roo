@@ -5,7 +5,7 @@ import vue from '@vitejs/plugin-vue'
 
 // https://vite.dev/config/
 export default defineConfig({
-  envDir: '../', // Cerca i file .env nella directory principale del progetto
+  base: '/lezioni/', // Imposta il base path per l'applicazione
   plugins: [vue()],
   resolve: {
     alias: {

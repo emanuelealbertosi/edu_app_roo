@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Applicazione Educativa - Accesso</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 40px;
+            background-color: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: calc(100vh - 80px); /* Altezza viewport meno padding */
+        }
+        .main-container {
+            background-color: #fff;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            text-align: center;
+            max-width: 800px;
+            width: 100%;
+        }
+        h1 {
+            color: #1c1e21;
+            margin-bottom: 10px;
+            font-size: 2em;
+        }
+        p {
+            color: #606770;
+            font-size: 1.1em;
+            margin-bottom: 30px;
+        }
+        .card-container {
+            display: flex;
+            justify-content: space-around; /* O space-between */
+            flex-wrap: wrap; /* Va a capo su schermi piccoli */
+            gap: 20px; /* Spazio tra le card */
+        }
+        .card {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background-color: #ffffff;
+            border: 1px solid #dddfe2;
+            border-radius: 8px;
+            padding: 25px;
+            text-decoration: none;
+            color: #1c1e21;
+            width: 200px; /* Larghezza fissa card */
+            height: 180px; /* Altezza fissa card */
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.1);
+            border-color: #ced0d4;
+        }
+        .card svg {
+            width: 50px;
+            height: 50px;
+            margin-bottom: 15px;
+            color: #007bff; /* Colore primario per le icone */
+        }
+        .card span {
+            font-size: 1.1em;
+            font-weight: 500;
+        }
+         /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .card-container {
+                flex-direction: column;
+                align-items: center;
+            }
+            .card {
+                width: 80%; /* Occupa più larghezza su mobile */
+                max-width: 300px;
+            }
+            h1 { font-size: 1.8em; }
+            p { font-size: 1em; }
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <h1>Benvenuto nell'Applicazione Educativa</h1>
+        <p>Seleziona il portale a cui desideri accedere:</p>
+        <div class="card-container">
+            <a href="/studenti/" class="card">
+                <!-- Icona Studente (User) -->
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                </svg>
+                <span>Portale Studenti</span>
+            </a>
+            <a href="/docenti/" class="card">
+                <!-- Icona Docente (School/Graduation Cap) -->
+                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                   <path d="M12 3L1 9l11 6 9-4.91V17h2V9L12 3zm0 11.68l-7-3.82 7-3.82 7 3.82-7 3.82zM5 13.18v4L12 21l7-3.82v-4L12 17l-7-3.82z"/>
+                 </svg>
+                <span>Portale Docenti</span>
+            </a>
+            <a href="/lezioni/" class="card">
+                <!-- Icona Lezioni (Book) -->
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M18 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 4h5v8l-2.5-1.5L6 12V4z"/>
+                </svg>
+                <span>Portale Lezioni</span>
+            </a>
+        </div>
+    </div>
+</body>
+</html>

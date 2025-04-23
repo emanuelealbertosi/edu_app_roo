@@ -7,7 +7,7 @@ import {
   HomeIcon,
   BookOpenIcon,
   AcademicCapIcon,
-  UserGroupIcon, // Icona per Assegna Lezioni
+  // UserGroupIcon, // Rimosso - non utilizzato
   CogIcon,
   ArrowLeftOnRectangleIcon,
   BellIcon, // Icona Notifiche
@@ -22,7 +22,7 @@ const authStore = useAuthStore();
 const router = useRouter();
 const isSidebarExpanded = ref(false);
 const isCreateMenuOpen = ref(false); // Stato per il dropdown "Create"
-const isProfileMenuOpen = ref(false); // Stato per dropdown profilo (opzionale)
+// const isProfileMenuOpen = ref(false); // Rimosso - non utilizzato
 
 const expandSidebar = () => { isSidebarExpanded.value = true; };
 const collapseSidebar = () => { isSidebarExpanded.value = false; };

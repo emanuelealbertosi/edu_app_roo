@@ -55,7 +55,8 @@ export const useLessonStore = defineStore('lessons', {
     async fetchLessons(topicId: number | null = null) { // Filtro opzionale per argomento
       this.isLoading = true;
       this.error = null;
-      let url = '/lessons/';
+      // Aggiunto prefisso /lezioni/
+      let url = '/lezioni/lessons/';
        if (topicId !== null) {
         url += `?topic_id=${topicId}`; // Endpoint backend deve supportare questo filtro
       }
@@ -78,7 +79,8 @@ export const useLessonStore = defineStore('lessons', {
       this.error = null;
       this.currentLesson = null; // Resetta prima di caricare
       try {
-        const response = await apiClient.get(`/lessons/${lessonId}/`);
+        // Aggiunto prefisso /lezioni/
+        const response = await apiClient.get(`/lezioni/lessons/${lessonId}/`);
         // Il serializer LessonSerializer dovrebbe includere i contenuti in lettura
         this.currentLesson = response.data;
       } catch (err: any) {
@@ -94,7 +96,8 @@ export const useLessonStore = defineStore('lessons', {
       this.error = null;
       try {
         // Usa l'endpoint e il LessonWriteSerializer (senza contents)
-        const response = await apiClient.post('/lessons/', lessonData);
+        // Aggiunto prefisso /lezioni/
+        const response = await apiClient.post('/lezioni/lessons/', lessonData);
         this.lessons.push(response.data); // Aggiunge alla lista locale
         return response.data as Lesson; // Restituisce la lezione creata
       } catch (err: any) {
@@ -111,7 +114,8 @@ export const useLessonStore = defineStore('lessons', {
         this.error = null;
         try {
             // Usa PATCH e LessonWriteSerializer
-            const response = await apiClient.patch(`/lessons/${lessonId}/`, lessonData);
+            // Aggiunto prefisso /lezioni/
+            const response = await apiClient.patch(`/lezioni/lessons/${lessonId}/`, lessonData);
             // Aggiorna la lista locale
             const index = this.lessons.findIndex(l => l.id === lessonId);
             if (index !== -1) {
@@ -135,7 +139,8 @@ export const useLessonStore = defineStore('lessons', {
         this.isLoading = true;
         this.error = null;
         try {
-            await apiClient.delete(`/lessons/${lessonId}/`);
+            // Aggiunto prefisso /lezioni/
+            await apiClient.delete(`/lezioni/lessons/${lessonId}/`);
             this.lessons = this.lessons.filter(l => l.id !== lessonId);
             if (this.currentLesson?.id === lessonId) {
                 this.currentLesson = null;
@@ -162,7 +167,8 @@ export const useLessonStore = defineStore('lessons', {
                 ? { 'Content-Type': 'multipart/form-data' }
                 : { 'Content-Type': 'application/json' };
 
-            const response = await apiClient.post(`/lessons/${lessonId}/contents/`, contentData, { headers });
+            // Aggiunto prefisso /lezioni/
+            const response = await apiClient.post(`/lezioni/lessons/${lessonId}/contents/`, contentData, { headers });
 
             // Aggiorna i contenuti della lezione corrente se caricata
             if (this.currentLesson?.id === lessonId) {
@@ -190,7 +196,8 @@ export const useLessonStore = defineStore('lessons', {
                 : { 'Content-Type': 'application/json' };
 
             // Usa PATCH per aggiornamenti parziali
-            const response = await apiClient.patch(`/lessons/${lessonId}/contents/${contentId}/`, contentData, { headers });
+            // Aggiunto prefisso /lezioni/
+            const response = await apiClient.patch(`/lezioni/lessons/${lessonId}/contents/${contentId}/`, contentData, { headers });
 
             if (this.currentLesson?.id === lessonId && this.currentLesson.contents) {
                 const index = this.currentLesson.contents.findIndex(c => c.id === contentId);
@@ -213,7 +220,8 @@ export const useLessonStore = defineStore('lessons', {
         this.isLoadingContents = true;
         this.error = null;
         try {
-            await apiClient.delete(`/lessons/${lessonId}/contents/${contentId}/`);
+            // Aggiunto prefisso /lezioni/
+            await apiClient.delete(`/lezioni/lessons/${lessonId}/contents/${contentId}/`);
             if (this.currentLesson?.id === lessonId && this.currentLesson.contents) {
                 this.currentLesson.contents = this.currentLesson.contents.filter(c => c.id !== contentId);
             }
@@ -236,9 +244,10 @@ export const useLessonStore = defineStore('lessons', {
         this.error = null;
         try {
             // Usiamo il path completo e sovrascriviamo temporaneamente il baseURL per accedere all'endpoint degli utenti
-            const rootApiBase = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/lezioni').replace('/api/lezioni', '');
-            // L'URL corretto è /api/students/ basato su come apps.users.urls è incluso in config/urls.py
-            const response = await apiClient.get('/api/students/', { baseURL: rootApiBase }); // Usa la radice API per questa chiamata
+            // Rimosso calcolo rootApiBase e override baseURL.
+            // Il percorso relativo corretto per l'istanza apiClient è /students/
+            // perché /api/ è già nel baseURL e l'URL completo è /api/students/
+            const response = await apiClient.get('/students/');
             return response.data as Student[];
         } catch (err: any) {
             console.error("Errore nel caricamento degli studenti:", err);
@@ -254,7 +263,8 @@ export const useLessonStore = defineStore('lessons', {
         this.error = null;
         try {
             // Usa l'azione custom definita nel LessonViewSet
-            const response = await apiClient.post(`/lessons/${lessonId}/assign/`, { student_ids: studentIds });
+            // Aggiunto prefisso /lezioni/
+            const response = await apiClient.post(`/lezioni/lessons/${lessonId}/assign/`, { student_ids: studentIds });
             console.log("Risposta assegnazione:", response.data);
 
             // Estrai i dati dalla risposta strutturata del backend
@@ -295,7 +305,8 @@ export const useLessonStore = defineStore('lessons', {
         try {
             // Assumiamo un endpoint specifico o usiamo il ViewSet delle assegnazioni filtrato
             // Se usiamo LessonAssignmentViewSet, il backend filtra in base all'utente
-            const response = await apiClient.get(`/assignments/`); // L'endpoint filtra per studente loggato
+            // Aggiunto prefisso /lezioni/
+            const response = await apiClient.get(`/lezioni/assignments/`); // L'endpoint filtra per studente loggato
             this.assignedLessons = response.data;
         } catch (err: any) {
             console.error("Errore nel caricamento delle lezioni assegnate:", err);
@@ -310,7 +321,8 @@ export const useLessonStore = defineStore('lessons', {
          // Non serve loading specifico qui, è un'azione rapida
          try {
              // Usa l'azione custom definita in LessonAssignmentViewSet
-             const response = await apiClient.post(`/assignments/${assignmentId}/mark-viewed/`);
+             // Aggiunto prefisso /lezioni/
+             const response = await apiClient.post(`/lezioni/assignments/${assignmentId}/mark-viewed/`);
              // Aggiorna lo stato locale dell'assegnazione
              const index = this.assignedLessons.findIndex(a => a.id === assignmentId);
              if (index !== -1) {

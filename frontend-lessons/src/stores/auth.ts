@@ -1,35 +1,11 @@
 import { defineStore } from 'pinia'
-import axios from 'axios' // Assumiamo che axios sia configurato altrove o lo configuriamo qui/in un service
+// Rimosso import axios, useremo l'istanza centralizzata
+import apiClient from '@/services/api'; // Importa l'istanza Axios centralizzata
 // Definiremo un tipo per l'utente più avanti
 // import type { User } from '@/types/user';
 import router from '@/router'; // Importa l'istanza del router
 
-// Configurazione base per Axios (potrebbe essere spostata in un file api.ts dedicato)
-// Assicurati che l'URL del backend sia corretto (potrebbe venire da .env)
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
-
-const apiClient = axios.create({
-  baseURL: API_BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  }
-});
-
-// Interceptor per aggiungere il token JWT alle richieste
-apiClient.interceptors.request.use(config => {
-  // Legge il token direttamente da localStorage invece che dallo store state
-  const token = localStorage.getItem('accessToken');
-  if (token) {
-    console.log(`Interceptor: Adding token from localStorage to request for ${config.url}`); // Log modificato
-    config.headers.Authorization = `Bearer ${token}`;
-  } else {
-    console.log(`Interceptor: No token found in localStorage for request to ${config.url}`); // Log modificato
-  }
-  return config;
-}, error => {
-  return Promise.reject(error);
-});
-
+// Rimosse definizione locale di apiClient e interceptor, ora sono in services/api.ts
 
 // Definizione dello store di autenticazione
 export const useAuthStore = defineStore('auth', {
@@ -89,6 +65,8 @@ export const useAuthStore = defineStore('auth', {
             // --- Login Studente ---
             if (!credentials.pin) throw new Error("PIN mancante per login studente.");
             console.log("Calling student login endpoint..."); // Debug
+            // Usa l'istanza apiClient importata
+            // Il percorso è relativo al baseURL definito in api.ts
             response = await apiClient.post('/auth/student/login/', {
                 student_code: credentials.identifier,
                 pin: credentials.pin
@@ -107,6 +85,8 @@ export const useAuthStore = defineStore('auth', {
             // --- Login Docente/Admin ---
              if (!credentials.password) throw new Error("Password mancante per login docente/admin.");
              console.log("Calling standard token endpoint..."); // Debug
+             // Usa l'istanza apiClient importata
+             // Il percorso è relativo al baseURL definito in api.ts
              response = await apiClient.post('/auth/token/', {
                 username: credentials.identifier,
                 password: credentials.password
@@ -154,8 +134,11 @@ export const useAuthStore = defineStore('auth', {
        }
        console.log("Fetching Admin/Teacher user data..."); // Log aggiornato
       try {
-        // L'endpoint corretto per ottenere i dati dell'utente Admin/Docente loggato è /api/admin/users/me/
-        const response = await apiClient.get('/admin/users/me/');
+        // L'endpoint corretto per ottenere i dati dell'utente Admin/Docente loggato è relativo al baseURL
+        // Assumendo che il baseURL sia http://localhost:8000/api, il percorso relativo corretto è /admin/users/me/
+        // Se il baseURL fosse solo http://localhost:8000, il percorso sarebbe /api/admin/users/me/
+        // Dato che baseURL è /api, il percorso relativo è /admin/users/me/
+        const response = await apiClient.get('/admin/users/me/'); // Usa apiClient importato
         // Assicurati che la risposta contenga i dati attesi (incluso il ruolo)
         if (!response.data || !response.data.role) {
              throw new Error("Dati utente Admin/Docente incompleti ricevuti dal server.");
@@ -195,6 +178,7 @@ export const useAuthStore = defineStore('auth', {
       console.log(`Attempting token refresh using endpoint: ${refreshEndpoint} for role: ${this.userRole}`); // Debug
 
       try {
+        // Usa apiClient importato
         const response = await apiClient.post(refreshEndpoint, {
           refresh: this.refreshToken,
         });

@@ -75,7 +75,7 @@ import { useTopicStore } from '@/stores/topics';
 import { useSubjectStore } from '@/stores/subjects';
 import emitter from '@/eventBus'; // Importa l'event bus
 import TopicEditModal from '../components/features/lezioni/TopicEditModal.vue';
-import type { Topic, Subject } from '@/types/lezioni';
+import type { Topic } from '@/types/lezioni'; // Rimosso Subject non usato qui
 
 const topicStore = useTopicStore();
 const subjectStore = useSubjectStore();
@@ -124,11 +124,12 @@ const loadTopicsForSubject = () => {
   topicStore.fetchTopics(selectedSubjectId.value);
 };
 
-const selectedSubjectName = computed(() => {
-    if (!selectedSubjectId.value) return '';
-    const subj = subjectStore.subjects.find(s => s.id === selectedSubjectId.value);
-    return subj ? subj.name : '';
-});
+// Rimosso selectedSubjectName non utilizzato
+// const selectedSubjectName = computed(() => {
+//     if (!selectedSubjectId.value) return '';
+//     const subj = subjectStore.subjects.find(s => s.id === selectedSubjectId.value);
+//     return subj ? subj.name : '';
+// });
 
 const getSubjectName = (subjectId: number): string => {
     const subj = subjectStore.subjects.find(s => s.id === subjectId);

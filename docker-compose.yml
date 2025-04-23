@@ -64,5 +64,17 @@ services:
     depends_on:
       - web # Depends on the backend service
 
+  frontend-lessons:
+    build:
+      context: ./frontend-lessons
+      dockerfile: Dockerfile
+      args:
+        # Point to the backend service within the Docker network
+        VITE_API_BASE_URL: http://web:8000/api
+    ports:
+      - "5173:80" # Map host port 5173 to container port 80 (Nginx default)
+    depends_on:
+      - web # Depends on the backend service
+
 volumes:
   postgres_data: # Volume nominato per persistere i dati del database

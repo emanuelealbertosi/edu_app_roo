@@ -73,7 +73,7 @@ import { useTopicStore } from '@/stores/topics';
 import { useSubjectStore } from '@/stores/subjects';
 import emitter from '@/eventBus'; // Importa l'event bus
 import LessonEditModal from '../components/features/lezioni/LessonEditModal.vue';
-import type { Lesson, Topic, Subject } from '@/types/lezioni';
+import type { Lesson } from '@/types/lezioni'; // Rimossi Topic e Subject non usati qui
 
 
 const lessonStore = useLessonStore();

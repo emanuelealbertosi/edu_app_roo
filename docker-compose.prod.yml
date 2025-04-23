@@ -62,17 +62,33 @@ services:
       - media_data:/usr/share/nginx/media
     restart: unless-stopped
 
+  frontend-lessons:
+    # Assumiamo che l'immagine venga buildata e taggata in modo simile agli altri
+    image: albertosiemanuele/edu-app-frontend-lessons:latest
+    # build: # Opzionale: se vuoi buildare l'immagine localmente invece di pullarla
+    #   context: ./frontend-lessons
+    #   dockerfile: Dockerfile
+    #   args:
+    #     VITE_API_BASE_URL: /api/ # Assicurati che corrisponda a quello usato nel Dockerfile
+    depends_on:
+      - backend
+    volumes: # Aggiunto volume media per servire file (se necessario)
+      - media_data:/usr/share/nginx/media
+    restart: unless-stopped
+
   nginx-proxy:
     image: nginx:alpine
     ports:
       - "80:80" # Espone la porta 80 dell'host
     volumes:
       - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro # Monta la configurazione Nginx
+      - ./index.html:/usr/share/nginx/html/index.html:ro # Monta l'index.html statico
       - media_data:/usr/share/nginx/media:ro # Monta i media per servirli direttamente
     depends_on:
       - backend
       - frontend-student
       - frontend-teacher
+      - frontend-lessons # Aggiunta dipendenza
     restart: unless-stopped
 
 volumes:

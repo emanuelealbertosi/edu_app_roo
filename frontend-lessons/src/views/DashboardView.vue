@@ -44,7 +44,7 @@
 
 <script setup lang="ts">
 import { useAuthStore } from '@/stores/auth';
-import { useRouter } from 'vue-router'; // useRouter non è più usato qui
+// import { useRouter } from 'vue-router'; // Rimosso - non utilizzato
 
 const authStore = useAuthStore();
 

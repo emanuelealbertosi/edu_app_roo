@@ -84,7 +84,7 @@ import { useAuthStore } from '@/stores/auth'; // Per eventuali azioni specifiche
 // Importa il componente per visualizzare i contenuti usando percorso relativo
 import LessonContentDisplay from '../components/features/lezioni/LessonContentDisplay.vue';
 // Importa i tipi corretti
-import type { Lesson, LessonContent } from '@/types/lezioni';
+// import type { Lesson, LessonContent } from '@/types/lezioni'; // Rimosso - Tipi non usati direttamente qui
 
 // Stato per la modale HTML
 const showHtmlModal = ref(false);

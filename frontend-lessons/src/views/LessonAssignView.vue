@@ -71,15 +71,15 @@
 
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router' // Rimosso useRouter
 import { useLessonStore } from '@/stores/lessons'
-import { useAuthStore } from '@/stores/auth' // Assumendo esista uno store per gli studenti o accessibile tramite auth/teacher
+// import { useAuthStore } from '@/stores/auth' // Rimosso - non utilizzato qui
 import type { Lesson, Student, AssignmentResult } from '@/types/lezioni' // Aggiunto AssignmentResult
 
 const route = useRoute()
-const router = useRouter()
+// const router = useRouter() // Rimosso - non utilizzato
 const lessonStore = useLessonStore()
-const authStore = useAuthStore() // O uno store dedicato ai dati del docente
+// const authStore = useAuthStore() // Rimosso - non utilizzato
 
 const lesson = ref<Lesson | null>(null)
 const students = ref<Student[]>([]) // Assumi che lo store auth o un altro store fornisca gli studenti del docente

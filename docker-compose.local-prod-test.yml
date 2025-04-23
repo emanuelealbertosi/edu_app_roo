@@ -60,6 +60,19 @@ services:
       - media_data:/usr/share/nginx/media
     restart: unless-stopped
 
+  frontend-lessons:
+    # Costruisce l'immagine localmente usando il Dockerfile in frontend-lessons/
+    build:
+      context: ./frontend-lessons
+      dockerfile: Dockerfile
+      args: # Passa l'argomento di build corretto
+        VITE_API_BASE_URL: http://backend:8000/api # Punta al servizio backend nella rete Docker
+    depends_on:
+      - backend
+    volumes: # Aggiunto volume media per servire file (se necessario)
+      - media_data:/usr/share/nginx/media
+    restart: unless-stopped
+
   nginx-proxy:
     image: nginx:alpine
     ports:
@@ -71,10 +84,13 @@ services:
       - media_data:/usr/share/nginx/media:ro
       # Monta gli statici raccolti per servirli direttamente da Nginx
       - static_data:/usr/share/nginx/static:ro
+      # Monta l'index.html statico
+      - ./index.html:/usr/share/nginx/html/index.html:ro
     depends_on:
       - backend
       - frontend-student
       - frontend-teacher
+      - frontend-lessons # Aggiunta dipendenza
     restart: unless-stopped
 
 volumes:
