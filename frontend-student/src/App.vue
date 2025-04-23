@@ -1,90 +1,161 @@
 <script setup lang="ts">
-import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
-import { computed, nextTick } from 'vue'; // Importa nextTick
+import { ref, computed } from 'vue';
 import { useAuthStore } from '@/stores/auth';
+import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'; // Aggiunto useRouter
 import GlobalLoadingIndicator from '@/components/common/GlobalLoadingIndicator.vue';
-import NotificationContainer from '@/components/common/NotificationContainer.vue'; // Importa contenitore notifiche
+import NotificationContainer from '@/components/common/NotificationContainer.vue';
+import {
+  HomeIcon, // Dashboard
+  ShoppingCartIcon, // Shop
+  UserCircleIcon, // Profilo
+  CreditCardIcon, // Acquisti
+  TrophyIcon, // Traguardi (Badges)
+  BookOpenIcon, // Lezioni (Link esterno)
+  ArrowLeftOnRectangleIcon, // Logout
+  BellIcon, // Notifiche
+  ChevronDownIcon // Icona per Dropdown (anche se non usata qui, per coerenza)
+} from '@heroicons/vue/24/outline';
 
 const authStore = useAuthStore();
-const router = useRouter();
 const route = useRoute();
+const router = useRouter(); // Ottieni istanza router
+const isSidebarExpanded = ref(false);
+// const isProfileMenuOpen = ref(false); // Rimosso stato dropdown
+
+// URL per l'app Lezioni
+const lessonsAppUrl = computed(() => (import.meta.env.VITE_LESSONS_APP_URL as string | undefined) || '/lessons/'); // Usa env var o fallback
+
+const expandSidebar = () => { isSidebarExpanded.value = true; };
+const collapseSidebar = () => { isSidebarExpanded.value = false; };
+// const toggleProfileMenu = () => { isProfileMenuOpen.value = !isProfileMenuOpen.value; }; // Rimosso
+// const closeProfileMenu = () => { isProfileMenuOpen.value = false; }; // Rimosso
 
 // Definisci i nomi delle rotte che NON devono mostrare il layout principale (header/navbar)
 const publicRouteNames = ['login', 'StudentRegistration'];
 
-// Calcola se mostrare la navbar (e quindi applicare il layout principale)
-// Gestisce il caso in cui route.name sia null o undefined
+// Calcola se mostrare il layout principale
 const showLayout = computed(() => {
   const currentRouteName = route.name;
   return currentRouteName !== null && currentRouteName !== undefined && !publicRouteNames.includes(currentRouteName.toString());
 });
 
-const handleLogout = () => { // Rimosso async e nextTick
-  authStore.logout(); // Lo store ora gestisce il redirect
+const handleLogout = () => {
+  authStore.logout();
 };
-</script>
 
+const goToProfile = () => {
+  router.push({ name: 'Profile' });
+  // closeProfileMenu(); // Rimosso
+};
+
+</script>
 <template>
   <GlobalLoadingIndicator />
   <NotificationContainer />
-  <!-- Aggiungi il contenitore notifiche qui -->
-  
-  <header v-if="showLayout" class="fixed top-0 left-0 w-full bg-purple-800 text-white shadow-md z-10 p-4 flex justify-between items-center">
-    <nav class="flex gap-6">
-      <RouterLink to="/dashboard" class="py-1 hover:text-amber-300 border-b-2 border-transparent router-link-exact-active:border-amber-300 transition-colors duration-200">Dashboard</RouterLink>
-      <RouterLink to="/shop" class="py-1 hover:text-amber-300 border-b-2 border-transparent router-link-exact-active:border-amber-300 transition-colors duration-200">Shop</RouterLink>
-      <RouterLink to="/profile" class="py-1 hover:text-amber-300 border-b-2 border-transparent router-link-exact-active:border-amber-300 transition-colors duration-200">Profilo</RouterLink>
-      <RouterLink to="/purchases" class="py-1 hover:text-amber-300 border-b-2 border-transparent router-link-exact-active:border-amber-300 transition-colors duration-200">Acquisti</RouterLink>
-      <RouterLink to="/badges" class="py-1 hover:text-amber-300 border-b-2 border-transparent router-link-exact-active:border-amber-300 transition-colors duration-200">Traguardi</RouterLink> <!-- Aggiunto Link Badge -->
-    </nav>
-    <div class="flex items-center gap-4">
-       <span class="text-sm text-purple-200 hidden md:inline">Ciao, {{ authStore.userFullName }}!</span>
-       <button @click="handleLogout" class="bg-red-600 hover:bg-red-700 text-white text-sm font-medium py-2 px-4 rounded transition-colors duration-200">Logout</button>
+
+  <div class="flex h-screen bg-gray-100 font-sans">
+    <!-- Sidebar -->
+    <aside
+      v-if="showLayout"
+      class="bg-purple-800 text-white flex flex-col transition-all duration-300 ease-in-out"
+      :class="isSidebarExpanded ? 'w-64' : 'w-20'"
+      @mouseenter="expandSidebar"
+      @mouseleave="collapseSidebar"
+    >
+      <!-- Logo/Titolo App -->
+       <div class="h-16 flex items-center justify-center flex-shrink-0 px-4">
+         <span v-if="isSidebarExpanded" class="text-xl font-semibold">Student Portal</span>
+         <span v-else class="text-xl font-semibold">SP</span>
+       </div>
+
+      <!-- Navigazione -->
+      <nav class="flex-grow p-4 overflow-y-auto">
+        <ul>
+          <!-- Dashboard -->
+          <li class="mb-3">
+            <router-link :to="{ name: 'dashboard' }" class="flex items-center p-2 rounded hover:bg-purple-700" :title="isSidebarExpanded ? '' : 'Dashboard'">
+              <HomeIcon class="h-6 w-6 flex-shrink-0" />
+              <span v-if="isSidebarExpanded" class="ml-3">Dashboard</span>
+            </router-link>
+          </li>
+          <!-- Shop -->
+          <li class="mb-3">
+            <router-link :to="{ name: 'shop' }" class="flex items-center p-2 rounded hover:bg-purple-700" :title="isSidebarExpanded ? '' : 'Shop'">
+              <ShoppingCartIcon class="h-6 w-6 flex-shrink-0" />
+              <span v-if="isSidebarExpanded" class="ml-3">Shop</span>
+            </router-link>
+          </li>
+          <!-- Profilo (spostato nell'header) -->
+          <!-- Acquisti -->
+          <li class="mb-3">
+            <router-link :to="{ name: 'purchases' }" class="flex items-center p-2 rounded hover:bg-purple-700" :title="isSidebarExpanded ? '' : 'Acquisti'">
+              <CreditCardIcon class="h-6 w-6 flex-shrink-0" />
+              <span v-if="isSidebarExpanded" class="ml-3">Acquisti</span>
+            </router-link>
+          </li>
+          <!-- Traguardi -->
+          <li class="mb-3">
+            <router-link :to="{ name: 'Badges' }" class="flex items-center p-2 rounded hover:bg-purple-700" :title="isSidebarExpanded ? '' : 'Traguardi'"> <!-- Corretto nome rotta -->
+              <TrophyIcon class="h-6 w-6 flex-shrink-0" />
+              <span v-if="isSidebarExpanded" class="ml-3">Traguardi</span>
+            </router-link>
+          </li>
+          <!-- Lezioni (Link Esterno) -->
+          <li class="mb-3">
+            <a :href="lessonsAppUrl" class="flex items-center p-2 rounded hover:bg-purple-700" :title="isSidebarExpanded ? '' : 'Lezioni'">
+              <BookOpenIcon class="h-6 w-6 flex-shrink-0" />
+              <span v-if="isSidebarExpanded" class="ml-3">Lezioni</span>
+            </a>
+          </li>
+        </ul>
+      </nav>
+
+      <!-- Logout -->
+       <div class="p-4 mt-auto border-t border-purple-700 flex-shrink-0">
+         <button @click="handleLogout" class="w-full flex items-center p-2 rounded hover:bg-red-700" :title="isSidebarExpanded ? '' : 'Logout'">
+           <ArrowLeftOnRectangleIcon class="h-6 w-6 flex-shrink-0" />
+           <span v-if="isSidebarExpanded" class="ml-3">Logout</span>
+         </button>
+       </div>
+    </aside>
+
+    <!-- Contenuto Principale -->
+    <div class="flex flex-col flex-grow">
+        <!-- Header -->
+        <header v-if="showLayout" class="bg-white shadow p-4 h-16 flex items-center justify-between flex-shrink-0">
+            <!-- Placeholder per spazio a sinistra o titolo pagina -->
+             <div class="flex-1"></div>
+
+             <!-- Pulsanti Header -->
+             <div class="flex items-center space-x-4">
+                 <!-- Pulsante Notifiche -->
+                 <button class="p-2 rounded-full text-gray-500 hover:text-gray-700 hover:bg-gray-100 focus:outline-none focus:bg-gray-100 focus:ring-2 focus:ring-offset-2 focus:ring-purple-500">
+                     <span class="sr-only">View notifications</span>
+                     <BellIcon class="h-6 w-6" />
+                 </button>
+
+                 <!-- Pulsante Profilo (Link diretto) -->
+                 <button @click="goToProfile" class="p-1 rounded-full text-gray-500 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500">
+                     <span class="sr-only">Vai al profilo</span>
+                     <UserCircleIcon class="h-7 w-7" />
+                 </button>
+             </div>
+        </header>
+
+        <!-- Area Contenuto -->
+        <!-- Applica padding top solo se il layout è mostrato -->
+        <main class="flex-grow p-8 overflow-auto" :class="showLayout ? 'pt-16' : ''">
+          <RouterView :key="$route.fullPath" />
+        </main>
     </div>
-  </header>
-  <!-- Applica il padding top solo se il layout (e quindi l'header) è mostrato -->
-  <main :class="showLayout ? 'pt-24' : ''" class="px-4 md:px-8">
-    <RouterView />
-    
-  </main>
+
+  </div>
 </template>
 
 <style scoped>
-/* Stili specifici del componente App.vue che non sono coperti da Tailwind o richiedono override */
-
-/* Stile per il link attivo (Tailwind non ha una classe diretta per router-link-exact-active, quindi lo manteniamo qui o usiamo JS per aggiungere una classe) */
+/* Stili aggiuntivi se necessari */
+/* Assicurati che Tailwind sia configurato correttamente */
 .router-link-exact-active {
-  /* Rimuoviamo @apply per ora, potrebbe causare problemi in scoped style */
-  /* Gli stili base sono già nel template, questo serviva per la classe automatica di Vue Router */
-  /* Potremmo dover aggiungere logica JS per applicare classi dinamicamente se necessario */
-}
-
-/* Stili per la transizione fade (mantenuti come prima) */
-
-/* Stili per la transizione fade */
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.3s ease;
-}
-
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-}
-
-@media (max-width: 480px) {
-    .main-navbar nav {
-        gap: 0.8rem;
-    }
-    .nav-link {
-        font-size: 0.9em;
-    }
-    .user-greeting {
-        display: none; /* Nascondi saluto su schermi molto piccoli */
-    }
-     .user-actions {
-       justify-content: flex-end; /* Allinea solo il logout a destra */
-   }
+  @apply bg-purple-700; /* Stile per link attivo nella sidebar */
 }
 </style>
-

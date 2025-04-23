@@ -2,6 +2,8 @@ from rest_framework import serializers
 from .models import User, Student, UserRole, RegistrationToken # Aggiungi RegistrationToken
 from django.utils import timezone # Aggiungi timezone
 from apps.rewards.models import Wallet # Importa Wallet
+from rest_framework_simplejwt.serializers import TokenRefreshSerializer
+from rest_framework_simplejwt.exceptions import InvalidToken
 
 class UserSerializer(serializers.ModelSerializer):
     """
@@ -227,3 +229,38 @@ class StudentRegistrationSerializer(serializers.Serializer):
         token_instance.save(update_fields=['used_at', 'student'])
 
         return student # Restituisce l'istanza dello studente creato
+
+
+# --- Serializer per Refresh Token Studente ---
+
+class StudentTokenRefreshSerializer(TokenRefreshSerializer):
+    """
+    Serializer personalizzato per il refresh del token JWT per gli Studenti.
+    Valida il refresh token cercando lo studente tramite 'student_id' nel payload.
+    """
+    def validate(self, attrs):
+        # Il metodo validate di TokenRefreshSerializer gestisce già la decodifica
+        # e la validazione base del refresh token (scadenza, blacklist se attiva).
+        # Noi dobbiamo solo assicurarci che l'utente associato (in questo caso, lo studente) esista.
+        data = super().validate(attrs) # Questo popola self.token
+
+        # Il token decodificato è in self.token dopo la validazione base
+        if not self.token:
+             # Questo non dovrebbe accadere se super().validate() non ha sollevato eccezioni,
+             # ma è una sicurezza aggiuntiva.
+             raise InvalidToken('Token non valido o non trovato dopo la validazione base.')
+
+        student_id = self.token.get('student_id') # Estrai il claim custom
+
+        if not student_id:
+            raise InvalidToken('Token non contiene l\'ID studente richiesto.')
+
+        try:
+            # Verifica che lo studente esista e sia attivo
+            student = Student.objects.get(pk=student_id, is_active=True)
+        except Student.DoesNotExist:
+            raise InvalidToken('Studente associato al token non trovato o non attivo.')
+
+        # Se tutto ok, restituisci i dati validati (che includono il nuovo access token generato da super().validate)
+        # Non è necessario aggiungere lo studente qui, serve solo per la validazione.
+        return data

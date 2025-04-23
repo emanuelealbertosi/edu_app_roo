@@ -49,6 +49,7 @@ urlpatterns = [
     path('api/', include('apps.users.urls')), # Gestione utenti
     path('api/rewards/', include('apps.rewards.urls')), # Gestione ricompense
     path('api/education/', include('apps.education.urls')), # Gestione contenuti educativi
+    path('api/lezioni/', include('lezioni.urls')), # Gestione Lezioni (nuova app)
 ]
 
 # Serve media files during development

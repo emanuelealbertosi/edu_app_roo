@@ -70,6 +70,7 @@ INSTALLED_APPS = [
 
     'apps.education.apps.EducationConfig',
     'apps.rewards.apps.RewardsConfig',
+    'lezioni.apps.LezioniConfig', # Aggiunta nuova app lezioni
 ]
 
 MIDDLEWARE = [
@@ -239,7 +240,7 @@ SIMPLE_JWT = {
     "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
     "ROTATE_REFRESH_TOKENS": False, # Set to True if you want refresh tokens to be invalidated after use
     "BLACKLIST_AFTER_ROTATION": False,
-    "UPDATE_LAST_LOGIN": True, # Update user's last_login field upon refresh
+    "UPDATE_LAST_LOGIN": False, # Disabilitato per compatibilità con User custom senza last_login esplicito
 
     "ALGORITHM": "HS256",
     "SIGNING_KEY": SECRET_KEY, # Use Django's SECRET_KEY

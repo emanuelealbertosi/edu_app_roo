@@ -1,104 +1,227 @@
 <script setup lang="ts">
-import { ref } from 'vue';
-import { RouterLink, RouterView, useRouter } from 'vue-router';
+import { ref, computed } from 'vue';
 import { useAuthStore } from '@/stores/auth';
-import GlobalLoadingIndicator from '@/components/common/GlobalLoadingIndicator.vue'; // Importa l'indicatore
+import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'; // Aggiunto useRouter
+import GlobalLoadingIndicator from '@/components/common/GlobalLoadingIndicator.vue';
+// import NotificationContainer from '@/components/common/NotificationContainer.vue'; // Se esiste
+import {
+  HomeIcon, // Dashboard
+  UsersIcon, // Studenti
+  ClipboardDocumentListIcon, // Quiz Templates
+  MapIcon, // Template Percorsi (Pathways)
+  ClipboardDocumentCheckIcon, // Quiz Assegnati
+  MapPinIcon, // Percorsi Assegnati
+  GiftIcon, // Ricompense
+  PaperAirplaneIcon, // Assegna
+  PencilSquareIcon, // Valutazioni (Grading)
+  InboxArrowDownIcon, // Consegne (Delivery)
+  ChartBarIcon, // Progressi
+  UserCircleIcon, // Profilo
+  BookOpenIcon, // Lezioni (Link esterno)
+  ArrowLeftOnRectangleIcon, // Logout
+  BellIcon, // Notifiche
+  PlusCircleIcon, // Crea
+  ChevronDownIcon // Icona per Dropdown
+} from '@heroicons/vue/24/outline';
 
 const authStore = useAuthStore();
-const router = useRouter(); // Get router instance
-const isMobileMenuOpen = ref(false); // State for mobile menu visibility
+const route = useRoute();
+const router = useRouter(); // Aggiunta inizializzazione router
+const isSidebarExpanded = ref(false);
+const isCreateMenuOpen = ref(false); // Stato per il dropdown "Create" - Non usato ma lasciato per ora
+// const isProfileMenuOpen = ref(false); // Rimosso stato dropdown
 
-function toggleMobileMenu() {
-  isMobileMenuOpen.value = !isMobileMenuOpen.value;
-}
+// URL per l'app Lezioni
+const lessonsAppUrl = computed(() => (import.meta.env.VITE_LESSONS_APP_URL as string | undefined) || '/lessons/'); // Usa env var o fallback
 
-function closeMobileMenuAndNavigate(routeName: string) {
-  isMobileMenuOpen.value = false;
-  router.push({ name: routeName });
-}
+const expandSidebar = () => { isSidebarExpanded.value = true; };
+const collapseSidebar = () => { isSidebarExpanded.value = false; };
+// const toggleCreateMenu = () => { isCreateMenuOpen.value = !isCreateMenuOpen.value; }; // Rimosso
+// const closeCreateMenu = () => { isCreateMenuOpen.value = false; }; // Rimosso
+// const toggleProfileMenu = () => { isProfileMenuOpen.value = !isProfileMenuOpen.value; }; // Rimosso
+// const closeProfileMenu = () => { isProfileMenuOpen.value = false; }; // Rimosso
 
-function closeMobileMenuAndLogout() {
-  isMobileMenuOpen.value = false;
+// Definisci i nomi delle rotte che NON devono mostrare il layout principale (header/navbar)
+const publicRouteNames = ['login', 'TeacherRegistration']; // Adattare se i nomi sono diversi
+
+// Calcola se mostrare il layout principale
+const showLayout = computed(() => {
+  const currentRouteName = route.name;
+  return currentRouteName !== null && currentRouteName !== undefined && !publicRouteNames.includes(currentRouteName.toString());
+});
+
+const handleLogout = () => {
   authStore.logout();
-}
+};
+
+// TODO: Implementare la logica per il dropdown "Crea" se necessario
+// const goToCreateQuiz = () => { closeCreateMenu(); router.push({ name: 'create-quiz' }); };
+// const goToCreatePathway = () => { closeCreateMenu(); router.push({ name: 'create-pathway' }); };
+
+const goToProfile = () => {
+  router.push({ name: 'profile' });
+  // closeProfileMenu(); // Rimosso
+};
 
 </script>
 
 <template>
-  <GlobalLoadingIndicator /> <!-- Aggiungi l'indicatore qui -->
-  <header class="fixed top-0 left-0 w-full bg-purple-800 text-white shadow-md z-20 p-4 flex justify-between items-center">
-    <div class="wrapper flex justify-between items-center w-full">
-      <h1 class="text-xl font-semibold">Teacher Portal</h1>
+  <GlobalLoadingIndicator />
+  <!-- <NotificationContainer /> --> <!-- Se esiste -->
 
-      <!-- Desktop Navigation -->
-      <nav v-if="authStore.isAuthenticated" class="hidden md:flex items-center space-x-4 text-sm">
-        <RouterLink :to="{ name: 'dashboard' }" class="py-1 hover:text-amber-300 border-b-2 border-transparent router-link-exact-active:border-amber-300 transition-colors duration-200">Dashboard</RouterLink>
-        <RouterLink :to="{ name: 'students' }" class="py-1 hover:text-amber-300 border-b-2 border-transparent router-link-exact-active:border-amber-300 transition-colors duration-200">Studenti</RouterLink>
-        <RouterLink :to="{ name: 'quiz-templates' }" class="py-1 hover:text-amber-300 border-b-2 border-transparent router-link-exact-active:border-amber-300 transition-colors duration-200">Quiz Templates</RouterLink>
-        <RouterLink :to="{ name: 'pathway-templates' }" class="py-1 hover:text-amber-300 border-b-2 border-transparent router-link-exact-active:border-amber-300 transition-colors duration-200">Template Percorsi</RouterLink>
-        <RouterLink :to="{ name: 'assigned-quizzes' }" class="py-1 hover:text-amber-300 border-b-2 border-transparent router-link-exact-active:border-amber-300 transition-colors duration-200">Quiz Assegnati</RouterLink>
-        <RouterLink :to="{ name: 'assigned-pathways' }" class="py-1 hover:text-amber-300 border-b-2 border-transparent router-link-exact-active:border-amber-300 transition-colors duration-200">Percorsi Assegnati</RouterLink>
-        <RouterLink :to="{ name: 'rewards' }" class="py-1 hover:text-amber-300 border-b-2 border-transparent router-link-exact-active:border-amber-300 transition-colors duration-200">Ricompense</RouterLink>
-        <RouterLink :to="{ name: 'assign' }" class="py-1 hover:text-amber-300 border-b-2 border-transparent router-link-exact-active:border-amber-300 transition-colors duration-200">Assegna</RouterLink>
-        <RouterLink :to="{ name: 'grading' }" class="py-1 hover:text-amber-300 border-b-2 border-transparent router-link-exact-active:border-amber-300 transition-colors duration-200">Valutazioni</RouterLink>
-        <RouterLink :to="{ name: 'delivery' }" class="py-1 hover:text-amber-300 border-b-2 border-transparent router-link-exact-active:border-amber-300 transition-colors duration-200">Consegne</RouterLink>
-        <RouterLink :to="{ name: 'student-progress' }" class="py-1 hover:text-amber-300 border-b-2 border-transparent router-link-exact-active:border-amber-300 transition-colors duration-200">Progressi</RouterLink>
-        <RouterLink :to="{ name: 'profile' }" class="py-1 hover:text-amber-300 border-b-2 border-transparent router-link-exact-active:border-amber-300 transition-colors duration-200">Profilo</RouterLink>
-        <button @click="authStore.logout" class="ml-4 btn btn-danger">Logout</button>
+  <div class="flex h-screen bg-gray-100 font-sans">
+    <!-- Sidebar -->
+    <aside
+      v-if="showLayout"
+      class="bg-purple-800 text-white flex flex-col transition-all duration-300 ease-in-out"
+      :class="isSidebarExpanded ? 'w-64' : 'w-20'"
+      @mouseenter="expandSidebar"
+      @mouseleave="collapseSidebar"
+    >
+      <!-- Logo/Titolo App -->
+       <div class="h-16 flex items-center justify-center flex-shrink-0 px-4">
+         <span v-if="isSidebarExpanded" class="text-xl font-semibold">Teacher Portal</span>
+         <span v-else class="text-xl font-semibold">TP</span>
+       </div>
+
+      <!-- Navigazione -->
+      <nav class="flex-grow p-4 overflow-y-auto">
+        <ul>
+          <!-- Dashboard -->
+          <li class="mb-2">
+            <router-link :to="{ name: 'dashboard' }" class="flex items-center p-2 rounded hover:bg-purple-700" :title="isSidebarExpanded ? '' : 'Dashboard'">
+              <HomeIcon class="h-5 w-5 flex-shrink-0" />
+              <span v-if="isSidebarExpanded" class="ml-3 text-sm">Dashboard</span>
+            </router-link>
+          </li>
+          <!-- Studenti -->
+          <li class="mb-2">
+            <router-link :to="{ name: 'students' }" class="flex items-center p-2 rounded hover:bg-purple-700" :title="isSidebarExpanded ? '' : 'Studenti'">
+              <UsersIcon class="h-5 w-5 flex-shrink-0" />
+              <span v-if="isSidebarExpanded" class="ml-3 text-sm">Studenti</span>
+            </router-link>
+          </li>
+           <!-- Quiz Templates -->
+          <li class="mb-2">
+            <router-link :to="{ name: 'quiz-templates' }" class="flex items-center p-2 rounded hover:bg-purple-700" :title="isSidebarExpanded ? '' : 'Quiz Templates'">
+              <ClipboardDocumentListIcon class="h-5 w-5 flex-shrink-0" />
+              <span v-if="isSidebarExpanded" class="ml-3 text-sm">Quiz Templates</span>
+            </router-link>
+          </li>
+          <!-- Template Percorsi -->
+          <li class="mb-2">
+            <router-link :to="{ name: 'pathway-templates' }" class="flex items-center p-2 rounded hover:bg-purple-700" :title="isSidebarExpanded ? '' : 'Template Percorsi'">
+              <MapIcon class="h-5 w-5 flex-shrink-0" />
+              <span v-if="isSidebarExpanded" class="ml-3 text-sm">Template Percorsi</span>
+            </router-link>
+          </li>
+          <!-- Quiz Assegnati -->
+          <li class="mb-2">
+            <router-link :to="{ name: 'assigned-quizzes' }" class="flex items-center p-2 rounded hover:bg-purple-700" :title="isSidebarExpanded ? '' : 'Quiz Assegnati'">
+              <ClipboardDocumentCheckIcon class="h-5 w-5 flex-shrink-0" />
+              <span v-if="isSidebarExpanded" class="ml-3 text-sm">Quiz Assegnati</span>
+            </router-link>
+          </li>
+          <!-- Percorsi Assegnati -->
+          <li class="mb-2">
+            <router-link :to="{ name: 'assigned-pathways' }" class="flex items-center p-2 rounded hover:bg-purple-700" :title="isSidebarExpanded ? '' : 'Percorsi Assegnati'">
+              <MapPinIcon class="h-5 w-5 flex-shrink-0" />
+              <span v-if="isSidebarExpanded" class="ml-3 text-sm">Percorsi Assegnati</span>
+            </router-link>
+          </li>
+          <!-- Ricompense -->
+          <li class="mb-2">
+            <router-link :to="{ name: 'rewards' }" class="flex items-center p-2 rounded hover:bg-purple-700" :title="isSidebarExpanded ? '' : 'Ricompense'">
+              <GiftIcon class="h-5 w-5 flex-shrink-0" />
+              <span v-if="isSidebarExpanded" class="ml-3 text-sm">Ricompense</span>
+            </router-link>
+          </li>
+          <!-- Assegna -->
+          <li class="mb-2">
+            <router-link :to="{ name: 'assign' }" class="flex items-center p-2 rounded hover:bg-purple-700" :title="isSidebarExpanded ? '' : 'Assegna'">
+              <PaperAirplaneIcon class="h-5 w-5 flex-shrink-0" />
+              <span v-if="isSidebarExpanded" class="ml-3 text-sm">Assegna</span>
+            </router-link>
+          </li>
+          <!-- Valutazioni -->
+          <li class="mb-2">
+            <router-link :to="{ name: 'grading' }" class="flex items-center p-2 rounded hover:bg-purple-700" :title="isSidebarExpanded ? '' : 'Valutazioni'">
+              <PencilSquareIcon class="h-5 w-5 flex-shrink-0" />
+              <span v-if="isSidebarExpanded" class="ml-3 text-sm">Valutazioni</span>
+            </router-link>
+          </li>
+          <!-- Consegne -->
+          <li class="mb-2">
+            <router-link :to="{ name: 'delivery' }" class="flex items-center p-2 rounded hover:bg-purple-700" :title="isSidebarExpanded ? '' : 'Consegne'">
+              <InboxArrowDownIcon class="h-5 w-5 flex-shrink-0" />
+              <span v-if="isSidebarExpanded" class="ml-3 text-sm">Consegne</span>
+            </router-link>
+          </li>
+          <!-- Progressi -->
+          <li class="mb-2">
+            <router-link :to="{ name: 'student-progress' }" class="flex items-center p-2 rounded hover:bg-purple-700" :title="isSidebarExpanded ? '' : 'Progressi'">
+              <ChartBarIcon class="h-5 w-5 flex-shrink-0" />
+              <span v-if="isSidebarExpanded" class="ml-3 text-sm">Progressi</span>
+            </router-link>
+          </li>
+          <!-- Profilo (spostato nell'header) -->
+          <!-- Lezioni (Link Esterno) -->
+          <li class="mb-2">
+            <a :href="lessonsAppUrl" class="flex items-center p-2 rounded hover:bg-purple-700" :title="isSidebarExpanded ? '' : 'Lezioni'">
+              <BookOpenIcon class="h-5 w-5 flex-shrink-0" />
+              <span v-if="isSidebarExpanded" class="ml-3 text-sm">Lezioni</span>
+            </a>
+          </li>
+        </ul>
       </nav>
 
-      <!-- Mobile Menu Button -->
-      <div v-if="authStore.isAuthenticated" class="md:hidden">
-        <button @click="toggleMobileMenu" class="text-white focus:outline-none">
-          <svg v-if="!isMobileMenuOpen" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path></svg>
-          <svg v-else class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-        </button>
-      </div>
+      <!-- Logout -->
+       <div class="p-4 mt-auto border-t border-purple-700 flex-shrink-0">
+         <button @click="handleLogout" class="w-full flex items-center p-2 rounded hover:bg-red-700" :title="isSidebarExpanded ? '' : 'Logout'">
+           <ArrowLeftOnRectangleIcon class="h-6 w-6 flex-shrink-0" />
+           <span v-if="isSidebarExpanded" class="ml-3">Logout</span>
+         </button>
+       </div>
+    </aside>
+
+    <!-- Contenuto Principale -->
+    <div class="flex flex-col flex-grow">
+        <!-- Header -->
+        <header v-if="showLayout" class="bg-white shadow p-4 h-16 flex items-center justify-between flex-shrink-0">
+            <!-- Placeholder per spazio a sinistra o titolo pagina -->
+             <div class="flex-1"></div>
+
+             <!-- Pulsanti Header -->
+             <div class="flex items-center space-x-4">
+                  <!-- Pulsante Create RIMOSSO -->
+
+                 <!-- Pulsante Notifiche -->
+                 <button class="p-2 rounded-full text-gray-500 hover:text-gray-700 hover:bg-gray-100 focus:outline-none focus:bg-gray-100 focus:ring-2 focus:ring-offset-2 focus:ring-purple-500">
+                     <span class="sr-only">View notifications</span>
+                     <BellIcon class="h-6 w-6" />
+                 </button>
+
+                 <!-- Pulsante Profilo (Link diretto) -->
+                 <button @click="goToProfile" class="p-1 rounded-full text-gray-500 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500">
+                     <span class="sr-only">Vai al profilo</span>
+                     <UserCircleIcon class="h-7 w-7" />
+                 </button>
+             </div>
+        </header>
+
+        <!-- Area Contenuto -->
+        <!-- Applica padding top solo se il layout è mostrato -->
+        <main class="flex-grow p-8 overflow-auto" :class="showLayout ? 'pt-16' : ''">
+          <RouterView :key="$route.fullPath" />
+        </main>
     </div>
 
-    <!-- Mobile Navigation Menu -->
-    <transition name="mobile-menu">
-      <nav v-if="authStore.isAuthenticated && isMobileMenuOpen" class="md:hidden absolute top-full left-0 w-full bg-purple-700 shadow-lg py-2 z-10">
-        <a @click="closeMobileMenuAndNavigate('dashboard')" class="block px-4 py-2 text-white hover:bg-purple-600 cursor-pointer">Dashboard</a>
-        <a @click="closeMobileMenuAndNavigate('students')" class="block px-4 py-2 text-white hover:bg-purple-600 cursor-pointer">Studenti</a>
-        <a @click="closeMobileMenuAndNavigate('quiz-templates')" class="block px-4 py-2 text-white hover:bg-purple-600 cursor-pointer">Quiz Templates</a>
-        <a @click="closeMobileMenuAndNavigate('pathway-templates')" class="block px-4 py-2 text-white hover:bg-purple-600 cursor-pointer">Template Percorsi</a>
-        <a @click="closeMobileMenuAndNavigate('assigned-quizzes')" class="block px-4 py-2 text-white hover:bg-purple-600 cursor-pointer">Quiz Assegnati</a>
-        <a @click="closeMobileMenuAndNavigate('assigned-pathways')" class="block px-4 py-2 text-white hover:bg-purple-600 cursor-pointer">Percorsi Assegnati</a>
-        <a @click="closeMobileMenuAndNavigate('rewards')" class="block px-4 py-2 text-white hover:bg-purple-600 cursor-pointer">Ricompense</a>
-        <a @click="closeMobileMenuAndNavigate('assign')" class="block px-4 py-2 text-white hover:bg-purple-600 cursor-pointer">Assegna</a>
-        <a @click="closeMobileMenuAndNavigate('grading')" class="block px-4 py-2 text-white hover:bg-purple-600 cursor-pointer">Valutazioni</a>
-        <a @click="closeMobileMenuAndNavigate('delivery')" class="block px-4 py-2 text-white hover:bg-purple-600 cursor-pointer">Consegne</a>
-        <a @click="closeMobileMenuAndNavigate('student-progress')" class="block px-4 py-2 text-white hover:bg-purple-600 cursor-pointer">Progressi</a>
-        <a @click="closeMobileMenuAndNavigate('profile')" class="block px-4 py-2 text-white hover:bg-purple-600 cursor-pointer">Profilo</a>
-        <button @click="closeMobileMenuAndLogout" class="w-full text-left btn btn-danger block px-4 py-2">Logout</button>
-      </nav>
-    </transition>
-  </header>
-
-  <main class="pt-20 px-4 md:px-8"> <!-- Ridotto padding top per header più sottile -->
-    <RouterView :key="$route.fullPath" />
-  </main>
+  </div>
 </template>
 
 <style scoped>
-/* Stile per il link attivo */
+/* Stili aggiuntivi se necessari */
 .router-link-exact-active {
-  @apply border-amber-300 text-amber-300; /* Stile studenti */
+  @apply bg-purple-700; /* Stile per link attivo nella sidebar */
 }
-
-/* Mobile Menu Transition */
-.mobile-menu-enter-active, .mobile-menu-leave-active {
-  transition: opacity 0.3s ease, transform 0.3s ease;
-}
-.mobile-menu-enter-from, .mobile-menu-leave-to {
-  opacity: 0;
-  transform: translateY(-10px);
-}
-.mobile-menu-enter-to, .mobile-menu-leave-from {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-/* Eventuali altri stili specifici */
 </style>

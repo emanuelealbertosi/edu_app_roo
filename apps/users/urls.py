@@ -3,7 +3,8 @@ from rest_framework.routers import DefaultRouter
 # Importa anche le view di test e registrazione
 from .views import (
     UserViewSet, StudentViewSet, StudentLoginView, StudentProtectedTestView,
-    TeacherStudentProgressSummaryView, RegistrationTokenViewSet, StudentRegistrationView # Aggiunte nuove viste
+    TeacherStudentProgressSummaryView, RegistrationTokenViewSet, StudentRegistrationView, # Aggiunte nuove viste
+    StudentTokenRefreshView # Aggiunta view refresh studente
 )
 
 # Crea un router e registra le nostre viewset
@@ -26,4 +27,6 @@ urlpatterns = [
     path('teacher/student-progress-summary/', TeacherStudentProgressSummaryView.as_view(), name='teacher-student-progress-summary'),
     # URL pubblico per la registrazione studente tramite token
     path('register/student/', StudentRegistrationView.as_view(), name='student-register-token'),
+    # URL specifico per il refresh del token studente
+    path('auth/student/token/refresh/', StudentTokenRefreshView.as_view(), name='student-token-refresh'),
 ]

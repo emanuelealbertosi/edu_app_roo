@@ -37,7 +37,7 @@ class UserViewSet(viewsets.ModelViewSet):
             return UserCreateSerializer
         return UserSerializer # Default per list, retrieve, update, etc.
 
-    @action(detail=False, methods=['get'], url_path='me', permission_classes=[permissions.IsAuthenticated])
+    @action(detail=False, methods=['get'], url_path='me', permission_classes=[permissions.IsAuthenticated]) # Ripristinato permesso
     def me(self, request):
         """
         Restituisce i dati dell'utente autenticato.
@@ -109,6 +109,8 @@ from rest_framework.response import Response
 from rest_framework import status, permissions, serializers # Import serializers
 # Import per JWT
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.views import TokenRefreshView
+from .serializers import StudentTokenRefreshSerializer # Importa il nuovo serializer
 
 class StudentLoginView(APIView):
     """
@@ -297,3 +299,13 @@ class StudentRegistrationView(generics.CreateAPIView):
         logger.debug(f"Serialized student data being returned after registration: {student_data}")
         headers = self.get_success_headers(student_data) # Usa student_data per gli header
         return Response(student_data, status=status.HTTP_201_CREATED, headers=headers)
+
+
+# --- Student Token Refresh View ---
+
+class StudentTokenRefreshView(TokenRefreshView):
+    """
+    View personalizzata per il refresh del token JWT per gli Studenti.
+    Utilizza StudentTokenRefreshSerializer per la validazione.
+    """
+    serializer_class = StudentTokenRefreshSerializer
