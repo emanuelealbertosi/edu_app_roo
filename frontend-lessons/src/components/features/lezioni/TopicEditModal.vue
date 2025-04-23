@@ -4,7 +4,7 @@
       <h3>{{ isEditing ? 'Modifica Argomento' : 'Aggiungi Nuovo Argomento' }}</h3>
       <form @submit.prevent="submitForm">
         <div class="form-group">
-          <label for="topic-subject">Materia:</label>
+          <label for="topic-subject">Seleziona materia:</label>
           <select
             id="topic-subject"
             v-model="editableTopic.subject"

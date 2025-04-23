@@ -30,7 +30,8 @@ class IsTeacherOwner(permissions.BasePermission):
         # L'utente deve essere il creatore dell'oggetto
         # Assumiamo che l'oggetto abbia un campo 'creator'
         # Controlla il creatore della lezione associata al contenuto
-        return obj.lesson.creator == request.user
+        # L'oggetto 'obj' qui è la Lezione stessa
+        return obj.creator == request.user
 
 class IsAdminOrTeacherOwner(permissions.BasePermission):
     """
@@ -40,10 +41,10 @@ class IsAdminOrTeacherOwner(permissions.BasePermission):
         if not request.user or not request.user.is_authenticated:
             return False
         # Admin ha sempre accesso
-        if request.user.role == 'Admin':
+        if request.user.role.upper() == 'ADMIN': # Usa .upper() per confronto case-insensitive
             return True
         # Il Docente ha accesso solo se è il creatore
-        if request.user.role == 'Docente':
+        if request.user.role.upper() in ['DOCENTE', 'TEACHER']: # Usa .upper() e controlla entrambi i valori possibili
             return obj.creator == request.user
         return False
 

@@ -107,7 +107,7 @@ const fetchStudents = async () => {
     // students.value = await teacherDataStore.fetchMyStudents();
     // Per ora, usiamo un placeholder o assumiamo che lo store lezioni possa farlo (meno ideale)
     // Se non hai uno store studenti, dovrai implementarlo o aggiungerlo allo store auth/lezioni
-    console.warn("Manca implementazione fetchStudents - usare dati fittizi per ora");
+    // console.warn("Manca implementazione fetchStudents - usare dati fittizi per ora"); // Rimosso warning fuorviante
     // Dati fittizi per test UI:
     // students.value = [
     //   { id: 1, user_id: 1, first_name: 'Mario', last_name: 'Rossi', unique_identifier: 'S001', created_at: '', is_active: true },

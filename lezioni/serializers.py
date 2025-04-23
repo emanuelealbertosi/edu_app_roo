@@ -48,6 +48,7 @@ class LessonWriteSerializer(serializers.ModelSerializer):
      class Meta:
         model = Lesson
         fields = ['id', 'title', 'description', 'topic', 'is_published']
+        read_only_fields = ['id'] # Rende l'ID non scrivibile dal client
         # 'creator' verrà impostato nella view
 
 class LessonAssignmentSerializer(serializers.ModelSerializer):

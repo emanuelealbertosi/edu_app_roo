@@ -81,34 +81,28 @@ const teacherAppUrl = computed(() => (import.meta.env.VITE_TEACHER_APP_URL as st
               <span v-if="isSidebarExpanded" class="ml-3">Dashboard</span>
             </router-link>
           </li>
-          <!-- Materie (Admin/Docente) -->
-          <li v-if="authStore.userRole === 'Docente' || authStore.userRole === 'Admin'" class="mb-3">
+          <!-- Materie (Admin/Teacher) -->
+          <li v-if="authStore.userRole === 'TEACHER' || authStore.userRole === 'Admin'" class="mb-3">
             <router-link :to="{ name: 'subjects' }" class="flex items-center p-2 rounded hover:bg-indigo-700" :title="isSidebarExpanded ? '' : 'Materie'">
               <BookOpenIcon class="h-6 w-6 flex-shrink-0" />
               <span v-if="isSidebarExpanded" class="ml-3">Materie</span>
             </router-link>
           </li>
-          <!-- Argomenti (Admin/Docente) -->
-          <li v-if="authStore.userRole === 'Docente' || authStore.userRole === 'Admin'" class="mb-3">
+          <!-- Argomenti (Admin/Teacher) -->
+          <li v-if="authStore.userRole === 'TEACHER' || authStore.userRole === 'Admin'" class="mb-3">
             <router-link :to="{ name: 'topics' }" class="flex items-center p-2 rounded hover:bg-indigo-700" :title="isSidebarExpanded ? '' : 'Argomenti'">
               <AcademicCapIcon class="h-6 w-6 flex-shrink-0" />
               <span v-if="isSidebarExpanded" class="ml-3">Argomenti</span>
             </router-link>
           </li>
-          <!-- Le Mie Lezioni (Docente) -->
-           <li v-if="authStore.userRole === 'Docente'" class="mb-3">
-             <router-link :to="{ name: 'teacher-lessons' }" class="flex items-center p-2 rounded hover:bg-indigo-700" :title="isSidebarExpanded ? '' : 'Le Mie Lezioni'">
+          <!-- Gestione Lezioni (Teacher) -->
+           <li v-if="authStore.userRole === 'TEACHER'" class="mb-3">
+             <router-link :to="{ name: 'teacher-lessons' }" class="flex items-center p-2 rounded hover:bg-indigo-700" :title="isSidebarExpanded ? '' : 'Gestione Lezioni'">
                <CogIcon class="h-6 w-6 flex-shrink-0" />
-               <span v-if="isSidebarExpanded" class="ml-3">Le Mie Lezioni</span>
+               <span v-if="isSidebarExpanded" class="ml-3">Gestione Lezioni</span>
              </router-link>
            </li>
-           <!-- Assegna Lezioni (Docente) - Link aggiunto -->
-           <li v-if="authStore.userRole === 'Docente'" class="mb-3">
-             <router-link :to="{ name: 'teacher-lessons' }" class="flex items-center p-2 rounded hover:bg-indigo-700" :title="isSidebarExpanded ? '' : 'Assegna Lezioni'">
-               <UserGroupIcon class="h-6 w-6 flex-shrink-0" />
-               <span v-if="isSidebarExpanded" class="ml-3">Assegna Lezioni</span>
-             </router-link>
-           </li>
+           <!-- Link "Assegna Lezioni" rimosso dalla sidebar -->
            <!-- Lezioni Assegnate (Studente) -->
            <li v-if="authStore.userRole === 'Studente'" class="mb-3">
              <router-link :to="{ name: 'assigned-lessons' }" class="flex items-center p-2 rounded hover:bg-indigo-700" :title="isSidebarExpanded ? '' : 'Lezioni Assegnate'">
@@ -154,8 +148,8 @@ const teacherAppUrl = computed(() => (import.meta.env.VITE_TEACHER_APP_URL as st
 
              <!-- Pulsanti Header -->
              <div class="flex items-center space-x-4">
-                 <!-- Pulsante Create (Dropdown) -->
-                 <div v-if="authStore.userRole !== 'Studente'" class="relative">
+                 <!-- Pulsante Create (Dropdown) - Visibile solo a Teacher/Admin -->
+                 <div v-if="authStore.userRole === 'TEACHER' || authStore.userRole === 'Admin'" class="relative">
                      <button @click="toggleCreateMenu" class="flex items-center px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-md shadow-sm transition duration-150 ease-in-out">
                          <PlusCircleIcon class="h-5 w-5 mr-1" />
                          Crea

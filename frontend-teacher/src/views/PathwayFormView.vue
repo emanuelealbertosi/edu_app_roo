@@ -103,6 +103,7 @@ const pathwayData = reactive<PathwayFormData>({
   quiz_details: [], // Inizializza vuoto
 });
 
+
 // Calcola i quiz ordinati per visualizzazione
 const sortedQuizDetails = computed(() => {
     // Clona l'array prima di ordinarlo per non mutare l'originale reattivo direttamente

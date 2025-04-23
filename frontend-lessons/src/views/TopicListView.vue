@@ -4,7 +4,7 @@
       <h2 class="text-2xl font-semibold text-gray-700">Gestione Argomenti</h2>
       <div class="flex flex-col sm:flex-row items-start sm:items-center gap-3">
          <div class="flex items-center gap-2">
-            <label for="subject-filter" class="text-sm font-medium text-gray-600 whitespace-nowrap">Filtra per Materia:</label>
+            <label for="subject-filter" class="text-sm font-medium text-gray-600 whitespace-nowrap">Seleziona materia:</label>
             <select id="subject-filter" v-model="selectedSubjectId" @change="loadTopicsForSubject" class="block w-full sm:w-auto pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 rounded-md shadow-sm">
               <option :value="null">Tutte le Materie</option>
               <option v-for="subject in subjectStore.subjects" :key="subject.id" :value="subject.id">

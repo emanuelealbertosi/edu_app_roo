@@ -213,7 +213,7 @@
 
 ## 3. Modifiche ai Frontend Esistenti (`frontend-student`, `frontend-teacher`)
 
-*   Aggiungere un link/pulsante che punti all'URL della nuova applicazione `frontend-lessons` (es. `/lessons/`). **[DA FARE]**
+*   Aggiungere un link/pulsante che punti all'URL della nuova applicazione `frontend-lessons` (es. `/lessons/`). **[FATTO]**
 
 ---
 
@@ -295,3 +295,30 @@
 *   **Architettura:** Menzionare la nuova app Django `lezioni` (nella root) e il frontend `frontend-lessons`. **[DA FARE - AGGIORNARE DOC]**
 
 ---
+## 5. Uniformazione Layout Frontend e Correzione Link
+
+*   **Obiettivo:** Rendere coerente l'interfaccia principale (menu/navigazione) tra `frontend-lessons`, `frontend-student` e `frontend-teacher`. Correggere i link tra le applicazioni.
+*   **Modifiche Apportate:**
+    *   **Refactoring Layout:** I file `App.vue` di `frontend-student` e `frontend-teacher` sono stati riscritti per adottare la struttura di `frontend-lessons`:
+        *   Barra laterale sinistra espandibile/collassabile per la navigazione principale.
+        *   Header superiore con barra di ricerca (placeholder in `lessons`), pulsanti Notifiche e Profilo.
+    *   **Link Inter-App:**
+        *   Tutti i link tra le tre applicazioni frontend (`lessons`, `student`, `teacher`) ora utilizzano variabili d'ambiente (`VITE_LESSONS_APP_URL`, `VITE_STUDENT_APP_URL`, `VITE_TEACHER_APP_URL`) definite nei file `.env.local` e `.env.docker`.
+        *   Le configurazioni di Vite (`vite.config.ts`) di tutti e tre i frontend sono state aggiornate con `envDir: '../'` per garantire la lettura corretta dei file `.env` dalla root del progetto.
+        *   Corrette discrepanze nei nomi delle rotte (`Profile`, `Badges`) in `frontend-student/src/App.vue`.
+        *   Corretta la condizione `v-if` per il link "Gestione Quiz" in `frontend-lessons/src/App.vue` per usare il ruolo corretto (`TEACHER`).
+    *   **Link Profilo:** Il link alla pagina "Profilo" è stato spostato dalla barra laterale all'icona utente nell'header in `frontend-student` e `frontend-teacher`. Il click diretto sull'icona ora porta alla pagina del profilo.
+    *   **Visibilità Layout:** La barra laterale e l'header sono ora correttamente nascosti nelle pagine pubbliche (es. login) e mostrati solo per gli utenti autenticati in tutti e tre i frontend, grazie all'uso della proprietà calcolata `showLayout` (o `authStore.isAuthenticated` in `lessons`).
+    *   **Dipendenze:** Aggiunto `@heroicons/vue` a `frontend-teacher`.
+*   **Stato:** **[FATTO]**
+---
+## 6. Bug Fixes Recenti
+
+*   **Obiettivo:** Risolvere problemi emersi durante l'implementazione e il test iniziale.
+*   **Modifiche Apportate:**
+    *   **Creazione Lezione:** Risolto bug per cui la creazione di una nuova lezione modificava quella esistente. Causa: `id` non era `read_only` in `LessonWriteSerializer`. Soluzione: Aggiunto `read_only_fields = ['id']` a `LessonWriteSerializer` in `lezioni/serializers.py`. **[FATTO - Fix]**
+    *   **Assegnazione Lezione (Errore 500):** Risolto `AttributeError: 'Lesson' object has no attribute 'lesson'` che si verificava durante il controllo dei permessi per l'assegnazione. Causa: Errore nel permesso `IsTeacherOwner`. Soluzione: Corretto il controllo in `lezioni/permissions.py` da `obj.lesson.creator == request.user` a `obj.creator == request.user`. **[FATTO - Fix]**
+    *   **Eliminazione Lezione (Errore 403):** Risolto errore di permesso che impediva l'eliminazione. Causa: Confronto case-sensitive dei ruoli nel permesso `IsAdminOrTeacherOwner`. Soluzione: Modificato il controllo in `lezioni/permissions.py` per usare `.upper()` e verificare `ADMIN` e `TEACHER`. **[FATTO - Fix]**
+    *   **UI Menu Docente:** Risolto problema per cui il link "Gestione Lezioni" non appariva. Causa: La condizione `v-if` in `frontend-lessons/src/App.vue` controllava `authStore.userRole === 'Docente'` invece di `authStore.userRole === 'TEACHER'`. Soluzione: Aggiornata la condizione `v-if` per usare `'TEACHER'`. **[FATTO - Fix]**
+    *   **UI Etichetta Filtro Argomenti:** Corretta l'etichetta del filtro materia nella vista elenco argomenti. Causa: Etichetta errata in `frontend-lessons/src/views/TopicListView.vue`. Soluzione: Modificata l'etichetta da "Filtra per Materia:" a "Seleziona materia:". **[FATTO - Fix]**
+*   **Stato:** **[FATTO]**

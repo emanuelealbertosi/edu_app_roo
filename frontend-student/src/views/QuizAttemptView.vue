@@ -12,6 +12,7 @@ import FillBlankQuestion from '@/components/quiz/questions/FillBlankQuestion.vue
 import OpenAnswerManualQuestion from '@/components/quiz/questions/OpenAnswerManualQuestion.vue';
 import { useAuthStore } from '@/stores/auth';
 import { useNotificationStore } from '@/stores/notification'; // Importa lo store notifiche
+import { useDashboardStore } from '@/stores/dashboard'; // <-- AGGIUNTO: Importa lo store dashboard
 
 // --- Props & Emits ---
 const props = defineProps<{
@@ -44,6 +45,7 @@ const countdownActive = ref(false); // Controlla l'intervallo
 // const route = useRoute();
 const router = useRouter(); // Mantenere per ora
 const authStore = useAuthStore();
+const dashboardStore = useDashboardStore(); // <-- AGGIUNTO: Istanza dello store dashboard
 
 // Rimuovere il computed basato sulla route
 // const quizId = computed(() => Number(route.params.quizId));
@@ -209,6 +211,10 @@ async function completeAttemptHandler() {
       });
     }
     // --- Fine Logica Notifica Badge ---
+
+    // <-- AGGIUNTO: Ricarica i dati della dashboard -->
+    await dashboardStore.loadDashboard();
+    console.log("[QuizAttemptView] Dashboard data reload triggered after quiz completion.");
 
     // --- Sostituisci router.push con emit ---
     // router.push({ name: 'QuizResult', params: { attemptId: attempt.value.id } });
