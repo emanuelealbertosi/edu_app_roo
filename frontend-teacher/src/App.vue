@@ -32,7 +32,7 @@ const isCreateMenuOpen = ref(false); // Stato per il dropdown "Create" - Non usa
 // const isProfileMenuOpen = ref(false); // Rimosso stato dropdown
 
 // URL per l'app Lezioni
-const lessonsAppUrl = computed(() => (import.meta.env.VITE_LESSONS_APP_URL as string | undefined) || '/lessons/'); // Usa env var o fallback
+const lessonsAppUrl = computed(() => (import.meta.env.VITE_LESSONS_APP_URL as string | undefined) || '/lezioni/'); // Usa env var o fallback
 
 const expandSidebar = () => { isSidebarExpanded.value = true; };
 const collapseSidebar = () => { isSidebarExpanded.value = false; };

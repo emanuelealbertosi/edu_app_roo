@@ -6,16 +6,40 @@ const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     {
-      path: '/login',
-      name: 'login',
-      // component: LoginView // Assign component later
-      component: () => import('../views/LoginView.vue') // Lazy load example
+      path: '/',
+      name: 'root',
+      redirect: () => {
+        // Get store instance *inside* the redirect function
+        const authStore = useAuthStore();
+        if (authStore.isAuthenticated) {
+          // If authenticated, redirect to the main dashboard
+          return { name: 'dashboard' };
+        } else {
+          // If not authenticated, redirect to the login page
+          return { name: 'login' };
+        }
+      }
     },
     {
-      path: '/', // Or '/dashboard'
+      path: '/login',
+      name: 'login',
+      component: () => import('../views/LoginView.vue'),
+      // Add beforeEnter guard to redirect if already logged in
+      beforeEnter: (to, from, next) => {
+        const authStore = useAuthStore();
+        if (authStore.isAuthenticated) {
+          console.log('Login Route Guard: User authenticated, redirecting to dashboard.');
+          next({ name: 'dashboard' });
+        } else {
+          next(); // Proceed to login page
+        }
+      }
+    },
+    {
+      // Define the dashboard route separately now
+      path: '/dashboard',
       name: 'dashboard',
-      // component: DashboardView, // Assign component later
-      component: () => import('../views/DashboardView.vue'), // Lazy load example
+      component: () => import('../views/DashboardView.vue'),
       meta: { requiresAuth: true } // Mark this route as requiring authentication
     },
     {
@@ -174,23 +198,18 @@ const router = createRouter({
 })
 
 // Navigation Guard
+// Simplified Global Navigation Guard
 router.beforeEach((to: RouteLocationNormalized, from: RouteLocationNormalized, next: NavigationGuardNext) => {
-  // Get store instance *inside* the guard, as Pinia might not be fully initialized outside
-  const authStore = useAuthStore()
-  const requiresAuth = to.matched.some((record: RouteRecordNormalized) => record.meta.requiresAuth) // Aggiunto tipo esplicito
+  const authStore = useAuthStore();
+  const requiresAuth = to.matched.some((record: RouteRecordNormalized) => record.meta.requiresAuth);
 
-  // Check authentication status AFTER store is initialized
+  // Only handle redirection for protected routes when the user is not authenticated
   if (requiresAuth && !authStore.isAuthenticated) {
-    console.log('Navigation Guard: Route requires auth, but user is not authenticated. Redirecting to login.');
-    // Redirect to login if not authenticated and trying to access protected route
-    next({ name: 'login', query: { redirect: to.fullPath } }); // Optional: pass redirect query
-  } else if (to.name === 'login' && authStore.isAuthenticated) {
-    console.log('Navigation Guard: User is authenticated and trying to access login. Redirecting to dashboard.');
-    // Optional: Redirect to dashboard if already logged in and trying to access login page
-    next({ name: 'dashboard' });
+    console.log('Global Guard: Route requires auth, user not authenticated. Redirecting to login.');
+    next({ name: 'login', query: { redirect: to.fullPath } });
   } else {
-    // Otherwise, allow navigation
-    console.log('Navigation Guard: Allowing navigation to', to.name);
+    // Allow all other navigation (including root and login handled by their own guards/redirects)
+    console.log('Global Guard: Allowing navigation to', to.name || to.path);
     next();
   }
 })
