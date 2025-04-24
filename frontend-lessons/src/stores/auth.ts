@@ -113,14 +113,32 @@ export const useAuthStore = defineStore('auth', {
         }
 
       } catch (error: any) {
-        console.error("Login failed:", error);
-        this.clearAuth(); // Pulisce lo stato in caso di errore
-        if (error.response && error.response.data) {
-          // Prova a estrarre un messaggio di errore specifico
-          this.loginError = error.response.data.detail || 'Credenziali non valide o errore sconosciuto.';
+        // Log più dettagliato dell'errore
+        console.error("Login failed. Full error object:", error);
+        if (error.response) {
+          // Errore con risposta dal server (es. 4xx, 5xx)
+          console.error("Login failed - Status:", error.response.status);
+          console.error("Login failed - Data:", error.response.data);
+          this.loginError = error.response.data.detail || `Errore server: ${error.response.status}`;
+        } else if (error.request) {
+          // Richiesta inviata ma nessuna risposta ricevuta (problema di rete/backend non raggiungibile)
+          console.error("Login failed - No response received. Request details:", error.request);
+          this.loginError = 'Nessuna risposta dal server. Verifica che il backend sia in esecuzione e raggiungibile.';
         } else {
-          this.loginError = 'Errore di connessione o risposta non valida dal server.';
+          // Errore durante la configurazione della richiesta
+          console.error("Login failed - Error setting up request:", error.message);
+          this.loginError = `Errore nell'invio della richiesta: ${error.message}`;
         }
+
+        this.clearAuth(); // Pulisce lo stato in caso di errore
+        /* Rimosso blocco if precedente, ora gestito sopra
+        if (error.response && error.response.data) {
+          // Prova a estrarre un messaggio di errore specifico (già gestito sopra)
+          // this.loginError = error.response.data.detail || 'Credenziali non valide o errore sconosciuto.';
+        } else {
+          // this.loginError = 'Errore di connessione o risposta non valida dal server.'; (già gestito sopra)
+        }
+        */
         return false; // Indica fallimento
       } finally {
         this.isLoading = false;

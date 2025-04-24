@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, watch } from 'vue'; // Aggiunto watch
 import { useRouter } from 'vue-router';
 import RewardsService, { type Reward } from '@/api/rewards';
 import { useAuthStore } from '@/stores/auth';
@@ -26,7 +26,9 @@ async function fetchAvailableRewards() {
   isLoading.value = true;
   error.value = null;
   try {
-    availableRewards.value = await RewardsService.getAvailableRewards();
+    const rewardsData = await RewardsService.getAvailableRewards();
+    console.log('Ricompense ricevute dall\'API:', rewardsData); // LOG 1: Dati grezzi API
+    availableRewards.value = rewardsData;
   } catch (err) {
     console.error('Errore durante il recupero delle ricompense:', err);
     error.value = "Impossibile caricare le ricompense disponibili. Riprova più tardi.";
@@ -81,6 +83,16 @@ async function handlePurchase(reward: Reward) {
   }
 }
 
+// Watcher per debug
+watch(availableRewards, (newVal) => {
+  console.log('Watcher: availableRewards aggiornato:', newVal); // LOG 2: Dati nello state
+  if (newVal && newVal.length > 0) {
+    console.log('Watcher: Numero di ricompense da renderizzare:', newVal.length);
+  } else {
+    console.log('Watcher: Nessuna ricompensa da renderizzare.');
+  }
+});
+
 // Lifecycle Hooks
 onMounted(() => {
   fetchAvailableRewards();
@@ -120,36 +132,42 @@ onMounted(() => {
       <p class="font-semibold">{{ purchaseError }}</p>
     </div>
 
-    <div v-if="!isLoading && !error" class="rewards-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-      <div v-for="reward in availableRewards" :key="reward.id" class="reward-card bg-white rounded-lg shadow-lg overflow-hidden flex flex-col border-t-4" :class="reward.type === 'digital' ? 'border-kahoot-blue' : 'border-kahoot-green'"> <!-- Colori bordo aggiornati -->
-        <img
-          v-if="reward.metadata?.image_url"
-          :src="reward.metadata.image_url"
-          :alt="reward.name"
-          class="reward-image w-full h-48 object-cover"
-        />
-        <div v-else class="reward-image-placeholder w-full h-48 flex items-center justify-center bg-brand-gray-light text-brand-gray text-5xl">🎁</div> <!-- Colori placeholder aggiornati -->
-
-        <div class="reward-info p-4 flex flex-col flex-grow">
-          <h3 class="text-lg font-semibold text-brand-gray-dark mb-1">{{ reward.name }}</h3> <!-- Colore testo aggiornato -->
-          <p class="reward-description text-sm text-brand-gray-dark mb-3 flex-grow">{{ reward.description }}</p> <!-- Colore testo aggiornato -->
-          <p class="reward-type text-xs italic text-brand-gray mb-2">Tipo: {{ reward.type === 'digital' ? 'Digitale' : 'Reale' }}</p> <!-- Colore testo aggiornato -->
-          <div class="reward-cost text-lg font-bold text-kahoot-purple mb-3"> <!-- Colore costo aggiornato -->
-            Costo: <strong>{{ reward.cost_points }}</strong> punti
+    <div v-if="!isLoading && !error">
+      <!-- Mostra la griglia solo se ci sono ricompense -->
+      <div v-if="availableRewards.length > 0" class="rewards-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <div v-for="reward in availableRewards" :key="reward.id" class="reward-card bg-white rounded-lg shadow-lg overflow-hidden flex flex-col border-t-4" :class="reward.type === 'digital' ? 'border-kahoot-blue' : 'border-kahoot-green'"> <!-- Colori bordo aggiornati -->
+          <!-- Test: Decommento solo div info e nome -->
+          <!-- Reward ID: {{ reward.id }} --> <!-- Commento l'ID ora -->
+          <template v-if="reward.metadata?.image_url"> <!-- Decommentato -->
+            <img
+              :src="reward.metadata.image_url"
+              :alt="reward.name"
+              class="reward-image w-full h-48 object-cover"
+            />
+          </template>
+          <template v-else> <!-- Decommentato -->
+            <div class="reward-image-placeholder w-full h-48 flex items-center justify-center bg-brand-gray-light text-brand-gray text-5xl">🎁</div> <!-- Colori placeholder aggiornati -->
+          </template>
+          <div class="reward-info p-4 flex flex-col flex-grow">
+            <h3 class="text-lg font-semibold text-brand-gray-dark mb-1">{{ reward.name }}</h3> <!-- Decommentato -->
+            <p class="reward-description text-sm text-brand-gray-dark mb-3 flex-grow">{{ reward.description }}</p> <!-- Decommentato -->
+            <p class="reward-type text-xs italic text-brand-gray mb-2">Tipo: {{ reward.type === 'digital' ? 'Digitale' : 'Reale' }}</p> <!-- Decommentato -->
+            <div class="reward-cost text-lg font-bold text-kahoot-purple mb-3"> <!-- Decommentato -->
+              Costo: <strong>{{ reward.cost_points }}</strong> punti
+            </div>
           </div>
+          <BaseButton
+            variant="info"
+            @click="handlePurchase(reward)"
+            :disabled="purchasingRewardId === reward.id || currentPoints < reward.cost_points"
+            class="w-full rounded-t-none"
+          >
+            {{ purchasingRewardId === reward.id ? 'Acquisto...' : 'Acquista' }}
+          </BaseButton>
         </div>
-
-        <BaseButton
-          variant="info"
-          @click="handlePurchase(reward)"
-          :disabled="purchasingRewardId === reward.id || currentPoints < reward.cost_points"
-          class="w-full rounded-t-none" <!-- Rimuove arrotondamento superiore per adattarsi alla card -->
-        >
-          {{ purchasingRewardId === reward.id ? 'Acquisto...' : 'Acquista' }}
-        </BaseButton>
       </div>
-      
-      <div v-if="availableRewards.length === 0" class="empty-message col-span-full text-center py-10 text-brand-gray-dark"> <!-- Colore testo aggiornato -->
+      <!-- Mostra il messaggio se non ci sono ricompense -->
+      <div v-else class="empty-message text-center py-10 text-brand-gray-dark"> <!-- Colore testo aggiornato -->
         <p>Non ci sono ricompense disponibili al momento.</p>
       </div>
     </div>

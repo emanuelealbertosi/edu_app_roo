@@ -1,3 +1,4 @@
+from django.utils.text import get_valid_filename
 from rest_framework import serializers
 from .models import Subject, Topic, Lesson, LessonContent, LessonAssignment
 # Potrebbe essere necessario importare il serializer dello Studente se vogliamo dati annidati
@@ -23,6 +24,25 @@ class TopicSerializer(serializers.ModelSerializer):
 class LessonContentSerializer(serializers.ModelSerializer):
     # Potremmo aggiungere validazione specifica per tipo di contenuto
     # (es. 'file' obbligatorio se type='pdf', 'html_content' se type='html')
+
+    def _sanitize_filename(self, validated_data):
+        """Pulisce il nome del file caricato, se presente."""
+        uploaded_file = validated_data.get('file')
+        if uploaded_file:
+            original_name = uploaded_file.name
+            safe_name = get_valid_filename(original_name)
+            # Aggiorna il nome del file nell'oggetto File stesso prima che venga salvato
+            uploaded_file.name = safe_name
+        return validated_data
+
+    def create(self, validated_data):
+        validated_data = self._sanitize_filename(validated_data)
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        validated_data = self._sanitize_filename(validated_data)
+        return super().update(instance, validated_data)
+
     class Meta:
         model = LessonContent
         fields = ['id', 'lesson', 'content_type', 'html_content', 'file', 'url', 'title', 'order', 'created_at']

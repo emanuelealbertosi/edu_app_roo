@@ -1,31 +1,8 @@
 import { defineStore } from 'pinia';
-import axios from 'axios'; // Riutilizziamo l'istanza configurata o ne creiamo una specifica
+// Rimosso import axios locale
+import apiClient from '@/services/api'; // Importa l'istanza Axios condivisa e configurata
 // import type { Subject } from '@/types/lezioni'; // Definiremo i tipi più avanti
-
-// Assumiamo che l'istanza Axios sia configurata globalmente o importata da un modulo api.ts
-// Per semplicità, usiamo un'istanza base qui, ma idealmente dovrebbe essere condivisa.
-const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/lezioni', // Specifica il path base per le lezioni
-  headers: {
-    'Content-Type': 'application/json',
-  }
-});
-
-// Aggiungiamo l'interceptor anche qui se non è globale
-// È meglio avere una singola istanza configurata globalmente (es. in un plugin o in main.ts)
-import { useAuthStore } from './auth'; // Importa auth store per il token
-apiClient.interceptors.request.use(config => {
-  const authStore = useAuthStore();
-  const token = authStore.accessToken;
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-}, error => {
-  // Gestione errori globale (es. refresh token) potrebbe andare qui
-  return Promise.reject(error);
-});
-
+// Rimosso blocco creazione apiClient locale e interceptor locale
 
 interface Subject {
     id: number;

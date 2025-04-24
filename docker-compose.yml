@@ -19,7 +19,8 @@ services:
   web:
     build: .  # Costruisce l'immagine usando il Dockerfile nella directory corrente
     volumes:
-      - .:/app  # Monta il codice sorgente locale nel container per sviluppo live
+      - .:/app          # Monta il codice sorgente locale (escludendo mediafiles ora gestito sotto)
+      - mediafiles_data:/app/mediafiles # Monta il volume nominato per i file media
     ports:
       - "8000:8000"  # Mappa la porta 8000 del container alla porta 8000 dell'host
     env_file:
@@ -78,3 +79,4 @@ services:
 
 volumes:
   postgres_data: # Volume nominato per persistere i dati del database
+  mediafiles_data: # Volume nominato per persistere i file caricati (media)

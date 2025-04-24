@@ -190,7 +190,11 @@ STORAGES = {
 # https://docs.djangoproject.com/en/5.1/topics/files/
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'mediafiles' # Directory dove verranno salvati i file caricati
-# Rimuovi la parentesi graffa extra qui sotto
+
+# Directory temporanea per gli upload dei file, creata all'interno di /app ma non nel volume mediafiles
+# per testare problemi legati a /tmp o al volume montato.
+# FILE_UPLOAD_TEMP_DIR = BASE_DIR / 'tmp_uploads_non_volume' # Commentato per usare /tmp di sistema
+# Questa directory verrà creata nel Dockerfile.
 
 # Custom User Model
 # https://docs.djangoproject.com/en/5.1/topics/auth/customizing/#substituting-a-custom-user-model

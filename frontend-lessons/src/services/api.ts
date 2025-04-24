@@ -1,11 +1,11 @@
 import axios from 'axios';
-import { useAuthStore } from '@/stores/auth'; // Importa lo store per accedere al token (se necessario)
+// Rimosso import non utilizzato: import { useAuthStore } from '@/stores/auth';
 
-// Legge l'URL base dell'API dalla variabile d'ambiente VITE_API_BASE_URL.
-// Fornisce un fallback ragionevole se non definita (anche se dovrebbe esserlo).
+// Legge l'URL base dell'API dalla variabile d'ambiente VITE_API_BASE_URL (per sviluppo locale con .env.local).
+// Se non definita (es. build Docker senza args), usa '/api' come fallback, affidandosi al proxy Nginx.
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
-console.log(`[api.ts] Creating Axios instance with baseURL: ${API_BASE_URL}`); // Debug
+console.log(`[api.ts] Creating Axios instance with effective baseURL: ${API_BASE_URL}`); // Debug
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,

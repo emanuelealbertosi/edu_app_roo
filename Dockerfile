@@ -29,6 +29,9 @@ RUN chmod +x /app/entrypoint.prod.sh
 # Copia il resto del codice dell'applicazione nella directory di lavoro
 COPY . /app/
 
+# Crea la directory per i file temporanei di upload (non nel volume) e imposta permessi ampi per debug
+RUN mkdir -p /app/tmp_uploads_non_volume && chmod -R 777 /app/tmp_uploads_non_volume
+
 # Esponi la porta su cui Gunicorn sarà in ascolto
 EXPOSE 8000
 

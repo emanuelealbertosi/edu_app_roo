@@ -1,0 +1,12 @@
+# Escludi file .env locali dal contesto di build Docker
+.env*
+
+# Escludi node_modules (già gestito da npm install nello stage di build)
+node_modules
+
+# Escludi directory di output (se presenti)
+dist
+build
+
+# Escludi configurazioni IDE/Editor
+.vscode

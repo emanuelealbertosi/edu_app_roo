@@ -1,27 +1,8 @@
 import { defineStore } from 'pinia';
-import axios from 'axios';
+// Rimosso import axios locale
+import apiClient from '@/services/api'; // Importa l'istanza Axios condivisa e configurata
 import type { Lesson, LessonContent, LessonAssignment, Student, AssignmentResult } from '@/types/lezioni'; // Importa i tipi definiti
-
-// Istanza Axios (idealmente condivisa)
-const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/lezioni',
-  headers: {
-    'Content-Type': 'application/json',
-  }
-});
-
-// Interceptor per token (idealmente globale)
-import { useAuthStore } from './auth';
-apiClient.interceptors.request.use(config => {
-  const authStore = useAuthStore();
-  const token = authStore.accessToken;
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-}, error => {
-  return Promise.reject(error);
-});
+// Rimosso blocco creazione apiClient locale e interceptor locale
 
 // Le interfacce locali sono state rimosse, usiamo quelle importate da @/types/lezioni.ts
 

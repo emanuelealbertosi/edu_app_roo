@@ -13,12 +13,9 @@ RUN npm install
 COPY . .
 
 # Costruisci l'applicazione per la produzione
-# Passa l'URL dell'API come argomento di build (può essere sovrascritto da docker-compose)
-# Impostiamo il default corretto per questa app
-ARG VITE_API_BASE_URL=/api/lezioni/
-ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
-# Aggiunto echo per invalidare la cache di build Docker per questo passo
-RUN echo "Building with API URL: ${VITE_API_BASE_URL}" && npm run build
+# Rimosso ARG/ENV VITE_API_BASE_URL. L'URL base verrà gestito da api.ts
+# usando import.meta.env.VITE_API_BASE_URL (da .env.local) o il fallback '/api'.
+RUN npm run build
 
 # Stage 2: Serve l'applicazione con Nginx
 FROM nginx:stable-alpine

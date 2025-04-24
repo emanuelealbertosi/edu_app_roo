@@ -168,7 +168,19 @@ const fileAcceptType = computed(() => {
 const handleFileChange = (event: Event) => {
     const target = event.target as HTMLInputElement;
     if (target.files && target.files[0]) {
-        newContent.value.file = target.files[0];
+        const file = target.files[0];
+        const invalidCharsRegex = /[ ()]/; // Regex per trovare spazi o parentesi
+
+        if (invalidCharsRegex.test(file.name)) {
+            // Nome file non valido
+            addError.value = "Il nome del file non può contenere spazi o parentesi.";
+            newContent.value.file = null;
+            target.value = ''; // Resetta l'input per permettere nuova selezione
+        } else {
+            // Nome file valido
+            newContent.value.file = file;
+            addError.value = null; // Pulisce eventuali errori precedenti
+        }
     } else {
         newContent.value.file = null;
     }

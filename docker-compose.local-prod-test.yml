@@ -65,8 +65,7 @@ services:
     build:
       context: ./frontend-lessons
       dockerfile: Dockerfile
-      args: # Passa l'argomento di build corretto
-        VITE_API_BASE_URL: http://backend:8000/api # Punta al servizio backend nella rete Docker
+      # Rimosso args: VITE_API_BASE_URL - si affiderà al proxy Nginx e al baseURL relativo
     depends_on:
       - backend
     volumes: # Aggiunto volume media per servire file (se necessario)

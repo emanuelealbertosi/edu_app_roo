@@ -26,10 +26,18 @@ else
     echo "Superuser environment variables not set or not loaded, skipping superuser creation."
 fi
 
-# Ensure media files are readable by other services (like Nginx in frontend)
+# Ensure media directories exist and have correct permissions AFTER volume mount
 echo "Setting permissions for media files..."
-# o+rX: give read permission to files/dirs, execute permission only to dirs for 'others'
-chmod -R o+rX /app/mediafiles || echo "Warning: Failed to set permissions on /app/mediafiles"
+# Ensure parent media directory exists
+echo "Ensuring parent media directory /app/mediafiles exists..."
+mkdir -p /app/mediafiles
+echo "Parent media directory ensured."
+# Rimosso blocco per creare /app/mediafiles/tmp_uploads
+# Set broader read permissions on mediafiles for Nginx
+echo "Setting read permissions on /app/mediafiles for Nginx..."
+chmod -R o+rX /app/mediafiles
+echo "Read permissions set for Nginx."
+
 
 # Avvia Gunicorn con ottimizzazioni per server con risorse limitate
 echo "Starting Gunicorn with optimizations for low memory server..."

@@ -23,15 +23,25 @@ class IsTeacherOwner(permissions.BasePermission):
     Assicura anche che l'utente sia un Docente.
     """
     def has_object_permission(self, request, view, obj):
-        # L'utente deve essere un Docente
         # L'utente deve essere un Docente o Teacher
         if not request.user or not request.user.is_authenticated or request.user.role.upper() not in ['DOCENTE', 'TEACHER']:
             return False
-        # L'utente deve essere il creatore dell'oggetto
-        # Assumiamo che l'oggetto abbia un campo 'creator'
-        # Controlla il creatore della lezione associata al contenuto
-        # L'oggetto 'obj' qui è la Lezione stessa
-        return obj.creator == request.user
+
+        # Controlla se l'oggetto è un LessonContent o simile che ha una lezione padre
+        if hasattr(obj, 'lesson'):
+            # Controlla se l'utente è il creatore della lezione padre
+            # Assicurati che obj.lesson.creator esista e sia confrontabile con request.user
+            try:
+                return obj.lesson.creator == request.user
+            except AttributeError:
+                 # Se obj.lesson o obj.lesson.creator non esistono, nega il permesso
+                 return False
+        # Altrimenti, assumi che l'oggetto sia la Lezione stessa (o altro oggetto con 'creator')
+        elif hasattr(obj, 'creator'):
+            return obj.creator == request.user
+        else:
+            # Se l'oggetto non ha né 'lesson' né 'creator', non possiamo verificare la proprietà
+            return False
 
 class IsAdminOrTeacherOwner(permissions.BasePermission):
     """
@@ -40,12 +50,27 @@ class IsAdminOrTeacherOwner(permissions.BasePermission):
     def has_object_permission(self, request, view, obj):
         if not request.user or not request.user.is_authenticated:
             return False
+
         # Admin ha sempre accesso
-        if request.user.role.upper() == 'ADMIN': # Usa .upper() per confronto case-insensitive
+        user_role = getattr(request.user, 'role', None)
+        if user_role and user_role.upper() == 'ADMIN':
             return True
-        # Il Docente ha accesso solo se è il creatore
-        if request.user.role.upper() in ['DOCENTE', 'TEACHER']: # Usa .upper() e controlla entrambi i valori possibili
-            return obj.creator == request.user
+
+        # Il Docente ha accesso solo se è il creatore (della lezione o del contenuto tramite la lezione)
+        if user_role and user_role.upper() in ['DOCENTE', 'TEACHER']:
+            # Controlla se l'oggetto è un LessonContent o simile
+            if hasattr(obj, 'lesson'):
+                try:
+                    return obj.lesson.creator == request.user
+                except AttributeError:
+                    return False
+            # Altrimenti, assumi che l'oggetto sia la Lezione stessa (o altro oggetto con 'creator')
+            elif hasattr(obj, 'creator'):
+                return obj.creator == request.user
+            else:
+                return False # Non può verificare la proprietà
+
+        # Altri ruoli o utenti non autenticati non hanno accesso
         return False
 
 class IsAssignedStudentOrTeacherOwner(permissions.BasePermission):
