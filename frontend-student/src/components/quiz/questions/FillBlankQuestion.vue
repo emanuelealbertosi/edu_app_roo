@@ -95,7 +95,7 @@ watch(() => props.question.id, () => {
 
 <template>
   <div class="fill-blank-question mt-4">
-    <p class="question-text-with-blanks text-lg leading-relaxed"> {/* Aggiunto leading-relaxed per interlinea */}
+    <p class="question-text-with-blanks text-lg leading-relaxed">
       <template v-for="(part, index) in questionParts" :key="index">
         <template v-if="part.type === 'text'">
            <span class="align-baseline">{{ part.content }}</span>

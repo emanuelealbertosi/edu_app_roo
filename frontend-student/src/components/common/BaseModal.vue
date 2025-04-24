@@ -11,10 +11,10 @@
           <!-- Header -->
           <div class="flex items-center justify-between px-6 py-4 border-b border-brand-gray">
             <h3 v-if="title" class="text-xl font-bold text-kahoot-purple">{{ title }}</h3>
-            <div v-else></div> <!-- Placeholder per allineamento -->
+            <div v-else></div>
             <button
               @click="closeModal"
-              class="text-brand-gray hover:text-brand-gray-dark transition-colors p-1 rounded-full hover:bg-brand-gray-light"
+              class="text-neutral-dark hover:text-neutral-darker transition-colors p-1 rounded-full hover:bg-neutral-light"
               aria-label="Chiudi modale"
             >
               <!-- Icona X -->
@@ -26,12 +26,12 @@
 
           <!-- Body -->
           <div class="p-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
-            <slot></slot> <!-- Contenuto iniettato qui -->
+            <slot></slot>
           </div>
 
           <!-- Footer (Opzionale) -->
-          <div v-if="$slots.footer" class="px-6 py-4 bg-brand-gray-light border-t border-brand-gray flex justify-end space-x-3">
-            <slot name="footer"></slot> <!-- Bottoni/Azioni qui -->
+          <div v-if="$slots.footer" class="px-6 py-4 bg-neutral-light border-t border-neutral-DEFAULT flex justify-end space-x-3">
+            <slot name="footer"></slot>
           </div>
         </div>
       </div>

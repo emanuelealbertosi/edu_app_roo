@@ -37,9 +37,9 @@ const getNotificationClasses = (notification: Notification) => {
              <AnimatedBadge
                 :badge="notification.badgeInfo"
                 class="transform scale-75"
-             /> <!-- Tag auto-chiudente corretto, commento rimosso -->
-          </template>
-          <!-- Icone per altri tipi -->
+             />
+         </template>
+         <!-- Icone per altri tipi -->
           <span v-else-if="notification.type === 'success'" class="text-xl">✅</span>
           <span v-else-if="notification.type === 'error'" class="text-xl">❌</span>
           <span v-else-if="notification.type === 'info'" class="text-xl">ℹ️</span>

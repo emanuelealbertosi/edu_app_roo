@@ -1,42 +1,50 @@
 <template>
-  <div class="delivery-view p-4 md:p-6"> <!-- Added padding -->
-    <h1 class="text-2xl font-semibold mb-6">Consegna Ricompense</h1> <!-- Styled heading -->
+  <div class="delivery-view p-4 md:p-6"> <!-- Padding ok -->
+    <div class="bg-primary text-white p-4 rounded-md mb-6"> <!-- Contenitore per titolo -->
+      <h1 class="text-2xl font-semibold">Consegna Ricompense</h1> <!-- Rimosso stile individuale -->
+    </div>
 
-    <div v-if="isLoading" class="text-center py-10 text-gray-500">Caricamento consegne pendenti...</div> <!-- Styled loading -->
-    <div v-if="error" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6" role="alert"> <!-- Styled error -->
+    <div v-if="isLoading" class="text-center py-10 text-neutral-dark">Caricamento consegne pendenti...</div> <!-- Stile loading aggiornato -->
+    <div v-if="error" class="bg-error/10 border border-error text-error px-4 py-3 rounded relative mb-6" role="alert"> <!-- Stile errore aggiornato -->
        <strong class="font-bold">Errore!</strong>
        <span class="block sm:inline"> {{ error }}</span>
     </div>
 
-    <div v-if="!isLoading && pendingDeliveries.length === 0" class="text-center py-10 text-gray-500"> <!-- Styled empty message -->
+    <div v-if="!isLoading && pendingDeliveries.length === 0" class="text-center py-10 text-neutral-dark"> <!-- Stile empty message aggiornato -->
       Nessuna ricompensa in attesa di consegna.
     </div>
 
     <!-- Styled List Container -->
     <div v-else class="delivery-list space-y-4"> <!-- Use space-y for gap -->
       <!-- Styled List Item Card -->
-      <div v-for="purchase in pendingDeliveries" :key="purchase.id" class="delivery-item bg-white p-4 rounded-lg shadow-md border border-gray-200">
-        <h3 class="text-lg font-semibold mb-2 text-gray-800">{{ purchase.reward_info.name }}</h3>
-        <p class="text-sm text-gray-600 mb-1"><strong class="font-medium text-gray-700">Studente:</strong> {{ purchase.student_info.full_name }} ({{ purchase.student_info.student_code }})</p>
-        <p class="text-sm text-gray-600 mb-1"><strong class="font-medium text-gray-700">Acquistato il:</strong> {{ formatDate(purchase.purchased_at) }}</p>
-        <p class="text-sm text-gray-600 mb-3"><strong class="font-medium text-gray-700">Costo:</strong> {{ purchase.points_spent }} punti</p>
+      <div v-for="purchase in pendingDeliveries" :key="purchase.id" class="delivery-item bg-white p-4 rounded-lg shadow-md border border-neutral-DEFAULT"> <!-- Stili card aggiornati -->
+        <h3 class="text-lg font-semibold mb-2 text-neutral-darkest">{{ purchase.reward_info.name }}</h3> <!-- Stile testo aggiornato -->
+        <p class="text-sm text-neutral-darker mb-1"><strong class="font-medium text-neutral-darkest">Studente:</strong> {{ purchase.student_info.full_name }} ({{ purchase.student_info.student_code }})</p> <!-- Stili testo aggiornati -->
+        <p class="text-sm text-neutral-darker mb-1"><strong class="font-medium text-neutral-darkest">Acquistato il:</strong> {{ formatDate(purchase.purchased_at) }}</p> <!-- Stili testo aggiornati -->
+        <p class="text-sm text-neutral-darker mb-3"><strong class="font-medium text-neutral-darkest">Costo:</strong> {{ purchase.points_spent }} punti</p> <!-- Stili testo aggiornati -->
         <!-- Styled Actions Area -->
-        <div class="delivery-actions mt-3 pt-3 border-t border-gray-200 flex flex-col sm:flex-row sm:items-center sm:space-x-3 space-y-2 sm:space-y-0">
+        <div class="delivery-actions mt-3 pt-3 border-t border-neutral-DEFAULT flex flex-col sm:flex-row sm:items-center sm:space-x-3 space-y-2 sm:space-y-0"> <!-- Stile bordo aggiornato -->
           <textarea
             v-model="deliveryNotes[purchase.id]"
             placeholder="Note sulla consegna (opzionale)"
-            class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:flex-grow text-sm border-gray-300 rounded-md p-2 resize-none h-16 sm:h-auto"
-          ></textarea>
-          <button
+            class="shadow-sm focus:ring-primary focus:border-primary block w-full sm:flex-grow text-sm border-neutral-DEFAULT rounded-md p-2 resize-none h-16 sm:h-auto"
+          ></textarea> <!-- Stili textarea aggiornati -->
+          <BaseButton
+            variant="success"
+            size="sm"
             @click="markAsDelivered(purchase.id)"
             :disabled="isDelivering[purchase.id]"
-            class="btn btn-success btn-sm w-full sm:w-auto flex-shrink-0"
+            class="w-full sm:w-auto flex-shrink-0"
           >
              <span v-if="isDelivering[purchase.id]">
-               <i class="fas fa-spinner fa-spin mr-1"></i> Consegna...
+               <svg class="animate-spin -ml-1 mr-2 h-4 w-4 inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+               </svg>
+               Consegna...
              </span>
              <span v-else>Segna come Consegnato</span>
-          </button>
+          </BaseButton>
         </div>
       </div>
     </div>
@@ -46,6 +54,7 @@
 <script setup lang="ts">
 import { ref, onMounted, reactive } from 'vue';
 import { fetchPendingDeliveries, markRewardAsDelivered, type RewardPurchaseDetails } from '@/api/rewards'; // Assumendo che le funzioni API esistano
+import BaseButton from '@/components/common/BaseButton.vue'; // Importa BaseButton
 
 const isLoading = ref(true);
 const error = ref<string | null>(null);
@@ -105,11 +114,5 @@ function formatDate(dateString: string | null): string {
 
 <style scoped>
 /* Stili specifici rimossi in favore di Tailwind */
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-.fa-spinner {
-  animation: spin 1s linear infinite;
-}
+/* Rimosso stile spinner FontAwesome */
 </style>

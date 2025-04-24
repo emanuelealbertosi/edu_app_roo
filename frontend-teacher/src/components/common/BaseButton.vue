@@ -1,6 +1,7 @@
 <template>
+  <!-- Permette di inserire testo o icone nel bottone -->
   <button :class="buttonClasses" :disabled="disabled">
-    <slot></slot> <!-- Permette di inserire testo o icone nel bottone -->
+    <slot></slot>
   </button>
 </template>
 

@@ -50,15 +50,15 @@ onMounted(() => {
 <template>
   <div class="purchases-view container mx-auto px-4 py-8">
     <header class="purchases-header mb-8 flex justify-between items-center"> <!-- Aggiunto flex per allineare bottone -->
-      <h1 class="text-3xl font-bold text-kahoot-purple flex items-center"><span class="text-4xl mr-3">📜</span> Storico Acquisti</h1> <!-- Colore titolo aggiornato -->
+      <h1 class="text-3xl font-bold text-primary-dark flex items-center"><span class="text-4xl mr-3">📜</span> Storico Acquisti</h1> <!-- Colore titolo aggiornato -->
       <BaseButton variant="secondary" @click="router.push('/dashboard')">Torna alla Dashboard</BaseButton> <!-- Bottone spostato qui -->
     </header>
 
-    <div v-if="isLoading" class="loading text-center py-10 text-brand-gray-dark"> <!-- Colore testo aggiornato -->
+    <div v-if="isLoading" class="loading text-center py-10 text-neutral-dark"> <!-- Colore testo aggiornato -->
       <p>Caricamento storico...</p>
     </div>
 
-    <div v-if="error" class="error-message bg-kahoot-red-light border-l-4 border-kahoot-red text-kahoot-red-dark p-4 mb-6 rounded flex justify-between items-center" role="alert"> <!-- Colori errore aggiornati -->
+    <div v-if="error" class="error-message bg-error/10 border-l-4 border-error text-error p-4 mb-6 rounded flex justify-between items-center" role="alert"> <!-- Colori errore aggiornati -->
       <p class="font-semibold">{{ error }}</p>
       <BaseButton variant="danger" size="sm" @click="fetchPurchaseHistory">Riprova</BaseButton> <!-- Usa BaseButton -->
     </div>
@@ -66,21 +66,21 @@ onMounted(() => {
     <div v-if="!isLoading && !error" class="purchases-list-container bg-white p-6 rounded-lg shadow-md">
       <table v-if="purchaseHistory.length > 0" class="purchases-table w-full">
         <thead class="hidden md:table-header-group">
-          <tr class="bg-brand-gray-light"> <!-- Colore sfondo header aggiornato -->
-            <th class="px-4 py-3 text-left text-xs font-medium text-brand-gray-dark uppercase tracking-wider">Ricompensa</th> <!-- Colore testo header aggiornato -->
-            <th class="px-4 py-3 text-left text-xs font-medium text-brand-gray-dark uppercase tracking-wider">Descrizione</th>
-            <th class="px-4 py-3 text-left text-xs font-medium text-brand-gray-dark uppercase tracking-wider">Costo (Punti)</th>
-            <th class="px-4 py-3 text-left text-xs font-medium text-brand-gray-dark uppercase tracking-wider">Data Acquisto</th>
-            <th class="px-4 py-3 text-center text-xs font-medium text-brand-gray-dark uppercase tracking-wider">Stato</th>
-            <th class="px-4 py-3 text-left text-xs font-medium text-brand-gray-dark uppercase tracking-wider">Data Consegna</th>
-            <th class="px-4 py-3 text-left text-xs font-medium text-brand-gray-dark uppercase tracking-wider">Note Consegna</th>
+          <tr class="bg-neutral-light"> <!-- Colore sfondo header aggiornato -->
+            <th class="px-4 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider">Ricompensa</th> <!-- Colore testo header aggiornato -->
+            <th class="px-4 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider">Descrizione</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider">Costo (Punti)</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider">Data Acquisto</th>
+            <th class="px-4 py-3 text-center text-xs font-medium text-neutral-darker uppercase tracking-wider">Stato</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider">Data Consegna</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider">Note Consegna</th>
           </tr>
         </thead>
-        <tbody class="text-sm text-brand-gray-dark"> <!-- Colore testo body aggiornato -->
-          <tr v-for="purchase in purchaseHistory" :key="purchase.id" class="border-b border-brand-gray-light md:border-none"> <!-- Colore bordo aggiornato -->
+        <tbody class="text-sm text-neutral-darkest"> <!-- Colore testo body aggiornato -->
+          <tr v-for="purchase in purchaseHistory" :key="purchase.id" class="border-b border-neutral-DEFAULT md:border-none"> <!-- Colore bordo aggiornato -->
             <td data-label="Ricompensa" class="px-4 py-3 whitespace-nowrap font-semibold">{{ purchase.reward_info.name }}</td>
             <td data-label="Descrizione" class="px-4 py-3">{{ purchase.reward_info.description || '-' }}</td>
-            <td data-label="Costo" class="points-spent px-4 py-3 whitespace-nowrap font-semibold text-kahoot-purple">{{ purchase.points_spent }}</td> <!-- Colore punti spesi -->
+            <td data-label="Costo" class="points-spent px-4 py-3 whitespace-nowrap font-semibold text-primary">{{ purchase.points_spent }}</td> <!-- Colore punti spesi aggiornato -->
             <td data-label="Data Acquisto" class="px-4 py-3 whitespace-nowrap">{{ formatDate(purchase.purchased_at) }}</td>
             <td data-label="Stato" class="status-cell px-4 py-3 text-center">
               <span v-if="purchase.status === 'PURCHASED'" title="Acquistato (In attesa di consegna)" class="text-2xl">⏳</span>
@@ -94,9 +94,9 @@ onMounted(() => {
         </tbody>
       </table>
       
-      <div v-else class="empty-message text-center py-10 text-brand-gray-dark"> <!-- Colore testo aggiornato -->
+      <div v-else class="empty-message text-center py-10 text-neutral-dark"> <!-- Colore testo aggiornato -->
         <p class="mb-4">Non hai ancora effettuato nessun acquisto.</p>
-        <BaseButton variant="info" @click="router.push('/shop')">Vai allo Shop</BaseButton> <!-- Usa BaseButton -->
+        <BaseButton variant="primary" @click="router.push('/shop')">Vai allo Shop</BaseButton> <!-- Usa BaseButton primario -->
       </div>
     </div>
   </div>
@@ -122,22 +122,23 @@ onMounted(() => {
   }
   .purchases-table tr {
     margin-bottom: 15px;
-    border: 1px solid #ddd;
+    border: 1px solid theme('colors.neutral.DEFAULT'); /* Colore bordo aggiornato */
     border-radius: 5px;
     overflow: hidden;
+    background-color: theme('colors.neutral.lightest'); /* Sfondo righe aggiornato */
   }
   .purchases-table td {
     text-align: right; /* Allinea il valore a destra */
     padding-left: 50%; /* Crea spazio per l'etichetta */
     position: relative;
-    border-bottom: none; /* Rimuove la linea inferiore di default */
+    border-bottom: 1px solid theme('colors.neutral.light'); /* Colore bordo interno aggiornato */
     padding-top: 8px;
     padding-bottom: 8px;
     /* Aggiunto per gestire meglio il wrap della descrizione */
     white-space: normal; 
     word-break: break-word;
   }
-   .purchases-table td:last-child {
+   .purchases-table tr td:last-child { /* Selettore corretto */
        border-bottom: 0; /* Nessun bordo per l'ultimo elemento */
    }
   .purchases-table td::before {
@@ -149,7 +150,7 @@ onMounted(() => {
     white-space: nowrap;
     text-align: left;
     font-weight: bold;
-    color: #555;
+    color: theme('colors.neutral.darker'); /* Colore etichetta aggiornato */
   }
 }
 

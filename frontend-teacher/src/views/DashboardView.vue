@@ -6,6 +6,16 @@ import { fetchTeacherQuizTemplates, type QuizTemplate } from '@/api/quizzes'; //
 import { fetchPathwayTemplates, type PathwayTemplate } from '@/api/pathways'; // Import type from API file
 import { fetchRewards, type Reward } from '@/api/rewards'; // Import type from API file
 import { RouterLink } from 'vue-router';
+import {
+  UsersIcon,
+  ClipboardDocumentListIcon,
+  MapIcon,
+  GiftIcon,
+  PaperAirplaneIcon,
+  PencilSquareIcon,
+  InboxArrowDownIcon,
+  ChartBarIcon
+} from '@heroicons/vue/24/outline'; // Importa Heroicons
 
 const authStore = useAuthStore();
 
@@ -48,80 +58,70 @@ onMounted(() => {
   loadDashboardData();
 });
 
+// Aggiorna quickLinks con Heroicons
 const quickLinks = [
-  { name: 'Gestisci Studenti', path: '/students', icon: 'fas fa-users' },
-  { name: 'Template Quiz', path: '/quiz-templates', icon: 'fas fa-file-alt' },
-  { name: 'Template Percorsi', path: '/pathway-templates', icon: 'fas fa-project-diagram' },
-  { name: 'Gestisci Ricompense', path: '/rewards', icon: 'fas fa-gift' },
-  { name: 'Assegna Contenuti', path: '/assign', icon: 'fas fa-paper-plane' },
-  { name: 'Correggi Quiz', path: '/grading', icon: 'fas fa-check-circle' },
-  { name: 'Consegna Ricompense', path: '/delivery', icon: 'fas fa-truck' },
-  { name: 'Progressi Studenti', path: '/student-progress', icon: 'fas fa-chart-line' },
+  { name: 'Gestisci Studenti', path: '/students', icon: UsersIcon },
+  { name: 'Template Quiz', path: '/quiz-templates', icon: ClipboardDocumentListIcon },
+  { name: 'Template Percorsi', path: '/pathway-templates', icon: MapIcon },
+  { name: 'Gestisci Ricompense', path: '/rewards', icon: GiftIcon },
+  { name: 'Assegna Contenuti', path: '/assign', icon: PaperAirplaneIcon },
+  { name: 'Correggi Quiz', path: '/grading', icon: PencilSquareIcon },
+  { name: 'Consegna Ricompense', path: '/delivery', icon: InboxArrowDownIcon },
+  { name: 'Progressi Studenti', path: '/student-progress', icon: ChartBarIcon },
 ];
 </script>
 
 <template>
-  <div class="dashboard-view p-6 bg-gray-100 min-h-screen">
-    <h2 class="text-3xl font-bold mb-6 text-gray-800">Dashboard Docente</h2>
-    <p class="text-xl mb-8 text-gray-600">Benvenuto/a, {{ teacherName }}!</p>
-
-    <div v-if="isLoading" class="text-center py-10">
-      <p class="text-gray-500">Caricamento dati dashboard...</p>
-      <!-- Optional: Add a spinner -->
+  <div class="dashboard-view p-6 bg-neutral-lightest min-h-screen"> <!-- Sfondo aggiornato -->
+    <div class="bg-primary text-white p-4 rounded-md mb-6"> <!-- Contenitore per titolo e sottotitolo -->
+      <h2 class="text-3xl font-bold mb-1">Dashboard Docente</h2> <!-- Rimosso stile individuale, aggiunto mb-1 -->
+      <p class="text-xl opacity-90">Benvenuto/a, {{ teacherName }}!</p> <!-- Rimosso stile individuale, aggiunta opacità -->
     </div>
 
-    <div v-else-if="error" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6" role="alert">
+    <div v-if="isLoading" class="text-center py-10">
+      <p class="text-neutral-dark">Caricamento dati dashboard...</p>
+      <!-- Optional: Add a spinner -->
+       <svg class="animate-spin h-5 w-5 text-primary mx-auto mt-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"> <!-- Spinner primario -->
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+      </svg>
+    </div>
+
+    <div v-else-if="error" class="bg-error/10 border border-error text-error px-4 py-3 rounded relative mb-6" role="alert"> <!-- Stile errore aggiornato -->
       <strong class="font-bold">Errore!</strong>
       <span class="block sm:inline"> {{ error }}</span>
     </div>
 
-    <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+    <div v-if="!isLoading && !error" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
       <!-- Stat Cards -->
-      <div class="bg-white p-6 rounded-lg shadow-md flex items-center space-x-4">
-        <i class="fas fa-users text-3xl text-blue-500"></i>
-        <div>
-          <p class="text-gray-500 text-sm">Studenti Attivi</p>
-          <p class="text-2xl font-bold text-gray-800">{{ students.length }}</p>
-        </div>
-      </div>
-      <div class="bg-white p-6 rounded-lg shadow-md flex items-center space-x-4">
-        <i class="fas fa-file-alt text-3xl text-green-500"></i>
-        <div>
-          <p class="text-gray-500 text-sm">Template Quiz</p>
-          <p class="text-2xl font-bold text-gray-800">{{ quizTemplates.length }}</p>
-        </div>
-      </div>
-      <div class="bg-white p-6 rounded-lg shadow-md flex items-center space-x-4">
-        <i class="fas fa-project-diagram text-3xl text-purple-500"></i>
-        <div>
-          <p class="text-gray-500 text-sm">Template Percorsi</p>
-          <p class="text-2xl font-bold text-gray-800">{{ pathwayTemplates.length }}</p>
-        </div>
-      </div>
-      <div class="bg-white p-6 rounded-lg shadow-md flex items-center space-x-4">
-        <i class="fas fa-gift text-3xl text-red-500"></i>
-        <div>
-          <p class="text-gray-500 text-sm">Ricompense Totali</p> <!-- Changed label as we fetch all -->
-          <p class="text-2xl font-bold text-gray-800">{{ rewards.length }}</p>
-        </div>
-      </div>
-    </div>
+       <div class="bg-white p-6 rounded-lg shadow-md flex items-center space-x-4">
+         <UsersIcon class="h-8 w-8 text-primary" />
+         <div>
+           <p class="text-neutral-dark text-sm">Studenti Attivi</p>
+           <p class="text-2xl font-bold text-neutral-darkest">{{ Array.isArray(students) ? students.length : 0 }}</p>
+         </div>
+       </div>
+       <!-- Qui andrebbero le altre Stat Cards -->
+     </div>
 
-    <!-- Quick Links -->
     <div v-if="!isLoading && !error">
-        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Accesso Rapido</h3>
+        <h3 class="text-2xl font-semibold mb-4 text-neutral-darker">Accesso Rapido</h3>
         <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             <RouterLink
                 v-for="link in quickLinks"
                 :key="link.path"
                 :to="link.path"
-                class="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200 flex flex-col items-center justify-center text-center text-gray-700 hover:text-blue-600"
+                class="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200 flex flex-col items-center justify-center text-center text-neutral-darker hover:text-primary"
             >
-                <i :class="[link.icon, 'text-4xl mb-3']"></i>
-                <span class="font-medium">{{ link.name }}</span>
+                <component :is="link.icon" class="h-10 w-10 mb-3" />
+                <span class="font-medium text-sm">{{ link.name }}</span>
             </RouterLink>
         </div>
     </div>
+    <!-- Rimuoviamo il div 'else' che nascondeva il contenuto per debug -->
+    <!-- <div v-else>
+        <p class="text-center text-gray-500 italic">Contenuto dashboard temporaneamente nascosto per debug.</p>
+    </div> -->
 
   </div>
 </template>

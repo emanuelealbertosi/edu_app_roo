@@ -1,92 +1,52 @@
-# Piano di Upgrade Grafico Frontend Studenti (Ispirato a Kahoot)
+# Piano di Aggiornamento Grafico
 
-**Data:** 21 Aprile 2025
+Questo documento traccia i file modificati e quelli rimanenti per l'aggiornamento grafico basato sull'immagine fornita.
 
-## Obiettivi Specifici
+## File Modificati
 
-1.  **Stile Visivo "Kahoot-like":** Implementare colori vivaci, font giocosi, stile dei bottoni specifico e layout degli elementi ispirati a Kahoot.
-2.  **Badge Animati (CSS/SVG):** Supportare e visualizzare badge con icone animate definite tramite CSS o SVG.
-3.  **Integrazione Ultimo Badge Dashboard:** Mostrare l'ultimo badge guadagnato come "rank" nella dashboard dello studente, filtrando i dati nel frontend.
-4.  **Finestre Modali per Quiz:** Presentare la visualizzazione dei dettagli del quiz (`QuizDetailsView`) e lo svolgimento del quiz (`QuizAttemptView`) all'interno di finestre modali.
+### Frontend Studente (`frontend-student`)
 
-## Piano di Implementazione
+*   `tailwind.config.js`: Aggiornata configurazione colori e font.
+*   `src/App.vue`: Aggiornati stili layout principale (sidebar, header, sfondo).
+*   `src/views/DashboardView.vue`: Aggiornati stili header, card, bottoni, testi.
+*   `src/components/common/BaseButton.vue`: Aggiornate varianti colori e aggiunta `secondary-outline`.
+*   `src/components/WalletCard.vue`: Aggiornati stili card, testi, colori transazioni.
+*   `src/components/QuizList.vue`: Aggiornati stili card, testi, badge, bottoni.
+*   `src/components/PathwayList.vue`: Aggiornati stili card, testi, barre progresso, bottoni.
+*   `src/views/ShopView.vue`: Aggiornati stili header, card ricompense, bottoni, testi.
+*   `src/views/PurchasesView.vue`: Aggiornati stili header, tabella, testi.
+*   `src/views/BadgesView.vue`: Aggiornati stili header, testi, colori badge guadagnati.
+*   `src/components/common/AnimatedBadge.vue`: Aggiornati stili placeholder e testo.
 
-```mermaid
-graph TD
-    A[Fase 1: Analisi UI/UX & Setup Stile Globale] --> B(Fase 2: Implementazione Finestre Modali);
-    A --> C(Fase 3: Refactoring Viste Principali);
-    A --> D(Fase 4: Badge Animati - Backend & Frontend);
-    B --> E{Integrazione Modali};
-    C --> F{Applicazione Stili};
-    D --> G(Fase 5: Integrazione Ultimo Badge in Dashboard);
-    E --> H((Completamento Modali));
-    F --> I((Completamento Stili Viste));
-    G --> J((Completamento Badge));
+### Frontend Docente (`frontend-teacher`)
 
-    subgraph "Stile & Layout"
-        A
-        C
-        F
-        I
-    end
+*   `tailwind.config.js`: Aggiornata configurazione colori e font (copiata da `frontend-student`).
+*   `src/App.vue`: Aggiornati stili layout principale (sidebar, header, sfondo).
+*   `src/views/DashboardView.vue`: Aggiornati stili header, stat cards, icone (Heroicons), quick links.
+*   `src/views/StudentsView.vue`: Aggiornati stili header, sezione link registrazione, tabella, bottoni.
+*   `src/views/QuizTemplatesView.vue`: Aggiornati stili header, form upload, tabella, bottoni.
+*   `src/views/PathwayTemplatesView.vue`: Aggiornati stili header, tabella, bottoni.
+*   `src/views/RewardsView.vue`: Aggiornati stili header, tabella, bottoni.
+*   `src/views/AssignmentView.vue`: Aggiornati stili header, form selezione, lista studenti, bottoni.
+*   `src/views/AssignedQuizzesView.vue`: Aggiornati stili header, tabella, bottoni.
+*   `src/views/AssignedPathwaysView.vue`: Aggiornati stili header, tabella, bottoni.
+*   `src/views/GradingView.vue`: Aggiornati stili header, card risposte, bottoni.
+*   `src/views/DeliveryView.vue`: Aggiornati stili header, card consegne, bottoni, textarea.
+*   `src/views/StudentProgressView.vue`: Aggiornati stili header, tabella, bottoni.
+*   `src/views/QuizTemplateFormView.vue`: Aggiornati stili header, form, sezione domande, bottoni.
+*   `src/views/PathwayTemplateFormView.vue`: Aggiornati stili header, form, sezione quiz, bottoni.
 
-    subgraph "Funzionalità Modali"
-        B
-        E
-        H
-    end
+## File Rimanenti da Modificare (`frontend-teacher`)
 
-    subgraph "Funzionalità Badge"
-        D
-        G
-        J
-    end
-
-```
-
-### Fase 1: Analisi UI/UX & Setup Stile Globale
-
-*   **1.1. Analisi Kahoot:** Identificare palette colori, font, stile bottoni, layout elementi, animazioni feedback.
-*   **1.2. Aggiornamento Configurazione Stile:** Aggiornare `tailwind.config.js` e stili base (`assets/main.css` o simile).
-*   **1.3. Creazione Componenti Base:** Creare `BaseButton.vue`, `BaseCard.vue` (opzionale), `BaseModal.vue`.
-
-### Fase 2: Implementazione Finestre Modali
-
-*   **2.1. Scelta/Implementazione Componente Modale:** Valutare librerie Vue (es. `vue-final-modal`, `headlessui/vue Dialog`) o usare `BaseModal.vue` custom con Teleport.
-*   **2.2. Integrazione `QuizDetailsView`:** Modificare routing (`router/index.ts`) o logica di navigazione per aprire in modale. Gestire passaggio dati.
-*   **2.3. Integrazione `QuizAttemptView`:** Modificare logica per avviare svolgimento in modale. Gestire stato e chiusura.
-
-### Fase 3: Refactoring Viste Principali
-
-*   **3.1. Applicazione Stili Globali:** Sostituire bottoni con `BaseButton.vue`, applicare font/colori alle viste principali (`LoginView`, `DashboardView`, `ShopView`, `ProfileView`, `PurchasesView`, `BadgesView`).
-*   **3.2. Adeguamento Layout:** Riorganizzare elementi per layout "Kahoot-like".
-*   **3.3. Implementazione Animazioni Feedback:** Aggiungere animazioni CSS per feedback corretto/sbagliato in `QuizAttemptView` e componenti domande.
-
-### Fase 4: Badge Animati (CSS/SVG)
-
-*   **4.1. Definizione Strategia Backend:**
-    *   **Decisione:** Come rappresentare l'animazione nel modello `Badge`? (Opzioni: classe CSS, SVG diretto, file SVG, misto).
-    *   **Implementazione:** Modificare `apps/rewards/models.py` (modello `Badge`), creare/applicare migrazioni Django, aggiornare `BadgeSerializer` e Admin. *(Richiede intervento backend)*.
-*   **4.2. Creazione Componente Badge Frontend:** Creare `AnimatedBadge.vue` per renderizzare badge e animazione in base alla strategia scelta.
-*   **4.3. Aggiornamento Viste Badge:** Usare `AnimatedBadge.vue` in `BadgesView.vue` e nelle notifiche (`stores/notification.ts`, `NotificationContainer.vue`).
-
-### Fase 5: Integrazione Ultimo Badge ("Rank") in Dashboard
-
-*   **5.1. Recupero Dati Badge e Filtraggio Frontend:**
-    *   Utilizzare l'API backend esistente che restituisce *tutti* i badge guadagnati (assicurandosi che includa la data di acquisizione).
-    *   Implementare logica nel **frontend** (es. in `stores/dashboard.ts` o direttamente in `DashboardView.vue`) per:
-        1.  Recuperare la lista completa dei badge guadagnati.
-        2.  Ordinare i badge in base alla data di acquisizione (dal più recente al meno recente).
-        3.  Selezionare il primo badge della lista ordinata (l'ultimo guadagnato).
-*   **5.2. Visualizzazione in Dashboard:**
-    *   Modificare `DashboardView.vue` per:
-        *   Recuperare il singolo badge filtrato al punto 5.1.
-        *   Visualizzare questo badge in una posizione prominente (es. vicino al nome utente o ai punti) utilizzando il componente `AnimatedBadge.vue`.
-        *   Aggiungere un'etichetta appropriata (es. "Rank Attuale", "Ultimo Traguardo").
-
-## Considerazioni Aggiuntive
-
-*   **Librerie Animazioni:** Valutare l'uso di librerie CSS (es. Animate.css) o SVG (es. GSAP) per facilitare la creazione delle animazioni.
-*   **Performance:** Monitorare l'impatto delle animazioni, specialmente SVG complesse o un gran numero di elementi animati.
-*   **Accessibilità:** Garantire contrasto colori adeguato e considerare opzioni per ridurre le animazioni.
-*   **Testing:** Aggiornare/creare test unitari e E2E per coprire le nuove funzionalità (modali, rendering badge animati, filtraggio e visualizzazione ultimo badge).
+*   `src/views/RewardFormView.vue`: Form creazione/modifica ricompense (prossimo passo).
+*   `src/views/QuizFormView.vue`: Form creazione/modifica istanze quiz.
+*   `src/views/PathwayFormView.vue`: Form creazione/modifica istanze percorsi.
+*   `src/views/QuestionTemplateFormView.vue`: Form creazione/modifica domande template.
+*   `src/views/QuestionFormView.vue`: Form creazione/modifica domande istanza.
+*   `src/views/ProfileView.vue`: Vista profilo docente.
+*   `src/views/LoginView.vue`: Vista login (opzionale, meno prioritaria).
+*   `src/components/common/BaseButton.vue`: Necessita aggiornamento varianti colori (come fatto per `frontend-student`).
+*   `src/components/common/BaseModal.vue`: Verificare se gli stili interni necessitano adeguamento.
+*   `src/components/common/BaseTabs.vue`: Verificare se gli stili interni necessitano adeguamento.
+*   `src/components/common/GlobalLoadingIndicator.vue`: Verificare se gli stili necessitano adeguamento.
+*   Altri componenti specifici usati nelle viste rimanenti (es. `TemplateQuestionEditor.vue`) potrebbero richiedere piccoli aggiustamenti di stile.

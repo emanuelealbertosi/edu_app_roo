@@ -41,14 +41,7 @@ const collapseSidebar = () => { isSidebarExpanded.value = false; };
 // const toggleProfileMenu = () => { isProfileMenuOpen.value = !isProfileMenuOpen.value; }; // Rimosso
 // const closeProfileMenu = () => { isProfileMenuOpen.value = false; }; // Rimosso
 
-// Definisci i nomi delle rotte che NON devono mostrare il layout principale (header/navbar)
-const publicRouteNames = ['login', 'TeacherRegistration']; // Adattare se i nomi sono diversi
-
-// Calcola se mostrare il layout principale
-const showLayout = computed(() => {
-  const currentRouteName = route.name;
-  return currentRouteName !== null && currentRouteName !== undefined && !publicRouteNames.includes(currentRouteName.toString());
-});
+// Rimosso showLayout e publicRouteNames, la visibilità dipende solo da isAuthenticated
 
 const handleLogout = () => {
   authStore.logout();
@@ -69,11 +62,12 @@ const goToProfile = () => {
   <GlobalLoadingIndicator />
   <!-- <NotificationContainer /> --> <!-- Se esiste -->
 
-  <div class="flex h-screen bg-gray-100 font-sans">
+  <div class="flex h-screen bg-neutral-lightest font-sans text-neutral-darkest"> <!-- Sfondo e testo base aggiornati -->
     <!-- Sidebar -->
+    <!-- Colori sidebar aggiornati -->
     <aside
-      v-if="showLayout"
-      class="bg-purple-800 text-white flex flex-col transition-all duration-300 ease-in-out"
+      v-if="authStore.isAuthenticated"
+      class="bg-secondary text-neutral-lightest flex flex-col transition-all duration-300 ease-in-out"
       :class="isSidebarExpanded ? 'w-64' : 'w-20'"
       @mouseenter="expandSidebar"
       @mouseleave="collapseSidebar"
@@ -89,77 +83,77 @@ const goToProfile = () => {
         <ul>
           <!-- Dashboard -->
           <li class="mb-2">
-            <router-link :to="{ name: 'dashboard' }" class="flex items-center p-2 rounded hover:bg-purple-700" :title="isSidebarExpanded ? '' : 'Dashboard'">
+            <router-link :to="{ name: 'dashboard' }" class="flex items-center p-2 rounded hover:bg-secondary-light" :title="isSidebarExpanded ? '' : 'Dashboard'"> <!-- Hover aggiornato -->
               <HomeIcon class="h-5 w-5 flex-shrink-0" />
               <span v-if="isSidebarExpanded" class="ml-3 text-sm">Dashboard</span>
             </router-link>
           </li>
           <!-- Studenti -->
           <li class="mb-2">
-            <router-link :to="{ name: 'students' }" class="flex items-center p-2 rounded hover:bg-purple-700" :title="isSidebarExpanded ? '' : 'Studenti'">
+            <router-link :to="{ name: 'students' }" class="flex items-center p-2 rounded hover:bg-secondary-light" :title="isSidebarExpanded ? '' : 'Studenti'"> <!-- Hover aggiornato -->
               <UsersIcon class="h-5 w-5 flex-shrink-0" />
               <span v-if="isSidebarExpanded" class="ml-3 text-sm">Studenti</span>
             </router-link>
           </li>
            <!-- Quiz Templates -->
           <li class="mb-2">
-            <router-link :to="{ name: 'quiz-templates' }" class="flex items-center p-2 rounded hover:bg-purple-700" :title="isSidebarExpanded ? '' : 'Quiz Templates'">
+            <router-link :to="{ name: 'quiz-templates' }" class="flex items-center p-2 rounded hover:bg-secondary-light" :title="isSidebarExpanded ? '' : 'Quiz Templates'"> <!-- Hover aggiornato -->
               <ClipboardDocumentListIcon class="h-5 w-5 flex-shrink-0" />
               <span v-if="isSidebarExpanded" class="ml-3 text-sm">Quiz Templates</span>
             </router-link>
           </li>
           <!-- Template Percorsi -->
           <li class="mb-2">
-            <router-link :to="{ name: 'pathway-templates' }" class="flex items-center p-2 rounded hover:bg-purple-700" :title="isSidebarExpanded ? '' : 'Template Percorsi'">
+            <router-link :to="{ name: 'pathway-templates' }" class="flex items-center p-2 rounded hover:bg-secondary-light" :title="isSidebarExpanded ? '' : 'Template Percorsi'"> <!-- Hover aggiornato -->
               <MapIcon class="h-5 w-5 flex-shrink-0" />
               <span v-if="isSidebarExpanded" class="ml-3 text-sm">Template Percorsi</span>
             </router-link>
           </li>
           <!-- Quiz Assegnati -->
           <li class="mb-2">
-            <router-link :to="{ name: 'assigned-quizzes' }" class="flex items-center p-2 rounded hover:bg-purple-700" :title="isSidebarExpanded ? '' : 'Quiz Assegnati'">
+            <router-link :to="{ name: 'assigned-quizzes' }" class="flex items-center p-2 rounded hover:bg-secondary-light" :title="isSidebarExpanded ? '' : 'Quiz Assegnati'"> <!-- Hover aggiornato -->
               <ClipboardDocumentCheckIcon class="h-5 w-5 flex-shrink-0" />
               <span v-if="isSidebarExpanded" class="ml-3 text-sm">Quiz Assegnati</span>
             </router-link>
           </li>
           <!-- Percorsi Assegnati -->
           <li class="mb-2">
-            <router-link :to="{ name: 'assigned-pathways' }" class="flex items-center p-2 rounded hover:bg-purple-700" :title="isSidebarExpanded ? '' : 'Percorsi Assegnati'">
+            <router-link :to="{ name: 'assigned-pathways' }" class="flex items-center p-2 rounded hover:bg-secondary-light" :title="isSidebarExpanded ? '' : 'Percorsi Assegnati'"> <!-- Hover aggiornato -->
               <MapPinIcon class="h-5 w-5 flex-shrink-0" />
               <span v-if="isSidebarExpanded" class="ml-3 text-sm">Percorsi Assegnati</span>
             </router-link>
           </li>
           <!-- Ricompense -->
           <li class="mb-2">
-            <router-link :to="{ name: 'rewards' }" class="flex items-center p-2 rounded hover:bg-purple-700" :title="isSidebarExpanded ? '' : 'Ricompense'">
+            <router-link :to="{ name: 'rewards' }" class="flex items-center p-2 rounded hover:bg-secondary-light" :title="isSidebarExpanded ? '' : 'Ricompense'"> <!-- Hover aggiornato -->
               <GiftIcon class="h-5 w-5 flex-shrink-0" />
               <span v-if="isSidebarExpanded" class="ml-3 text-sm">Ricompense</span>
             </router-link>
           </li>
           <!-- Assegna -->
           <li class="mb-2">
-            <router-link :to="{ name: 'assign' }" class="flex items-center p-2 rounded hover:bg-purple-700" :title="isSidebarExpanded ? '' : 'Assegna'">
+            <router-link :to="{ name: 'assign' }" class="flex items-center p-2 rounded hover:bg-secondary-light" :title="isSidebarExpanded ? '' : 'Assegna'"> <!-- Hover aggiornato -->
               <PaperAirplaneIcon class="h-5 w-5 flex-shrink-0" />
               <span v-if="isSidebarExpanded" class="ml-3 text-sm">Assegna</span>
             </router-link>
           </li>
           <!-- Valutazioni -->
           <li class="mb-2">
-            <router-link :to="{ name: 'grading' }" class="flex items-center p-2 rounded hover:bg-purple-700" :title="isSidebarExpanded ? '' : 'Valutazioni'">
+            <router-link :to="{ name: 'grading' }" class="flex items-center p-2 rounded hover:bg-secondary-light" :title="isSidebarExpanded ? '' : 'Valutazioni'"> <!-- Hover aggiornato -->
               <PencilSquareIcon class="h-5 w-5 flex-shrink-0" />
               <span v-if="isSidebarExpanded" class="ml-3 text-sm">Valutazioni</span>
             </router-link>
           </li>
           <!-- Consegne -->
           <li class="mb-2">
-            <router-link :to="{ name: 'delivery' }" class="flex items-center p-2 rounded hover:bg-purple-700" :title="isSidebarExpanded ? '' : 'Consegne'">
+            <router-link :to="{ name: 'delivery' }" class="flex items-center p-2 rounded hover:bg-secondary-light" :title="isSidebarExpanded ? '' : 'Consegne'"> <!-- Hover aggiornato -->
               <InboxArrowDownIcon class="h-5 w-5 flex-shrink-0" />
               <span v-if="isSidebarExpanded" class="ml-3 text-sm">Consegne</span>
             </router-link>
           </li>
           <!-- Progressi -->
           <li class="mb-2">
-            <router-link :to="{ name: 'student-progress' }" class="flex items-center p-2 rounded hover:bg-purple-700" :title="isSidebarExpanded ? '' : 'Progressi'">
+            <router-link :to="{ name: 'student-progress' }" class="flex items-center p-2 rounded hover:bg-secondary-light" :title="isSidebarExpanded ? '' : 'Progressi'"> <!-- Hover aggiornato -->
               <ChartBarIcon class="h-5 w-5 flex-shrink-0" />
               <span v-if="isSidebarExpanded" class="ml-3 text-sm">Progressi</span>
             </router-link>
@@ -167,7 +161,7 @@ const goToProfile = () => {
           <!-- Profilo (spostato nell'header) -->
           <!-- Lezioni (Link Esterno) -->
           <li class="mb-2">
-            <a :href="lessonsAppUrl" class="flex items-center p-2 rounded hover:bg-purple-700" :title="isSidebarExpanded ? '' : 'Lezioni'">
+            <a :href="lessonsAppUrl" class="flex items-center p-2 rounded hover:bg-secondary-light" :title="isSidebarExpanded ? '' : 'Lezioni'"> <!-- Hover aggiornato -->
               <BookOpenIcon class="h-5 w-5 flex-shrink-0" />
               <span v-if="isSidebarExpanded" class="ml-3 text-sm">Lezioni</span>
             </a>
@@ -176,8 +170,8 @@ const goToProfile = () => {
       </nav>
 
       <!-- Logout -->
-       <div class="p-4 mt-auto border-t border-purple-700 flex-shrink-0">
-         <button @click="handleLogout" class="w-full flex items-center p-2 rounded hover:bg-red-700" :title="isSidebarExpanded ? '' : 'Logout'">
+       <div class="p-4 mt-auto border-t border-secondary-light flex-shrink-0"> <!-- Bordo aggiornato -->
+         <button @click="handleLogout" class="w-full flex items-center p-2 rounded hover:bg-error" :title="isSidebarExpanded ? '' : 'Logout'"> <!-- Hover aggiornato -->
            <ArrowLeftOnRectangleIcon class="h-6 w-6 flex-shrink-0" />
            <span v-if="isSidebarExpanded" class="ml-3">Logout</span>
          </button>
@@ -187,7 +181,8 @@ const goToProfile = () => {
     <!-- Contenuto Principale -->
     <div class="flex flex-col flex-grow">
         <!-- Header -->
-        <header v-if="showLayout" class="bg-white shadow p-4 h-16 flex items-center justify-between flex-shrink-0">
+        <!-- Usa solo lo stato di autenticazione -->
+        <header v-if="authStore.isAuthenticated" class="bg-white shadow p-4 h-16 flex items-center justify-between flex-shrink-0">
             <!-- Placeholder per spazio a sinistra o titolo pagina -->
              <div class="flex-1"></div>
 
@@ -196,13 +191,13 @@ const goToProfile = () => {
                   <!-- Pulsante Create RIMOSSO -->
 
                  <!-- Pulsante Notifiche -->
-                 <button class="p-2 rounded-full text-gray-500 hover:text-gray-700 hover:bg-gray-100 focus:outline-none focus:bg-gray-100 focus:ring-2 focus:ring-offset-2 focus:ring-purple-500">
+                 <button class="p-2 rounded-full text-neutral-dark hover:text-neutral-darker hover:bg-neutral-light focus:outline-none focus:bg-neutral-light focus:ring-2 focus:ring-offset-2 focus:ring-primary"> <!-- Stili aggiornati -->
                      <span class="sr-only">View notifications</span>
                      <BellIcon class="h-6 w-6" />
                  </button>
 
                  <!-- Pulsante Profilo (Link diretto) -->
-                 <button @click="goToProfile" class="p-1 rounded-full text-gray-500 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500">
+                 <button @click="goToProfile" class="p-1 rounded-full text-neutral-dark hover:text-neutral-darker focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"> <!-- Stili aggiornati -->
                      <span class="sr-only">Vai al profilo</span>
                      <UserCircleIcon class="h-7 w-7" />
                  </button>
@@ -211,8 +206,8 @@ const goToProfile = () => {
 
         <!-- Area Contenuto -->
         <!-- Applica padding top solo se il layout è mostrato -->
-        <main class="flex-grow p-8 overflow-auto" :class="showLayout ? 'pt-16' : ''">
-          <RouterView :key="$route.fullPath" />
+        <main class="flex-grow p-8 overflow-auto"> <!-- Rimosso class condizionale -->
+          <RouterView /> <!-- Rimosso :key -->
         </main>
     </div>
 
@@ -222,6 +217,10 @@ const goToProfile = () => {
 <style scoped>
 /* Stili aggiuntivi se necessari */
 .router-link-exact-active {
-  @apply bg-purple-700; /* Stile per link attivo nella sidebar */
+  @apply bg-secondary-light; /* Stile per link attivo nella sidebar aggiornato */
 }
+/* Stile specifico per il bottone logout hover (già gestito inline) */
+/* div > button.hover\:bg-red-700:hover { 
+   @apply bg-error; 
+} */
 </style>

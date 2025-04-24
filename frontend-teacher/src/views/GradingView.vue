@@ -1,44 +1,50 @@
 <template>
-  <div class="grading-view p-4 md:p-6"> <!-- Added padding -->
-    <h1 class="text-2xl font-semibold mb-4">Valutazioni Manuali Pendenti</h1> <!-- Styled heading -->
-    <p class="text-gray-600 mb-6">Elenco delle risposte aperte in attesa di valutazione.</p> <!-- Styled paragraph -->
+  <div class="grading-view p-4 md:p-6"> <!-- Padding ok -->
+    <div class="bg-primary text-white p-4 rounded-md mb-6"> <!-- Contenitore per titolo e sottotitolo -->
+      <h1 class="text-2xl font-semibold mb-1">Valutazioni Manuali Pendenti</h1> <!-- Rimosso stile individuale, aggiunto mb-1 -->
+      <p class="opacity-90">Elenco delle risposte aperte in attesa di valutazione.</p> <!-- Rimosso stile individuale, aggiunta opacità -->
+    </div>
 
-    <div v-if="isLoading" class="text-center py-10 text-gray-500">Caricamento risposte...</div> <!-- Styled loading -->
-    <div v-else-if="error" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6" role="alert"> <!-- Styled error -->
+    <div v-if="isLoading" class="text-center py-10 text-neutral-dark">Caricamento risposte...</div> <!-- Stile loading aggiornato -->
+    <div v-else-if="error" class="bg-error/10 border border-error text-error px-4 py-3 rounded relative mb-6" role="alert"> <!-- Stile errore aggiornato -->
       <strong class="font-bold">Errore!</strong>
       <span class="block sm:inline"> Errore nel caricamento delle risposte: {{ error }}</span>
     </div>
     <!-- Styled List Container -->
     <div v-else-if="pendingAnswers.length > 0" class="answers-list space-y-4"> <!-- Use space-y for gap -->
       <!-- Styled List Item Card -->
-      <div v-for="answer in pendingAnswers" :key="answer.id" class="bg-white p-4 rounded-lg shadow-md border border-gray-200 flex flex-col md:flex-row md:items-start md:space-x-4">
+      <div v-for="answer in pendingAnswers" :key="answer.id" class="bg-white p-4 rounded-lg shadow-md border border-neutral-DEFAULT flex flex-col md:flex-row md:items-start md:space-x-4"> <!-- Stili card aggiornati -->
         <div class="answer-details flex-grow mb-4 md:mb-0">
-          <p class="text-sm text-gray-500 mb-1">Domanda:</p>
-          <p class="font-medium text-gray-800 mb-2">{{ answer.question_text }}</p>
-          <p class="text-sm text-gray-500 mb-1">Risposta Studente:</p>
-          <pre class="bg-gray-50 p-3 rounded border border-gray-200 text-sm text-gray-700 whitespace-pre-wrap break-words mb-2">{{ answer.selected_answers?.answer_text || '(Nessuna risposta fornita)' }}</pre>
-          <p class="text-xs text-gray-400">Tentativo ID: {{ answer.quiz_attempt }} | Risposta ID: {{ answer.id }}</p>
+          <p class="text-sm text-neutral-dark mb-1">Domanda:</p> <!-- Stile testo aggiornato -->
+          <p class="font-medium text-neutral-darkest mb-2">{{ answer.question_text }}</p> <!-- Stile testo aggiornato -->
+          <p class="text-sm text-neutral-dark mb-1">Risposta Studente:</p> <!-- Stile testo aggiornato -->
+          <pre class="bg-neutral-lightest p-3 rounded border border-neutral-DEFAULT text-sm text-neutral-darker whitespace-pre-wrap break-words mb-2">{{ answer.selected_answers?.answer_text || '(Nessuna risposta fornita)' }}</pre> <!-- Stili pre aggiornati -->
+          <p class="text-xs text-neutral-medium">Tentativo ID: {{ answer.quiz_attempt }} | Risposta ID: {{ answer.id }}</p> <!-- Stile testo aggiornato -->
         </div>
         <!-- Styled Actions Area -->
         <div class="grading-actions flex-shrink-0 flex flex-col space-y-2 md:w-40">
           <!-- TODO: Implementare un form più completo per punteggio variabile se necessario -->
-          <!-- <p class="text-xs text-gray-500 mb-2">Valutazione Rapida:</p> -->
-          <button
+          <!-- <p class="text-xs text-neutral-dark mb-2">Valutazione Rapida:</p> -->
+          <BaseButton
+              variant="success"
+              size="sm"
               @click="gradeAnswer(answer.id, true, 1)"
-              class="btn btn-success btn-sm w-full"
+              class="w-full"
           >
               Corretta (1pt)
-          </button>
-          <button
+          </BaseButton>
+          <BaseButton
+              variant="danger"
+              size="sm"
               @click="gradeAnswer(answer.id, false, 0)"
-              class="btn btn-danger btn-sm w-full"
+              class="w-full"
           >
               Errata (0pt)
-          </button>
+          </BaseButton>
         </div>
       </div>
     </div>
-    <div v-else class="text-center py-10 text-gray-500"> <!-- Styled no answers -->
+    <div v-else class="text-center py-10 text-neutral-dark"> <!-- Stile no answers aggiornato -->
       Nessuna risposta in attesa di valutazione.
     </div>
   </div>
@@ -48,6 +54,7 @@
 import { ref, onMounted } from 'vue';
 import apiClient from '@/api/config'; // Usa apiClient per chiamate dirette
 import type { AxiosResponse } from 'axios';
+import BaseButton from '@/components/common/BaseButton.vue'; // Importa BaseButton
 
 // Interfaccia basata su StudentAnswerSerializer
 interface PendingAnswer {

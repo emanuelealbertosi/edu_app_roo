@@ -1,41 +1,43 @@
 <template>
-  <div class="student-progress-view p-4 md:p-6"> <!-- Added padding -->
-    <h1 class="text-2xl font-semibold mb-4">Progressi Studenti</h1> <!-- Styled heading -->
-    <p class="text-gray-600 mb-6">Sommario dei progressi degli studenti associati.</p> <!-- Styled paragraph -->
+  <div class="student-progress-view p-4 md:p-6"> <!-- Padding ok -->
+    <div class="bg-primary text-white p-4 rounded-md mb-6"> <!-- Contenitore per titolo e sottotitolo -->
+      <h1 class="text-2xl font-semibold mb-1">Progressi Studenti</h1> <!-- Rimosso stile individuale, aggiunto mb-1 -->
+      <p class="opacity-90">Sommario dei progressi degli studenti associati.</p> <!-- Rimosso stile individuale, aggiunta opacità -->
+    </div>
 
-    <div v-if="isLoading" class="text-center py-10 text-gray-500">Caricamento progressi...</div> <!-- Styled loading -->
-    <div v-else-if="error" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6" role="alert"> <!-- Styled error -->
+    <div v-if="isLoading" class="text-center py-10 text-neutral-dark">Caricamento progressi...</div> <!-- Stile loading aggiornato -->
+    <div v-else-if="error" class="bg-error/10 border border-error text-error px-4 py-3 rounded relative mb-6" role="alert"> <!-- Stile errore aggiornato -->
       <strong class="font-bold">Errore!</strong>
       <span class="block sm:inline"> Errore nel caricamento dei progressi: {{ error }}</span>
     </div>
     <!-- Responsive Table Container -->
     <div v-else-if="progressSummaries.length > 0" class="overflow-x-auto shadow-md rounded-lg mt-6">
-      <table class="min-w-full divide-y divide-gray-200 bg-white">
-        <thead class="bg-gray-50">
+      <table class="min-w-full divide-y divide-neutral-DEFAULT bg-white"> <!-- Stile tabella aggiornato -->
+        <thead class="bg-neutral-lightest"> <!-- Stile thead aggiornato -->
           <tr>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Studente</th>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Codice Studente</th> <!-- Modificato da Username -->
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quiz Completati</th>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Percorsi Completati</th>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Punti Totali</th>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Azioni</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider">Studente</th> <!-- Stile th aggiornato -->
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider">Codice Studente</th> <!-- Modificato da Username -->
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider">Quiz Completati</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider">Percorsi Completati</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider">Punti Totali</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider">Azioni</th>
           </tr>
         </thead>
-        <tbody class="bg-white divide-y divide-gray-200">
-          <tr v-for="summary in progressSummaries" :key="summary.student_id" class="hover:bg-gray-50 transition-colors duration-150">
-            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ summary.full_name }}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ summary.student_code }}</td> <!-- Modificato da username -->
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ summary.completed_quizzes_count ?? 0 }}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ summary.completed_pathways_count ?? 0 }}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ summary.total_points_earned ?? 0 }}</td>
+        <tbody class="bg-white divide-y divide-neutral-DEFAULT"> <!-- Stile tbody aggiornato -->
+          <tr v-for="summary in progressSummaries" :key="summary.student_id" class="hover:bg-neutral-lightest transition-colors duration-150"> <!-- Stile tr aggiornato -->
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-neutral-darkest">{{ summary.full_name }}</td> <!-- Stile td aggiornato -->
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-neutral-darker">{{ summary.student_code }}</td> <!-- Modificato da username, stile td aggiornato -->
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-neutral-darker">{{ summary.completed_quizzes_count ?? 0 }}</td> <!-- Stile td aggiornato -->
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-neutral-darker">{{ summary.completed_pathways_count ?? 0 }}</td> <!-- Stile td aggiornato -->
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-neutral-darker">{{ summary.total_points_earned ?? 0 }}</td> <!-- Stile td aggiornato -->
             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-              <button @click="viewDetails(summary.student_id)" class="btn btn-link btn-sm">Dettagli</button> <!-- Added btn-sm -->
+              <BaseButton variant="info" size="sm" @click="viewDetails(summary.student_id)">Dettagli</BaseButton> <!-- Usa BaseButton -->
             </td>
           </tr>
         </tbody>
       </table>
     </div>
-    <div v-else class="text-center py-10 text-gray-500"> <!-- Styled no progress -->
+    <div v-else class="text-center py-10 text-neutral-dark"> <!-- Stile no progress aggiornato -->
       Nessun dato sui progressi trovato per i tuoi studenti.
     </div>
   </div>
@@ -46,6 +48,7 @@ import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import apiClient from '@/api/config'; // Usa apiClient per chiamate dirette
 import type { AxiosResponse } from 'axios';
+import BaseButton from '@/components/common/BaseButton.vue'; // Importa BaseButton
 
 // Interfaccia basata su StudentProgressSummarySerializer
 interface StudentProgressSummary {

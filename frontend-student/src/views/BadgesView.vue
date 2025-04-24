@@ -41,20 +41,20 @@ onMounted(() => {
 <template>
   <div class="badges-view container mx-auto px-4 py-8">
     <header class="badges-header mb-8">
-      <h1 class="text-3xl font-bold text-kahoot-purple flex items-center"> <!-- Colore titolo aggiornato -->
+      <h1 class="text-3xl font-bold text-primary-dark flex items-center"> <!-- Colore titolo aggiornato -->
         <span class="text-4xl mr-3">🏆</span> I Miei Traguardi
       </h1>
     </header>
 
-    <div v-if="isLoading" class="loading text-center py-10 text-brand-gray-dark"> <!-- Colore testo aggiornato -->
+    <div v-if="isLoading" class="loading text-center py-10 text-neutral-dark"> <!-- Colore testo aggiornato -->
       <p>Caricamento badge...</p>
-      <svg class="animate-spin h-5 w-5 text-brand-gray mx-auto mt-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"> <!-- Colore spinner aggiornato -->
+      <svg class="animate-spin h-5 w-5 text-primary mx-auto mt-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"> <!-- Colore spinner aggiornato -->
         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
       </svg>
     </div>
 
-    <div v-if="error" class="error-message bg-kahoot-red-light border-l-4 border-kahoot-red text-kahoot-red-dark p-4 mb-6 rounded" role="alert"> <!-- Colori errore aggiornati -->
+    <div v-if="error" class="error-message bg-error/10 border-l-4 border-error text-error p-4 mb-6 rounded" role="alert"> <!-- Colori errore aggiornati -->
       <p class="font-semibold">{{ error }}</p>
     </div>
 
@@ -70,13 +70,13 @@ onMounted(() => {
       >
         <AnimatedBadge :badge="badge" />
          <!-- Mostra data ottenimento se guadagnato -->
-         <p v-if="earnedBadgeIds.has(badge.id)" class="text-xs text-kahoot-green-dark mt-1 text-center">
+         <p v-if="earnedBadgeIds.has(badge.id)" class="text-xs text-success-dark mt-1 text-center"> <!-- Colore testo aggiornato -->
             <!-- TODO: Mostrare data effettiva da earnedBadges -->
             Ottenuto!
          </p>
       </div>
     </div>
-     <div v-if="!isLoading && !error && allBadges.length === 0" class="text-center py-10 text-brand-gray-dark"> <!-- Colore testo aggiornato -->
+     <div v-if="!isLoading && !error && allBadges.length === 0" class="text-center py-10 text-neutral-dark"> <!-- Colore testo aggiornato -->
         <p>Nessun badge definito al momento.</p>
      </div>
   </div>

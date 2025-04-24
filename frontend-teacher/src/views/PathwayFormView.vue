@@ -1,66 +1,113 @@
 <template>
-  <div class="pathway-form-view">
-    <h1>{{ isEditing ? 'Modifica Percorso' : 'Crea Nuovo Percorso' }}</h1>
-    <div v-if="isLoading" class="loading">Caricamento dati percorso...</div>
-    <div v-else-if="error" class="error-message">{{ error }}</div>
+  <div class="p-6 bg-gray-50 min-h-screen">
+    <h1 class="text-2xl font-semibold text-gray-900 mb-6">
+      {{ isEditing ? 'Modifica Percorso' : 'Crea Nuovo Percorso' }}
+    </h1>
 
-    <form v-else @submit.prevent="savePathway">
-      <div class="form-group">
-        <label for="title">Titolo:</label>
-        <input type="text" id="title" v-model="pathwayData.title" required />
+    <!-- Loading State -->
+    <div v-if="isLoading" class="text-center py-10">
+      <p class="text-gray-500">Caricamento dati percorso...</p>
+    </div>
+
+    <!-- Error State (Generale) -->
+    <div v-else-if="error" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6" role="alert">
+      <strong class="font-bold">Errore!</strong>
+      <span class="block sm:inline"> {{ error }}</span>
+    </div>
+
+    <!-- Form -->
+    <form v-else @submit.prevent="savePathway" class="space-y-6 bg-white p-8 rounded-lg shadow-md max-w-4xl mx-auto mb-8">
+      <!-- Title -->
+      <div>
+        <label for="title" class="block text-sm font-medium text-gray-700 mb-1">Titolo</label>
+        <input type="text" id="title" v-model="pathwayData.title" required
+               class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
       </div>
-      <div class="form-group">
-        <label for="description">Descrizione:</label>
-        <textarea id="description" v-model="pathwayData.description"></textarea>
+
+      <!-- Description -->
+      <div>
+        <label for="description" class="block text-sm font-medium text-gray-700 mb-1">Descrizione</label>
+        <textarea id="description" v-model="pathwayData.description" rows="3"
+                  class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"></textarea>
       </div>
-<div class="form-group">
-  <label for="points_on_completion">Punti al Completamento Percorso:</label>
-  <!-- Usa la computed property per v-model -->
-  <input type="number" id="points_on_completion" v-model.number="pointsOnCompletion" min="0" placeholder="Es: 50" />
-  <small>Punti assegnati allo studente al primo completamento del percorso.</small>
-</div>
 
-<!-- TODO: Aggiungere gestione altri metadata se necessario -->
+      <!-- Points on Completion -->
+      <div>
+        <label for="points_on_completion" class="block text-sm font-medium text-gray-700 mb-1">Punti al Completamento Percorso</label>
+        <input type="number" id="points_on_completion" v-model.number="pointsOnCompletion" min="0" placeholder="Es: 50"
+               class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+        <p class="mt-2 text-xs text-gray-500">Punti assegnati allo studente al primo completamento del percorso.</p>
+      </div>
 
-      <div class="form-actions">
-        <button type="submit" :disabled="isSaving">
-          {{ isSaving ? 'Salvataggio...' : (isEditing ? 'Salva Modifiche' : 'Crea Percorso') }}
+      <!-- TODO: Aggiungere gestione altri metadata se necessario -->
+
+      <!-- Form Actions -->
+      <div class="flex justify-end space-x-3 border-t border-gray-200 pt-6">
+        <button type="button" @click="cancel"
+                class="py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+          Annulla
         </button>
-        <button type="button" @click="cancel">Annulla</button>
+        <button type="submit" :disabled="isSaving"
+                :class="['py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500',
+                         isSaving ? 'bg-indigo-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700']">
+          {{ isSaving ? 'Salvataggio...' : (isEditing ? 'Salva Modifiche Percorso' : 'Crea Percorso') }}
+        </button>
       </div>
     </form>
 
-    <!-- Sezione Quiz del Percorso (da aggiungere in seguito se in modalità modifica) -->
-    <div v-if="isEditing && pathwayId" class="quizzes-section">
-        <h2>Quiz nel Percorso</h2>
-        <div v-if="isLoadingQuizzes" class="loading small">Caricamento quiz disponibili...</div>
-        <div v-else-if="quizzesError" class="error-message small">{{ quizzesError }}</div>
+    <!-- Quizzes Section (only in editing mode) -->
+    <div v-if="isEditing && pathwayId && !isLoading" class="bg-white p-8 rounded-lg shadow-md max-w-4xl mx-auto">
+        <h2 class="text-xl font-semibold text-gray-900 mb-4">Quiz nel Percorso</h2>
 
-        <!-- Lista Quiz nel Percorso -->
-        <ul v-if="pathwayData.quiz_details.length > 0">
-            <li v-for="quizDetail in sortedQuizDetails" :key="quizDetail.id">
-               <span>({{ quizDetail.order }}) {{ quizDetail.quiz_title }}</span>
-               <button @click="removeQuiz(quizDetail.id)" type="button" class="delete small">Rimuovi</button>
-               <!-- TODO: Aggiungere UI per modificare ordine -->
-            </li>
-        </ul>
-        <p v-else>Nessun quiz aggiunto a questo percorso.</p>
+        <!-- Loading Available Quizzes State -->
+        <div v-if="isLoadingQuizzes" class="text-center py-4">
+            <p class="text-gray-500 text-sm italic">Caricamento quiz disponibili...</p>
+        </div>
+        <!-- Error Loading Available Quizzes State -->
+        <div v-else-if="quizzesError" class="bg-red-100 border border-red-400 text-red-700 px-4 py-2 rounded relative mb-4 text-sm" role="alert">
+            {{ quizzesError }}
+        </div>
 
-        <!-- Aggiunta Quiz -->
-        <div class="add-quiz-section form-group">
-            <label for="quiz-to-add">Aggiungi Quiz al Percorso:</label>
-            <div class="add-quiz-controls">
-                <select id="quiz-to-add" v-model="selectedQuizToAdd" :disabled="isLoadingQuizzes">
+        <!-- Pathway Quizzes List -->
+        <div class="mb-6 border-b border-gray-200 pb-6">
+            <h3 class="text-lg font-medium text-gray-900 mb-3">Quiz Attualmente Inclusi</h3>
+            <ul v-if="sortedQuizDetails.length > 0" class="space-y-3">
+                <li v-for="quizDetail in sortedQuizDetails" :key="quizDetail.id" class="flex justify-between items-center p-3 bg-gray-50 rounded-md border border-gray-200">
+                   <span class="text-sm text-gray-800">
+                       <span class="font-semibold mr-2">({{ quizDetail.order }})</span> {{ quizDetail.quiz_title }}
+                   </span>
+                   <button @click="removeQuiz(quizDetail.id)" type="button"
+                           class="text-red-600 hover:text-red-800 text-sm font-medium focus:outline-none">
+                       Rimuovi
+                   </button>
+                   <!-- TODO: Aggiungere UI per modificare ordine (es. drag and drop o bottoni su/giù) -->
+                </li>
+            </ul>
+            <p v-else class="text-sm text-gray-500 italic">Nessun quiz aggiunto a questo percorso.</p>
+        </div>
+
+        <!-- Add Quiz Section -->
+        <div class="add-quiz-section">
+            <h3 class="text-lg font-medium text-gray-900 mb-3">Aggiungi Quiz al Percorso</h3>
+            <div class="flex items-center space-x-3">
+                <select id="quiz-to-add" v-model="selectedQuizToAdd" :disabled="isLoadingQuizzes || isAddingQuiz"
+                        class="flex-grow mt-1 block w-full px-3 py-2 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
                     <option value="">Seleziona un quiz...</option>
                     <option v-for="quiz in availableQuizzes" :key="quiz.id" :value="quiz.id">
                         {{ quiz.title }}
                     </option>
                 </select>
-                <button @click="addSelectedQuiz" type="button" :disabled="!selectedQuizToAdd || isAddingQuiz">
-                    {{ isAddingQuiz ? 'Aggiungo...' : 'Aggiungi Quiz' }}
+                <button @click="addSelectedQuiz" type="button" :disabled="!selectedQuizToAdd || isAddingQuiz"
+                        :class="['inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500',
+                                 (!selectedQuizToAdd || isAddingQuiz) ? 'bg-indigo-300 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700']">
+                    <svg v-if="isAddingQuiz" class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    {{ isAddingQuiz ? 'Aggiungo...' : 'Aggiungi' }}
                 </button>
             </div>
-             <div v-if="addQuizError" class="error-message small">{{ addQuizError }}</div>
+             <div v-if="addQuizError" class="text-red-600 text-sm mt-2">{{ addQuizError }}</div>
         </div>
     </div>
 
@@ -271,116 +318,9 @@ const removeQuiz = async (pathwayQuizId: number) => {
 </script>
 
 <style scoped>
-/* Stili simili a QuizFormView */
-.pathway-form-view {
-  padding: 20px;
-  max-width: 800px;
-  margin: auto;
-}
-.form-group {
-  margin-bottom: 15px;
-}
-.form-group label {
-  display: block;
-  margin-bottom: 5px;
-  font-weight: bold;
-}
-.form-group input[type="text"],
-.form-group textarea {
-  width: 100%;
-  padding: 8px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  box-sizing: border-box;
-}
-.form-group textarea {
-  min-height: 100px;
-  resize: vertical;
-}
-.form-actions {
-  margin-top: 20px;
-}
-.form-actions button {
-  padding: 10px 15px;
-  margin-right: 10px;
-  cursor: pointer;
-  border-radius: 4px;
-  border: none;
-}
-.form-actions button[type="submit"] {
-  background-color: #4CAF50;
-  color: white;
-}
-.form-actions button[type="submit"]:disabled {
-  background-color: #aaa;
-  cursor: not-allowed;
-}
-.form-actions button[type="button"] {
-  background-color: #f44336;
-  color: white;
-}
-.error-message {
-  color: red;
-  margin-top: 10px;
-  font-weight: bold;
-}
-.loading {
-  margin-top: 20px;
-  font-style: italic;
-  color: #666;
-}
-.quizzes-section {
-    margin-top: 40px;
-    padding-top: 20px;
-    border-top: 1px solid #eee;
-}
-.quizzes-section ul {
-    list-style: none;
-    padding: 0;
-    margin-top: 15px;
-}
-.quizzes-section li {
-    margin-bottom: 10px;
-    padding: 10px;
-    border: 1px solid #eee;
-    border-radius: 4px;
-    background-color: #f9f9f9;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-.quizzes-section li span {
-    flex-grow: 1;
-    margin-right: 10px;
-}
-.quizzes-section li button.small {
-    padding: 2px 6px;
-    font-size: 0.8em;
-}
-.quizzes-section li button.delete {
-    background-color: #f44336;
-    color: white;
-    border: none;
-}
-.quizzes-section li button.delete:hover {
-     background-color: #d32f2f;
-}
+/* Rimuoviamo la maggior parte degli stili scoped, ora gestiti da Tailwind. */
+/* Eventuali stili specifici che Tailwind non copre facilmente possono rimanere qui. */
 
-.add-quiz-section {
-    margin-top: 20px;
-    padding-top: 15px;
-    border-top: 1px dashed #ccc;
-}
-.add-quiz-controls {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-}
-.add-quiz-controls select {
-    flex-grow: 1;
-}
-.add-quiz-controls button {
-    padding: 8px 12px;
-    white-space: nowrap;
-}
+/* Esempio: stile per il bottone di rimozione quiz se necessario */
+/* .quizzes-section li button { ... } */
 </style>

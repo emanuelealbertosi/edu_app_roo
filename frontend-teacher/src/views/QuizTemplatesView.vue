@@ -1,76 +1,9 @@
-<template>
-  <div class="quiz-templates-view p-4 md:p-6"> <!-- Added padding -->
-    <h1 class="text-2xl font-semibold mb-4">Gestione Template Quiz</h1> <!-- Styled heading -->
-    <p class="text-gray-600 mb-6">Qui puoi visualizzare, creare e modificare i tuoi template di quiz.</p> <!-- Styled paragraph -->
-    <div class="actions mb-6 flex space-x-2"> <!-- Added margin and flex for buttons -->
-      <button @click="createNewQuizTemplate" class="btn btn-primary">Crea Nuovo Template</button>
-      <button @click="toggleUploadForm" class="btn btn-success">Carica Template da File</button>
-    </div>
-
-    <!-- Form di Upload (mostrato/nascosto) -->
-    <div v-if="showUploadForm" class="upload-form mt-4 p-4 border rounded bg-gray-50 shadow-sm mb-6"> <!-- Styled form container -->
-      <h2 class="text-lg font-semibold mb-3">Carica Template da File (.pdf, .docx, .md)</h2>
-      <form @submit.prevent="submitUploadForm">
-        <div class="mb-4"> <!-- Increased margin -->
-          <label for="templateTitle" class="block text-sm font-medium text-gray-700 mb-1">Titolo del Template:</label>
-          <input type="text" id="templateTitle" v-model="uploadTitle" required class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md p-2">
-        </div>
-        <div class="mb-4"> <!-- Increased margin -->
-          <label for="templateFile" class="block text-sm font-medium text-gray-700 mb-1">Seleziona File:</label>
-          <input type="file" id="templateFile" @change="handleFileUpload" accept=".pdf,.docx,.md" required class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"> <!-- Added cursor-pointer -->
-        </div>
-        <div class="flex justify-end space-x-3"> <!-- Increased space -->
-           <button type="button" @click="toggleUploadForm" class="btn btn-secondary">Annulla</button>
-           <button type="submit" :disabled="isUploading" class="btn btn-success">
-             <span v-if="isUploading">
-               <i class="fas fa-spinner fa-spin mr-1"></i> Caricamento... <!-- Added spinner -->
-             </span>
-             <span v-else>Carica Template</span>
-           </button>
-        </div>
-        <p v-if="uploadError" class="text-red-600 text-sm mt-3">{{ uploadError }}</p> <!-- Adjusted color and margin -->
-      </form>
-    </div>
-    <div v-if="isLoading" class="text-center py-10 text-gray-500">Caricamento template quiz...</div> <!-- Styled loading -->
-    <div v-else-if="error" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6" role="alert"> <!-- Styled error -->
-       <strong class="font-bold">Errore!</strong>
-       <span class="block sm:inline"> Errore nel caricamento dei template quiz: {{ error }}</span>
-    </div>
-    <!-- Responsive Table Container -->
-    <div v-else-if="templates.length > 0" class="overflow-x-auto shadow-md rounded-lg mt-6">
-      <table class="min-w-full divide-y divide-gray-200 bg-white">
-        <thead class="bg-gray-50">
-          <tr>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Titolo</th>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Descrizione</th>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Creato il</th>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Azioni</th>
-          </tr>
-        </thead>
-        <tbody class="bg-white divide-y divide-gray-200">
-          <tr v-for="template in templates" :key="template.id" class="hover:bg-gray-50 transition-colors duration-150"> <!-- Usa variabile 'template' -->
-            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ template.title }}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ template.description || '-' }}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ new Date(template.created_at).toLocaleDateString() }}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2"> <!-- Added space-x-2 -->
-              <button @click="editQuizTemplate(template.id)" class="btn btn-warning btn-sm">Modifica</button> <!-- Added btn-sm -->
-              <button @click="deleteQuizTemplate(template.id)" class="btn btn-danger btn-sm">Elimina</button> <!-- Added btn-sm -->
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-    <div v-else class="text-center py-10 text-gray-500"> <!-- Styled no templates -->
-      Nessun template di quiz trovato.
-    </div>
-  </div>
-</template>
-
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 // Importa API per i template del docente, il tipo QuizTemplate e la nuova funzione di upload
 import { fetchTeacherQuizTemplates, deleteTeacherQuizTemplate, uploadQuizTemplateFromFile, type QuizTemplate } from '@/api/quizzes'; // Aggiunto uploadQuizTemplateFromFile
+import BaseButton from '@/components/common/BaseButton.vue'; // Importa BaseButton
 
 const templates = ref<QuizTemplate[]>([]); // Rinominato e usa tipo QuizTemplate
 const isLoading = ref(false);
@@ -168,16 +101,91 @@ const submitUploadForm = async () => {
 };
 </script>
 
+<template>
+  <div class="quiz-templates-view p-4 md:p-6"> <!-- Padding ok -->
+    <div class="bg-primary text-white p-4 rounded-md mb-6"> <!-- Contenitore per titolo e sottotitolo -->
+      <h1 class="text-2xl font-semibold mb-1">Gestione Template Quiz</h1> <!-- Rimosso stile individuale, aggiunto mb-1 -->
+      <p class="opacity-90">Qui puoi visualizzare, creare e modificare i tuoi template di quiz.</p> <!-- Rimosso stile individuale, aggiunta opacità -->
+    </div>
+    <div class="actions mb-6 flex space-x-2"> <!-- Margin e flex ok -->
+      <BaseButton variant="primary" @click="createNewQuizTemplate">Crea Nuovo Template</BaseButton> <!-- Usa BaseButton -->
+      <BaseButton variant="success" @click="toggleUploadForm">Carica Template da File</BaseButton> <!-- Usa BaseButton -->
+    </div>
+
+    <!-- Form di Upload (mostrato/nascosto) -->
+    <div v-if="showUploadForm" class="upload-form mt-4 p-4 border border-neutral-DEFAULT rounded-lg bg-neutral-lightest shadow-sm mb-6"> <!-- Stili form aggiornati -->
+      <h2 class="text-lg font-semibold mb-3 text-neutral-darkest">Carica Template da File (.pdf, .docx, .md)</h2> <!-- Stile titolo aggiornato -->
+      <form @submit.prevent="submitUploadForm">
+        <div class="mb-4"> <!-- Margin ok -->
+          <label for="templateTitle" class="block text-sm font-medium text-neutral-darker mb-1">Titolo del Template:</label> <!-- Stile label aggiornato -->
+          <input type="text" id="templateTitle" v-model="uploadTitle" required class="shadow-sm focus:ring-primary focus:border-primary block w-full sm:text-sm border-neutral-DEFAULT rounded-md p-2"> <!-- Stili input aggiornati -->
+        </div>
+        <div class="mb-4"> <!-- Margin ok -->
+          <label for="templateFile" class="block text-sm font-medium text-neutral-darker mb-1">Seleziona File:</label> <!-- Stile label aggiornato -->
+          <input type="file" id="templateFile" @change="handleFileUpload" accept=".pdf,.docx,.md" required class="block w-full text-sm text-neutral-darker file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 cursor-pointer"> <!-- Stili input file aggiornati -->
+        </div>
+        <div class="flex justify-end space-x-3"> <!-- Spazio ok -->
+           <BaseButton type="button" variant="secondary" @click="toggleUploadForm">Annulla</BaseButton> <!-- Usa BaseButton -->
+           <BaseButton type="submit" variant="success" :disabled="isUploading"> <!-- Usa BaseButton -->
+             <span v-if="isUploading">
+               <!-- Sostituito spinner FontAwesome con uno SVG o si potrebbe usare un componente Spinner -->
+               <svg class="animate-spin -ml-1 mr-2 h-4 w-4 inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+               </svg>
+               Caricamento...
+             </span>
+             <span v-else>Carica Template</span>
+           </BaseButton>
+        </div>
+        <p v-if="uploadError" class="text-error text-sm mt-3">{{ uploadError }}</p> <!-- Stile errore aggiornato -->
+      </form>
+    </div>
+    <div v-if="isLoading" class="text-center py-10 text-neutral-dark">Caricamento template quiz...</div> <!-- Stile loading aggiornato -->
+    <div v-else-if="error" class="bg-error/10 border border-error text-error px-4 py-3 rounded relative mb-6" role="alert"> <!-- Stile errore aggiornato -->
+       <strong class="font-bold">Errore!</strong>
+       <span class="block sm:inline"> Errore nel caricamento dei template quiz: {{ error }}</span>
+    </div>
+    <!-- Responsive Table Container -->
+    <div v-else-if="templates.length > 0" class="overflow-x-auto shadow-md rounded-lg mt-6">
+      <table class="min-w-full divide-y divide-neutral-DEFAULT bg-white"> <!-- Stile tabella aggiornato -->
+        <thead class="bg-neutral-lightest"> <!-- Stile thead aggiornato -->
+          <tr>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider">Titolo</th> <!-- Stile th aggiornato -->
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider">Descrizione</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider">Creato il</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider">Azioni</th>
+          </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-neutral-DEFAULT"> <!-- Stile tbody aggiornato -->
+          <tr v-for="template in templates" :key="template.id" class="hover:bg-neutral-lightest transition-colors duration-150"> <!-- Usa variabile 'template', stile tr aggiornato -->
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-neutral-darkest">{{ template.title }}</td> <!-- Stile td aggiornato -->
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-neutral-darker">{{ template.description || '-' }}</td> <!-- Stile td aggiornato -->
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-neutral-darker">{{ new Date(template.created_at).toLocaleDateString() }}</td> <!-- Stile td aggiornato -->
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2"> <!-- Spazio ok -->
+              <BaseButton variant="warning" size="sm" @click="editQuizTemplate(template.id)">Modifica</BaseButton> <!-- Usa BaseButton -->
+              <BaseButton variant="danger" size="sm" @click="deleteQuizTemplate(template.id)">Elimina</BaseButton> <!-- Usa BaseButton -->
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div v-else class="text-center py-10 text-neutral-dark"> <!-- Stile no templates aggiornato -->
+      Nessun template di quiz trovato.
+    </div>
+  </div>
+</template>
+
 <style scoped>
 /* Stili specifici rimossi in favore di Tailwind */
 /* Puoi aggiungere qui stili molto specifici se necessario */
 
-/* Stile per spinner (se usi Font Awesome) */
-@keyframes spin {
+/* Stile per spinner (se usi Font Awesome) - Rimosso perché usato SVG */
+/* @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
 }
 .fa-spinner {
   animation: spin 1s linear infinite;
-}
+} */
 </style>

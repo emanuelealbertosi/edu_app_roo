@@ -1,41 +1,43 @@
 <template>
-  <div class="pathway-templates-view p-4 md:p-6"> <!-- Added padding -->
-    <h1 class="text-2xl font-semibold mb-4">Gestione Template Percorsi</h1> <!-- Styled heading -->
-    <p class="text-gray-600 mb-6">Qui puoi visualizzare, creare e modificare i tuoi template di percorsi educativi.</p> <!-- Styled paragraph -->
-    <div class="actions mb-6"> <!-- Added margin -->
-      <button @click="createNewPathwayTemplate" class="btn btn-primary">Crea Nuovo Template</button>
+  <div class="pathway-templates-view p-4 md:p-6"> <!-- Padding ok -->
+    <div class="bg-primary text-white p-4 rounded-md mb-6"> <!-- Contenitore per titolo e sottotitolo -->
+      <h1 class="text-2xl font-semibold mb-1">Gestione Template Percorsi</h1> <!-- Rimosso stile individuale, aggiunto mb-1 -->
+      <p class="opacity-90">Qui puoi visualizzare, creare e modificare i tuoi template di percorsi educativi.</p> <!-- Rimosso stile individuale, aggiunta opacità -->
+    </div>
+    <div class="actions mb-6"> <!-- Margin ok -->
+      <BaseButton variant="primary" @click="createNewPathwayTemplate">Crea Nuovo Template</BaseButton> <!-- Usa BaseButton -->
     </div>
 
-    <div v-if="isLoading" class="text-center py-10 text-gray-500">Caricamento template...</div> <!-- Styled loading -->
-    <div v-else-if="error" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6" role="alert"> <!-- Styled error -->
+    <div v-if="isLoading" class="text-center py-10 text-neutral-dark">Caricamento template...</div> <!-- Stile loading aggiornato -->
+    <div v-else-if="error" class="bg-error/10 border border-error text-error px-4 py-3 rounded relative mb-6" role="alert"> <!-- Stile errore aggiornato -->
       <strong class="font-bold">Errore!</strong>
       <span class="block sm:inline"> Errore nel caricamento dei template: {{ error }}</span>
     </div>
     <!-- Responsive Table Container -->
     <div v-else-if="pathwayTemplates.length > 0" class="overflow-x-auto shadow-md rounded-lg mt-6">
-      <table class="min-w-full divide-y divide-gray-200 bg-white">
-        <thead class="bg-gray-50">
+      <table class="min-w-full divide-y divide-neutral-DEFAULT bg-white"> <!-- Stile tabella aggiornato -->
+        <thead class="bg-neutral-lightest"> <!-- Stile thead aggiornato -->
           <tr>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Titolo</th>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Descrizione</th>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Creato il</th>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Azioni</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider">Titolo</th> <!-- Stile th aggiornato -->
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider">Descrizione</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider">Creato il</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider">Azioni</th>
           </tr>
         </thead>
-        <tbody class="bg-white divide-y divide-gray-200">
-          <tr v-for="template in pathwayTemplates" :key="template.id" class="hover:bg-gray-50 transition-colors duration-150">
-            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ template.title }}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ template.description || '-' }}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ new Date(template.created_at).toLocaleDateString() }}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2"> <!-- Added space-x-2 -->
-              <button @click="editPathwayTemplate(template.id)" class="btn btn-warning btn-sm">Modifica</button> <!-- Added btn-sm -->
-              <button @click="deletePathwayTemplate(template.id)" class="btn btn-danger btn-sm">Elimina</button> <!-- Added btn-sm -->
+        <tbody class="bg-white divide-y divide-neutral-DEFAULT"> <!-- Stile tbody aggiornato -->
+          <tr v-for="template in pathwayTemplates" :key="template.id" class="hover:bg-neutral-lightest transition-colors duration-150"> <!-- Stile tr aggiornato -->
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-neutral-darkest">{{ template.title }}</td> <!-- Stile td aggiornato -->
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-neutral-darker">{{ template.description || '-' }}</td> <!-- Stile td aggiornato -->
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-neutral-darker">{{ new Date(template.created_at).toLocaleDateString() }}</td> <!-- Stile td aggiornato -->
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2"> <!-- Spazio ok -->
+              <BaseButton variant="warning" size="sm" @click="editPathwayTemplate(template.id)">Modifica</BaseButton> <!-- Usa BaseButton -->
+              <BaseButton variant="danger" size="sm" @click="deletePathwayTemplate(template.id)">Elimina</BaseButton> <!-- Usa BaseButton -->
             </td>
           </tr>
         </tbody>
       </table>
     </div>
-    <div v-else class="text-center py-10 text-gray-500"> <!-- Styled no templates -->
+    <div v-else class="text-center py-10 text-neutral-dark"> <!-- Stile no templates aggiornato -->
       Nessun template di percorso trovato.
     </div>
   </div>
@@ -46,6 +48,7 @@ import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 // Importa le nuove API e il tipo PathwayTemplate
 import { fetchPathwayTemplates, deletePathwayTemplateApi, type PathwayTemplate } from '@/api/pathways';
+import BaseButton from '@/components/common/BaseButton.vue'; // Importa BaseButton
 
 const router = useRouter();
 const pathwayTemplates = ref<PathwayTemplate[]>([]); // Usa il tipo PathwayTemplate

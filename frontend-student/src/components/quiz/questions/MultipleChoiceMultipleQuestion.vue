@@ -72,7 +72,6 @@ const getOptionBgColor = (index: number): string => {
             selectedOptions[option.id] ? 'ring-4 ring-offset-2 ring-black shadow-inner' : 'hover:opacity-90 hover:shadow-md' // Stile selezionato/hover
           ]"
         >
-          {/* Icona di spunta per indicare la selezione */}
           <span v-if="selectedOptions[option.id]" class="absolute top-2 right-2 text-white bg-black bg-opacity-50 rounded-full p-1">
              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />

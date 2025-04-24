@@ -11,13 +11,13 @@
         class="w-full h-full object-contain drop-shadow-md"
       />
       <!-- Placeholder se non c'è immagine -->
-      <div v-else class="w-full h-full rounded-full bg-brand-gray-light flex items-center justify-center text-brand-gray text-3xl shadow-inner">
+      <div v-else class="w-full h-full rounded-full bg-neutral-light flex items-center justify-center text-neutral-dark text-3xl shadow-inner">
         🏆
       </div>
        <!-- Potremmo aggiungere elementi decorativi/animati qui con CSS -->
        <!-- <div class="sparkle absolute ..."></div> -->
     </div>
-    <p class="badge-name text-xs font-semibold text-brand-gray-dark truncate w-full">
+    <p class="badge-name text-xs font-semibold text-neutral-darker truncate w-full">
       {{ badge.name }}
     </p>
   </div>

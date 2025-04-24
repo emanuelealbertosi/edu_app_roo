@@ -1,64 +1,105 @@
 <template>
-  <div class="reward-form-view">
-    <h1>{{ isEditing ? 'Modifica Ricompensa' : 'Crea Nuova Ricompensa' }}</h1>
-    <div v-if="isLoading" class="loading">Caricamento dati ricompensa...</div>
-    <div v-else-if="error" class="error-message">{{ error }}</div>
+  <div class="p-6 bg-gray-50 min-h-screen">
+    <h1 class="text-2xl font-semibold text-gray-900 mb-6">
+      {{ isEditing ? 'Modifica Ricompensa' : 'Crea Nuova Ricompensa' }}
+    </h1>
 
-    <form v-else @submit.prevent="saveReward">
-      <div class="form-group">
-        <label for="name">Nome:</label>
-        <input type="text" id="name" v-model="rewardData.name" required />
+    <!-- Loading State -->
+    <div v-if="isLoading" class="text-center py-10">
+      <p class="text-gray-500">Caricamento dati ricompensa...</p>
+      <!-- Optional: Add a spinner here -->
+    </div>
+
+    <!-- Error State -->
+    <div v-else-if="error" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6" role="alert">
+      <strong class="font-bold">Errore!</strong>
+      <span class="block sm:inline"> {{ error }}</span>
+    </div>
+
+    <!-- Form -->
+    <form v-else @submit.prevent="saveReward" class="space-y-6 bg-white p-8 rounded-lg shadow-md max-w-3xl mx-auto">
+      <!-- Name -->
+      <div>
+        <label for="name" class="block text-sm font-medium text-gray-700 mb-1">Nome Ricompensa</label>
+        <input type="text" id="name" v-model="rewardData.name" required
+               class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
       </div>
-      <div class="form-group">
-        <label for="description">Descrizione:</label>
-        <textarea id="description" v-model="rewardData.description"></textarea>
+
+      <!-- Description -->
+      <div>
+        <label for="description" class="block text-sm font-medium text-gray-700 mb-1">Descrizione</label>
+        <textarea id="description" v-model="rewardData.description" rows="3"
+                  class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"></textarea>
       </div>
-      <div class="form-group">
-        <label for="cost_points">Costo (Punti):</label>
-        <input type="number" id="cost_points" v-model.number="rewardData.cost_points" required min="0" />
+
+      <!-- Cost Points -->
+      <div>
+        <label for="cost_points" class="block text-sm font-medium text-gray-700 mb-1">Costo (Punti)</label>
+        <input type="number" id="cost_points" v-model.number="rewardData.cost_points" required min="0"
+               class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
       </div>
-       <div class="form-group">
-        <label for="type">Tipo:</label>
-        <select id="type" v-model="rewardData.type" required>
-            <option disabled value="">Seleziona un tipo</option>
-            <!-- Valori aggiornati per corrispondere a RewardTemplate.RewardType -->
-            <option value="DIGITAL">Digitale (es. badge, item virtuale)</option>
-            <option value="REAL_WORLD">Reale (consegna tracciata)</option>
+
+      <!-- Type -->
+      <div>
+        <label for="type" class="block text-sm font-medium text-gray-700 mb-1">Tipo</label>
+        <select id="type" v-model="rewardData.type" required
+                class="mt-1 block w-full px-3 py-2 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+          <option disabled value="">Seleziona un tipo</option>
+          <option value="DIGITAL">Digitale (es. badge, item virtuale)</option>
+          <option value="REAL_WORLD">Reale (consegna tracciata)</option>
         </select>
       </div>
-       <div class="form-group">
-        <label for="availability_type">Disponibilità:</label>
-        <select id="availability_type" v-model="rewardData.availability_type" required>
-            <option value="ALL">Tutti gli studenti</option> <!-- Corretto valore -->
-            <option value="SPECIFIC">Studenti Specifici</option> <!-- Corretto valore -->
+
+      <!-- Availability Type -->
+      <div>
+        <label for="availability_type" class="block text-sm font-medium text-gray-700 mb-1">Disponibilità</label>
+        <select id="availability_type" v-model="rewardData.availability_type" required
+                class="mt-1 block w-full px-3 py-2 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+          <option value="ALL">Tutti gli studenti</option>
+          <option value="SPECIFIC">Studenti Specifici</option>
         </select>
       </div>
-      <!-- Sezione Studenti Specifici -->
-      <div v-if="rewardData.availability_type === 'SPECIFIC'" class="form-group">
-        <label for="specific_students">Studenti Specifici:</label>
-        <div v-if="isLoadingStudents" class="loading">Caricamento studenti...</div>
-        <div v-else-if="studentsError" class="error-message">{{ studentsError }}</div>
-        <select v-else multiple id="specific_students" v-model="selectedStudentIds" class="student-select">
-          <option v-for="student in allStudents" :key="student.id" :value="student.id">
+
+      <!-- Specific Students Section -->
+      <div v-if="rewardData.availability_type === 'SPECIFIC'">
+        <label for="specific_students" class="block text-sm font-medium text-gray-700 mb-1">Studenti Specifici</label>
+        <div v-if="isLoadingStudents" class="text-gray-500 italic">Caricamento studenti...</div>
+        <div v-else-if="studentsError" class="text-red-600">{{ studentsError }}</div>
+        <select v-else multiple id="specific_students" v-model="selectedStudentIds"
+                class="mt-1 block w-full h-40 px-3 py-2 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+          <option v-for="student in allStudents" :key="student.id" :value="student.id" class="py-1">
             {{ student.first_name }} {{ student.last_name }} ({{ student.student_code }})
           </option>
         </select>
-        <small>Tieni premuto Ctrl (o Cmd su Mac) per selezionare più studenti.</small>
+        <p class="mt-2 text-sm text-gray-500">Tieni premuto Ctrl (o Cmd su Mac) per selezionare più studenti.</p>
       </div>
-       <div class="form-group">
-        <label for="is_active">
-            <input type="checkbox" id="is_active" v-model="rewardData.is_active" />
-            Attiva (visibile nello shop)
+
+      <!-- Is Active Checkbox -->
+      <div class="flex items-center">
+        <input id="is_active" type="checkbox" v-model="rewardData.is_active"
+               class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded" />
+        <label for="is_active" class="ml-2 block text-sm text-gray-900">
+          Attiva (visibile nello shop studente)
         </label>
       </div>
 
-      <!-- TODO: Aggiungere gestione metadata -->
+      <!-- TODO: Aggiungere gestione metadata (potrebbe richiedere un componente dedicato) -->
+      <!-- <div class="border-t border-gray-200 pt-6">
+        <h3 class="text-lg font-medium text-gray-900">Metadati (Opzionale)</h3>
+         Qui si potrebbe inserire un editor JSON o campi specifici
+      </div> -->
 
-      <div class="form-actions">
-        <button type="submit" :disabled="isSaving" class="btn btn-success">
+      <!-- Form Actions -->
+      <div class="flex justify-end space-x-3 border-t border-gray-200 pt-6">
+        <button type="button" @click="cancel"
+                class="py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+          Annulla
+        </button>
+        <button type="submit" :disabled="isSaving"
+                :class="['py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500',
+                         isSaving ? 'bg-indigo-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700']">
           {{ isSaving ? 'Salvataggio...' : (isEditing ? 'Salva Modifiche' : 'Crea Ricompensa') }}
         </button>
-        <button type="button" @click="cancel" class="btn btn-secondary">Annulla</button>
       </div>
     </form>
   </div>
@@ -222,78 +263,16 @@ const cancel = () => {
 </script>
 
 <style scoped>
-/* Stili simili a QuizFormView/PathwayFormView */
-.reward-form-view {
-  padding: 20px;
-  max-width: 700px;
-  margin: auto;
+/* Stili specifici rimasti o aggiunti se necessario.
+   La maggior parte dello stile è ora gestita da Tailwind. */
+
+/* Aggiusta leggermente l'aspetto del select multiplo se necessario */
+select[multiple] {
+  /* Esempio: rimuovere l'aspetto nativo se non piace */
+  /* appearance: none; */
 }
-.form-group {
-  margin-bottom: 15px;
-}
-.form-group label {
-  display: block;
-  margin-bottom: 5px;
-  font-weight: bold;
-}
-.form-group input[type="text"],
-.form-group input[type="number"],
-.form-group textarea,
-.form-group select {
-  width: 100%;
-  padding: 8px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  box-sizing: border-box;
-}
-.form-group input[type="checkbox"] {
-    width: auto;
-    margin-right: 5px;
-}
-.form-group textarea {
-  min-height: 100px;
-  resize: vertical;
-}
-.student-select {
-    min-height: 150px; /* Rende il box più alto */
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    padding: 5px;
-    width: 100%;
-}
-.student-select option {
-    padding: 3px;
-}
-.form-actions {
-  margin-top: 20px;
-}
-.form-actions button {
-  padding: 10px 15px;
-  margin-right: 10px;
-  cursor: pointer;
-  border-radius: 4px;
-  border: none;
-}
-.form-actions button[type="submit"] {
-  background-color: #4CAF50;
-  color: white;
-}
-.form-actions button[type="submit"]:disabled {
-  background-color: #aaa;
-  cursor: not-allowed;
-}
-.form-actions button[type="button"] {
-  background-color: #f44336;
-  color: white;
-}
-.error-message {
-  color: red;
-  margin-top: 10px;
-  font-weight: bold;
-}
-.loading {
-  margin-top: 20px;
-  font-style: italic;
-  color: #666;
+
+select[multiple] option {
+  padding: 0.5rem; /* Aumenta padding per leggibilità */
 }
 </style>

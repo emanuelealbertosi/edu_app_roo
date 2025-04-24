@@ -71,7 +71,7 @@ async function handlePurchase(reward: Reward) {
   } catch (err: any) {
     console.error(`Errore durante l'acquisto della ricompensa ${reward.id}:`, err);
     // Mostra un errore specifico se possibile (es. punti insufficienti dal backend)
-    if (err.response && err.response.data && err.response.data.detail) { // Corretto &amp;&amp;
+    if (err.response && err.response.data && err.response.data.detail) { // Corretto &&
         purchaseError.value = err.response.data.detail;
     } else {
         purchaseError.value = "Errore durante l'acquisto. Riprova.";
@@ -107,35 +107,35 @@ onMounted(() => {
 <template>
   <div class="shop-view container mx-auto px-4 py-8">
     <header class="shop-header bg-white p-4 md:p-6 rounded-lg shadow-md mb-8 flex flex-col md:flex-row justify-between items-center gap-4">
-      <h1 class="text-2xl md:text-3xl font-bold text-kahoot-purple flex items-center"><span class="text-3xl md:text-4xl mr-3">🛍️</span> Negozio Ricompense</h1> <!-- Colore titolo aggiornato -->
-      <div class="current-points bg-kahoot-yellow-light text-kahoot-yellow-dark text-lg font-semibold px-4 py-2 rounded-full shadow-sm"> <!-- Colori punti aggiornati -->
+      <h1 class="text-2xl md:text-3xl font-bold text-primary-dark flex items-center"><span class="text-3xl md:text-4xl mr-3">🛍️</span> Negozio Ricompense</h1> <!-- Colore titolo aggiornato -->
+      <div class="current-points bg-primary/10 text-primary-dark text-lg font-semibold px-4 py-2 rounded-full shadow-sm"> <!-- Colori punti aggiornati -->
         Punti: <strong class="text-xl">{{ currentPoints }}</strong> ✨
       </div>
       <BaseButton variant="secondary" @click="router.push('/dashboard')">Torna alla Dashboard</BaseButton> <!-- Usa BaseButton -->
     </header>
 
-    <div v-if="isLoading" class="loading text-center py-10 text-brand-gray-dark"> <!-- Colore testo aggiornato -->
+    <div v-if="isLoading" class="loading text-center py-10 text-neutral-dark"> <!-- Colore testo aggiornato -->
       <p>Caricamento ricompense...</p>
       <!-- Spinner TODO rimosso -->
     </div>
 
-    <div v-if="error" class="error-message bg-kahoot-red-light border-l-4 border-kahoot-red text-kahoot-red-dark p-4 mb-6 rounded" role="alert"> <!-- Colori errore aggiornati -->
+    <div v-if="error" class="error-message bg-error/10 border-l-4 border-error text-error p-4 mb-6 rounded" role="alert"> <!-- Colori errore aggiornati -->
       <p class="font-semibold">{{ error }}</p>
     </div>
 
     <!-- Messaggio di successo acquisto -->
-    <div v-if="purchaseSuccessMessage" class="success-message purchase-feedback bg-kahoot-green-light border-l-4 border-kahoot-green text-kahoot-green-dark p-4 mb-6 rounded" role="alert"> <!-- Colori successo aggiornati -->
+    <div v-if="purchaseSuccessMessage" class="success-message purchase-feedback bg-success/10 border-l-4 border-success text-success-dark p-4 mb-6 rounded" role="alert"> <!-- Colori successo aggiornati -->
       <p class="font-semibold">{{ purchaseSuccessMessage }}</p>
     </div>
 
-    <div v-if="purchaseError" class="error-message purchase-feedback bg-kahoot-red-light border-l-4 border-kahoot-red text-kahoot-red-dark p-4 mb-6 rounded" role="alert"> <!-- Colori errore aggiornati -->
+    <div v-if="purchaseError" class="error-message purchase-feedback bg-error/10 border-l-4 border-error text-error p-4 mb-6 rounded" role="alert"> <!-- Colori errore aggiornati -->
       <p class="font-semibold">{{ purchaseError }}</p>
     </div>
 
     <div v-if="!isLoading && !error">
       <!-- Mostra la griglia solo se ci sono ricompense -->
       <div v-if="availableRewards.length > 0" class="rewards-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        <div v-for="reward in availableRewards" :key="reward.id" class="reward-card bg-white rounded-lg shadow-lg overflow-hidden flex flex-col border-t-4" :class="reward.type === 'digital' ? 'border-kahoot-blue' : 'border-kahoot-green'"> <!-- Colori bordo aggiornati -->
+        <div v-for="reward in availableRewards" :key="reward.id" class="reward-card bg-white rounded-lg shadow-lg overflow-hidden flex flex-col border-t-4" :class="reward.type === 'digital' ? 'border-primary' : 'border-success'"> <!-- Colori bordo aggiornati -->
           <!-- Test: Decommento solo div info e nome -->
           <!-- Reward ID: {{ reward.id }} --> <!-- Commento l'ID ora -->
           <template v-if="reward.metadata?.image_url"> <!-- Decommentato -->
@@ -146,18 +146,18 @@ onMounted(() => {
             />
           </template>
           <template v-else> <!-- Decommentato -->
-            <div class="reward-image-placeholder w-full h-48 flex items-center justify-center bg-brand-gray-light text-brand-gray text-5xl">🎁</div> <!-- Colori placeholder aggiornati -->
+            <div class="reward-image-placeholder w-full h-48 flex items-center justify-center bg-neutral-light text-neutral-dark text-5xl">🎁</div> <!-- Colori placeholder aggiornati -->
           </template>
           <div class="reward-info p-4 flex flex-col flex-grow">
-            <h3 class="text-lg font-semibold text-brand-gray-dark mb-1">{{ reward.name }}</h3> <!-- Decommentato -->
-            <p class="reward-description text-sm text-brand-gray-dark mb-3 flex-grow">{{ reward.description }}</p> <!-- Decommentato -->
-            <p class="reward-type text-xs italic text-brand-gray mb-2">Tipo: {{ reward.type === 'digital' ? 'Digitale' : 'Reale' }}</p> <!-- Decommentato -->
-            <div class="reward-cost text-lg font-bold text-kahoot-purple mb-3"> <!-- Decommentato -->
+            <h3 class="text-lg font-semibold text-neutral-darkest mb-1">{{ reward.name }}</h3> <!-- Colore testo aggiornato -->
+            <p class="reward-description text-sm text-neutral-dark mb-3 flex-grow">{{ reward.description }}</p> <!-- Colore testo aggiornato -->
+            <p class="reward-type text-xs italic text-neutral-dark mb-2">Tipo: {{ reward.type === 'digital' ? 'Digitale' : 'Reale' }}</p> <!-- Colore testo aggiornato -->
+            <div class="reward-cost text-lg font-bold text-primary mb-3"> <!-- Colore testo aggiornato -->
               Costo: <strong>{{ reward.cost_points }}</strong> punti
             </div>
           </div>
           <BaseButton
-            variant="info"
+            variant="primary" <!-- Variante bottone aggiornata -->
             @click="handlePurchase(reward)"
             :disabled="purchasingRewardId === reward.id || currentPoints < reward.cost_points"
             class="w-full rounded-t-none"
@@ -167,7 +167,7 @@ onMounted(() => {
         </div>
       </div>
       <!-- Mostra il messaggio se non ci sono ricompense -->
-      <div v-else class="empty-message text-center py-10 text-brand-gray-dark"> <!-- Colore testo aggiornato -->
+      <div v-else class="empty-message text-center py-10 text-neutral-dark"> <!-- Colore testo aggiornato -->
         <p>Non ci sono ricompense disponibili al momento.</p>
       </div>
     </div>

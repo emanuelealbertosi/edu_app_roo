@@ -6,7 +6,7 @@
 
 @layer base {
   body {
-    @apply font-sans bg-brand-gray-light text-brand-gray-dark; /* Applica font e colori base */
+    @apply font-sans bg-neutral-lightest text-neutral-darkest; /* Applica font e colori base */
   }
 }
 

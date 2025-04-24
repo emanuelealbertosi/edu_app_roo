@@ -21,7 +21,7 @@ const formatDate = (dateString: string): string => {
 // Ottiene la classe CSS per la transazione in base al segno (positivo/negativo)
 const getTransactionClass = (pointsChange: number): string => {
   // Le classi Tailwind verranno applicate direttamente nel template o nello <style scoped>
-  return pointsChange >= 0 ? 'text-green-600 bg-green-100' : 'text-red-600 bg-red-100';
+  return pointsChange >= 0 ? 'text-success bg-success/10' : 'text-error bg-error/10'; // Usa colori success/error con opacità
 };
 
 // Formatta il cambiamento di punti con segno
@@ -31,39 +31,39 @@ const formatPointsChange = (pointsChange: number): string => {
 </script>
 
 <template>
-  <div class="wallet-card bg-white rounded-lg shadow-md p-6">
-    <h2 class="text-xl font-bold text-indigo-700 mb-4 flex items-center"><span class="text-2xl mr-2">💰</span> Il tuo Portafoglio</h2>
+  <div class="wallet-card bg-white rounded-lg shadow-md p-6"> <!-- Stili card base -->
+    <h2 class="text-xl font-bold text-primary-dark mb-4 flex items-center"><span class="text-2xl mr-2">💰</span> Il tuo Portafoglio</h2> <!-- Titolo primario scuro -->
 
-    <div v-if="loading" class="loading-indicator text-center py-4 text-gray-500">
+    <div v-if="loading" class="loading-indicator text-center py-4 text-neutral-dark"> <!-- Testo loading neutro scuro -->
       <p>Caricamento portafoglio...</p>
     </div>
     
-    <div v-else-if="!wallet" class="empty-message text-center py-4 text-red-500"> {/* Stile errore */}
+    <div v-else-if="!wallet" class="empty-message text-center py-4 text-error"> <!-- Testo errore -->
       <p>Impossibile caricare le informazioni del portafoglio.</p>
     </div>
 
     <div v-else>
-      <div class="wallet-balance bg-indigo-50 p-6 rounded-lg mb-6 text-center border border-indigo-100">
-        <div class="balance-label text-lg text-indigo-800 mb-1">Punti disponibili</div>
-        <div class="balance-value text-5xl font-bold text-indigo-600">{{ wallet.current_points }}</div>
+      <div class="wallet-balance bg-neutral-lightest p-6 rounded-lg mb-6 text-center border border-neutral-DEFAULT"> <!-- Sfondo neutro chiaro -->
+        <div class="balance-label text-lg text-neutral-dark mb-1">Punti disponibili</div> <!-- Etichetta neutra scura -->
+        <div class="balance-value text-5xl font-bold text-primary">{{ wallet.current_points }}</div> <!-- Valore primario -->
       </div>
       
       <div class="wallet-transactions">
-        <h3 class="text-lg font-semibold text-gray-700 mb-3 pt-4 border-t border-gray-200">Transazioni recenti</h3>
+        <h3 class="text-lg font-semibold text-neutral-darkest mb-3 pt-4 border-t border-neutral-DEFAULT">Transazioni recenti</h3> <!-- Titolo neutro scuro, bordo neutro -->
 
-        <div v-if="wallet.recent_transactions.length === 0" class="empty-transactions text-center py-4 text-gray-500">
+        <div v-if="wallet.recent_transactions.length === 0" class="empty-transactions text-center py-4 text-neutral-dark"> <!-- Testo neutro scuro -->
           <p>Nessuna transazione recente.</p>
         </div>
         
         <div v-else class="transactions-list space-y-3">
-          <div v-for="transaction in wallet.recent_transactions" :key="transaction.id" class="transaction-item flex justify-between items-center bg-gray-50 p-3 rounded-md border-l-4" :class="transaction.points_change >= 0 ? 'border-green-400' : 'border-red-400'">
+          <div v-for="transaction in wallet.recent_transactions" :key="transaction.id" class="transaction-item flex justify-between items-center bg-neutral-lightest p-3 rounded-md border-l-4" :class="transaction.points_change >= 0 ? 'border-success' : 'border-error'"> <!-- Sfondo neutro chiaro, bordi success/error -->
             <div class="transaction-info flex-1 mr-2">
-              <div class="transaction-reason text-sm font-medium text-gray-800 mb-0.5">{{ transaction.reason }}</div>
-              <div class="transaction-date text-xs text-gray-500">{{ formatDate(transaction.timestamp) }}</div>
+              <div class="transaction-reason text-sm font-medium text-neutral-darkest mb-0.5">{{ transaction.reason }}</div> <!-- Testo neutro scuro -->
+              <div class="transaction-date text-xs text-neutral-dark">{{ formatDate(transaction.timestamp) }}</div> <!-- Testo neutro scuro -->
             </div>
             <div :class="['transaction-amount text-lg font-bold px-2 py-0.5 rounded', getTransactionClass(transaction.points_change)]">
               {{ formatPointsChange(transaction.points_change) }}
-            </div>
+            </div> <!-- Classi aggiornate in getTransactionClass -->
           </div>
         </div>
       </div>
@@ -72,31 +72,7 @@ const formatPointsChange = (pointsChange: number): string => {
 </template>
 
 <style scoped>
-/* Stili specifici rimasti (loading, empty messages) o che richiedono override */
-.loading-indicator,
-.empty-message,
-.empty-transactions {
-  /* Stili Tailwind applicati direttamente nel template */
-}
-
-/* Definiamo le classi per i colori delle transazioni se vogliamo essere più specifici
-   o se le classi Tailwind dirette non bastano.
-   Al momento, le classi Tailwind sono applicate direttamente nel template. */
-.transaction-positive {
-  /* @apply text-green-600 bg-green-100; */
-}
-.transaction-negative {
-  /* @apply text-red-600 bg-red-100; */
-}
-
-.loading-indicator,
-.empty-message,
-.empty-transactions {
-  padding: 1rem;
-  text-align: center;
-  color: #666;
-}
-
+/* Rimosse definizioni di stile ridondanti, ora gestite da Tailwind */
 .card-icon {
     margin-right: 0.5rem;
     font-size: 1.2em; /* Rende l'icona leggermente più grande del titolo */

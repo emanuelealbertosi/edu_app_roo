@@ -1,65 +1,79 @@
 <template>
-  <div class="pathway-template-form-view">
-    <h1>{{ isEditing ? 'Modifica Template Percorso' : 'Crea Nuovo Template Percorso' }}</h1>
-    <div v-if="isLoading" class="loading">Caricamento dati template...</div>
-    <div v-else-if="error" class="error-message">{{ error }}</div>
+  <div class="pathway-template-form-view p-4 md:p-6"> <!-- Padding ok -->
+    <h1 class="text-2xl font-semibold mb-4 text-neutral-darkest">{{ isEditing ? 'Modifica Template Percorso' : 'Crea Nuovo Template Percorso' }}</h1> <!-- Stile titolo aggiornato -->
+    <div v-if="isLoading" class="loading text-center py-6 text-neutral-dark">Caricamento dati template...</div> <!-- Stile loading aggiornato -->
+    <div v-else-if="error" class="error-message bg-error/10 border border-error text-error p-3 rounded mb-4">{{ error }}</div> <!-- Stile errore aggiornato -->
 
     <form v-else @submit.prevent="savePathwayTemplate">
-      <div class="form-group">
-        <label for="title">Titolo Template:</label>
-        <input type="text" id="title" v-model="templateData.title" required />
+      <div class="form-group mb-4"> <!-- Margin bottom -->
+        <label for="title" class="block text-sm font-medium text-neutral-darker mb-1">Titolo Template:</label> <!-- Stile label aggiornato -->
+        <input type="text" id="title" v-model="templateData.title" required class="shadow-sm focus:ring-primary focus:border-primary block w-full sm:text-sm border-neutral-DEFAULT rounded-md p-2" /> <!-- Stili input aggiornati -->
       </div>
-      <div class="form-group">
-        <label for="description">Descrizione Template:</label>
-        <textarea id="description" v-model="templateData.description"></textarea>
+      <div class="form-group mb-4"> <!-- Margin bottom -->
+        <label for="description" class="block text-sm font-medium text-neutral-darker mb-1">Descrizione Template:</label> <!-- Stile label aggiornato -->
+        <textarea id="description" v-model="templateData.description" class="shadow-sm focus:ring-primary focus:border-primary block w-full sm:text-sm border-neutral-DEFAULT rounded-md p-2 min-h-[80px]"></textarea> <!-- Stili textarea aggiornati -->
       </div>
-      <div class="form-group">
-        <label for="points_on_completion">Punti al Completamento (Default):</label>
-        <input type="number" id="points_on_completion" v-model.number="pointsOnCompletion" min="0" placeholder="Es: 50" />
-        <small>Punti che verranno assegnati di default alle istanze create da questo template.</small>
+      <div class="form-group mb-4"> <!-- Margin bottom -->
+        <label for="points_on_completion" class="block text-sm font-medium text-neutral-darker mb-1">Punti al Completamento (Default):</label> <!-- Stile label aggiornato -->
+        <input type="number" id="points_on_completion" v-model.number="pointsOnCompletion" min="0" placeholder="Es: 50" class="form-input shadow-sm focus:ring-primary focus:border-primary block w-full sm:text-sm border-neutral-DEFAULT rounded-md p-2" /> <!-- Stili input aggiornati -->
+        <small class="text-xs text-neutral-dark mt-1">Punti che verranno assegnati di default alle istanze create da questo template.</small> <!-- Stile help text aggiornato -->
       </div>
 
       <!-- TODO: Aggiungere gestione altri metadata se necessario -->
 
-      <div class="form-actions">
-        <button type="submit" :disabled="isSaving" class="btn btn-success">
-          {{ isSaving ? 'Salvataggio...' : (isEditing ? 'Salva Modifiche Template' : 'Crea Template') }}
-        </button>
-        <button type="button" @click="cancel" class="btn btn-secondary">Annulla</button>
+      <div class="form-actions mt-6 flex space-x-3"> <!-- Margin top e flex -->
+        <BaseButton type="submit" variant="success" :disabled="isSaving"> <!-- Usa BaseButton -->
+          <span v-if="isSaving">
+            <svg class="animate-spin -ml-1 mr-2 h-4 w-4 inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+               <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+             </svg>
+            Salvataggio...
+          </span>
+          <span v-else>{{ isEditing ? 'Salva Modifiche Template' : 'Crea Template' }}</span>
+        </BaseButton>
+        <BaseButton type="button" variant="secondary" @click="cancel">Annulla</BaseButton> <!-- Usa BaseButton -->
       </div>
     </form>
 
     <!-- Sezione Quiz Template del Percorso Template (in modalità modifica) -->
-    <div v-if="isEditing && templateId" class="quizzes-section">
-        <h2>Quiz Template nel Percorso</h2>
-        <div v-if="isLoadingQuizTemplates" class="loading small">Caricamento quiz template disponibili...</div>
-        <div v-else-if="quizTemplatesError" class="error-message small">{{ quizTemplatesError }}</div>
+    <div v-if="isEditing && templateId" class="quizzes-section mt-10 pt-6 border-t border-neutral-DEFAULT"> <!-- Stili sezione aggiornati -->
+        <h2 class="text-xl font-semibold mb-4 text-neutral-darkest">Quiz Template nel Percorso</h2> <!-- Stile titolo aggiornato -->
+        <div v-if="isLoadingQuizTemplates" class="loading small text-center py-4 text-neutral-dark">Caricamento quiz template disponibili...</div> <!-- Stile loading aggiornato -->
+        <div v-else-if="quizTemplatesError" class="error-message small bg-error/10 border border-error text-error p-2 rounded text-sm mb-4">{{ quizTemplatesError }}</div> <!-- Stile errore aggiornato -->
 
         <!-- Lista Quiz Template nel Percorso Template -->
-        <ul v-if="templateData.quiz_template_details.length > 0">
-            <li v-for="quizDetail in sortedQuizTemplateDetails" :key="quizDetail.id">
-               <span>({{ quizDetail.order }}) {{ quizDetail.quiz_template_title }}</span>
-               <button @click="removeQuizTemplate(quizDetail.id)" type="button" class="btn btn-danger text-sm">Rimuovi</button>
+        <ul v-if="templateData.quiz_template_details.length > 0" class="space-y-3"> <!-- Stile lista aggiornato -->
+            <li v-for="quizDetail in sortedQuizTemplateDetails" :key="quizDetail.id" class="flex justify-between items-center bg-neutral-lightest p-3 rounded-md border border-neutral-DEFAULT"> <!-- Stile item aggiornato -->
+               <span class="text-sm text-neutral-darkest"><strong class="font-medium">({{ quizDetail.order }})</strong> {{ quizDetail.quiz_template_title }}</span> <!-- Stile testo aggiornato -->
+               <BaseButton @click="removeQuizTemplate(quizDetail.id)" variant="danger" size="sm">Rimuovi</BaseButton> <!-- Usa BaseButton -->
                <!-- TODO: Aggiungere UI per modificare ordine -->
             </li>
         </ul>
-        <p v-else>Nessun quiz template aggiunto a questo percorso template.</p>
+        <p v-else class="text-center py-4 text-neutral-dark">Nessun quiz template aggiunto a questo percorso template.</p> <!-- Stile messaggio vuoto aggiornato -->
 
         <!-- Aggiunta Quiz Template -->
-        <div class="add-quiz-section form-group">
-            <label for="quiz-template-to-add">Aggiungi Quiz Template al Percorso:</label>
-            <div class="add-quiz-controls">
-                <select id="quiz-template-to-add" v-model="selectedQuizTemplateToAdd" :disabled="isLoadingQuizTemplates">
+        <div class="add-quiz-section form-group mt-6 pt-4 border-t border-dashed border-neutral-DEFAULT"> <!-- Stili sezione aggiornati -->
+            <label for="quiz-template-to-add" class="block text-sm font-medium text-neutral-darker mb-1">Aggiungi Quiz Template al Percorso:</label> <!-- Stile label aggiornato -->
+            <div class="add-quiz-controls flex items-center gap-3"> <!-- Stile controlli aggiornato -->
+                <select id="quiz-template-to-add" v-model="selectedQuizTemplateToAdd" :disabled="isLoadingQuizTemplates" class="flex-grow p-2 border border-neutral-DEFAULT rounded-md shadow-sm focus:ring-primary focus:border-primary"> <!-- Stili select aggiornati -->
                     <option value="">Seleziona un quiz template...</option>
                     <option v-for="quizTpl in availableQuizTemplates" :key="quizTpl.id" :value="quizTpl.id">
                         {{ quizTpl.title }} (ID: {{ quizTpl.id }})
                     </option>
                 </select>
-                <button @click="addSelectedQuizTemplate" type="button" :disabled="!selectedQuizTemplateToAdd || isAddingQuizTemplate" class="btn btn-primary">
-                    {{ isAddingQuizTemplate ? 'Aggiungo...' : 'Aggiungi Template' }}
-                </button>
+                <BaseButton @click="addSelectedQuizTemplate" variant="primary" :disabled="!selectedQuizTemplateToAdd || isAddingQuizTemplate"> <!-- Usa BaseButton -->
+                    <span v-if="isAddingQuizTemplate">
+                      <svg class="animate-spin -ml-1 mr-2 h-4 w-4 inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                       </svg>
+                      Aggiungo...
+                    </span>
+                    <span v-else>Aggiungi Template</span>
+                </BaseButton>
             </div>
-             <div v-if="addQuizTemplateError" class="error-message small">{{ addQuizTemplateError }}</div>
+             <div v-if="addQuizTemplateError" class="error-message small text-error text-xs mt-1">{{ addQuizTemplateError }}</div> <!-- Stile errore aggiornato -->
         </div>
     </div>
 
@@ -76,6 +90,7 @@ import {
     type PathwayTemplatePayload, type PathwayTemplate, type PathwayQuizTemplateDetail, type AddQuizTemplatePayload
 } from '@/api/pathways';
 import { fetchTeacherQuizTemplates, type QuizTemplate } from '@/api/quizzes'; // Usa fetchTeacherQuizTemplates
+import BaseButton from '@/components/common/BaseButton.vue'; // Importa BaseButton
 
 // Interfaccia estesa per i dati locali del form
 interface PathwayTemplateFormData extends PathwayTemplatePayload {
@@ -289,147 +304,5 @@ const removeQuizTemplate = async (pathwayQuizTemplateId: number) => {
 </script>
 
 <style scoped>
-/* Stili simili a PathwayFormView */
-.pathway-template-form-view {
-  padding: 20px;
-  max-width: 800px;
-  margin: auto;
-}
-.form-group {
-  margin-bottom: 15px;
-}
-.form-group label {
-  display: block;
-  margin-bottom: 5px;
-  font-weight: bold;
-}
-.form-group input[type="text"],
-.form-group input[type="number"], /* Aggiunto stile per number */
-.form-group textarea {
-  width: 100%;
-  padding: 8px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  box-sizing: border-box;
-}
-.form-group textarea {
-  min-height: 100px;
-  resize: vertical;
-}
-.form-group small { /* Stile per help text */
-    display: block;
-    margin-top: 4px;
-    font-size: 0.85em;
-    color: #666;
-}
-.form-actions {
-  margin-top: 20px;
-}
-.form-actions button {
-  padding: 10px 15px;
-  margin-right: 10px;
-  cursor: pointer;
-  border-radius: 4px;
-  border: none;
-}
-.form-actions button[type="submit"] {
-  background-color: #4CAF50;
-  color: white;
-}
-.form-actions button[type="submit"]:disabled {
-  background-color: #aaa;
-  cursor: not-allowed;
-}
-.form-actions button[type="button"] {
-  background-color: #f44336;
-  color: white;
-}
-.error-message {
-  color: red;
-  margin-top: 10px;
-  font-weight: bold;
-}
-.error-message.small { /* Stile per errori più piccoli */
-    font-size: 0.9em;
-    margin-top: 5px;
-}
-.loading {
-  margin-top: 20px;
-  font-style: italic;
-  color: #666;
-}
-.loading.small { /* Stile per loading più piccoli */
-    font-size: 0.9em;
-    margin-top: 5px;
-}
-.quizzes-section {
-    margin-top: 40px;
-    padding-top: 20px;
-    border-top: 1px solid #eee;
-}
-.quizzes-section ul {
-    list-style: none;
-    padding: 0;
-    margin-top: 15px;
-}
-.quizzes-section li {
-    margin-bottom: 10px;
-    padding: 10px;
-    border: 1px solid #eee;
-    border-radius: 4px;
-    background-color: #f9f9f9;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-.quizzes-section li span {
-    flex-grow: 1;
-    margin-right: 10px;
-}
-.quizzes-section li button.small {
-    padding: 2px 6px;
-    font-size: 0.8em;
-}
-.quizzes-section li button.delete {
-    background-color: #f44336;
-    color: white;
-    border: none;
-    border-radius: 3px; /* Aggiunto per coerenza */
-}
-.quizzes-section li button.delete:hover {
-     background-color: #d32f2f;
-}
-
-.add-quiz-section {
-    margin-top: 20px;
-    padding-top: 15px;
-    border-top: 1px dashed #ccc;
-}
-.add-quiz-controls {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-}
-.add-quiz-controls select {
-    flex-grow: 1;
-    padding: 8px; /* Aggiunto padding */
-    border: 1px solid #ccc; /* Aggiunto bordo */
-    border-radius: 4px; /* Aggiunto radius */
-}
-.add-quiz-controls button {
-    padding: 8px 12px;
-    white-space: nowrap;
-    background-color: #2196F3; /* Blu */
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-}
-.add-quiz-controls button:disabled {
-    background-color: #aaa;
-    cursor: not-allowed;
-}
-.add-quiz-controls button:hover:not(:disabled) {
-    background-color: #0b7dda;
-}
+/* Rimuovi stili specifici se non necessari, Tailwind dovrebbe gestire la maggior parte */
 </style>

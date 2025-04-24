@@ -53,11 +53,11 @@ const goToProfile = () => {
   <GlobalLoadingIndicator />
   <NotificationContainer />
 
-  <div class="flex h-screen bg-gray-100 font-sans">
+  <div class="flex h-screen bg-neutral-lightest font-sans text-neutral-darkest">
     <!-- Sidebar -->
     <aside
-      v-if="showLayout"
-      class="bg-purple-800 text-white flex flex-col transition-all duration-300 ease-in-out"
+      v-show="showLayout"
+      class="bg-secondary text-neutral-lightest flex flex-col transition-all duration-300 ease-in-out"
       :class="isSidebarExpanded ? 'w-64' : 'w-20'"
       @mouseenter="expandSidebar"
       @mouseleave="collapseSidebar"
@@ -73,14 +73,14 @@ const goToProfile = () => {
         <ul>
           <!-- Dashboard -->
           <li class="mb-3">
-            <router-link :to="{ name: 'dashboard' }" class="flex items-center p-2 rounded hover:bg-purple-700" :title="isSidebarExpanded ? '' : 'Dashboard'">
+            <router-link :to="{ name: 'dashboard' }" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700" :title="isSidebarExpanded ? '' : 'Dashboard'">
               <HomeIcon class="h-6 w-6 flex-shrink-0" />
               <span v-if="isSidebarExpanded" class="ml-3">Dashboard</span>
             </router-link>
           </li>
           <!-- Shop -->
           <li class="mb-3">
-            <router-link :to="{ name: 'shop' }" class="flex items-center p-2 rounded hover:bg-purple-700" :title="isSidebarExpanded ? '' : 'Shop'">
+            <router-link :to="{ name: 'shop' }" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700" :title="isSidebarExpanded ? '' : 'Shop'">
               <ShoppingCartIcon class="h-6 w-6 flex-shrink-0" />
               <span v-if="isSidebarExpanded" class="ml-3">Shop</span>
             </router-link>
@@ -88,21 +88,21 @@ const goToProfile = () => {
           <!-- Profilo (spostato nell'header) -->
           <!-- Acquisti -->
           <li class="mb-3">
-            <router-link :to="{ name: 'purchases' }" class="flex items-center p-2 rounded hover:bg-purple-700" :title="isSidebarExpanded ? '' : 'Acquisti'">
+            <router-link :to="{ name: 'purchases' }" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700" :title="isSidebarExpanded ? '' : 'Acquisti'">
               <CreditCardIcon class="h-6 w-6 flex-shrink-0" />
               <span v-if="isSidebarExpanded" class="ml-3">Acquisti</span>
             </router-link>
           </li>
           <!-- Traguardi -->
           <li class="mb-3">
-            <router-link :to="{ name: 'Badges' }" class="flex items-center p-2 rounded hover:bg-purple-700" :title="isSidebarExpanded ? '' : 'Traguardi'"> <!-- Corretto nome rotta -->
+            <router-link :to="{ name: 'Badges' }" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700" :title="isSidebarExpanded ? '' : 'Traguardi'">
               <TrophyIcon class="h-6 w-6 flex-shrink-0" />
               <span v-if="isSidebarExpanded" class="ml-3">Traguardi</span>
             </router-link>
           </li>
           <!-- Lezioni (Link Esterno) -->
           <li class="mb-3">
-            <a :href="lessonsAppUrl" class="flex items-center p-2 rounded hover:bg-purple-700" :title="isSidebarExpanded ? '' : 'Lezioni'">
+            <a :href="lessonsAppUrl" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700" :title="isSidebarExpanded ? '' : 'Lezioni'">
               <BookOpenIcon class="h-6 w-6 flex-shrink-0" />
               <span v-if="isSidebarExpanded" class="ml-3">Lezioni</span>
             </a>
@@ -112,7 +112,7 @@ const goToProfile = () => {
 
       <!-- Logout -->
        <div class="p-4 mt-auto border-t border-purple-700 flex-shrink-0">
-         <button @click="handleLogout" class="w-full flex items-center p-2 rounded hover:bg-red-700" :title="isSidebarExpanded ? '' : 'Logout'">
+         <button @click="handleLogout" class="w-full flex items-center p-2 rounded text-neutral-lightest hover:bg-red-700" :title="isSidebarExpanded ? '' : 'Logout'">
            <ArrowLeftOnRectangleIcon class="h-6 w-6 flex-shrink-0" />
            <span v-if="isSidebarExpanded" class="ml-3">Logout</span>
          </button>
@@ -122,8 +122,8 @@ const goToProfile = () => {
     <!-- Contenuto Principale -->
     <div class="flex flex-col flex-grow">
         <!-- Header -->
-        <header v-if="showLayout" class="bg-white shadow p-4 h-16 flex items-center justify-between flex-shrink-0">
-            <!-- Placeholder per spazio a sinistra o titolo pagina -->
+        <header v-show="showLayout" class="bg-white shadow p-4 h-16 flex items-center justify-between flex-shrink-0">
+            <!-- Placeholder per spazio a sinistra o titolo pagina (potrebbe essere dinamico) -->
              <div class="flex-1"></div>
 
              <!-- Pulsanti Header -->
@@ -144,8 +144,8 @@ const goToProfile = () => {
 
         <!-- Area Contenuto -->
         <!-- Applica padding top solo se il layout è mostrato -->
-        <main class="flex-grow p-8 overflow-auto" :class="showLayout ? 'pt-16' : ''">
-          <RouterView :key="$route.fullPath" />
+        <main class="flex-grow p-8 overflow-auto">
+          <RouterView />
         </main>
     </div>
 
@@ -153,9 +153,20 @@ const goToProfile = () => {
 </template>
 
 <style scoped>
-/* Stili aggiuntivi se necessari */
-/* Assicurati che Tailwind sia configurato correttamente */
+/* Stili per link attivi e hover nella sidebar */
 .router-link-exact-active {
-  @apply bg-purple-700; /* Stile per link attivo nella sidebar */
+  @apply bg-secondary-light; /* Usa il colore light della sidebar per l'attivo */
+}
+nav a:hover, nav button:hover {
+  @apply bg-purple-700; /* Usa un viola più chiaro per hover per maggior contrasto */
+}
+/* Stile specifico per il bottone logout hover */
+div > button.hover\:bg-red-700:hover { /* Selettore più specifico per override */
+   @apply bg-error; /* Usa il colore error definito in tailwind.config */
+}
+
+/* Stili per i pulsanti dell'header */
+header button {
+  @apply text-neutral-dark hover:text-neutral-darker hover:bg-neutral-light focus:outline-none focus:bg-neutral-light focus:ring-2 focus:ring-offset-2 focus:ring-primary;
 }
 </style>

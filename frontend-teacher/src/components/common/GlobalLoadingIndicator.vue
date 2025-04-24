@@ -15,7 +15,7 @@ const uiStore = useUiStore();
       aria-busy="true" 
       aria-live="polite"
     >
-      <div class="loading-bar h-full bg-blue-500"></div>
+      <div class="loading-bar h-full"></div> <!-- Rimosso bg-blue-500 -->
     </div>
   </transition>
 </template>
@@ -29,7 +29,8 @@ const uiStore = useUiStore();
 .loading-bar {
   /* Animazione semplice della barra */
   animation: loading-progress 1.5s infinite linear;
-  background: linear-gradient(to right, #3b82f6, #93c5fd, #3b82f6);
+  /* Usa i colori primari del tema da tailwind.config.js */
+  background: linear-gradient(to right, #8B5CF6, #A78BFA, #8B5CF6); /* primary.DEFAULT, primary.light, primary.DEFAULT */
   background-size: 600px 100%; /* Larghezza gradiente per effetto movimento */
 }
 

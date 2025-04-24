@@ -1,89 +1,94 @@
 <template>
-  <div class="assignment-view">
-    <h1>Assegna Contenuti</h1>
+  <div class="assignment-view p-4 md:p-6"> <!-- Padding ok -->
+    <div class="bg-primary text-white p-4 rounded-md mb-6"> <!-- Contenitore per titolo -->
+      <h1 class="text-2xl font-semibold">Assegna Contenuti</h1> <!-- Rimosso stile individuale -->
+    </div>
 
-    <div class="content-selection">
-      <div class="form-group">
-        <label for="content-type">Tipo Contenuto da Assegnare:</label>
-        <select id="content-type" v-model="selectedContentType" class="w-full p-2 border rounded">
+    <div class="content-selection mb-8"> <!-- Margin bottom aumentato -->
+      <div class="form-group mb-4"> <!-- Margin bottom -->
+        <label for="content-type" class="block text-sm font-medium text-neutral-darker mb-1">Tipo Contenuto da Assegnare:</label> <!-- Stile label aggiornato -->
+        <select id="content-type" v-model="selectedContentType" class="w-full p-2 border border-neutral-DEFAULT rounded-md shadow-sm focus:ring-primary focus:border-primary"> <!-- Stili select aggiornati -->
           <option value="quiz">Template Quiz</option>
           <option value="pathway">Template Percorso</option>
         </select>
       </div>
 
-      <!-- Rimosso blocco v-if="assignmentMode === 'existing'" -->
-
-      <!-- Selezione Template (ora sempre visibile in base a selectedContentType) -->
+      <!-- Selezione Template -->
       <div>
-         <div class="form-group" v-if="selectedContentType === 'quiz'">
-          <label for="quiz-template-select">Seleziona Template Quiz:</label>
-          <select id="quiz-template-select" v-model="selectedTemplateId" :disabled="isLoadingQuizTemplates" class="w-full p-2 border rounded">
+         <div class="form-group mb-4" v-if="selectedContentType === 'quiz'"> <!-- Margin bottom -->
+          <label for="quiz-template-select" class="block text-sm font-medium text-neutral-darker mb-1">Seleziona Template Quiz:</label> <!-- Stile label aggiornato -->
+          <select id="quiz-template-select" v-model="selectedTemplateId" :disabled="isLoadingQuizTemplates" class="w-full p-2 border border-neutral-DEFAULT rounded-md shadow-sm focus:ring-primary focus:border-primary"> <!-- Stili select aggiornati -->
             <option disabled value="">{{ isLoadingQuizTemplates ? 'Caricamento...' : 'Seleziona un Template Quiz' }}</option>
             <option v-for="template in availableQuizTemplates" :key="template.id" :value="template.id">
               {{ template.title }}
             </option>
           </select>
-          <div v-if="quizTemplatesError" class="error-message small">{{ quizTemplatesError }}</div>
+          <div v-if="quizTemplatesError" class="text-error text-xs mt-1">{{ quizTemplatesError }}</div> <!-- Stile errore aggiornato -->
         </div>
 
-        <div class="form-group" v-if="selectedContentType === 'pathway'">
-          <label for="pathway-template-select">Seleziona Template Percorso:</label>
-          <select id="pathway-template-select" v-model="selectedTemplateId" :disabled="isLoadingPathwayTemplates" class="w-full p-2 border rounded">
+        <div class="form-group mb-4" v-if="selectedContentType === 'pathway'"> <!-- Margin bottom -->
+          <label for="pathway-template-select" class="block text-sm font-medium text-neutral-darker mb-1">Seleziona Template Percorso:</label> <!-- Stile label aggiornato -->
+          <select id="pathway-template-select" v-model="selectedTemplateId" :disabled="isLoadingPathwayTemplates" class="w-full p-2 border border-neutral-DEFAULT rounded-md shadow-sm focus:ring-primary focus:border-primary"> <!-- Stili select aggiornati -->
              <option disabled value="">{{ isLoadingPathwayTemplates ? 'Caricamento...' : 'Seleziona un Template Percorso' }}</option>
              <option v-for="template in availablePathwayTemplates" :key="template.id" :value="template.id">
               {{ template.title }}
             </option>
           </select>
-           <div v-if="pathwayTemplatesError" class="error-message small">{{ pathwayTemplatesError }}</div>
+           <div v-if="pathwayTemplatesError" class="text-error text-xs mt-1">{{ pathwayTemplatesError }}</div> <!-- Stile errore aggiornato -->
         </div>
       </div>
 
       <!-- Aggiunta Data Scadenza (solo per Quiz) -->
        <div class="form-group mt-4" v-if="selectedContentType === 'quiz'">
-           <label for="due-date">Data Scadenza (Opzionale):</label>
-           <input type="datetime-local" id="due-date" v-model="dueDate" class="w-full p-2 border rounded" />
+           <label for="due-date" class="block text-sm font-medium text-neutral-darker mb-1">Data Scadenza (Opzionale):</label> <!-- Stile label aggiornato -->
+           <input type="datetime-local" id="due-date" v-model="dueDate" class="w-full p-2 border border-neutral-DEFAULT rounded-md shadow-sm focus:ring-primary focus:border-primary" /> <!-- Stili input aggiornati -->
        </div>
+    </div> <!-- Fine content-selection -->
 
 
-    <div class="student-selection">
-      <h2>Seleziona Studenti</h2>
-      <div v-if="isLoadingStudents" class="loading">Caricamento studenti...</div>
-      <div v-else-if="studentsError" class="error-message">{{ studentsError }}</div>
+    <div class="student-selection mb-8"> <!-- Margin bottom aumentato -->
+      <h2 class="text-xl font-semibold mb-4 text-neutral-darkest">Seleziona Studenti</h2> <!-- Stile titolo aggiornato -->
+      <div v-if="isLoadingStudents" class="loading text-center py-6 text-neutral-dark">Caricamento studenti...</div> <!-- Stile loading aggiornato -->
+      <div v-else-if="studentsError" class="error-message bg-error/10 border border-error text-error p-3 rounded">{{ studentsError }}</div> <!-- Stile errore aggiornato -->
       <div v-else-if="availableStudents.length > 0">
-         <div class="form-group">
-             <label>
-                 <input type="checkbox" @change="toggleSelectAllStudents" :checked="allStudentsSelected" />
-                 Seleziona Tutti
+         <div class="form-group mb-3"> <!-- Margin bottom -->
+             <label class="inline-flex items-center cursor-pointer">
+                 <input type="checkbox" @change="toggleSelectAllStudents" :checked="allStudentsSelected" class="rounded border-neutral-DEFAULT text-primary shadow-sm focus:border-primary focus:ring focus:ring-primary/20 focus:ring-offset-0" /> <!-- Stile checkbox aggiornato -->
+                 <span class="ml-2 text-sm text-neutral-darker">Seleziona Tutti</span> <!-- Stile label aggiornato -->
              </label>
          </div>
-         <ul class="student-list">
+         <ul class="student-list max-h-60 overflow-y-auto border border-neutral-DEFAULT rounded-md p-3 space-y-2 bg-neutral-lightest"> <!-- Stili lista aggiornati -->
             <li v-for="student in availableStudents" :key="student.id">
-              <label>
-                <input type="checkbox" :value="student.id" v-model="selectedStudentIds" />
-                {{ student.first_name }} {{ student.last_name }} ({{ student.username }})
+              <label class="inline-flex items-center cursor-pointer">
+                <input type="checkbox" :value="student.id" v-model="selectedStudentIds" class="rounded border-neutral-DEFAULT text-primary shadow-sm focus:border-primary focus:ring focus:ring-primary/20 focus:ring-offset-0" /> <!-- Stile checkbox aggiornato -->
+                <span class="ml-2 text-sm text-neutral-darkest">{{ student.first_name }} {{ student.last_name }} ({{ student.student_code }})</span> <!-- Mostra student_code, stile label aggiornato -->
               </label>
             </li>
          </ul>
       </div>
-       <div v-else>Nessuno studente trovato.</div>
-    </div>
+       <div v-else class="text-center py-6 text-neutral-dark">Nessuno studente trovato.</div> <!-- Stile messaggio vuoto aggiornato -->
+    </div> <!-- Fine student-selection -->
 
-    <div class="form-actions">
-        <!-- Applicato stile Tailwind -->
-        <button
+    <div class="form-actions mt-6"> <!-- Margin top -->
+        <BaseButton
+            variant="success"
             @click="assignContent"
             :disabled="!canAssign || isAssigning"
-            class="btn btn-success"
-        >
-            {{ isAssigning ? 'Assegnazione...' : 'Assegna Selezionati' }}
-        </button>
-        <div v-if="assignmentError" class="error-message">{{ assignmentError }}</div>
-        <div v-if="assignmentSuccess" class="success-message">{{ assignmentSuccess }}</div>
+        > <!-- Usa BaseButton -->
+            <span v-if="isAssigning">
+              <svg class="animate-spin -ml-1 mr-2 h-4 w-4 inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+               </svg>
+              Assegnazione...
+            </span>
+            <span v-else>Assegna Selezionati</span>
+        </BaseButton>
+        <div v-if="assignmentError" class="error-message mt-3 text-error text-sm">{{ assignmentError }}</div> <!-- Stile errore aggiornato -->
+        <div v-if="assignmentSuccess" class="success-message mt-3 text-success-dark text-sm">{{ assignmentSuccess }}</div> <!-- Stile successo aggiornato -->
     </div>
 
-  </div>
-  <!-- Aggiunto tag di chiusura mancante -->
-</div>
+  </div> <!-- Fine assignment-view -->
 </template>
 
 <script setup lang="ts">
@@ -92,6 +97,7 @@ import { fetchStudents, type Student } from '@/api/students';
 // Importa API per contenuti esistenti e template
 import { fetchQuizzes, fetchTeacherQuizTemplates, assignQuizToStudent, type Quiz, type QuizTemplate, type AssignQuizPayload, type QuizAssignmentResponse } from '@/api/quizzes'; // Usa fetchTeacherQuizTemplates
 import { fetchPathways, fetchPathwayTemplates, assignPathwayToStudent, type Pathway, type PathwayTemplate, type AssignPathwayPayload, type PathwayAssignmentResponse } from '@/api/pathways';
+import BaseButton from '@/components/common/BaseButton.vue'; // Importa BaseButton
 // Rimosso import axios non più necessario per assignApiCall
 
 // --- Stato Selezione Contenuto ---
@@ -167,11 +173,12 @@ const loadStudents = async () => {
 };
 
 onMounted(() => {
-  loadQuizzes();
-  loadPathways();
+  // Rimosso caricamento quiz/pathway esistenti non più usati per assegnazione
+  // loadQuizzes();
+  // loadPathways();
   loadStudents();
-  loadQuizTemplates(); // Carica anche i template
-  loadPathwayTemplates(); // Carica anche i template
+  loadQuizTemplates(); // Carica i template quiz
+  loadPathwayTemplates(); // Carica i template percorsi
 });
 
 // --- Logica Caricamento Template ---
@@ -296,85 +303,12 @@ watch(selectedContentType, () => {
 </script>
 
 <style scoped>
-.assignment-view {
-  padding: 20px;
-  max-width: 900px;
-  margin: auto;
-}
-
-.content-selection, .student-selection {
-  margin-bottom: 30px;
-  padding-bottom: 20px;
-  border-bottom: 1px solid #eee;
-}
-
-.form-group {
-  margin-bottom: 15px;
-}
-
-.form-group label {
-  display: block;
-  margin-bottom: 5px;
-  font-weight: bold;
-}
-
-.form-group select {
-  width: 100%;
-  padding: 8px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  box-sizing: border-box;
-}
-
-.student-list {
-    list-style: none;
-    padding: 0;
-    max-height: 300px; /* Limita altezza e aggiunge scroll */
-    overflow-y: auto;
-    border: 1px solid #eee;
-    padding: 10px;
-    margin-top: 10px;
-}
-
-.student-list li {
-    padding: 5px 0;
-}
-.student-list label {
-    font-weight: normal;
-    display: flex;
-    align-items: center;
-}
-.student-list input[type="checkbox"] {
-    margin-right: 10px;
-}
-
-
-.form-actions {
-  margin-top: 20px;
-}
-
-/* Rimosso stile .form-actions button */
-/* .form-actions button { ... } */
-/* .form-actions button:disabled { ... } */
-
-.error-message {
-  color: red;
-  margin-top: 10px;
-  font-weight: bold;
-}
-.error-message.small {
-    font-size: 0.9em;
-    font-weight: normal;
-    margin-top: 5px;
-}
-.success-message {
-    color: green;
-    margin-top: 10px;
-    font-weight: bold;
-}
-.loading {
-  margin-top: 20px;
-  font-style: italic;
-  color: #666;
-}
+/* Rimuovi stili specifici se non necessari, Tailwind dovrebbe gestire la maggior parte */
+/* Esempio: rimuovi stili .form-group, .student-list, .form-actions se Tailwind è sufficiente */
+/* .form-group { ... } */
+/* .student-list { ... } */
+/* .form-actions { ... } */
+/* .error-message { ... } */
+/* .success-message { ... } */
+/* .loading { ... } */
 </style>

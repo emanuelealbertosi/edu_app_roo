@@ -1,74 +1,130 @@
 <template>
-  <div class="quiz-form-view">
-    <h1>{{ isEditing ? 'Modifica Quiz' : 'Crea Nuovo Quiz' }}</h1>
+  <div class="p-6 bg-gray-50 min-h-screen">
+    <h1 class="text-2xl font-semibold text-gray-900 mb-6">
+      {{ isEditing ? 'Modifica Quiz' : 'Crea Nuovo Quiz' }}
+    </h1>
+
     <!-- Messaggio di successo -->
-    <div v-if="successMessage" class="success-message bg-green-100 border-l-4 border-green-500 text-green-700 p-4 mb-4 rounded">
-        {{ successMessage }}
+    <div v-if="successMessage" class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-6" role="alert">
+      <span class="block sm:inline">{{ successMessage }}</span>
     </div>
-    <form @submit.prevent="saveQuiz">
-      <div class="form-group">
-        <label for="title">Titolo:</label>
-        <input type="text" id="title" v-model="quizData.title" required />
-      </div>
-      <div class="form-group">
-        <label for="description">Descrizione (Opzionale):</label>
-        <textarea id="description" v-model="quizData.description"></textarea> <!-- Rimosso 'required' se presente -->
-      </div>
-      <div class="form-group">
-        <label for="available_from">Disponibile Dal:</label>
-        <input type="datetime-local" id="available_from" v-model="quizData.available_from" />
-      </div>
-      <div class="form-group">
-        <label for="available_until">Disponibile Fino Al:</label>
-        <input type="datetime-local" id="available_until" v-model="quizData.available_until" />
-      </div>
-      <div class="form-group">
-        <label for="points_on_completion">Punti al Completamento:</label>
-        <input type="number" id="points_on_completion" v-model.number="quizData.metadata.points_on_completion" min="0" class="form-input" />
-      </div>
-      <div class="form-group">
-        <label for="completion_threshold_percent">Soglia Completamento (%):</label>
-        <input type="number" id="completion_threshold_percent" v-model.number="quizData.metadata.completion_threshold_percent" min="0" max="100" step="0.1" class="form-input" />
-        <p class="form-help-text">Percentuale minima (0-100) per considerare il quiz superato. Default: 100%.</p>
+
+    <!-- Loading State -->
+    <div v-if="isLoading" class="text-center py-10">
+      <p class="text-gray-500">Caricamento dati quiz...</p>
+      <!-- Optional: Add a spinner here -->
+    </div>
+
+    <!-- Error State (Generale) -->
+    <div v-if="error && !isLoading" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6" role="alert">
+      <strong class="font-bold">Errore!</strong>
+      <span class="block sm:inline"> {{ error }}</span>
+    </div>
+
+    <!-- Form -->
+    <form v-if="!isLoading" @submit.prevent="saveQuiz" class="space-y-6 bg-white p-8 rounded-lg shadow-md max-w-4xl mx-auto mb-8">
+      <!-- Title -->
+      <div>
+        <label for="title" class="block text-sm font-medium text-gray-700 mb-1">Titolo</label>
+        <input type="text" id="title" v-model="quizData.title" required
+               class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
       </div>
 
-      <!-- Aggiungere gestione errori -->
-      <div v-if="error" class="error-message">{{ error }}</div>
+      <!-- Description -->
+      <div>
+        <label for="description" class="block text-sm font-medium text-gray-700 mb-1">Descrizione (Opzionale)</label>
+        <textarea id="description" v-model="quizData.description" rows="3"
+                  class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"></textarea>
+      </div>
 
-      <div class="form-actions">
-         <!-- Applicato stile Tailwind -->
-        <button type="submit" :disabled="isSaving" class="btn btn-success mr-2">
-          {{ isSaving ? 'Salvataggio...' : 'Salva Quiz' }}
+      <!-- Availability Dates -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <label for="available_from" class="block text-sm font-medium text-gray-700 mb-1">Disponibile Dal</label>
+          <input type="datetime-local" id="available_from" v-model="quizData.available_from"
+                 class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+        </div>
+        <div>
+          <label for="available_until" class="block text-sm font-medium text-gray-700 mb-1">Disponibile Fino Al</label>
+          <input type="datetime-local" id="available_until" v-model="quizData.available_until"
+                 class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+        </div>
+      </div>
+
+      <!-- Metadata Fields -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <label for="points_on_completion" class="block text-sm font-medium text-gray-700 mb-1">Punti al Completamento</label>
+          <input type="number" id="points_on_completion" v-model.number="quizData.metadata.points_on_completion" min="0"
+                 class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+        </div>
+        <div>
+          <label for="completion_threshold_percent" class="block text-sm font-medium text-gray-700 mb-1">Soglia Completamento (%)</label>
+          <input type="number" id="completion_threshold_percent" v-model.number="quizData.metadata.completion_threshold_percent" min="0" max="100" step="0.1"
+                 class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+          <p class="mt-2 text-xs text-gray-500">Percentuale minima (0-100) per considerare il quiz superato. Default: 100%.</p>
+        </div>
+      </div>
+
+      <!-- Form Actions -->
+      <div class="flex justify-end space-x-3 border-t border-gray-200 pt-6">
+        <button type="button" @click="cancel"
+                class="py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+          Annulla
         </button>
-         <!-- Applicato stile Tailwind -->
-        <button type="button" @click="cancel" class="btn btn-secondary">Annulla</button>
+        <button type="submit" :disabled="isSaving"
+                :class="['py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500',
+                         isSaving ? 'bg-indigo-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700']">
+          {{ isSaving ? 'Salvataggio...' : (isEditing ? 'Salva Modifiche Quiz' : 'Crea Quiz e Aggiungi Domande') }}
+        </button>
       </div>
     </form>
 
-    <!-- Sezione Domande (da aggiungere in seguito se in modalità modifica) -->
-    <div v-if="isEditing && quizId" class="questions-section">
-        <h2>Domande del Quiz</h2>
-        <div v-if="isLoadingQuestions" class="loading">Caricamento domande...</div>
-        <div v-else-if="questionsError" class="error-message">
-            Errore nel caricamento delle domande: {{ questionsError }}
+    <!-- Questions Section (only in editing mode) -->
+    <div v-if="isEditing && quizId && !isLoading" class="bg-white p-8 rounded-lg shadow-md max-w-4xl mx-auto">
+        <h2 class="text-xl font-semibold text-gray-900 mb-4">Domande del Quiz</h2>
+
+        <!-- Loading Questions State -->
+        <div v-if="isLoadingQuestions" class="text-center py-6">
+            <p class="text-gray-500">Caricamento domande...</p>
+            <!-- Optional: Add a spinner here -->
         </div>
-        <div v-else-if="questions.length > 0">
-            <ul class="question-list">
-                <QuestionEditor
-                    v-for="question in questions"
-                    :key="question.id"
-                    :question="question"
-                    @edit="handleEditQuestion"
-                    @delete="handleDeleteQuestion"
-                />
-            </ul>
+
+        <!-- Error Questions State -->
+        <div v-else-if="questionsError" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
+            <strong class="font-bold">Errore Domande!</strong>
+            <span class="block sm:inline"> {{ questionsError }}</span>
         </div>
-        <div v-else>
-            <p>Nessuna domanda ancora aggiunta a questo quiz.</p>
+
+        <!-- Questions List -->
+        <div v-else-if="questions.length > 0" class="space-y-4">
+            <!-- QuestionEditor gestirà il proprio stile interno -->
+            <QuestionEditor
+                v-for="(question, index) in questions"
+                :key="question.id"
+                :question="question"
+                :question-index="index"
+                @edit="handleEditQuestion"
+                @delete="handleDeleteQuestion"
+                class="border-b border-gray-200 pb-4 last:border-b-0"
+            />
         </div>
-        <!-- Pulsante Aggiungi Domanda -->
-         <!-- Applicato stile Tailwind -->
-        <button type="button" @click="addQuestion" class="btn btn-primary mt-4">Aggiungi Domanda</button>
+
+        <!-- No Questions Yet -->
+        <div v-else class="text-center py-6 border-t border-gray-200 mt-4">
+            <p class="text-gray-500">Nessuna domanda ancora aggiunta a questo quiz.</p>
+        </div>
+
+        <!-- Add Question Button -->
+        <div class="mt-6 text-right border-t border-gray-200 pt-6">
+            <button type="button" @click="addQuestion"
+                    class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
+                </svg>
+                Aggiungi Domanda
+            </button>
+        </div>
     </div>
 
   </div>
@@ -308,82 +364,11 @@ const handleDeleteQuestion = async (questionId: number) => {
 </script>
 
 <style scoped>
-.quiz-form-view {
-  padding: 20px;
-  max-width: 800px;
-  margin: auto;
-}
+/* Rimuoviamo la maggior parte degli stili scoped, ora gestiti da Tailwind. */
+/* Eventuali stili specifici che Tailwind non copre facilmente possono rimanere qui. */
 
-.form-group {
-  margin-bottom: 15px;
-}
-
-.form-group label {
-  display: block;
-  margin-bottom: 5px;
-  font-weight: bold;
-}
-
-.form-group input[type="text"],
-.form-group textarea,
-.form-group input[type="datetime-local"],
-.form-group input[type="number"].form-input { /* Applica stile anche agli input number */
-  width: 100%;
-  padding: 8px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  box-sizing: border-box; /* Include padding and border in element's total width and height */
-}
-
-.form-help-text {
-    font-size: 0.8rem;
-    color: #666;
-    margin-top: 4px;
-}
-
-.form-group textarea {
-  min-height: 100px;
-  resize: vertical;
-}
-
-.form-actions {
-  margin-top: 20px;
-}
-
-/* Stili per i bottoni ora gestiti da Tailwind nel template */
-/*
-.form-actions button { ... }
-.form-actions button[type="submit"] { ... }
-.form-actions button[type="submit"]:disabled { ... }
-.form-actions button[type="button"] { ... }
-*/
-
-.error-message {
-  color: red;
-  margin-top: 10px;
-  font-weight: bold;
-}
-.success-message {
-  /* Stili Tailwind applicati direttamente nel template */
-  margin-bottom: 15px;
-}
-
-.questions-section {
-    margin-top: 40px;
-    padding-top: 20px;
-    border-top: 1px solid #eee;
-}
-
-.questions-section .question-list { /* Stile specifico per la lista di QuestionEditor */
-    list-style: none;
-    padding: 0;
-    margin-top: 15px;
-}
-
-/* Rimuovi lo stile li generico se non serve più altrove */
-/* .questions-section li { ... } */
-
-/* Stile bottone Aggiungi Domanda gestito da Tailwind */
-/* .questions-section button { ... } */
-
+/* Esempio: Potrebbe essere necessario forzare l'aspetto dell'input datetime-local se Tailwind non basta */
+/* input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+    background-color: white;
+} */
 </style>

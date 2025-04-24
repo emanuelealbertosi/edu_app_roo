@@ -1,21 +1,40 @@
 <template>
-  <div class="question-form-view">
-    <h1>{{ isEditing ? 'Modifica Domanda' : 'Aggiungi Nuova Domanda' }}</h1>
-    <div v-if="successMessage" class="success-message bg-green-100 border-l-4 border-green-500 text-green-700 p-4 mb-4 rounded">
-        {{ successMessage }}
-    </div>
-    <div v-if="isLoading" class="loading">Caricamento dati domanda...</div>
-    <div v-else-if="error" class="error-message">{{ error }}</div>
+  <div class="p-6 bg-gray-50 min-h-screen">
+    <h1 class="text-2xl font-semibold text-gray-900 mb-6">
+      {{ isEditing ? 'Modifica Domanda' : 'Aggiungi Nuova Domanda' }}
+      <span v-if="quizId" class="text-base font-normal text-gray-600 ml-2">(per Quiz ID: {{ quizId }})</span>
+    </h1>
 
-    <form v-else @submit.prevent="saveQuestion">
-      <div class="form-group">
-        <label for="text">Testo Domanda:</label>
-        <textarea id="text" v-model="questionData.text" required></textarea>
+    <!-- Success Message -->
+    <div v-if="successMessage" class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-6" role="alert">
+      <span class="block sm:inline">{{ successMessage }}</span>
+    </div>
+
+    <!-- Loading State -->
+    <div v-if="isLoading" class="text-center py-10">
+      <p class="text-gray-500">Caricamento dati domanda...</p>
+    </div>
+
+    <!-- Error State -->
+    <div v-else-if="error" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6" role="alert">
+      <strong class="font-bold">Errore!</strong>
+      <span class="block sm:inline"> {{ error }}</span>
+    </div>
+
+    <!-- Form Container -->
+    <form v-else @submit.prevent="saveQuestion" class="space-y-6 bg-white p-8 rounded-lg shadow-md max-w-4xl mx-auto">
+      <!-- Question Text -->
+      <div>
+        <label for="text" class="block text-sm font-medium text-gray-700 mb-1">Testo Domanda</label>
+        <textarea id="text" v-model="questionData.text" required rows="4"
+                  class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"></textarea>
       </div>
 
-      <div class="form-group">
-        <label for="question_type">Tipo Domanda:</label>
-        <select id="question_type" v-model="questionData.question_type" required>
+      <!-- Question Type -->
+      <div>
+        <label for="question_type" class="block text-sm font-medium text-gray-700 mb-1">Tipo Domanda</label>
+        <select id="question_type" v-model="questionData.question_type" required
+                class="mt-1 block w-full px-3 py-2 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
           <option disabled value="">Seleziona un tipo</option>
           <option v-for="qType in questionTypes" :key="qType.value" :value="qType.value">
             {{ qType.label }}
@@ -23,15 +42,23 @@
         </select>
       </div>
 
-      <div class="form-group">
-        <label for="order">Ordine:</label>
-        <input type="number" id="order" v-model.number="questionData.order" required min="0" />
+      <!-- Order -->
+      <div>
+        <label for="order" class="block text-sm font-medium text-gray-700 mb-1">Ordine</label>
+        <input type="number" id="order" v-model.number="questionData.order" required min="0"
+               class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+        <p class="mt-1 text-xs text-gray-500">Ordine della domanda all'interno del quiz (0, 1, 2...).</p>
       </div>
 
-      <!-- TODO: Aggiungere gestione metadata (JSON editor?) -->
+      <!-- TODO: Aggiungere gestione metadata (JSON editor o campi specifici?) -->
+      <!-- <div class="pt-6 border-t border-gray-200">
+        <h3 class="text-lg font-medium text-gray-900">Metadati (Opzionale)</h3>
+         Qui si potrebbe inserire un editor JSON o campi specifici
+      </div> -->
 
-      <!-- Gestione Opzioni di Risposta -->
-      <div v-if="showAnswerOptionsEditor" class="answer-options-section">
+      <!-- Answer Options Section (conditionally rendered) -->
+      <div v-if="showAnswerOptionsEditor" class="pt-6 border-t border-gray-200">
+          <h2 class="text-lg font-medium text-gray-900 mb-4">Opzioni di Risposta</h2>
           <AnswerOptionsEditor
               :quiz-id="quizId!"
               :question-id="questionId!"
@@ -39,14 +66,27 @@
               :question-type="questionData.question_type"
               @options-saved="handleOptionsSaved"
               @error="handleOptionsError"
-          ></AnswerOptionsEditor>
+          />
+      </div>
+      <div v-else-if="isEditing && !showAnswerOptionsEditor" class="pt-6 border-t border-gray-200">
+          <p class="text-sm text-gray-500 italic">Questo tipo di domanda non richiede opzioni di risposta predefinite.</p>
+      </div>
+       <div v-else-if="!isEditing" class="pt-6 border-t border-gray-200">
+          <p class="text-sm text-gray-500 italic">Salva la domanda prima di poter aggiungere le opzioni di risposta (se applicabile).</p>
       </div>
 
-      <div class="form-actions">
-        <button type="submit" :disabled="isSaving" class="btn btn-success mr-2">
-          {{ isSaving ? 'Salvataggio...' : (isEditing ? 'Salva Modifiche' : 'Crea Domanda') }}
+
+      <!-- Form Actions -->
+      <div class="flex justify-end space-x-3 pt-6 border-t border-gray-200">
+        <button type="button" @click="goBack"
+                class="py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+          Annulla
         </button>
-        <button type="button" @click="goBack" class="btn btn-secondary">Annulla</button>
+        <button type="submit" :disabled="isSaving"
+                :class="['py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500',
+                         isSaving ? 'bg-indigo-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700']">
+          {{ isSaving ? 'Salvataggio...' : (isEditing ? 'Salva Modifiche Domanda' : 'Crea Domanda') }}
+        </button>
       </div>
     </form>
   </div>
@@ -341,69 +381,6 @@ watch(() => questionData.question_type, (newType) => {
 </script>
 
 <style scoped>
-.question-form-view {
-  padding: 20px;
-  max-width: 700px;
-  margin: auto;
-}
-
-/* Stili copiati e adattati da QuizFormView */
-.form-group {
-  margin-bottom: 15px;
-}
-
-.form-group label {
-  display: block;
-  margin-bottom: 5px;
-  font-weight: bold;
-}
-
-.form-group input[type="number"],
-.form-group textarea,
-.form-group select {
-  width: 100%;
-  padding: 8px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  box-sizing: border-box;
-}
-
-.form-group textarea {
-  min-height: 150px;
-  resize: vertical;
-}
-
-.form-actions {
-  margin-top: 20px;
-}
-
-/* Stili per i bottoni ora gestiti da Tailwind nel template */
-/*
-.form-actions button { ... }
-.form-actions button[type="submit"] { ... }
-.form-actions button[type="submit"]:disabled { ... }
-.form-actions button[type="button"] { ... }
-*/
-
-.error-message {
-  color: red;
-  margin-top: 10px;
-  font-weight: bold;
-}
-.success-message {
-  /* Stili Tailwind applicati direttamente nel template */
-  margin-bottom: 15px;
-}
-
-.loading {
-  margin-top: 20px;
-  font-style: italic;
-  color: #666;
-}
-
-.answer-options-section {
-    margin-top: 30px;
-    padding-top: 20px;
-    border-top: 1px solid #eee;
-}
+/* Rimuoviamo la maggior parte degli stili scoped, ora gestiti da Tailwind. */
+/* Eventuali stili specifici che Tailwind non copre facilmente possono rimanere qui. */
 </style>

@@ -1,47 +1,49 @@
 <template>
-  <div class="rewards-view p-4 md:p-6"> <!-- Added padding -->
-    <h1 class="text-2xl font-semibold mb-4">Gestione Ricompense</h1> <!-- Styled heading -->
-    <p class="text-gray-600 mb-6">Qui puoi visualizzare, creare e modificare le ricompense disponibili per gli studenti.</p> <!-- Styled paragraph -->
-    <div class="actions mb-6"> <!-- Added margin -->
-      <button @click="createNewReward" class="btn btn-primary">Crea Nuova Ricompensa</button>
+  <div class="rewards-view p-4 md:p-6"> <!-- Padding ok -->
+    <div class="bg-primary text-white p-4 rounded-md mb-6"> <!-- Contenitore per titolo e sottotitolo -->
+      <h1 class="text-2xl font-semibold mb-1">Gestione Ricompense</h1> <!-- Rimosso stile individuale, aggiunto mb-1 -->
+      <p class="opacity-90">Qui puoi visualizzare, creare e modificare le ricompense disponibili per gli studenti.</p> <!-- Rimosso stile individuale, aggiunta opacità -->
+    </div>
+    <div class="actions mb-6"> <!-- Margin ok -->
+      <BaseButton variant="primary" @click="createNewReward">Crea Nuova Ricompensa</BaseButton> <!-- Usa BaseButton -->
     </div>
 
-    <div v-if="isLoading" class="text-center py-10 text-gray-500">Caricamento ricompense...</div> <!-- Styled loading -->
-    <div v-else-if="error" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6" role="alert"> <!-- Styled error -->
+    <div v-if="isLoading" class="text-center py-10 text-neutral-dark">Caricamento ricompense...</div> <!-- Stile loading aggiornato -->
+    <div v-else-if="error" class="bg-error/10 border border-error text-error px-4 py-3 rounded relative mb-6" role="alert"> <!-- Stile errore aggiornato -->
       <strong class="font-bold">Errore!</strong>
       <span class="block sm:inline"> Errore nel caricamento delle ricompense: {{ error }}</span>
     </div>
     <!-- Responsive Table Container -->
     <div v-else-if="rewards.length > 0" class="overflow-x-auto shadow-md rounded-lg mt-6">
-      <table class="min-w-full divide-y divide-gray-200 bg-white">
-        <thead class="bg-gray-50">
+      <table class="min-w-full divide-y divide-neutral-DEFAULT bg-white"> <!-- Stile tabella aggiornato -->
+        <thead class="bg-neutral-lightest"> <!-- Stile thead aggiornato -->
           <tr>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nome</th>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Descrizione</th>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Costo (Punti)</th>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stato</th> <!-- Modificato da Disponibilità -->
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Azioni</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider">Nome</th> <!-- Stile th aggiornato -->
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider">Descrizione</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider">Costo (Punti)</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider">Stato</th> <!-- Modificato da Disponibilità -->
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider">Azioni</th>
           </tr>
         </thead>
-        <tbody class="bg-white divide-y divide-gray-200">
-          <tr v-for="reward in rewards" :key="reward.id" class="hover:bg-gray-50 transition-colors duration-150">
-            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ reward.name }}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ reward.description || '-' }}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ reward.cost_points }}</td>
+        <tbody class="bg-white divide-y divide-neutral-DEFAULT"> <!-- Stile tbody aggiornato -->
+          <tr v-for="reward in rewards" :key="reward.id" class="hover:bg-neutral-lightest transition-colors duration-150"> <!-- Stile tr aggiornato -->
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-neutral-darkest">{{ reward.name }}</td> <!-- Stile td aggiornato -->
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-neutral-darker">{{ reward.description || '-' }}</td> <!-- Stile td aggiornato -->
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-neutral-darker">{{ reward.cost_points }}</td> <!-- Stile td aggiornato -->
             <td class="px-6 py-4 whitespace-nowrap text-sm">
-              <span :class="reward.is_active ? 'text-green-600' : 'text-red-600'">
+              <span :class="reward.is_active ? 'text-success-dark' : 'text-error'"> <!-- Colori stato aggiornati -->
                 {{ reward.is_active ? 'Attiva' : 'Non Attiva' }}
               </span>
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2"> <!-- Added space-x-2 -->
-              <button @click="editReward(reward.id)" class="btn btn-warning btn-sm">Modifica</button> <!-- Added btn-sm -->
-              <button @click="deleteReward(reward.id)" class="btn btn-danger btn-sm">Elimina</button> <!-- Added btn-sm -->
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2"> <!-- Spazio ok -->
+              <BaseButton variant="warning" size="sm" @click="editReward(reward.id)">Modifica</BaseButton> <!-- Usa BaseButton -->
+              <BaseButton variant="danger" size="sm" @click="deleteReward(reward.id)">Elimina</BaseButton> <!-- Usa BaseButton -->
             </td>
           </tr>
         </tbody>
       </table>
     </div>
-    <div v-else class="text-center py-10 text-gray-500"> <!-- Styled no rewards -->
+    <div v-else class="text-center py-10 text-neutral-dark"> <!-- Stile no rewards aggiornato -->
       Nessuna ricompensa trovata.
     </div>
   </div>
@@ -51,6 +53,7 @@
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { fetchRewards, deleteRewardApi, type Reward } from '@/api/rewards'; // Importa API e tipo
+import BaseButton from '@/components/common/BaseButton.vue'; // Importa BaseButton
 
 const router = useRouter();
 const rewards = ref<Reward[]>([]);

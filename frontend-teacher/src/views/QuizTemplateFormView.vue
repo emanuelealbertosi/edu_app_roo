@@ -1,67 +1,71 @@
 <template>
-  <div class="quiz-template-form-view"> <!-- Rinominato -->
-    <h1>{{ isEditing ? 'Modifica Template Quiz' : 'Crea Nuovo Template Quiz' }}</h1> <!-- Aggiornato -->
+  <div class="quiz-template-form-view p-4 md:p-6"> <!-- Padding ok -->
+    <h1 class="text-2xl font-semibold mb-4 text-neutral-darkest">{{ isEditing ? 'Modifica Template Quiz' : 'Crea Nuovo Template Quiz' }}</h1> <!-- Stile titolo aggiornato -->
     <!-- Messaggio di successo -->
-    <div v-if="successMessage" class="success-message bg-green-100 border-l-4 border-green-500 text-green-700 p-4 mb-4 rounded">
+    <div v-if="successMessage" class="success-message bg-success/10 border-l-4 border-success text-success-dark p-4 mb-4 rounded"> <!-- Stile successo aggiornato -->
         {{ successMessage }}
     </div>
-    <form @submit.prevent="saveQuizTemplate"> <!-- Aggiornato handler -->
-      <div class="form-group">
-        <label for="title">Titolo:</label>
-        <input type="text" id="title" v-model="templateData.title" required /> <!-- Usa templateData -->
+    <form @submit.prevent="saveQuizTemplate"> <!-- Handler ok -->
+      <div class="form-group mb-4"> <!-- Margin bottom -->
+        <label for="title" class="block text-sm font-medium text-neutral-darker mb-1">Titolo:</label> <!-- Stile label aggiornato -->
+        <input type="text" id="title" v-model="templateData.title" required class="shadow-sm focus:ring-primary focus:border-primary block w-full sm:text-sm border-neutral-DEFAULT rounded-md p-2" /> <!-- Stili input aggiornati -->
       </div>
-      <div class="form-group">
-        <label for="description">Descrizione (Opzionale):</label>
-        <textarea id="description" v-model="templateData.description"></textarea> <!-- Usa templateData -->
+      <div class="form-group mb-4"> <!-- Margin bottom -->
+        <label for="description" class="block text-sm font-medium text-neutral-darker mb-1">Descrizione (Opzionale):</label> <!-- Stile label aggiornato -->
+        <textarea id="description" v-model="templateData.description" class="shadow-sm focus:ring-primary focus:border-primary block w-full sm:text-sm border-neutral-DEFAULT rounded-md p-2 min-h-[80px]"></textarea> <!-- Stili textarea aggiornati -->
       </div>
       <!-- Rimossi available_from / available_until -->
-      <div class="form-group">
-        <label for="points_on_completion">Punti al Completamento (Default):</label> <!-- Aggiornato label -->
-        <input type="number" id="points_on_completion" v-model.number="templateData.metadata.points_on_completion" min="0" class="form-input" /> <!-- Usa templateData -->
+      <div class="form-group mb-4"> <!-- Margin bottom -->
+        <label for="points_on_completion" class="block text-sm font-medium text-neutral-darker mb-1">Punti al Completamento (Default):</label> <!-- Stile label aggiornato -->
+        <input type="number" id="points_on_completion" v-model.number="templateData.metadata.points_on_completion" min="0" class="form-input shadow-sm focus:ring-primary focus:border-primary block w-full sm:text-sm border-neutral-DEFAULT rounded-md p-2" /> <!-- Stili input aggiornati -->
       </div>
-      <div class="form-group">
-        <label for="completion_threshold_percent">Soglia Completamento (%) (Default):</label> <!-- Aggiornato label -->
-        <input type="number" id="completion_threshold_percent" v-model.number="templateData.metadata.completion_threshold_percent" min="0" max="100" step="0.1" class="form-input" />
-        <p class="form-help-text">Percentuale minima (0-100) per considerare superato un quiz creato da questo template. Default: 100%.</p>
+      <div class="form-group mb-4"> <!-- Margin bottom -->
+        <label for="completion_threshold_percent" class="block text-sm font-medium text-neutral-darker mb-1">Soglia Completamento (%) (Default):</label> <!-- Stile label aggiornato -->
+        <input type="number" id="completion_threshold_percent" v-model.number="templateData.metadata.completion_threshold_percent" min="0" max="100" step="0.1" class="form-input shadow-sm focus:ring-primary focus:border-primary block w-full sm:text-sm border-neutral-DEFAULT rounded-md p-2" /> <!-- Stili input aggiornati -->
+        <p class="form-help-text text-xs text-neutral-dark mt-1">Percentuale minima (0-100) per considerare superato un quiz creato da questo template. Default: 100%.</p> <!-- Stile help text aggiornato -->
       </div>
 
       <!-- Aggiungere gestione errori -->
-      <div v-if="error" class="error-message">{{ error }}</div>
+      <div v-if="error" class="error-message text-error text-sm mb-4">{{ error }}</div> <!-- Stile errore aggiornato -->
 
-      <div class="form-actions">
-         <!-- Applicato stile Tailwind -->
-        <button type="submit" :disabled="isSaving" class="btn btn-success mr-2">
-          {{ isSaving ? 'Salvataggio...' : (isEditing ? 'Salva Template' : 'Crea Template') }} <!-- Aggiornato testo -->
-        </button>
-         <!-- Applicato stile Tailwind -->
-        <button type="button" @click="cancel" class="btn btn-secondary">Annulla</button>
+      <div class="form-actions mt-6 flex space-x-3"> <!-- Margin top e flex -->
+        <BaseButton type="submit" variant="success" :disabled="isSaving"> <!-- Usa BaseButton -->
+          <span v-if="isSaving">
+            <svg class="animate-spin -ml-1 mr-2 h-4 w-4 inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+               <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+             </svg>
+            Salvataggio...
+          </span>
+          <span v-else>{{ isEditing ? 'Salva Template' : 'Crea Template' }}</span> <!-- Testo aggiornato -->
+        </BaseButton>
+        <BaseButton type="button" variant="secondary" @click="cancel">Annulla</BaseButton> <!-- Usa BaseButton -->
       </div>
     </form>
 
-    <!-- Sezione Domande Template (Richiede modifiche API e gestione stato) -->
-    <div v-if="isEditing && templateId" class="questions-section"> <!-- Usa templateId -->
-        <h2>Domande del Template</h2> <!-- Aggiornato testo -->
-        <div v-if="isLoadingQuestions" class="loading">Caricamento domande template...</div> <!-- Aggiornato testo -->
-        <div v-else-if="questionsError" class="error-message">
-            Errore nel caricamento delle domande template: {{ questionsError }} <!-- Aggiornato testo -->
+    <!-- Sezione Domande Template -->
+    <div v-if="isEditing && templateId" class="questions-section mt-10 pt-6 border-t border-neutral-DEFAULT"> <!-- Stili sezione aggiornati -->
+        <h2 class="text-xl font-semibold mb-4 text-neutral-darkest">Domande del Template</h2> <!-- Stile titolo aggiornato -->
+        <div v-if="isLoadingQuestions" class="loading text-center py-6 text-neutral-dark">Caricamento domande template...</div> <!-- Stile loading aggiornato -->
+        <div v-else-if="questionsError" class="error-message bg-error/10 border border-error text-error p-3 rounded mb-4"> <!-- Stile errore aggiornato -->
+            Errore nel caricamento delle domande template: {{ questionsError }}
         </div>
         <div v-else-if="questions.length > 0">
-            <ul class="question-list">
+            <ul class="question-list space-y-4"> <!-- Stile lista aggiornato -->
                 <TemplateQuestionEditor
                     v-for="question in questions"
                     :key="question.id"
                     :question="question"
                     @edit="handleEditQuestion"
                     @delete="handleDeleteQuestion"
-                />
+                    class="bg-white p-4 rounded-lg shadow border border-neutral-DEFAULT" /> <!-- Stile item aggiornato -->
             </ul>
         </div>
-        <div v-else>
-            <p>Nessuna domanda ancora aggiunta a questo template.</p> <!-- Aggiornato testo -->
+        <div v-else class="text-center py-6 text-neutral-dark"> <!-- Stile messaggio vuoto aggiornato -->
+            <p>Nessuna domanda ancora aggiunta a questo template.</p>
         </div>
         <!-- Pulsante Aggiungi Domanda -->
-         <!-- Applicato stile Tailwind -->
-        <button type="button" @click="addQuestion" class="btn btn-primary mt-4">Aggiungi Domanda Template</button> <!-- Aggiornato testo -->
+        <BaseButton type="button" variant="primary" @click="addQuestion" class="mt-6">Aggiungi Domanda Template</BaseButton> <!-- Usa BaseButton, stile aggiornato -->
     </div>
 
   </div>
@@ -82,6 +86,7 @@ import {
     // TODO: Importare API per opzioni e gestione completa domande
 } from '@/api/templateQuestions';
 import TemplateQuestionEditor from '@/components/TemplateQuestionEditor.vue'; // Importa il nuovo componente
+import BaseButton from '@/components/common/BaseButton.vue'; // Importa BaseButton
 
 // Interfaccia per i dati del form (basata su QuizTemplatePayload + struttura metadata)
 interface QuizTemplateFormData {
@@ -269,59 +274,6 @@ const handleDeleteQuestion = async (questionId: number) => {
 </script>
 
 <style scoped>
-/* Stili per lo più identici a QuizFormView, aggiornato selettore classe */
-.quiz-template-form-view {
-  padding: 20px;
-  max-width: 800px;
-  margin: auto;
-}
-
-.form-group {
-  margin-bottom: 15px;
-}
-.form-group label {
-  display: block;
-  margin-bottom: 5px;
-  font-weight: bold;
-}
-.form-group input[type="text"],
-.form-group textarea,
-.form-group input[type="datetime-local"], /* Mantenuto per ora, ma non usato */
-.form-group input[type="number"].form-input {
-  width: 100%;
-  padding: 8px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  box-sizing: border-box;
-}
-.form-help-text {
-    font-size: 0.8rem;
-    color: #666;
-    margin-top: 4px;
-}
-.form-group textarea {
-  min-height: 100px;
-  resize: vertical;
-}
-.form-actions {
-  margin-top: 20px;
-}
-.error-message {
-  color: red;
-  margin-top: 10px;
-  font-weight: bold;
-}
-.success-message {
-  margin-bottom: 15px;
-}
-.questions-section {
-    margin-top: 40px;
-    padding-top: 20px;
-    border-top: 1px solid #eee;
-}
-.questions-section .question-list {
-    list-style: none;
-    padding: 0;
-    margin-top: 15px;
-}
+/* Rimuovi stili specifici se non necessari, Tailwind dovrebbe gestire la maggior parte */
+/* Esempio: rimuovi .form-group, .form-actions, .error-message, etc. */
 </style>

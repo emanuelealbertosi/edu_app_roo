@@ -37,7 +37,7 @@ watch(() => props.question.id, () => {
 
 <template>
   <div class="true-false-question mt-4">
-    <ul class="options-list grid grid-cols-2 gap-4"> {/* Usa grid per affiancare */}
+    <ul class="options-list grid grid-cols-2 gap-4">
       <li class="option-item">
         <label
           :class="[

@@ -176,14 +176,14 @@ const shouldShowStartButton = (quiz: Quiz): boolean => {
 </script>
 
 <template>
-  <div class="quiz-list-card bg-white rounded-lg shadow-md p-6">
-    <h2 class="text-xl font-bold text-purple-700 mb-4 flex items-center"><span class="text-2xl mr-2">📝</span> {{ title }}</h2>
+  <div class="quiz-list-card bg-white rounded-lg shadow-md p-6"> <!-- Stili card base ok -->
+    <h2 class="text-xl font-bold text-primary-dark mb-4 flex items-center"><span class="text-2xl mr-2">📝</span> {{ title }}</h2> <!-- Titolo primario scuro -->
 
-    <div v-if="loading" class="loading-indicator text-center py-4 text-gray-500">
+    <div v-if="loading" class="loading-indicator text-center py-4 text-neutral-dark"> <!-- Testo loading neutro scuro -->
       <p>Caricamento quiz...</p>
     </div>
 
-    <div v-else-if="quizzes.length === 0" class="empty-message text-center py-4 text-gray-500">
+    <div v-else-if="quizzes.length === 0" class="empty-message text-center py-4 text-neutral-dark"> <!-- Testo neutro scuro -->
       <p>{{ emptyMessage }}</p>
     </div>
     
@@ -192,34 +192,34 @@ const shouldShowStartButton = (quiz: Quiz): boolean => {
       <div
         v-for="quiz in quizzes"
         :key="quiz.id"
-        class="quiz-item bg-gray-50 rounded-lg p-4 shadow border-l-4 relative pb-16 hover:shadow-lg transition-shadow duration-200 cursor-pointer"
+        class="quiz-item bg-neutral-lightest rounded-lg p-4 shadow border-l-4 relative pb-16 hover:shadow-lg transition-shadow duration-200 cursor-pointer"
         :class="getStatusBorderClass(quiz)"
         @click="openDetailsModal(quiz.id)"
       >
         <!-- Contenuto dell'item (invariato, tranne il pulsante sotto) -->
         <div class="quiz-header flex justify-between items-center mb-2">
-          <h3 class="font-semibold text-lg text-gray-800">{{ quiz.title }}</h3>
+          <h3 class="font-semibold text-lg text-neutral-darkest">{{ quiz.title }}</h3> <!-- Testo neutro scuro -->
           <span :class="['quiz-status text-xs font-medium px-3 py-1 rounded-full', getStatusClass(quiz)]">{{ getAttemptStatusLabel(quiz) }}</span>
         </div>
         
-        <p class="quiz-description text-gray-600 text-sm mb-3 line-clamp-2">{{ quiz.description }}</p>
+        <p class="quiz-description text-neutral-dark text-sm mb-3 line-clamp-2">{{ quiz.description }}</p> <!-- Testo neutro scuro -->
 
         <div class="quiz-metadata flex flex-wrap gap-2 text-xs mb-3">
-          <div v-if="quiz.metadata.difficulty" class="quiz-difficulty bg-gray-200 text-gray-700 px-2 py-1 rounded">
+          <div v-if="quiz.metadata.difficulty" class="quiz-difficulty bg-neutral text-neutral-darker px-2 py-1 rounded"> <!-- Badge neutro -->
             Difficoltà: {{ quiz.metadata.difficulty }}
           </div>
 
-          <div v-if="quiz.metadata.subject" class="quiz-subject bg-gray-200 text-gray-700 px-2 py-1 rounded">
+          <div v-if="quiz.metadata.subject" class="quiz-subject bg-neutral text-neutral-darker px-2 py-1 rounded"> <!-- Badge neutro -->
             Materia: {{ quiz.metadata.subject }}
           </div>
 
-          <div v-if="quiz.metadata.points_on_completion" class="quiz-points bg-yellow-100 text-yellow-800 px-2 py-1 rounded">
+          <div v-if="quiz.metadata.points_on_completion" class="quiz-points bg-warning/10 text-warning-dark px-2 py-1 rounded"> <!-- Badge warning (ambra) -->
             Punti: {{ quiz.metadata.points_on_completion }}
           </div>
         </div>
         
         <!-- Nascondi le date se il quiz è completato -->
-        <div v-if="quiz.latest_attempt?.status !== 'COMPLETED'" class="quiz-dates flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
+        <div v-if="quiz.latest_attempt?.status !== 'COMPLETED'" class="quiz-dates flex flex-wrap gap-x-4 gap-y-1 text-xs text-neutral-dark"> <!-- Testo neutro scuro -->
           <div v-if="quiz.available_from" class="quiz-available-from">
             <span class="font-medium">Da:</span> {{ formatDate(quiz.available_from) }}
           </div>
@@ -233,7 +233,7 @@ const shouldShowStartButton = (quiz: Quiz): boolean => {
         <button
           v-if="shouldShowStartButton(quiz)"
           @click.stop="startQuizAttempt(quiz.id)"
-          class="start-quiz-button absolute bottom-4 right-4 bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg shadow transition-colors duration-200 z-10"
+          class="start-quiz-button absolute bottom-4 right-4 bg-primary hover:bg-primary-dark text-white font-bold py-2 px-4 rounded-lg shadow transition-colors duration-200 z-10"
         >
           Inizia Quiz ▶
         </button>
@@ -315,23 +315,23 @@ const shouldShowStartButton = (quiz: Quiz): boolean => {
 /* Aggiungiamo classi Tailwind direttamente nel template per gli stati,
    ma potremmo definire colori specifici qui se necessario */
 .status-not-started {
-  @apply bg-gray-200 text-gray-700;
+  @apply bg-neutral text-neutral-darker; /* Badge neutro */
 }
 .status-in-progress {
-  @apply bg-yellow-100 text-yellow-800;
+  @apply bg-warning/10 text-warning-dark; /* Badge warning (ambra) */
 }
 .status-pending {
-   @apply bg-orange-100 text-orange-800; /* Colore diverso per pending */
+   @apply bg-warning/10 text-warning-dark; /* Usiamo warning anche per pending per ora */
 }
 .status-completed {
-   @apply bg-green-100 text-green-800;
+   @apply bg-success/10 text-success-dark; /* Badge success */
 }
 
 /* Classi per il bordo sinistro in base allo stato */
-.border-status-not-started { @apply border-l-gray-400; }
-.border-status-in-progress { @apply border-l-yellow-500; }
-.border-status-pending { @apply border-l-orange-500; }
-.border-status-completed { @apply border-l-green-500; }
+.border-status-not-started { @apply border-l-neutral-medium; } /* Bordo neutro */
+.border-status-in-progress { @apply border-l-warning; } /* Bordo warning (ambra) */
+.border-status-pending { @apply border-l-warning; } /* Bordo warning anche per pending */
+.border-status-completed { @apply border-l-success; } /* Bordo success */
 
 /* Stile per troncare la descrizione (alternativa a line-clamp se non supportato ovunque) */
 .quiz-description {

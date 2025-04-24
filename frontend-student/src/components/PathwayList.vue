@@ -121,49 +121,49 @@ const getProgressBorderClass = (pathway: Pathway): string => {
 
 <template>
   <div class="pathway-list-card bg-white rounded-lg shadow-md p-6">
-    <h2 class="text-xl font-bold text-teal-700 mb-4 flex items-center"><span class="text-2xl mr-2">🗺️</span> {{ title }}</h2>
+    <h2 class="text-xl font-bold text-primary-dark mb-4 flex items-center"><span class="text-2xl mr-2">🗺️</span> {{ title }}</h2>
 
-    <div v-if="loading" class="loading-indicator text-center py-4 text-gray-500">
+    <div v-if="loading" class="loading-indicator text-center py-4 text-neutral-dark">
       <p>Caricamento percorsi...</p>
     </div>
 
-    <div v-else-if="pathways.length === 0" class="empty-message text-center py-4 text-gray-500">
+    <div v-else-if="pathways.length === 0" class="empty-message text-center py-4 text-neutral-dark">
       <p>{{ emptyMessage }}</p>
     </div>
 
     <div v-else class="pathway-list space-y-4">
       <!-- Rimosso @click dalla card principale -->
-      <div v-for="pathway in pathways" :key="pathway.id" class="pathway-item bg-gray-50 rounded-lg p-4 shadow border-l-4 relative pb-16 hover:shadow-lg transition-shadow duration-200" :class="getProgressBorderClass(pathway)">
+      <div v-for="pathway in pathways" :key="pathway.id" class="pathway-item bg-neutral-lightest rounded-lg p-4 shadow border-l-4 relative pb-16 hover:shadow-lg transition-shadow duration-200" :class="getProgressBorderClass(pathway)">
         <!-- DEBUG LOG: Rendering pathway: {{ JSON.stringify(pathway) }} -->
         <div class="pathway-header flex justify-between items-center mb-2">
-          <h3 class="font-semibold text-lg text-gray-800">{{ pathway.title }}</h3>
+          <h3 class="font-semibold text-lg text-neutral-darkest">{{ pathway.title }}</h3>
           <span :class="['pathway-status text-xs font-medium px-3 py-1 rounded-full', getProgressStatusClass(pathway)]">
             {{ getProgressStatusLabel(pathway) }}
           </span>
         </div>
 
-        <p class="pathway-description text-gray-600 text-sm mb-3 line-clamp-2">{{ pathway.description }}</p>
+        <p class="pathway-description text-neutral-dark text-sm mb-3 line-clamp-2">{{ pathway.description }}</p>
 
         <div class="pathway-progress-container mb-3">
           <!-- Usa la funzione formattata -->
-          <div class="pathway-progress-label text-sm font-medium text-gray-700 mb-1">Progresso: {{ formatProgressPercentage(pathway) }}</div>
-          <div class="pathway-progress-bar w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
+          <div class="pathway-progress-label text-sm font-medium text-neutral-darker mb-1">Progresso: {{ formatProgressPercentage(pathway) }}</div>
+          <div class="pathway-progress-bar w-full bg-neutral rounded-full h-2.5 overflow-hidden">
             <div
-              class="pathway-progress-fill bg-teal-500 h-2.5 rounded-full transition-all duration-500 ease-out"
+              class="pathway-progress-fill bg-primary h-2.5 rounded-full transition-all duration-500 ease-out"
               :style="{ width: calculateCompletionPercentage(pathway) + '%' }"
               ></div>
           </div>
         </div>
         <div class="pathway-metadata flex flex-wrap gap-2 text-xs">
-          <div v-if="pathway.metadata.points_on_completion" class="pathway-points bg-yellow-100 text-yellow-800 px-2 py-1 rounded">
+          <div v-if="pathway.metadata.points_on_completion" class="pathway-points bg-warning/10 text-warning-dark px-2 py-1 rounded">
             Punti: {{ pathway.metadata.points_on_completion }}
           </div>
 
-          <div v-if="pathway.latest_progress && pathway.latest_progress.completed_at" class="pathway-completed-at bg-gray-200 text-gray-700 px-2 py-1 rounded">
+          <div v-if="pathway.latest_progress && pathway.latest_progress.completed_at" class="pathway-completed-at bg-neutral text-neutral-darker px-2 py-1 rounded">
             Completato: {{ formatDate(pathway.latest_progress.completed_at) }}
           </div>
 
-          <div v-if="pathway.latest_progress && pathway.latest_progress.points_earned" class="pathway-points-earned bg-green-100 text-green-800 px-2 py-1 rounded">
+          <div v-if="pathway.latest_progress && pathway.latest_progress.points_earned" class="pathway-points-earned bg-success/10 text-success-dark px-2 py-1 rounded">
             Guadagnati: {{ pathway.latest_progress.points_earned }}
           </div>
         </div>
@@ -172,7 +172,7 @@ const getProgressBorderClass = (pathway: Pathway): string => {
         <button
           v-if="!pathway.latest_progress || pathway.latest_progress.status === 'IN_PROGRESS'"
           @click.stop="navigateToPathwayAction(pathway)"
-          class="start-continue-link absolute bottom-4 right-4 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium py-1.5 px-3 rounded-md shadow transition-colors duration-200"
+          class="start-continue-link absolute bottom-4 right-4 bg-primary hover:bg-primary-dark text-white text-sm font-medium py-1.5 px-3 rounded-md shadow transition-colors duration-200"
         >
           {{ pathway.latest_progress ? 'Continua Percorso' : 'Inizia Percorso' }}
         </button>
@@ -182,7 +182,7 @@ const getProgressBorderClass = (pathway: Pathway): string => {
           v-if="showResultLink && pathway.latest_progress?.status === 'COMPLETED'"
           :to="{ name: 'PathwayResult', params: { pathwayId: pathway.id } }"
           @click.stop
-          class="view-results-link absolute bottom-4 right-4 bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-medium py-1.5 px-3 rounded-md shadow transition-colors duration-200"
+          class="view-results-link absolute bottom-4 right-4 bg-secondary hover:bg-secondary-light text-white text-sm font-medium py-1.5 px-3 rounded-md shadow transition-colors duration-200"
         >
           Vedi Risultati
         </router-link>
@@ -200,19 +200,19 @@ const getProgressBorderClass = (pathway: Pathway): string => {
 
 /* Classi per lo status badge */
 .status-not-started {
-  @apply bg-gray-200 text-gray-700;
+  @apply bg-neutral text-neutral-darker; /* Badge neutro aggiornato */
 }
 .status-in-progress {
-  @apply bg-yellow-100 text-yellow-800;
+  @apply bg-warning/10 text-warning-dark; /* Badge warning aggiornato */
 }
 .status-completed {
-   @apply bg-green-100 text-green-800;
+   @apply bg-success/10 text-success-dark; /* Badge success aggiornato */
 }
 
 /* Classi per il bordo sinistro in base allo stato */
-.border-status-not-started { @apply border-l-gray-400; }
-.border-status-in-progress { @apply border-l-yellow-500; }
-.border-status-completed { @apply border-l-green-500; }
+.border-status-not-started { @apply border-l-neutral-medium; } /* Bordo neutro aggiornato */
+.border-status-in-progress { @apply border-l-warning; } /* Bordo warning aggiornato */
+.border-status-completed { @apply border-l-success; } /* Bordo success aggiornato */
 
 /* Stile per troncare la descrizione */
 .pathway-description {

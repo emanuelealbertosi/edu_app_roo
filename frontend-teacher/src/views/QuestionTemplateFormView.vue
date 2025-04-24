@@ -353,59 +353,9 @@ const cancel = () => {
 </script>
 
 <style scoped>
-.question-template-form-view {
-  padding: 20px;
-  max-width: 700px;
-  margin: auto;
-}
-.form-group {
-  margin-bottom: 15px;
-}
-.form-group label {
-  display: block;
-  margin-bottom: 5px;
-  font-weight: bold;
-}
-.form-group input[type="text"],
-.form-group textarea,
-.form-group select {
-  width: 100%;
-  padding: 8px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  box-sizing: border-box;
-}
-.form-group textarea {
-  min-height: 80px; /* Ridotta altezza per testo domanda e metadata */
-  resize: vertical;
-  font-family: monospace; /* Utile per JSON */
-}
-.form-actions {
-  margin-top: 20px;
-}
-.error-message {
-  color: red;
-  margin-top: 10px;
-  font-weight: bold;
-}
-.error-message.small {
-    font-size: 0.9em;
-    font-weight: normal;
-    margin-top: 5px;
-}
-.loading {
-  margin-top: 20px;
-  font-style: italic;
-  color: #666;
-}
-.options-section {
-    margin-top: 30px;
-    padding-top: 15px;
-    border-top: 1px dashed #ccc;
-}
-.form-help-text {
-    font-size: 0.8rem;
-    color: #666;
-    margin-top: 4px;
-}
+/* Rimuoviamo la maggior parte degli stili scoped, ora gestiti da Tailwind. */
+/* Eventuali stili specifici che Tailwind non copre facilmente possono rimanere qui. */
+
+/* Esempio: stile per l'indicatore di autosave se necessario */
+/* .animate-pulse { ... } */
 </style>
