@@ -1,6 +1,6 @@
 <template>
   <div class="quiz-template-form-view p-4 md:p-6"> <!-- Padding ok -->
-    <h1 class="text-2xl font-semibold mb-4 text-neutral-darkest">{{ isEditing ? 'Modifica Template Quiz' : 'Crea Nuovo Template Quiz' }}</h1> <!-- Stile titolo aggiornato -->
+    <h1 class="text-2xl font-semibold mb-4 bg-primary text-white px-4 py-2 rounded-md">{{ isEditing ? 'Modifica Template Quiz' : 'Crea Nuovo Template Quiz' }}</h1> <!-- Stile titolo aggiornato -->
     <!-- Messaggio di successo -->
     <div v-if="successMessage" class="success-message bg-success/10 border-l-4 border-success text-success-dark p-4 mb-4 rounded"> <!-- Stile successo aggiornato -->
         {{ successMessage }}

@@ -1,6 +1,6 @@
 <template>
   <div class="pathway-template-form-view p-4 md:p-6"> <!-- Padding ok -->
-    <h1 class="text-2xl font-semibold mb-4 text-neutral-darkest">{{ isEditing ? 'Modifica Template Percorso' : 'Crea Nuovo Template Percorso' }}</h1> <!-- Stile titolo aggiornato -->
+    <h1 class="text-2xl font-semibold mb-4 bg-primary text-white px-4 py-2 rounded-md">{{ isEditing ? 'Modifica Template Percorso' : 'Crea Nuovo Template Percorso' }}</h1> <!-- Stile titolo aggiornato -->
     <div v-if="isLoading" class="loading text-center py-6 text-neutral-dark">Caricamento dati template...</div> <!-- Stile loading aggiornato -->
     <div v-else-if="error" class="error-message bg-error/10 border border-error text-error p-3 rounded mb-4">{{ error }}</div> <!-- Stile errore aggiornato -->
 
