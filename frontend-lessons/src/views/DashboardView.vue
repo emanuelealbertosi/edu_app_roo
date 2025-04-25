@@ -1,6 +1,9 @@
 <template>
   <div class="dashboard-container p-6">
-    <h1 class="text-3xl font-bold mb-6 text-gray-800">Dashboard Lezioni</h1>
+    <!-- Intestazione con sfondo blu -->
+    <div class="bg-blue-600 text-white p-4 rounded-md mb-6">
+        <h1 class="text-2xl font-semibold">Dashboard Lezioni</h1> <!-- Stile titolo adattato -->
+    </div>
     <div v-if="authStore.user" class="bg-white p-6 rounded-lg shadow-md">
       <p class="text-xl mb-2">
         Benvenuto/a, <span class="font-semibold">{{ authStore.user.first_name || authStore.user.username || 'Utente' }}</span>!

@@ -1,8 +1,10 @@
 <template>
   <div class="lesson-list-container p-6">
-    <div class="flex justify-between items-center mb-6">
-      <h2 class="text-2xl font-semibold text-gray-700">Le Mie Lezioni</h2>
-      <button @click="openAddModalDirectly" class="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-md shadow-sm transition duration-150 ease-in-out">
+    <!-- Intestazione con sfondo blu -->
+    <div class="bg-blue-600 text-white p-4 rounded-md mb-6 flex justify-between items-center">
+      <h2 class="text-2xl font-semibold">Le Mie Lezioni</h2>
+      <!-- Pulsante stile adattato per contrasto -->
+      <button @click="openAddModalDirectly" class="px-4 py-2 bg-white text-blue-600 rounded-md shadow-sm hover:bg-blue-50 transition duration-150 ease-in-out font-medium">
         Crea Nuova Lezione
       </button>
     </div>

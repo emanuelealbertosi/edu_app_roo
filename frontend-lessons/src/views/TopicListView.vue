@@ -1,21 +1,24 @@
 <template>
   <div class="topic-list-container p-6">
-    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-      <h2 class="text-2xl font-semibold text-gray-700">Gestione Argomenti</h2>
-      <div class="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-         <div class="flex items-center gap-2">
-            <label for="subject-filter" class="text-sm font-medium text-gray-600 whitespace-nowrap">Seleziona materia:</label>
-            <select id="subject-filter" v-model="selectedSubjectId" @change="loadTopicsForSubject" class="block w-full sm:w-auto pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 rounded-md shadow-sm">
-              <option :value="null">Tutte le Materie</option>
-              <option v-for="subject in subjectStore.subjects" :key="subject.id" :value="subject.id">
+    <!-- Intestazione con sfondo blu -->
+    <div class="bg-blue-600 text-white p-4 rounded-md mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <h2 class="text-2xl font-semibold">Gestione Argomenti</h2>
+      <div class="flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full sm:w-auto"> <!-- Aggiunto w-full per mobile -->
+         <div class="flex items-center gap-2 w-full sm:w-auto"> <!-- Aggiunto w-full per mobile -->
+            <label for="subject-filter" class="text-sm font-medium text-blue-100 whitespace-nowrap">Filtra per materia:</label> <!-- Colore label -->
+            <!-- Stile select adattato -->
+            <select id="subject-filter" v-model="selectedSubjectId" @change="loadTopicsForSubject" class="block w-full sm:w-auto pl-3 pr-10 py-2 text-base border-blue-400 bg-blue-500 text-white focus:outline-none focus:ring-white focus:border-white rounded-md shadow-sm">
+              <option :value="null" class="bg-white text-black">Tutte le Materie</option>
+              <option v-for="subject in subjectStore.subjects" :key="subject.id" :value="subject.id" class="bg-white text-black">
                 {{ subject.name }}
               </option>
             </select>
          </div>
-         <button @click="openAddModalDirectly" class="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-md shadow-sm transition duration-150 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap" :disabled="!selectedSubjectId">
+         <!-- Pulsante stile adattato per contrasto -->
+         <button @click="openAddModalDirectly" class="px-4 py-2 bg-white text-blue-600 rounded-md shadow-sm hover:bg-blue-50 transition duration-150 ease-in-out font-medium disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap" :disabled="!selectedSubjectId">
            Aggiungi Argomento
          </button>
-         <span v-if="!selectedSubjectId" class="text-xs text-gray-500 mt-1 sm:mt-0">(Seleziona una materia)</span>
+         <span v-if="!selectedSubjectId" class="text-xs text-blue-200 mt-1 sm:mt-0">(Seleziona una materia)</span> <!-- Colore testo -->
       </div>
     </div>
 

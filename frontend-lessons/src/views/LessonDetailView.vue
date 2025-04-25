@@ -10,16 +10,22 @@
 
     <!-- Lesson Content -->
     <div v-else-if="lesson">
-      <button @click="goBack" class="back-button">&larr; Torna alla lista</button>
-      <h1>{{ lesson.title }}</h1>
-      <p class="lesson-meta">
-        Argomento: {{ lesson.topic_name || 'N/D' }} (Materia: {{ lesson.subject_name || 'N/D' }})
-      </p>
-      <p v-if="lesson.description" class="lesson-description">{{ lesson.description }}</p>
+      <!-- Pulsante Indietro sopra l'header -->
+      <button @click="goBack" class="back-button mb-4">&larr; Torna alla lista</button>
 
-      <hr class="content-separator">
+      <!-- Intestazione con sfondo blu -->
+      <div class="bg-blue-600 text-white p-4 rounded-md mb-6">
+        <h1 class="text-2xl font-semibold">{{ lesson.title }}</h1>
+        <p class="text-sm text-blue-100 mt-1">
+          Argomento: {{ lesson.topic_name || 'N/D' }} (Materia: {{ lesson.subject_name || 'N/D' }})
+        </p>
+        <p v-if="lesson.description" class="text-sm text-blue-50 mt-2">{{ lesson.description }}</p>
+      </div>
 
-      <h2>Contenuti della Lezione</h2>
+      <!-- Rimosso hr, la separazione è data dai box -->
+      <!-- <hr class="content-separator"> -->
+
+      <h2 class="text-xl font-semibold text-gray-700 mb-4">Contenuti della Lezione</h2> <!-- Stile titolo sezione -->
       <div v-if="!lesson.contents || lesson.contents.length === 0" class="no-content">
         Questa lezione non ha ancora contenuti.
       </div>

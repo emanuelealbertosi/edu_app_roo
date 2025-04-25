@@ -1,6 +1,9 @@
 <template>
   <div class="assigned-lesson-list-container p-6">
-    <h2 class="text-2xl font-semibold text-gray-700 mb-6">Le Mie Lezioni Assegnate</h2>
+    <!-- Intestazione con sfondo blu -->
+    <div class="bg-blue-600 text-white p-4 rounded-md mb-6">
+        <h2 class="text-2xl font-semibold">Le Mie Lezioni Assegnate</h2>
+    </div>
 
     <div v-if="lessonStore.isLoadingAssignments" class="text-center text-gray-500 py-10">
       Caricamento lezioni assegnate...

@@ -7,11 +7,17 @@
       Errore nel caricamento della lezione: {{ lessonStore.error }}
     </div>
     <div v-else-if="lesson">
-      <h2>Gestisci Contenuti per: {{ lesson.title }}</h2>
+      <!-- Intestazione con sfondo blu -->
+      <div class="bg-blue-600 text-white p-4 rounded-md mb-6">
+        <h2 class="text-2xl font-semibold">Gestisci Contenuti per: {{ lesson.title }}</h2>
+      </div>
 
-      <!-- Lista Contenuti Esistenti (con opzioni modifica/elimina/riordino) -->
-      <div class="content-list">
-        <h3>Contenuti Attuali</h3>
+      <!-- Area Contenuti Evidenziata -->
+      <div class="bg-white p-6 rounded-lg shadow-md border border-gray-200">
+
+        <!-- Lista Contenuti Esistenti (con opzioni modifica/elimina/riordino) -->
+        <div class="content-list">
+          <h3 class="text-xl font-semibold text-gray-700 mb-4">Contenuti Attuali</h3> <!-- Stile titolo sezione -->
         <div v-if="lessonStore.isLoadingContents">Caricamento contenuti...</div>
          <div v-else-if="!sortedContents || sortedContents.length === 0" class="no-content">
             Nessun contenuto aggiunto a questa lezione.
@@ -83,7 +89,9 @@
                {{ lessonStore.isLoadingContents ? 'Aggiunta in corso...' : 'Aggiungi Contenuto' }}
            </button>
         </form>
-      </div>
+      </div> <!-- Fine add-content-form -->
+
+    </div> <!-- Fine Area Contenuti Evidenziata -->
 
        <!-- Modale per Modificare Contenuto Esistente -->
        <LessonContentEditModal

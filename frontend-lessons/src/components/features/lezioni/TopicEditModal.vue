@@ -1,7 +1,10 @@
 <template>
   <div class="modal-overlay" @click.self="close">
     <div class="modal-content">
-      <h3>{{ isEditing ? 'Modifica Argomento' : 'Aggiungi Nuovo Argomento' }}</h3>
+      <!-- Intestazione Modale con sfondo blu -->
+      <div class="bg-blue-600 text-white p-4 rounded-t-md -m-8 mb-6"> <!-- -m-8 mb-6 per sovrapporre padding e aggiungere margine sotto -->
+        <h3 class="text-xl font-semibold text-center">{{ isEditing ? 'Modifica Argomento' : 'Aggiungi Nuovo Argomento' }}</h3>
+      </div>
       <form @submit.prevent="submitForm">
         <div class="form-group">
           <label for="topic-subject">Seleziona materia:</label>

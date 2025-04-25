@@ -60,18 +60,22 @@
         </select>
       </div>
 
-      <!-- Specific Students Section -->
+      <!-- Specific Students Section (con Modale) -->
       <div v-if="rewardData.availability_type === 'SPECIFIC'">
-        <label for="specific_students" class="block text-sm font-medium text-gray-700 mb-1">Studenti Specifici</label>
+        <label class="block text-sm font-medium text-gray-700 mb-2">Studenti Specifici</label>
         <div v-if="isLoadingStudents" class="text-gray-500 italic">Caricamento studenti...</div>
         <div v-else-if="studentsError" class="text-red-600">{{ studentsError }}</div>
-        <select v-else multiple id="specific_students" v-model="selectedStudentIds"
-                class="mt-1 block w-full h-40 px-3 py-2 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-          <option v-for="student in allStudents" :key="student.id" :value="student.id" class="py-1">
-            {{ student.first_name }} {{ student.last_name }} ({{ student.student_code }})
-          </option>
-        </select>
-        <p class="mt-2 text-sm text-gray-500">Tieni premuto Ctrl (o Cmd su Mac) per selezionare più studenti.</p>
+        <div v-else-if="allStudents.length > 0">
+           <BaseButton type="button" variant="outline" @click="isStudentModalOpen = true" class="mb-3"> <!-- Aggiunto type="button" -->
+             Seleziona Studenti Specifici
+           </BaseButton>
+           <div class="text-sm text-neutral-dark">
+             <span v-if="selectedStudentIds.length === 0">Nessuno studente selezionato.</span>
+             <span v-else-if="selectedStudentIds.length === 1">1 studente selezionato.</span>
+             <span v-else>{{ selectedStudentIds.length }} studenti selezionati.</span>
+           </div>
+        </div>
+         <div v-else class="text-center py-4 text-neutral-dark">Nessuno studente disponibile da selezionare.</div>
       </div>
 
       <!-- Is Active Checkbox -->
@@ -102,6 +106,15 @@
         </button>
       </div>
     </form>
+
+    <!-- Modale Selezione Studenti -->
+    <StudentSelectionModal
+      :show="isStudentModalOpen"
+      :students="allStudents"
+      :initial-selected-ids="selectedStudentIds"
+      @close="isStudentModalOpen = false"
+      @update:selectedIds="updateSelectedStudents"
+    />
   </div>
 </template>
 
@@ -110,6 +123,8 @@ import { ref, onMounted, computed, reactive } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { createReward, fetchRewardDetails, updateReward, type RewardPayload } from '@/api/rewards';
 import { fetchStudents, type Student } from '@/api/students'; // Importa API studenti
+import BaseButton from '@/components/common/BaseButton.vue'; // Importa BaseButton
+import StudentSelectionModal from '@/components/features/assignment/StudentSelectionModal.vue'; // Importa la modale
 
 // Interfaccia per i dati del form
 interface RewardFormData {
@@ -135,6 +150,8 @@ const studentsError = ref<string | null>(null); // Errore caricamento studenti
 const isLoadingStudents = ref(false); // Loading studenti
 const allStudents = ref<Student[]>([]); // Lista di tutti gli studenti del docente
 const selectedStudentIds = ref<number[]>([]); // ID studenti selezionati nel form
+
+const isStudentModalOpen = ref(false); // Stato per la modale
 
 // Usiamo reactive per l'oggetto del form
 const rewardData = reactive<RewardFormData>({
@@ -207,6 +224,11 @@ const loadAllStudents = async () => {
     } finally {
         isLoadingStudents.value = false;
     }
+};
+
+// Funzione per aggiornare gli studenti selezionati dalla modale
+const updateSelectedStudents = (newSelectedIds: number[]) => {
+    selectedStudentIds.value = newSelectedIds;
 };
 
 const saveReward = async () => {

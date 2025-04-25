@@ -66,8 +66,9 @@ export const useAuthStore = defineStore('auth', {
             if (!credentials.pin) throw new Error("PIN mancante per login studente.");
             console.log("Calling student login endpoint..."); // Debug
             // Usa l'istanza apiClient importata
-            // Il percorso è relativo al baseURL definito in api.ts
-            response = await apiClient.post('/auth/student/login/', {
+            // Il percorso è relativo al baseURL definito in api.ts (/api)
+            // L'URL completo corretto è /api/student/auth/student/login/
+            response = await apiClient.post('/student/auth/student/login/', { // Corretto: aggiunto /student/
                 student_code: credentials.identifier,
                 pin: credentials.pin
             });

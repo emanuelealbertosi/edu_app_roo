@@ -46,30 +46,26 @@
     </div> <!-- Fine content-selection -->
 
 
-    <div class="student-selection mb-8"> <!-- Margin bottom aumentato -->
-      <h2 class="text-xl font-semibold mb-4 text-neutral-darkest">Seleziona Studenti</h2> <!-- Stile titolo aggiornato -->
-      <div v-if="isLoadingStudents" class="loading text-center py-6 text-neutral-dark">Caricamento studenti...</div> <!-- Stile loading aggiornato -->
-      <div v-else-if="studentsError" class="error-message bg-error/10 border border-error text-error p-3 rounded">{{ studentsError }}</div> <!-- Stile errore aggiornato -->
+    <!-- Nuova Sezione Selezione Studenti con Modale -->
+    <div class="student-selection mb-8">
+      <h2 class="text-xl font-semibold mb-4 text-neutral-darkest">Seleziona Studenti</h2>
+      <div v-if="isLoadingStudents" class="loading text-center py-6 text-neutral-dark">Caricamento studenti...</div>
+      <div v-else-if="studentsError" class="error-message bg-error/10 border border-error text-error p-3 rounded">{{ studentsError }}</div>
       <div v-else-if="availableStudents.length > 0">
-         <div class="form-group mb-3"> <!-- Margin bottom -->
-             <label class="inline-flex items-center cursor-pointer">
-                 <input type="checkbox" @change="toggleSelectAllStudents" :checked="allStudentsSelected" class="rounded border-neutral-DEFAULT text-primary shadow-sm focus:border-primary focus:ring focus:ring-primary/20 focus:ring-offset-0" /> <!-- Stile checkbox aggiornato -->
-                 <span class="ml-2 text-sm text-neutral-darker">Seleziona Tutti</span> <!-- Stile label aggiornato -->
-             </label>
-         </div>
-         <ul class="student-list max-h-60 overflow-y-auto border border-neutral-DEFAULT rounded-md p-3 space-y-2 bg-neutral-lightest"> <!-- Stili lista aggiornati -->
-            <li v-for="student in availableStudents" :key="student.id">
-              <label class="inline-flex items-center cursor-pointer">
-                <input type="checkbox" :value="student.id" v-model="selectedStudentIds" class="rounded border-neutral-DEFAULT text-primary shadow-sm focus:border-primary focus:ring focus:ring-primary/20 focus:ring-offset-0" /> <!-- Stile checkbox aggiornato -->
-                <span class="ml-2 text-sm text-neutral-darkest">{{ student.first_name }} {{ student.last_name }} ({{ student.student_code }})</span> <!-- Mostra student_code, stile label aggiornato -->
-              </label>
-            </li>
-         </ul>
+        <BaseButton variant="outline" @click="isStudentModalOpen = true" class="mb-3">
+          Apri Selezione Studenti
+        </BaseButton>
+        <div class="text-sm text-neutral-dark">
+          <span v-if="selectedStudentIds.length === 0">Nessuno studente selezionato.</span>
+          <span v-else-if="selectedStudentIds.length === 1">1 studente selezionato.</span>
+          <span v-else>{{ selectedStudentIds.length }} studenti selezionati.</span>
+        </div>
       </div>
-       <div v-else class="text-center py-6 text-neutral-dark">Nessuno studente trovato.</div> <!-- Stile messaggio vuoto aggiornato -->
-    </div> <!-- Fine student-selection -->
+      <div v-else class="text-center py-6 text-neutral-dark">Nessuno studente trovato.</div>
+    </div>
+    <!-- Fine Nuova Sezione Selezione Studenti -->
 
-    <div class="form-actions mt-6"> <!-- Margin top -->
+    <div class="form-actions mt-6">
         <BaseButton
             variant="success"
             @click="assignContent"
@@ -89,6 +85,15 @@
     </div>
 
   </div> <!-- Fine assignment-view -->
+
+  <!-- Modale Selezione Studenti -->
+  <StudentSelectionModal
+    :show="isStudentModalOpen"
+    :students="availableStudents"
+    :initial-selected-ids="selectedStudentIds"
+    @close="isStudentModalOpen = false"
+    @update:selectedIds="updateSelectedStudents"
+  />
 </template>
 
 <script setup lang="ts">
@@ -98,7 +103,7 @@ import { fetchStudents, type Student } from '@/api/students';
 import { fetchQuizzes, fetchTeacherQuizTemplates, assignQuizToStudent, type Quiz, type QuizTemplate, type AssignQuizPayload, type QuizAssignmentResponse } from '@/api/quizzes'; // Usa fetchTeacherQuizTemplates
 import { fetchPathways, fetchPathwayTemplates, assignPathwayToStudent, type Pathway, type PathwayTemplate, type AssignPathwayPayload, type PathwayAssignmentResponse } from '@/api/pathways';
 import BaseButton from '@/components/common/BaseButton.vue'; // Importa BaseButton
-// Rimosso import axios non più necessario per assignApiCall
+import StudentSelectionModal from '@/components/features/assignment/StudentSelectionModal.vue'; // Importa la modale
 
 // --- Stato Selezione Contenuto ---
 const selectedContentType = ref<'quiz' | 'pathway'>('quiz');
@@ -131,6 +136,8 @@ const selectedStudentIds = ref<number[]>([]);
 const isAssigning = ref(false);
 const assignmentError = ref<string | null>(null);
 const assignmentSuccess = ref<string | null>(null);
+
+const isStudentModalOpen = ref(false); // Stato per la modale
 
 // --- Logica Caricamento Dati ---
 const loadQuizzes = async () => {
@@ -209,20 +216,12 @@ const loadPathwayTemplates = async () => {
 };
 
 
-// --- Logica Selezione Studenti ---
-const allStudentsSelected = computed(() =>
-   availableStudents.value.length > 0 &&
-   selectedStudentIds.value.length === availableStudents.value.length
-);
-
-const toggleSelectAllStudents = (event: Event) => {
-   const target = event.target as HTMLInputElement;
-   if (target.checked) {
-       selectedStudentIds.value = availableStudents.value.map(s => s.id);
-   } else {
-       selectedStudentIds.value = [];
-   }
+// --- Logica Selezione Studenti (Modale) ---
+const updateSelectedStudents = (newSelectedIds: number[]) => {
+  selectedStudentIds.value = newSelectedIds;
 };
+
+// Rimosse logiche allStudentsSelected e toggleSelectAllStudents gestite dalla modale
 
 // --- Logica Assegnazione ---
 const canAssign = computed(() => {

@@ -1,6 +1,9 @@
 <template>
   <div class="container mx-auto p-4">
-    <h1 class="text-2xl font-bold mb-4">Assegna Lezione: {{ lesson?.title }}</h1>
+    <!-- Intestazione con sfondo blu -->
+    <div class="bg-blue-600 text-white p-4 rounded-md mb-6">
+        <h1 class="text-2xl font-semibold">Assegna Lezione: {{ lesson?.title || '...' }}</h1>
+    </div>
 
     <div v-if="loadingLesson || loadingStudents" class="text-center">
       Caricamento dati...
@@ -12,36 +15,30 @@
     <div v-else-if="lesson && students">
       <p class="mb-4">Seleziona gli studenti a cui vuoi assegnare questa lezione:</p>
 
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-        <div v-for="student in students" :key="student.id" class="border rounded p-3 flex items-center justify-between">
-          <span>{{ student.first_name }} {{ student.last_name }} ({{ student.unique_identifier }})</span>
-          <input
-            type="checkbox"
-            :value="student.id"
-            v-model="selectedStudentIds"
-            class="form-checkbox h-5 w-5 text-blue-600"
-          />
+      <!-- Sezione Selezione Studenti con Modale -->
+      <div class="mb-6">
+        <div v-if="loadingStudents" class="text-gray-500 italic">Caricamento studenti...</div>
+        <div v-else-if="errorStudents" class="text-red-600">{{ errorStudents }}</div>
+        <div v-else-if="students.length > 0">
+           <button
+             type="button"
+             @click="isStudentModalOpen = true"
+             class="mb-3 px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+           >
+             Seleziona Studenti
+           </button>
+           <div class="text-sm text-gray-600">
+             <span v-if="selectedStudentIds.length === 0">Nessuno studente selezionato.</span>
+             <span v-else-if="selectedStudentIds.length === 1">1 studente selezionato.</span>
+             <span v-else>{{ selectedStudentIds.length }} studenti selezionati.</span>
+           </div>
         </div>
-         <div v-if="students.length === 0" class="col-span-full text-center text-gray-500">
-            Nessuno studente trovato per questo docente.
-        </div>
+         <div v-else class="text-center py-4 text-gray-500">Nessuno studente disponibile da selezionare.</div>
       </div>
+      <!-- Fine Sezione Selezione Studenti -->
 
       <div class="flex justify-end space-x-4">
-         <button
-            @click="selectAllStudents"
-            :disabled="students.length === 0"
-            class="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 disabled:opacity-50"
-          >
-            Seleziona Tutti
-          </button>
-          <button
-            @click="deselectAllStudents"
-            :disabled="selectedStudentIds.length === 0"
-            class="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 disabled:opacity-50"
-          >
-            Deseleziona Tutti
-          </button>
+         <!-- Rimossi pulsanti Seleziona/Deseleziona Tutti -->
         <button
           @click="assignLesson"
           :disabled="selectedStudentIds.length === 0 || assigning"
@@ -66,15 +63,25 @@
       </div>
 
     </div>
+
+    <!-- Modale Selezione Studenti -->
+    <StudentSelectionModal
+      :show="isStudentModalOpen"
+      :students="students"
+      :initial-selected-ids="selectedStudentIds"
+      @close="isStudentModalOpen = false"
+      @update:selectedIds="updateSelectedStudents"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
-import { useRoute } from 'vue-router' // Rimosso useRouter
+import { useRoute } from 'vue-router'
 import { useLessonStore } from '@/stores/lessons'
-// import { useAuthStore } from '@/stores/auth' // Rimosso - non utilizzato qui
-import type { Lesson, Student, AssignmentResult } from '@/types/lezioni' // Aggiunto AssignmentResult
+import type { Lesson, Student, AssignmentResult } from '@/types/lezioni'
+import StudentSelectionModal from '@/components/common/StudentSelectionModal.vue'; // Importa la modale
+// import BaseButton from '@/components/common/BaseButton.vue'; // Importa se necessario
 
 const route = useRoute()
 // const router = useRouter() // Rimosso - non utilizzato
@@ -88,6 +95,7 @@ const assigning = ref(false)
 const assignmentSuccess = ref(false)
 const assignmentError = ref<string | null>(null)
 const partialAssignmentInfo = ref<string[]>([]) // Info su assegnazioni parziali o fallite
+const isStudentModalOpen = ref(false); // Stato per la modale
 
 const loadingLesson = ref(true)
 const loadingStudents = ref(true)
@@ -188,14 +196,12 @@ const assignLesson = async () => {
   }
 };
 
-const selectAllStudents = () => {
-  selectedStudentIds.value = students.value.map((s: Student) => s.id);
+// Funzione per aggiornare gli studenti selezionati dalla modale
+const updateSelectedStudents = (newSelectedIds: number[]) => {
+    selectedStudentIds.value = newSelectedIds;
 };
 
-const deselectAllStudents = () => {
-  selectedStudentIds.value = [];
-};
-
+// Rimosse funzioni selectAllStudents e deselectAllStudents
 
 onMounted(async () => {
   await fetchLesson();
