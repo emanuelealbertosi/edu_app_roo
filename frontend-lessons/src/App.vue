@@ -1,150 +1,243 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'; // Importa ref e computed
+import { ref, computed } from 'vue';
 import { useAuthStore } from '@/stores/auth';
-import { RouterLink, useRouter } from 'vue-router';
-import emitter from '@/eventBus'; // Ri-aggiungi import emitter
+import { RouterLink, RouterView, useRouter } from 'vue-router'; // RouterView importata qui
+import emitter from '@/eventBus';
+// Rimosso import GlobalLoadingIndicator perché non esiste in questo FE
+// import GlobalLoadingIndicator from '@/components/common/GlobalLoadingIndicator.vue';
 import {
   HomeIcon,
   BookOpenIcon,
   AcademicCapIcon,
-  // UserGroupIcon, // Rimosso - non utilizzato
   CogIcon,
   ArrowLeftOnRectangleIcon,
-  BellIcon, // Icona Notifiche
-  UserCircleIcon, // Icona Profilo
-  ChevronDownIcon, // Icona per Dropdown
-  PlusCircleIcon, // Icona per Create
-  QuestionMarkCircleIcon // Icona per Quiz
-} from '@heroicons/vue/24/outline'; // Esempio usando Heroicons
+  BellIcon,
+  UserCircleIcon,
+  ChevronDownIcon,
+  PlusCircleIcon,
+  QuestionMarkCircleIcon,
+  Bars3Icon, // Hamburger
+  XMarkIcon // Close
+} from '@heroicons/vue/24/outline';
 
 const authStore = useAuthStore();
-// console.log('Auth Store User Role:', authStore.userRole); // DEBUG: Rimosso
 const router = useRouter();
-const isSidebarExpanded = ref(false);
+const isMobileMenuOpen = ref(false); // Stato per menu mobile
 const isCreateMenuOpen = ref(false); // Stato per il dropdown "Create"
-// const isProfileMenuOpen = ref(false); // Rimosso - non utilizzato
 
-const expandSidebar = () => { isSidebarExpanded.value = true; };
-const collapseSidebar = () => { isSidebarExpanded.value = false; };
+const toggleMobileMenu = () => {
+  isMobileMenuOpen.value = !isMobileMenuOpen.value;
+};
+
 const toggleCreateMenu = () => { isCreateMenuOpen.value = !isCreateMenuOpen.value; };
 const closeCreateMenu = () => { isCreateMenuOpen.value = false; };
 
 // Funzioni per navigare e POI emettere evento
 const goToSubjects = async () => {
   closeCreateMenu();
-  await router.push({ name: 'subjects' }); // Attendi la navigazione
-  console.log("App.vue: Navigated to subjects, emitting 'open-add-subject-modal'"); // Log
+  toggleMobileMenu(); // Chiudi menu mobile se aperto
+  await router.push({ name: 'subjects' });
   emitter.emit('open-add-subject-modal');
 };
 const goToTopics = async () => {
   closeCreateMenu();
+  toggleMobileMenu(); // Chiudi menu mobile se aperto
   await router.push({ name: 'topics' });
-  console.log("App.vue: Navigated to topics, emitting 'open-add-topic-modal'"); // Log
   emitter.emit('open-add-topic-modal');
 };
 const goToTeacherLessons = async () => {
   closeCreateMenu();
+  toggleMobileMenu(); // Chiudi menu mobile se aperto
   await router.push({ name: 'teacher-lessons' });
-  console.log("App.vue: Navigated to teacher-lessons, emitting 'open-add-lesson-modal'"); // Log
   emitter.emit('open-add-lesson-modal');
 };
 
 // URL per le altre app frontend
-const studentAppUrl = computed(() => (import.meta.env.VITE_STUDENT_APP_URL as string | undefined) || '/student-dashboard/'); // Usa env var o fallback
-const teacherAppUrl = computed(() => (import.meta.env.VITE_TEACHER_APP_URL as string | undefined) || '/teacher-dashboard/'); // Usa env var o fallback
+const studentAppUrl = computed(() => (import.meta.env.VITE_STUDENT_APP_URL as string | undefined) || '/studenti/');
+const teacherAppUrl = computed(() => (import.meta.env.VITE_TEACHER_APP_URL as string | undefined) || '/docenti/');
+
+const handleLogout = () => {
+  authStore.logout(); // Lo store gestisce il redirect a '/' (dominio)
+};
 
 </script>
 
 <template>
+  <!-- Rimosso <GlobalLoadingIndicator /> -->
+  <!-- <NotificationContainer /> --> <!-- Se esiste -->
+
   <div class="flex h-screen bg-gray-100 font-sans">
-    <!-- Sidebar -->
+    <!-- Sidebar Desktop (visibile da md in su) -->
     <aside
       v-if="authStore.isAuthenticated"
-      class="bg-indigo-900 text-white flex flex-col transition-all duration-300 ease-in-out"
-      :class="isSidebarExpanded ? 'w-64' : 'w-20'"
-      @mouseenter="expandSidebar"
-      @mouseleave="collapseSidebar"
+      class="bg-indigo-900 text-white hidden md:flex flex-col w-64 transition-all duration-300 ease-in-out"
+      aria-label="Sidebar"
     >
       <!-- Logo/Titolo App -->
        <div class="h-16 flex items-center justify-center flex-shrink-0 px-4">
-         <span v-if="isSidebarExpanded" class="text-xl font-semibold">Lezioni App</span>
-         <span v-else class="text-xl font-semibold">LA</span>
+         <span class="text-xl font-semibold">Lezioni App</span>
        </div>
 
-      <!-- Navigazione -->
+      <!-- Navigazione Desktop -->
       <nav class="flex-grow p-4 overflow-y-auto">
         <ul>
           <!-- Dashboard -->
           <li class="mb-3">
-            <router-link :to="{ name: 'dashboard' }" class="flex items-center p-2 rounded hover:bg-indigo-700" :title="isSidebarExpanded ? '' : 'Dashboard'">
+            <router-link :to="{ name: 'dashboard' }" class="flex items-center p-2 rounded hover:bg-indigo-700">
               <HomeIcon class="h-6 w-6 flex-shrink-0" />
-              <span v-if="isSidebarExpanded" class="ml-3">Dashboard</span>
+              <span class="ml-3">Dashboard</span>
             </router-link>
           </li>
           <!-- Materie (Admin/Teacher) -->
           <li v-if="authStore.userRole === 'TEACHER' || authStore.userRole === 'Admin'" class="mb-3">
-            <router-link :to="{ name: 'subjects' }" class="flex items-center p-2 rounded hover:bg-indigo-700" :title="isSidebarExpanded ? '' : 'Materie'">
+            <router-link :to="{ name: 'subjects' }" class="flex items-center p-2 rounded hover:bg-indigo-700">
               <BookOpenIcon class="h-6 w-6 flex-shrink-0" />
-              <span v-if="isSidebarExpanded" class="ml-3">Materie</span>
+              <span class="ml-3">Materie</span>
             </router-link>
           </li>
           <!-- Argomenti (Admin/Teacher) -->
           <li v-if="authStore.userRole === 'TEACHER' || authStore.userRole === 'Admin'" class="mb-3">
-            <router-link :to="{ name: 'topics' }" class="flex items-center p-2 rounded hover:bg-indigo-700" :title="isSidebarExpanded ? '' : 'Argomenti'">
+            <router-link :to="{ name: 'topics' }" class="flex items-center p-2 rounded hover:bg-indigo-700">
               <AcademicCapIcon class="h-6 w-6 flex-shrink-0" />
-              <span v-if="isSidebarExpanded" class="ml-3">Argomenti</span>
+              <span class="ml-3">Argomenti</span>
             </router-link>
           </li>
           <!-- Gestione Lezioni (Teacher) -->
            <li v-if="authStore.userRole === 'TEACHER'" class="mb-3">
-             <router-link :to="{ name: 'teacher-lessons' }" class="flex items-center p-2 rounded hover:bg-indigo-700" :title="isSidebarExpanded ? '' : 'Gestione Lezioni'">
+             <router-link :to="{ name: 'teacher-lessons' }" class="flex items-center p-2 rounded hover:bg-indigo-700">
                <CogIcon class="h-6 w-6 flex-shrink-0" />
-               <span v-if="isSidebarExpanded" class="ml-3">Gestione Lezioni</span>
+               <span class="ml-3">Gestione Lezioni</span>
              </router-link>
            </li>
-           <!-- Link "Assegna Lezioni" rimosso dalla sidebar -->
            <!-- Lezioni Assegnate (Studente) -->
            <li v-if="authStore.userRole === 'Studente'" class="mb-3">
-             <router-link :to="{ name: 'assigned-lessons' }" class="flex items-center p-2 rounded hover:bg-indigo-700" :title="isSidebarExpanded ? '' : 'Lezioni Assegnate'">
+             <router-link :to="{ name: 'assigned-lessons' }" class="flex items-center p-2 rounded hover:bg-indigo-700">
                <CogIcon class="h-6 w-6 flex-shrink-0" />
-               <span v-if="isSidebarExpanded" class="ml-3">Lezioni Assegnate</span>
+               <span class="ml-3">Lezioni Assegnate</span>
              </router-link>
            </li>
            <!-- Link Quiz Studente -->
             <li v-if="authStore.userRole === 'Studente'" class="mb-3">
-              <a :href="studentAppUrl" class="flex items-center p-2 rounded hover:bg-indigo-700" :title="isSidebarExpanded ? '' : 'Vai ai Quiz'">
+              <a :href="studentAppUrl" class="flex items-center p-2 rounded hover:bg-indigo-700">
                 <QuestionMarkCircleIcon class="h-6 w-6 flex-shrink-0" />
-                <span v-if="isSidebarExpanded" class="ml-3">Quiz</span>
+                <span class="ml-3">Quiz</span>
               </a>
             </li>
-            <!-- Link Gestione Quiz Docente -->
              <!-- Link Gestione Quiz TEACHER/Admin -->
              <li v-if="authStore.userRole === 'TEACHER' || authStore.userRole === 'Admin'" class="mb-3">
-               <a :href="teacherAppUrl" class="flex items-center p-2 rounded hover:bg-indigo-700" :title="isSidebarExpanded ? '' : 'Gestione Quiz'">
+               <a :href="teacherAppUrl" class="flex items-center p-2 rounded hover:bg-indigo-700">
                  <QuestionMarkCircleIcon class="h-6 w-6 flex-shrink-0" />
-                 <span v-if="isSidebarExpanded" class="ml-3">Gestione Quiz</span>
+                 <span class="ml-3">Gestione Quiz</span>
                </a>
              </li>
         </ul>
       </nav>
 
-      <!-- Logout -->
+      <!-- Logout Desktop -->
        <div class="p-4 mt-auto border-t border-indigo-700 flex-shrink-0">
-         <button @click="authStore.logout()" class="w-full flex items-center p-2 rounded hover:bg-red-700" :title="isSidebarExpanded ? '' : 'Logout'">
+         <button @click="handleLogout" class="w-full flex items-center p-2 rounded hover:bg-red-700">
            <ArrowLeftOnRectangleIcon class="h-6 w-6 flex-shrink-0" />
-           <span v-if="isSidebarExpanded" class="ml-3">Logout</span>
+           <span class="ml-3">Logout</span>
          </button>
        </div>
     </aside>
+
+    <!-- Sidebar Mobile (Overlay) -->
+    <div v-if="isMobileMenuOpen && authStore.isAuthenticated" class="md:hidden" role="dialog" aria-modal="true">
+      <!-- Overlay Sfondo -->
+      <div class="fixed inset-0 bg-gray-600 bg-opacity-75 z-30" @click="toggleMobileMenu"></div>
+
+      <!-- Contenuto Sidebar Mobile -->
+      <aside class="fixed inset-y-0 left-0 z-40 w-64 bg-indigo-900 text-white flex flex-col transition-transform duration-300 ease-in-out transform"
+             :class="isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'">
+        <!-- Logo/Titolo App e Bottone Chiusura -->
+        <div class="h-16 flex items-center justify-between flex-shrink-0 px-4">
+          <span class="text-xl font-semibold">Lezioni App</span>
+          <button @click="toggleMobileMenu" class="p-1 text-white hover:bg-indigo-700 rounded">
+            <span class="sr-only">Chiudi menu</span>
+            <XMarkIcon class="h-6 w-6" />
+          </button>
+        </div>
+
+        <!-- Navigazione Mobile -->
+        <nav class="flex-grow p-4 overflow-y-auto">
+          <ul>
+            <!-- Dashboard -->
+            <li class="mb-3">
+              <router-link :to="{ name: 'dashboard' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-indigo-700">
+                <HomeIcon class="h-6 w-6 flex-shrink-0" />
+                <span class="ml-3">Dashboard</span>
+              </router-link>
+            </li>
+            <!-- Materie (Admin/Teacher) -->
+            <li v-if="authStore.userRole === 'TEACHER' || authStore.userRole === 'Admin'" class="mb-3">
+              <router-link :to="{ name: 'subjects' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-indigo-700">
+                <BookOpenIcon class="h-6 w-6 flex-shrink-0" />
+                <span class="ml-3">Materie</span>
+              </router-link>
+            </li>
+            <!-- Argomenti (Admin/Teacher) -->
+            <li v-if="authStore.userRole === 'TEACHER' || authStore.userRole === 'Admin'" class="mb-3">
+              <router-link :to="{ name: 'topics' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-indigo-700">
+                <AcademicCapIcon class="h-6 w-6 flex-shrink-0" />
+                <span class="ml-3">Argomenti</span>
+              </router-link>
+            </li>
+            <!-- Gestione Lezioni (Teacher) -->
+             <li v-if="authStore.userRole === 'TEACHER'" class="mb-3">
+               <router-link :to="{ name: 'teacher-lessons' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-indigo-700">
+                 <CogIcon class="h-6 w-6 flex-shrink-0" />
+                 <span class="ml-3">Gestione Lezioni</span>
+               </router-link>
+             </li>
+             <!-- Lezioni Assegnate (Studente) -->
+             <li v-if="authStore.userRole === 'Studente'" class="mb-3">
+               <router-link :to="{ name: 'assigned-lessons' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-indigo-700">
+                 <CogIcon class="h-6 w-6 flex-shrink-0" />
+                 <span class="ml-3">Lezioni Assegnate</span>
+               </router-link>
+             </li>
+             <!-- Link Quiz Studente -->
+              <li v-if="authStore.userRole === 'Studente'" class="mb-3">
+                <a :href="studentAppUrl" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-indigo-700">
+                  <QuestionMarkCircleIcon class="h-6 w-6 flex-shrink-0" />
+                  <span class="ml-3">Quiz</span>
+                </a>
+              </li>
+               <!-- Link Gestione Quiz TEACHER/Admin -->
+               <li v-if="authStore.userRole === 'TEACHER' || authStore.userRole === 'Admin'" class="mb-3">
+                 <a :href="teacherAppUrl" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-indigo-700">
+                   <QuestionMarkCircleIcon class="h-6 w-6 flex-shrink-0" />
+                   <span class="ml-3">Gestione Quiz</span>
+                 </a>
+               </li>
+          </ul>
+        </nav>
+
+        <!-- Logout Mobile -->
+        <div class="p-4 mt-auto border-t border-indigo-700 flex-shrink-0">
+          <button @click="handleLogout(); toggleMobileMenu();" class="w-full flex items-center p-2 rounded hover:bg-red-700">
+            <ArrowLeftOnRectangleIcon class="h-6 w-6 flex-shrink-0" />
+            <span class="ml-3">Logout</span>
+          </button>
+        </div>
+      </aside>
+    </div>
 
     <!-- Contenuto Principale -->
     <div class="flex flex-col flex-grow">
         <!-- Header -->
         <header v-if="authStore.isAuthenticated" class="bg-white shadow p-4 h-16 flex items-center justify-between flex-shrink-0">
-            <!-- Barra di ricerca (Placeholder) -->
-             <div class="relative">
-                 <input type="text" placeholder="Cerca..." class="px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
-             </div>
+             <!-- Pulsante Hamburger (visibile solo su mobile) -->
+             <button @click="toggleMobileMenu" class="md:hidden p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500">
+               <span class="sr-only">Apri menu principale</span>
+               <Bars3Icon class="h-6 w-6" />
+             </button>
+
+             <!-- Barra di ricerca (Placeholder) -->
+              <div class="relative flex-1 ml-4 md:ml-0">
+                  <input type="text" placeholder="Cerca..." class="px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full md:w-auto">
+              </div>
 
              <!-- Pulsanti Header -->
              <div class="flex items-center space-x-4">
@@ -177,10 +270,13 @@ const teacherAppUrl = computed(() => (import.meta.env.VITE_TEACHER_APP_URL as st
                  <!-- Aggiungere dropdown profilo se necessario -->
              </div>
         </header>
+         <!-- Se non autenticato, mostra solo il contenuto senza header -->
+        <header v-else class="h-0"></header> <!-- Placeholder per mantenere struttura flex -->
 
         <!-- Area Contenuto -->
-        <main class="flex-grow p-8 overflow-auto">
-          <router-view />
+         <!-- Aggiunto padding-top se header è visibile -->
+        <main class="flex-grow p-4 md:p-8 overflow-auto" :class="{ 'pt-20': authStore.isAuthenticated }">
+          <RouterView /> <!-- RouterView importata nello script -->
         </main>
     </div>
 
@@ -190,6 +286,9 @@ const teacherAppUrl = computed(() => (import.meta.env.VITE_TEACHER_APP_URL as st
 <style scoped>
 /* Stili aggiuntivi se necessari */
 /* Assicurati che Tailwind sia configurato correttamente */
+.router-link-exact-active {
+  @apply bg-indigo-700; /* Stile link attivo aggiornato */
+}
 /* Potrebbe essere necessario installare @heroicons/vue: npm install @heroicons/vue */
 /* Potrebbe essere necessario installare una libreria per il clickaway (es. vue-clickaway) o implementarlo manualmente */
 </style>

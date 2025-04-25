@@ -13,25 +13,27 @@ import {
   BookOpenIcon, // Lezioni (Link esterno)
   ArrowLeftOnRectangleIcon, // Logout
   BellIcon, // Notifiche
-  ChevronDownIcon // Icona per Dropdown (anche se non usata qui, per coerenza)
+  ChevronDownIcon, // Icona per Dropdown (anche se non usata qui, per coerenza)
+  Bars3Icon, // Icona Hamburger per menu mobile
+  XMarkIcon // Icona Chiusura per menu mobile
 } from '@heroicons/vue/24/outline';
 
 const authStore = useAuthStore();
 const route = useRoute();
 const router = useRouter(); // Ottieni istanza router
-const isSidebarExpanded = ref(false);
-// const isProfileMenuOpen = ref(false); // Rimosso stato dropdown
+const isMobileMenuOpen = ref(false); // Stato per sidebar mobile
+// const isProfileMenuOpen = ref(false); // Rimosso stato dropdown (vecchio)
 
 // URL per l'app Lezioni
 const lessonsAppUrl = computed(() => (import.meta.env.VITE_LESSONS_APP_URL as string | undefined) || '/lezioni/'); // Usa env var o fallback
 
-const expandSidebar = () => { isSidebarExpanded.value = true; };
-const collapseSidebar = () => { isSidebarExpanded.value = false; };
-// const toggleProfileMenu = () => { isProfileMenuOpen.value = !isProfileMenuOpen.value; }; // Rimosso
+const toggleMobileMenu = () => { isMobileMenuOpen.value = !isMobileMenuOpen.value; };
+// const toggleProfileMenu = () => { isProfileMenuOpen.value = !isProfileMenuOpen.value; }; // Rimosso (vecchio)
 // const closeProfileMenu = () => { isProfileMenuOpen.value = false; }; // Rimosso
 
 // Definisci i nomi delle rotte che NON devono mostrare il layout principale (header/navbar)
-const publicRouteNames = ['login', 'StudentRegistration'];
+// Aggiunto 'root' perché anche la root mostra il login e non deve avere il layout
+const publicRouteNames = ['login', 'StudentRegistration', 'root'];
 
 // Calcola se mostrare il layout principale
 const showLayout = computed(() => {
@@ -54,79 +56,149 @@ const goToProfile = () => {
   <NotificationContainer />
 
   <div class="flex h-screen bg-neutral-lightest font-sans text-neutral-darkest">
-    <!-- Sidebar -->
+    <!-- Sidebar Desktop (visibile da md in su) -->
     <aside
-      v-show="showLayout"
-      class="bg-secondary text-neutral-lightest flex flex-col transition-all duration-300 ease-in-out"
-      :class="isSidebarExpanded ? 'w-64' : 'w-20'"
-      @mouseenter="expandSidebar"
-      @mouseleave="collapseSidebar"
+      v-if="authStore.isAuthenticated"
+      class="bg-secondary text-neutral-lightest hidden md:flex flex-col w-64 transition-all duration-300 ease-in-out"
+      aria-label="Sidebar"
     >
       <!-- Logo/Titolo App -->
        <div class="h-16 flex items-center justify-center flex-shrink-0 px-4">
-         <span v-if="isSidebarExpanded" class="text-xl font-semibold">Student Portal</span>
-         <span v-else class="text-xl font-semibold">SP</span>
+         <span class="text-xl font-semibold">Student Portal</span>
        </div>
 
-      <!-- Navigazione -->
+      <!-- Navigazione Desktop -->
       <nav class="flex-grow p-4 overflow-y-auto">
         <ul>
           <!-- Dashboard -->
           <li class="mb-3">
-            <router-link :to="{ name: 'dashboard' }" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700" :title="isSidebarExpanded ? '' : 'Dashboard'">
+            <router-link :to="{ name: 'dashboard' }" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700">
               <HomeIcon class="h-6 w-6 flex-shrink-0" />
-              <span v-if="isSidebarExpanded" class="ml-3">Dashboard</span>
+              <span class="ml-3">Dashboard</span>
             </router-link>
           </li>
           <!-- Shop -->
           <li class="mb-3">
-            <router-link :to="{ name: 'shop' }" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700" :title="isSidebarExpanded ? '' : 'Shop'">
+            <router-link :to="{ name: 'shop' }" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700">
               <ShoppingCartIcon class="h-6 w-6 flex-shrink-0" />
-              <span v-if="isSidebarExpanded" class="ml-3">Shop</span>
+              <span class="ml-3">Shop</span>
             </router-link>
           </li>
-          <!-- Profilo (spostato nell'header) -->
           <!-- Acquisti -->
           <li class="mb-3">
-            <router-link :to="{ name: 'purchases' }" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700" :title="isSidebarExpanded ? '' : 'Acquisti'">
+            <router-link :to="{ name: 'purchases' }" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700">
               <CreditCardIcon class="h-6 w-6 flex-shrink-0" />
-              <span v-if="isSidebarExpanded" class="ml-3">Acquisti</span>
+              <span class="ml-3">Acquisti</span>
             </router-link>
           </li>
           <!-- Traguardi -->
           <li class="mb-3">
-            <router-link :to="{ name: 'Badges' }" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700" :title="isSidebarExpanded ? '' : 'Traguardi'">
+            <router-link :to="{ name: 'Badges' }" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700">
               <TrophyIcon class="h-6 w-6 flex-shrink-0" />
-              <span v-if="isSidebarExpanded" class="ml-3">Traguardi</span>
+              <span class="ml-3">Traguardi</span>
             </router-link>
           </li>
           <!-- Lezioni (Link Esterno) -->
           <li class="mb-3">
-            <a :href="lessonsAppUrl" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700" :title="isSidebarExpanded ? '' : 'Lezioni'">
+            <a :href="lessonsAppUrl" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700">
               <BookOpenIcon class="h-6 w-6 flex-shrink-0" />
-              <span v-if="isSidebarExpanded" class="ml-3">Lezioni</span>
+              <span class="ml-3">Lezioni</span>
             </a>
           </li>
         </ul>
       </nav>
 
-      <!-- Logout -->
+      <!-- Logout Desktop -->
        <div class="p-4 mt-auto border-t border-purple-700 flex-shrink-0">
-         <button @click="handleLogout" class="w-full flex items-center p-2 rounded text-neutral-lightest hover:bg-red-700" :title="isSidebarExpanded ? '' : 'Logout'">
+         <button @click="handleLogout" class="w-full flex items-center p-2 rounded text-neutral-lightest hover:bg-red-700">
            <ArrowLeftOnRectangleIcon class="h-6 w-6 flex-shrink-0" />
-           <span v-if="isSidebarExpanded" class="ml-3">Logout</span>
+           <span class="ml-3">Logout</span>
          </button>
        </div>
     </aside>
 
+    <!-- Sidebar Mobile (Overlay) -->
+    <div v-if="isMobileMenuOpen && authStore.isAuthenticated" class="md:hidden" role="dialog" aria-modal="true">
+      <!-- Overlay Sfondo -->
+      <div class="fixed inset-0 bg-gray-600 bg-opacity-75 z-30" @click="toggleMobileMenu"></div>
+
+      <!-- Contenuto Sidebar Mobile -->
+      <aside class="fixed inset-y-0 left-0 z-40 w-64 bg-secondary text-neutral-lightest flex flex-col transition-transform duration-300 ease-in-out transform"
+             :class="isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'">
+        <!-- Logo/Titolo App e Bottone Chiusura -->
+        <div class="h-16 flex items-center justify-between flex-shrink-0 px-4">
+          <span class="text-xl font-semibold">Student Portal</span>
+          <button @click="toggleMobileMenu" class="p-1 text-neutral-lightest hover:bg-purple-700 rounded">
+            <span class="sr-only">Chiudi menu</span>
+            <XMarkIcon class="h-6 w-6" />
+          </button>
+        </div>
+
+        <!-- Navigazione Mobile -->
+        <nav class="flex-grow p-4 overflow-y-auto">
+          <ul>
+            <!-- Dashboard -->
+            <li class="mb-3">
+              <router-link :to="{ name: 'dashboard' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700">
+                <HomeIcon class="h-6 w-6 flex-shrink-0" />
+                <span class="ml-3">Dashboard</span>
+              </router-link>
+            </li>
+            <!-- Shop -->
+            <li class="mb-3">
+              <router-link :to="{ name: 'shop' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700">
+                <ShoppingCartIcon class="h-6 w-6 flex-shrink-0" />
+                <span class="ml-3">Shop</span>
+              </router-link>
+            </li>
+            <!-- Acquisti -->
+            <li class="mb-3">
+              <router-link :to="{ name: 'purchases' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700">
+                <CreditCardIcon class="h-6 w-6 flex-shrink-0" />
+                <span class="ml-3">Acquisti</span>
+              </router-link>
+            </li>
+            <!-- Traguardi -->
+            <li class="mb-3">
+              <router-link :to="{ name: 'Badges' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700">
+                <TrophyIcon class="h-6 w-6 flex-shrink-0" />
+                <span class="ml-3">Traguardi</span>
+              </router-link>
+            </li>
+            <!-- Lezioni (Link Esterno) -->
+            <li class="mb-3">
+              <a :href="lessonsAppUrl" @click="toggleMobileMenu" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700">
+                <BookOpenIcon class="h-6 w-6 flex-shrink-0" />
+                <span class="ml-3">Lezioni</span>
+              </a>
+            </li>
+          </ul>
+        </nav>
+
+        <!-- Logout Mobile -->
+        <div class="p-4 mt-auto border-t border-purple-700 flex-shrink-0">
+          <button @click="handleLogout(); toggleMobileMenu();" class="w-full flex items-center p-2 rounded text-neutral-lightest hover:bg-red-700">
+            <ArrowLeftOnRectangleIcon class="h-6 w-6 flex-shrink-0" />
+            <span class="ml-3">Logout</span>
+          </button>
+        </div>
+      </aside>
+    </div>
+
     <!-- Contenuto Principale -->
     <div class="flex flex-col flex-grow">
         <!-- Header -->
-        <header v-show="showLayout" class="bg-white shadow p-4 h-16 flex items-center justify-between flex-shrink-0">
-            <!-- Placeholder per spazio a sinistra o titolo pagina (potrebbe essere dinamico) -->
-             <div class="flex-1"></div>
+        <header v-if="authStore.isAuthenticated" class="bg-white shadow p-4 h-16 flex items-center justify-between flex-shrink-0">
+             <!-- Pulsante Hamburger (visibile solo su mobile) -->
+             <button @click="toggleMobileMenu" class="md:hidden p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded focus:outline-none focus:ring-2 focus:ring-inset focus:ring-purple-500">
+               <span class="sr-only">Apri menu principale</span>
+               <Bars3Icon class="h-6 w-6" />
+             </button>
 
-             <!-- Pulsanti Header -->
+             <!-- Placeholder per Titolo Pagina o Spazio (su desktop occupa spazio, su mobile no) -->
+             <div class="flex-1 md:ml-4"></div>
+
+             <!-- Pulsanti Header (Notifiche, Profilo) -->
              <div class="flex items-center space-x-4">
                  <!-- Pulsante Notifiche -->
                  <button class="p-2 rounded-full text-gray-500 hover:text-gray-700 hover:bg-gray-100 focus:outline-none focus:bg-gray-100 focus:ring-2 focus:ring-offset-2 focus:ring-purple-500">
@@ -141,10 +213,13 @@ const goToProfile = () => {
                  </button>
              </div>
         </header>
+        <!-- Se non autenticato, mostra solo il contenuto senza header -->
+        <header v-else class="h-0"></header> <!-- Placeholder per mantenere struttura flex -->
+
 
         <!-- Area Contenuto -->
-        <!-- Applica padding top solo se il layout è mostrato -->
-        <main class="flex-grow p-8 overflow-auto">
+        <!-- Aggiunto padding-top se header è visibile -->
+        <main class="flex-grow p-4 md:p-8 overflow-auto" :class="{ 'pt-20': authStore.isAuthenticated }">
           <RouterView />
         </main>
     </div>

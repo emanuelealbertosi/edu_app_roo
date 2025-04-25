@@ -7,24 +7,16 @@ const router = createRouter({
   routes: [
     {
       path: '/',
-      name: 'root',
-      redirect: () => {
-        // Get store instance *inside* the redirect function
-        const authStore = useAuthStore();
-        if (authStore.isAuthenticated) {
-          // If authenticated, redirect to the main dashboard
-          return { name: 'dashboard' };
-        } else {
-          // If not authenticated, redirect to the login page
-          return { name: 'login' };
-        }
-      }
+      name: 'root', // Nome per la rotta root
+      component: () => import('../views/LoginView.vue'), // Mostra LoginView per default a '/'
+      meta: { requiresGuest: true } // Marca anche la root come "guest"
     },
     {
       path: '/login',
       name: 'login',
       component: () => import('../views/LoginView.vue'),
-      // Add beforeEnter guard to redirect if already logged in
+      meta: { requiresGuest: true }, // Marca la login come "guest"
+      // La guardia beforeEnter è ridondante se beforeEach gestisce requiresGuest, ma la lasciamo per sicurezza/chiarezza
       beforeEnter: (to, from, next) => {
         const authStore = useAuthStore();
         if (authStore.isAuthenticated) {
@@ -198,19 +190,41 @@ const router = createRouter({
 })
 
 // Navigation Guard
-// Simplified Global Navigation Guard
-router.beforeEach((to: RouteLocationNormalized, from: RouteLocationNormalized, next: NavigationGuardNext) => {
-  const authStore = useAuthStore();
-  const requiresAuth = to.matched.some((record: RouteRecordNormalized) => record.meta.requiresAuth);
+// Guardia di navigazione globale aggiornata
+router.beforeEach(async (to, from, next) => {
+  const authStore = useAuthStore(); // Ottieni lo store
+  const requiresAuth = to.matched.some(record => record.meta.requiresAuth);
+  // Non chiamare isAuthenticated() qui, usa il getter dello store
+  const isAuthenticated = authStore.isAuthenticated;
 
-  // Only handle redirection for protected routes when the user is not authenticated
-  if (requiresAuth && !authStore.isAuthenticated) {
-    console.log('Global Guard: Route requires auth, user not authenticated. Redirecting to login.');
-    next({ name: 'login', query: { redirect: to.fullPath } });
-  } else {
-    // Allow all other navigation (including root and login handled by their own guards/redirects)
-    console.log('Global Guard: Allowing navigation to', to.name || to.path);
-    next();
+  if (requiresAuth) { // Se la rotta di destinazione richiede autenticazione
+    if (isAuthenticated) {
+      // Verifica la validità del token (lo store dovrebbe gestire il refresh/logout se necessario)
+      // Potremmo aggiungere una chiamata esplicita a checkTokenValidity o fetchUserProfile se necessario
+      // Per ora, assumiamo che lo stato dello store sia affidabile o che le chiamate API falliranno
+      // Se vuoi una verifica più robusta ad ogni navigazione protetta:
+      try {
+          // await authStore.fetchUserProfile(); // Assicurati che il profilo sia aggiornato e il token valido
+          // O una chiamata più leggera se disponibile: await authStore.checkTokenValidity();
+          next(); // Utente autenticato, procedi
+      } catch (error) {
+          console.error("Errore durante la verifica dell'utente prima della navigazione:", error);
+          next({ name: 'login' }); // In caso di errore, vai al login
+      }
+    } else {
+      // Utente non autenticato che tenta di accedere a una rotta protetta
+      next({ name: 'login' }); // Reindirizza alla pagina di login
+    }
+  } else { // Rotta non protetta (né auth né guest specificato esplicitamente O requiresGuest)
+    const requiresGuest = to.matched.some(record => record.meta.requiresGuest);
+    if (requiresGuest && isAuthenticated) {
+       // Utente autenticato tenta di accedere a rotta guest (login, root)
+       console.log('Guard: Guest required but user is authenticated, redirecting to dashboard.');
+       next({ name: 'dashboard' });
+    } else {
+       // Utente non autenticato su rotta guest O qualsiasi utente su rotta veramente pubblica
+       next();
+    }
   }
 })
 

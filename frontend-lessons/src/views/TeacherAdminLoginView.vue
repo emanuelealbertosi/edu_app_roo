@@ -46,24 +46,22 @@
 
 <script setup lang="ts">
 import { ref } from 'vue';
-import { useRouter, useRoute } from 'vue-router';
+// Rimosso import { useRouter, useRoute } da 'vue-router' perché non sono più usati
 import { useAuthStore } from '@/stores/auth';
 
 const identifier = ref('');
 const password = ref('');
 const authStore = useAuthStore();
-const router = useRouter();
-const route = useRoute();
+// Rimosse dichiarazioni const router = useRouter(); e const route = useRoute();
 
 const handleLogin = async () => {
   const credentials = {
       identifier: identifier.value,
       password: password.value,
   };
-  const success = await authStore.login(credentials, 'teacher-admin');
-  if (success) {
-    const redirectPath = route.query.redirect as string || '/';
-    router.push(redirectPath);
-  }
+  // Lasciamo che sia l'azione login nello store a gestire il redirect
+  await authStore.login(credentials, 'teacher-admin');
+  // Non è necessario controllare 'success' qui, l'azione login gestisce
+  // già il redirect in caso di successo o mostra l'errore altrimenti.
 };
 </script>

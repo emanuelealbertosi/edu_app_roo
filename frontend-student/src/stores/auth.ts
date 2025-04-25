@@ -71,15 +71,8 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = null;
     token.value = null;
     isAuthenticated.value = false;
-    try {
-      // Usiamo l'istanza del router ottenuta con useRouter()
-      await router.push({ name: 'login' }); 
-    } catch (e) {
-        console.error("Errore durante il redirect post-logout:", e);
-        // Fallback o gestione alternativa se il push fallisce
-        // Potrebbe essere necessario usare window.location se il router ha problemi
-        // window.location.href = '/login'; 
-    }
+    // Reindirizza alla root del dominio, non alla root dell'app Vue
+    window.location.href = '/';
   }
 
   async function checkAuth(): Promise<boolean> {

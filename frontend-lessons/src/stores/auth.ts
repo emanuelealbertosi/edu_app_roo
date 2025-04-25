@@ -107,9 +107,14 @@ export const useAuthStore = defineStore('auth', {
         // Se siamo qui, il login (e fetchUser se applicabile) è andato a buon fine.
         if (this.user) { // Controlla se l'utente è stato impostato correttamente
              console.log('Login successful, user:', this.user); // Debug
+             // Reindirizza alla dashboard dopo login successo
+             router.push({ name: 'dashboard' });
              return true; // Indica successo
         } else {
              // Questo non dovrebbe accadere se fetchUser non fallisce, ma per sicurezza
+             // Potrebbe accadere se fetchUser fallisce silenziosamente?
+             console.error("Login logic completed but user data is still missing.");
+             this.clearAuth(); // Pulisce per sicurezza
              throw new Error("Dati utente non caricati dopo il login.");
         }
 
@@ -217,8 +222,8 @@ export const useAuthStore = defineStore('auth', {
       // Idealmente, dovremmo invalidare il token sul backend se usiamo blacklist
       // Ma con Simple JWT senza blacklist, basta rimuovere i token dal frontend
       this.clearAuth();
-      // Reindirizza alla pagina di login di default (docente/admin)
-      router.push({ name: 'teacher-admin-login' });
+      // Reindirizza alla root del dominio, non alla root dell'app Vue
+      window.location.href = '/';
     },
 
     // Azione per controllare lo stato iniziale (es. all'avvio dell'app)

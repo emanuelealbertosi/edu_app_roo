@@ -138,14 +138,14 @@ onMounted(() => {
         <div v-for="reward in availableRewards" :key="reward.id" class="reward-card bg-white rounded-lg shadow-lg overflow-hidden flex flex-col border-t-4" :class="reward.type === 'digital' ? 'border-primary' : 'border-success'"> <!-- Colori bordo aggiornati -->
           <!-- Test: Decommento solo div info e nome -->
           <!-- Reward ID: {{ reward.id }} --> <!-- Commento l'ID ora -->
-          <template v-if="reward.metadata?.image_url"> <!-- Decommentato -->
+          <template v-if="reward.metadata?.image_url">
             <img
               :src="reward.metadata.image_url"
               :alt="reward.name"
               class="reward-image w-full h-48 object-cover"
             />
           </template>
-          <template v-else> <!-- Decommentato -->
+          <template v-else>
             <div class="reward-image-placeholder w-full h-48 flex items-center justify-center bg-neutral-light text-neutral-dark text-5xl">🎁</div> <!-- Colori placeholder aggiornati -->
           </template>
           <div class="reward-info p-4 flex flex-col flex-grow">
@@ -157,7 +157,7 @@ onMounted(() => {
             </div>
           </div>
           <BaseButton
-            variant="primary" <!-- Variante bottone aggiornata -->
+            variant="primary"
             @click="handlePurchase(reward)"
             :disabled="purchasingRewardId === reward.id || currentPoints < reward.cost_points"
             class="w-full rounded-t-none"

@@ -7,19 +7,19 @@ const router = createRouter({
   routes: [
     {
       path: '/',
-      redirect: to => {
-        // Redirect to dashboard if authenticated, otherwise to login
-        return AuthService.isAuthenticated() ? '/dashboard' : '/login'
-      }
+      name: 'root', // Nome per la rotta root
+      component: () => import('../views/LoginView.vue'), // Mostra LoginView per default a '/'
+      meta: { requiresGuest: true } // Marca anche la root come "guest"
     },
     {
       path: '/login',
       name: 'login',
       component: () => import('../views/LoginView.vue'),
-      // Evita che utenti già autenticati possano accedere alla pagina di login
+      meta: { requiresGuest: true }, // Marca la login come "guest"
+      // La guardia beforeEnter è ridondante se beforeEach gestisce requiresGuest, ma la lasciamo per sicurezza/chiarezza
       beforeEnter: (to, from, next) => {
         if (AuthService.isAuthenticated()) {
-          next('/dashboard')
+          next({ name: 'dashboard' }) // Usa il nome della rotta per coerenza
         } else {
           next()
         }
@@ -133,33 +133,39 @@ const router = createRouter({
   ],
 })
 
-// Guardia di navigazione globale per proteggere le rotte autenticate
+// Guardia di navigazione globale aggiornata
 router.beforeEach(async (to, from, next) => {
-  const requiresAuth = to.matched.some(record => record.meta.requiresAuth)
-  const isAuthenticated = AuthService.isAuthenticated()
+  const requiresAuth = to.matched.some(record => record.meta.requiresAuth);
+  const isAuthenticated = AuthService.isAuthenticated(); // Assicurati che AuthService sia importato e funzioni
 
-  if (requiresAuth) {
+  if (requiresAuth) { // Se la rotta di destinazione richiede autenticazione
     if (isAuthenticated) {
-      // Verifica che il token sia valido prima di consentire la navigazione
+      // Verifica la validità del token (gestisce refresh/logout se necessario)
       try {
-        const isValid = await AuthService.checkTokenValidity()
+        const isValid = await AuthService.checkTokenValidity();
         if (isValid) {
-          next()
+          next(); // Utente autenticato e token valido, procedi
         } else {
-          // Token non valido, reindirizza al login
-          next('/login')
+          // Token non valido (scaduto e non rinnovabile o altro errore)
+          next({ name: 'login' }); // Reindirizza alla pagina di login
         }
       } catch (error) {
-        console.error('Error checking token validity:', error)
-        next('/login')
+         console.error('Errore durante la verifica del token:', error);
+         next({ name: 'login' }); // In caso di errore nella verifica, vai al login
       }
     } else {
-      // Non autenticato, reindirizza al login
-      next('/login')
+      // Utente non autenticato che tenta di accedere a una rotta protetta
+      next({ name: 'login' }); // Reindirizza alla pagina di login
     }
-  } else {
-    // Rotta non protetta, consente la navigazione
-    next()
+  } else { // Se la rotta di destinazione NON richiede autenticazione (es. '/', '/login', '/register')
+    // Se l'utente è autenticato e cerca di accedere a una rotta pubblica che non dovrebbe vedere (login, root, register),
+    // reindirizza alla dashboard.
+    if (isAuthenticated && (to.name === 'root' || to.name === 'login' || to.name === 'StudentRegistration')) {
+      next({ name: 'dashboard' }); // Reindirizza alla dashboard
+    } else {
+      // Altrimenti (utente non autenticato su rotta pubblica, o utente autenticato su altra rotta pubblica), procedi
+      next();
+    }
   }
 })
 

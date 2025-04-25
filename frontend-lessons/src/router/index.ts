@@ -28,10 +28,17 @@ const router = createRouter({
        redirect: { name: 'teacher-admin-login' }
      },
     {
-      path: '/', // Dashboard come home page
+      path: '/', // Root path
+      name: 'root', // Nome per la rotta root
+      component: TeacherAdminLoginView, // Punta direttamente alla login di default
+      meta: { requiresGuest: true } // Marca anche la root come "guest"
+    },
+    {
+      // Definisci esplicitamente la dashboard
+      path: '/dashboard',
       name: 'dashboard',
       component: DashboardView,
-      meta: { requiresAuth: true } // Esempio: richiede autenticazione
+      meta: { requiresAuth: true } // Richiede autenticazione
     },
     // Aggiungere qui altre route per materie, argomenti, lezioni, ecc.
     {
@@ -92,46 +99,46 @@ const router = createRouter({
 // --- Navigation Guards ---
 import { useAuthStore } from '@/stores/auth'; // Importa lo store per le guardie
 
-router.beforeEach(async (to, _from, next) => { // Rende la guardia async per poter chiamare checkInitialAuth, rinominato 'from' non usato
+router.beforeEach(async (to, from, next) => {
   const authStore = useAuthStore();
 
-  // Assicurati che lo stato iniziale sia caricato prima di controllare i permessi
-  // Questo è importante se l'utente ricarica la pagina su una rotta protetta
+  // Tenta di caricare l'utente se manca ma c'è un token
   if (!authStore.user && authStore.accessToken) {
+    try {
       console.log('Guard: Fetching user before proceeding...');
-      await authStore.fetchUser(); // Attende il recupero dei dati utente
-      // Se fetchUser fallisce (es. token scaduto), farà logout e lo stato cambierà
+      await authStore.fetchUser();
+    } catch (error) {
+      console.error('Guard: Failed to fetch user, proceeding as unauthenticated.', error);
+    }
   }
 
   const requiresAuth = to.matched.some(record => record.meta.requiresAuth);
-  const requiresGuest = to.matched.some(record => record.meta.requiresGuest);
+  const requiresGuest = to.matched.some(record => record.meta.requiresGuest); // Include la nuova root '/'
   const requiredRoles = to.meta.roles as string[] | undefined;
+  const isAuthenticated = authStore.isAuthenticated;
 
-  console.log(`Guard: Navigating to ${to.fullPath}, requiresAuth: ${requiresAuth}, isAuthenticated: ${authStore.isAuthenticated}`); // Debug
+  console.log(`Guard: To: ${String(to.name)}, From: ${String(from.name)}, Auth: ${isAuthenticated}, Roles: ${authStore.user?.role}`);
 
-  if (requiresAuth && !authStore.isAuthenticated) {
-    // Se richiede auth ma non è loggato, redirect alla pagina di login di default
-    console.log('Guard: Auth required, redirecting to default login.'); // Debug
-    next({ name: 'teacher-admin-login', query: { redirect: to.fullPath } }); // Usa il nome della rotta di default
-  } else if (requiresGuest && authStore.isAuthenticated) {
-    // Se richiede guest (es. pagina login) ma è loggato, redirect a dashboard
-    console.log('Guard: Guest required, redirecting to dashboard.'); // Debug
+  if (requiresAuth && !isAuthenticated) {
+    // Utente non autenticato tenta di accedere a rotta protetta
+    console.log('Guard: Auth required, redirecting to default login.');
+    next({ name: 'teacher-admin-login', query: { redirect: to.fullPath } });
+  } else if (requiresGuest && isAuthenticated) {
+    // Utente autenticato tenta di accedere a rotta guest (login, root)
+    console.log('Guard: Guest required but user is authenticated, redirecting to dashboard.');
     next({ name: 'dashboard' });
-  } else if (requiresAuth && requiredRoles) {
-     // Controllo ruolo case-insensitive
-     const userRoleUpper = (authStore.user?.role ?? '').toUpperCase();
-     const requiredRolesUpper = requiredRoles.map(role => role.toUpperCase());
-     if (!requiredRolesUpper.includes(userRoleUpper)) {
-        // Se richiede un ruolo specifico ma l'utente non ce l'ha
-        console.warn(`Guard: Access denied to route ${String(to.name)}. Role required: ${requiredRoles}, User role: ${authStore.user?.role}`);
-        // Reindirizza alla dashboard (o a una pagina 'Unauthorized' se esistesse)
-        next({ name: 'dashboard' });
-        return; // Esce dalla guardia dopo il redirect
-     }
-     // Se il ruolo è corretto, procedi
-     next();
+  } else if (requiresAuth && isAuthenticated && requiredRoles) {
+    // Utente autenticato, rotta protetta con controllo ruoli
+    const userRoleUpper = (authStore.user?.role ?? '').toUpperCase();
+    const requiredRolesUpper = requiredRoles.map(role => role.toUpperCase());
+    if (!requiredRolesUpper.includes(userRoleUpper)) {
+      console.warn(`Guard: Role mismatch. Required: ${requiredRoles}, User has: ${authStore.user?.role}. Redirecting to dashboard.`);
+      next({ name: 'dashboard' }); // O pagina 'Unauthorized'
+    } else {
+      next(); // Ruolo corretto, procedi
+    }
   } else {
-    // Se nessuna delle condizioni precedenti è vera (es. rotta pubblica o utente con ruolo corretto), procedi.
+    // Tutti gli altri casi (utente non auth su rotta guest, utente auth su rotta protetta senza ruoli specifici, rotte pubbliche)
     next();
   }
 });

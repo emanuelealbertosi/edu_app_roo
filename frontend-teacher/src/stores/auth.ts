@@ -101,7 +101,9 @@ export const useAuthStore = defineStore('auth', () => {
     // Optional: Add backend call to invalidate token here if implemented
     // try { await authService.logoutTeacher(refreshToken.value); } catch(e) {}
     clearAuthData();
-    router.push({ name: 'login' }); // Reindirizza alla pagina di login
+    console.log("Auth data cleared, redirecting to domain root...");
+    // Reindirizza alla root del dominio, non alla root dell'app Vue
+    window.location.href = '/';
   }
 
   // Action to fetch user profile
