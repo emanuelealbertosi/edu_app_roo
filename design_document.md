@@ -7,7 +7,7 @@
 *   Creare una piattaforma web per Admin, Docenti e Studenti.
 *   **Admin:** Gestione Docenti, creazione Template Quiz (globali), creazione Template Ricompense (globali), gestione Impostazioni Globali (opzionale).
 *   **Docente:** Gestione Studenti, creazione/assegnazione Quiz (da template Admin o da zero), creazione/assegnazione Percorsi, creazione Template Ricompense (locali), creazione Ricompense specifiche (da template globali/locali o da zero), gestione disponibilità Ricompense (tutti/specifici), conferma consegna Ricompense reali.
-*   **Studente:** Svolgimento Quiz/Percorsi, guadagno punti, visualizzazione/acquisto Ricompense disponibili.
+*   **Studente:** Svolgimento Quiz/Percorsi (la modale di svolgimento quiz deve occupare almeno l'89% della larghezza del browser su desktop), guadagno punti, visualizzazione/acquisto Ricompense disponibili.
 *   Garantire sicurezza (Security by Design) e testabilità (Test Driven Development - TDD).
 
 ## 2. Stack Tecnologico

@@ -7,7 +7,10 @@
         @click.self="closeModal"
       >
         <!-- Contenitore Modale -->
-        <div class="bg-white rounded-lg shadow-xl max-w-lg w-full m-4 overflow-hidden transform transition-all sm:max-w-xl md:max-w-2xl">
+        <div
+          class="bg-white rounded-lg shadow-xl w-full m-4 overflow-hidden transform transition-all"
+          :class="maxWidthClass ? maxWidthClass : 'max-w-lg sm:max-w-xl md:max-w-2xl'"
+        >
           <!-- Header -->
           <div class="flex items-center justify-between px-6 py-4 border-b border-brand-gray">
             <h3 v-if="title" class="text-xl font-bold text-kahoot-purple">{{ title }}</h3>
@@ -45,6 +48,7 @@ import { watch, onUnmounted } from 'vue';
 interface Props {
   show: boolean; // Prop per controllare la visibilità
   title?: string; // Titolo opzionale
+  maxWidthClass?: string; // Classe opzionale per sovrascrivere la larghezza massima
 }
 
 const props = defineProps<Props>();

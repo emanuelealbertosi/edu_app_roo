@@ -268,6 +268,7 @@ const shouldShowStartButton = (quiz: Quiz): boolean => {
       :show="isAttemptModalOpen"
       @close="closeAttemptModal"
       title="Svolgimento Quiz"
+      :maxWidthClass="'w-full lg:w-[90%]'"
     >
       <!-- Usiamo un div wrapper per il v-if per non rimuovere la modale stessa -->
       <div v-if="quizIdForAttempt">

@@ -340,7 +340,7 @@ onUnmounted(() => {
       </button>
 
     <!-- Contenuto principale sopra l'overlay -->
-    <div class="main-content container mx-auto max-w-3xl relative z-10">
+    <div class="main-content mx-auto w-full lg:w-11/12 relative z-10">
 
       <!-- Animazione Iniziale (invariata) -->
       <!-- Animazione Iniziale con Contatore -->
