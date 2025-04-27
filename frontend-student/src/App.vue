@@ -59,50 +59,50 @@ const goToProfile = () => {
     <!-- Sidebar Desktop (visibile da md in su) -->
     <aside
       v-if="authStore.isAuthenticated"
-      class="bg-secondary text-neutral-lightest hidden md:flex flex-col w-64 transition-all duration-300 ease-in-out"
+      class="bg-secondary text-neutral-lightest hidden md:flex flex-col w-20 group hover:w-64 transition-all duration-300 ease-in-out overflow-hidden"
       aria-label="Sidebar"
     >
       <!-- Logo/Titolo App -->
        <div class="h-16 flex items-center justify-center flex-shrink-0 px-4">
-         <span class="text-xl font-semibold">Student Portal</span>
+         <span class="text-xl font-semibold opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Student Portal</span>
        </div>
 
       <!-- Navigazione Desktop -->
-      <nav class="flex-grow p-4 overflow-y-auto">
+      <nav class="flex-grow p-4 overflow-y-auto overflow-x-hidden">
         <ul>
           <!-- Dashboard -->
           <li class="mb-3">
             <router-link :to="{ name: 'dashboard' }" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700">
               <HomeIcon class="h-6 w-6 flex-shrink-0" />
-              <span class="ml-3">Dashboard</span>
+              <span class="ml-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Dashboard</span>
             </router-link>
           </li>
           <!-- Shop -->
           <li class="mb-3">
             <router-link :to="{ name: 'shop' }" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700">
               <ShoppingCartIcon class="h-6 w-6 flex-shrink-0" />
-              <span class="ml-3">Shop</span>
+              <span class="ml-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Shop</span>
             </router-link>
           </li>
           <!-- Acquisti -->
           <li class="mb-3">
             <router-link :to="{ name: 'purchases' }" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700">
               <CreditCardIcon class="h-6 w-6 flex-shrink-0" />
-              <span class="ml-3">Acquisti</span>
+              <span class="ml-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Acquisti</span>
             </router-link>
           </li>
           <!-- Traguardi -->
           <li class="mb-3">
             <router-link :to="{ name: 'Badges' }" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700">
               <TrophyIcon class="h-6 w-6 flex-shrink-0" />
-              <span class="ml-3">Traguardi</span>
+              <span class="ml-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Traguardi</span>
             </router-link>
           </li>
           <!-- Lezioni (Link Esterno) -->
           <li class="mb-3">
             <a :href="lessonsAppUrl" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700">
               <BookOpenIcon class="h-6 w-6 flex-shrink-0" />
-              <span class="ml-3">Lezioni</span>
+              <span class="ml-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Lezioni</span>
             </a>
           </li>
         </ul>
@@ -112,7 +112,7 @@ const goToProfile = () => {
        <div class="p-4 mt-auto border-t border-purple-700 flex-shrink-0">
          <button @click="handleLogout" class="w-full flex items-center p-2 rounded text-neutral-lightest hover:bg-red-700">
            <ArrowLeftOnRectangleIcon class="h-6 w-6 flex-shrink-0" />
-           <span class="ml-3">Logout</span>
+           <span class="ml-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Logout</span>
          </button>
        </div>
     </aside>

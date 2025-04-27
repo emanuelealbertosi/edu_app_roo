@@ -50,17 +50,26 @@ export const useQuizStore = defineStore('quiz', {
     
     // Verifica se il tentativo è in corso
     isAttemptInProgress(state): boolean {
-      return state.currentAttempt?.status === 'in_progress';
+      // Assumendo che lo stato IN_PROGRESS sia inviato come 'IN_PROGRESS' dal backend
+      return state.currentAttempt?.status === 'IN_PROGRESS';
     },
     
-    // Verifica se il tentativo è completato
+    // Verifica se il tentativo è completato (e superato)
     isAttemptCompleted(state): boolean {
-      return state.currentAttempt?.status === 'completed';
+      // Usa la costante uppercase dal backend
+      return state.currentAttempt?.status === 'COMPLETED';
+    },
+
+    // Verifica se il tentativo è fallito
+    isAttemptFailed(state): boolean {
+      // Usa la costante uppercase dal backend
+      return state.currentAttempt?.status === 'FAILED';
     },
     
     // Verifica se il tentativo è in attesa di correzione manuale
     isAttemptPendingGrading(state): boolean {
-      return state.currentAttempt?.status === 'pending_manual_grading';
+      // Usa la costante uppercase dal backend
+      return state.currentAttempt?.status === 'PENDING_GRADING';
     },
     
     // Calcola il punteggio corrente in percentuale

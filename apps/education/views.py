@@ -8,7 +8,7 @@ from django.db.models import Max # Import Max
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.core.exceptions import PermissionDenied # Import PermissionDenied Django
-from django.db.models import F, OuterRef, Subquery, Count, Prefetch # Import per Subquery, Count e Prefetch
+from django.db.models import Q, F, OuterRef, Subquery, Count, Prefetch # Import per Q, Subquery, Count e Prefetch
 
 from .models import (
     QuizTemplate, QuestionTemplate, AnswerOptionTemplate,
@@ -28,7 +28,9 @@ from .serializers import (
     NextPathwayQuizSerializer, # Aggiunto import mancante
     # Nuovi Serializer per Template Percorsi e Assegnazioni
     PathwayTemplateSerializer, PathwayQuizTemplateSerializer,
-    QuizAssignmentSerializer, PathwayAssignmentSerializer
+    QuizAssignmentSerializer, PathwayAssignmentSerializer,
+    # Nuovi serializer per azioni di assegnazione
+    AssignQuizSerializer, AssignPathwaySerializer
 )
 from .permissions import (
     IsAdminOrReadOnly, IsQuizTemplateOwnerOrAdmin, IsQuizOwnerOrAdmin, IsPathwayOwnerOrAdmin, # Updated IsPathwayOwner -> IsPathwayOwnerOrAdmin
@@ -39,6 +41,7 @@ from apps.users.permissions import IsAdminUser, IsTeacherUser, IsStudent, IsStud
 from apps.users.models import UserRole, Student, User # Import modelli utente e User
 from apps.rewards.models import Wallet, PointTransaction # Import Wallet e PointTransaction
 from .models import QuizAssignment, PathwayAssignment, QuizAttempt, PathwayProgress # Assicurati che siano importati
+from apps.student_groups.models import StudentGroup, StudentGroupMembership # Importa StudentGroup e StudentGroupMembership per verifiche
 
 # Get an instance of a logger
 logger = logging.getLogger(__name__)
@@ -102,6 +105,150 @@ class PathwayTemplateViewSet(viewsets.ModelViewSet):
         if not isinstance(self.request.user, User) or not self.request.user.is_teacher:
              raise serializers.ValidationError("Solo i Docenti possono creare template di percorsi.")
         serializer.save(teacher=self.request.user)
+
+    # --- Azione per Assegnare Template Percorso a Gruppo ---
+    @action(detail=True, methods=['post'], url_path='assign-group', permission_classes=[permissions.IsAuthenticated, IsTeacherUser])
+    @transaction.atomic # Assicura atomicità per creazione pathway, quiz, e assegnazione
+    def assign_group(self, request, pk=None):
+        """
+        Assegna questo template percorso a un gruppo specificato.
+        Crea un'istanza Pathway (con tutte le istanze Quiz) dal template e poi un PathwayAssignment.
+        Richiede 'group' (ID del gruppo) e opzionalmente 'due_date' nel payload.
+        """
+        template = self.get_object() # Ottiene il PathwayTemplate dal pk nell'URL
+        teacher = request.user
+
+        # Verifica ownership del template
+        if template.teacher != teacher:
+            raise DRFPermissionDenied("Non puoi assegnare un template di percorso che non possiedi.")
+
+        group_id = request.data.get('group')
+        due_date_str = request.data.get('due_date')
+
+        if not group_id:
+            return Response({'group': 'ID del gruppo è richiesto.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            group_id = int(group_id)
+            group = StudentGroup.objects.get(pk=group_id, teacher=teacher) # Verifica esistenza e ownership gruppo
+        except (ValueError, TypeError):
+            return Response({'group': 'ID gruppo non valido.'}, status=status.HTTP_400_BAD_REQUEST)
+        except StudentGroup.DoesNotExist:
+            return Response({'group': 'Gruppo non trovato o non appartenente a questo docente.'}, status=status.HTTP_404_NOT_FOUND)
+
+        # Valida la data di scadenza se fornita
+        due_date = None
+        if due_date_str:
+            try:
+                due_date = timezone.datetime.fromisoformat(due_date_str.replace('Z', '+00:00'))
+                if timezone.is_naive(due_date):
+                    due_date = timezone.make_aware(due_date, timezone.utc)
+                if due_date < timezone.now():
+                     raise ValidationError("La data di scadenza non può essere nel passato.")
+            except (ValueError, ValidationError) as e:
+                 error_detail = e.detail if isinstance(e, ValidationError) else "Formato data/ora non valido. Usare ISO 8601 (es. YYYY-MM-DDTHH:MM:SSZ)."
+                 return Response({'due_date': error_detail}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            # --- 1. Creazione Istanza Pathway ---
+            instance_title = f"{template.title} (Gruppo: {group.name})"
+            new_pathway = Pathway.objects.create(
+                teacher=teacher,
+                source_template=template,
+                title=instance_title,
+                description=template.description,
+                metadata=template.metadata.copy() if template.metadata else {}
+            )
+
+            # --- 2. Creazione Istanze Quiz e Collegamenti PathwayQuiz ---
+            pathway_quizzes_to_create = []
+            # Itera sui template quiz associati al template percorso, ordinati
+            # CORREZIONE: Usare il related_name predefinito 'pathwayquiztemplate_set'
+            for pq_template in template.pathwayquiztemplate_set.select_related('quiz_template').order_by('order'):
+                quiz_template = pq_template.quiz_template
+
+                # --- Logica (replicata) per creare istanza Quiz da QuizTemplate ---
+                quiz_instance_title = f"{quiz_template.title} (Percorso: {new_pathway.title})"
+                new_quiz = Quiz.objects.create(
+                    teacher=teacher,
+                    source_template=quiz_template,
+                    title=quiz_instance_title,
+                    description=quiz_template.description,
+                    metadata=quiz_template.metadata.copy() if quiz_template.metadata else {}
+                )
+                questions_to_create = []
+                options_to_create_map = {}
+                question_order_counter = 0
+                for q_template in quiz_template.question_templates.prefetch_related('answer_option_templates').order_by('order'):
+                    new_question = Question(
+                        quiz=new_quiz, text=q_template.text, question_type=q_template.question_type,
+                        order=question_order_counter, metadata=q_template.metadata.copy() if q_template.metadata else {}
+                    )
+                    questions_to_create.append(new_question)
+                    options_to_create_map[q_template.id] = []
+                    for opt_template in q_template.answer_option_templates.order_by('order'):
+                         options_to_create_map[q_template.id].append(
+                             AnswerOption(text=opt_template.text, is_correct=opt_template.is_correct, order=opt_template.order)
+                         )
+                    question_order_counter += 1 # Incrementa per la prossima domanda
+
+                created_questions = Question.objects.bulk_create(questions_to_create)
+                created_question_map = {q.text: q for q in created_questions} # Usa testo+quiz come chiave potenziale se ordine non basta
+
+                options_final_list = []
+                # Ricostruisci mappa ID template -> oggetto Question creato
+                template_to_instance_map = {}
+                q_templates_list = list(quiz_template.question_templates.all()) # Ottieni la lista per fare il mapping
+                for i, q_instance in enumerate(created_questions):
+                    if i < len(q_templates_list):
+                        template_to_instance_map[q_templates_list[i].id] = q_instance
+
+                for q_template_id, options_list in options_to_create_map.items():
+                    newly_created_question = template_to_instance_map.get(q_template_id)
+                    if newly_created_question:
+                        for option in options_list:
+                            option.question = newly_created_question
+                            options_final_list.append(option)
+                if options_final_list:
+                    AnswerOption.objects.bulk_create(options_final_list)
+                # --- Fine logica creazione istanza Quiz ---
+
+                # Aggiungi alla lista per bulk create di PathwayQuiz
+                pathway_quizzes_to_create.append(
+                    PathwayQuiz(pathway=new_pathway, quiz=new_quiz, order=pq_template.order)
+                )
+
+            # Crea tutti i collegamenti PathwayQuiz in una sola query
+            if pathway_quizzes_to_create:
+                PathwayQuiz.objects.bulk_create(pathway_quizzes_to_create)
+
+            # --- 3. Creazione Assegnazione Pathway ---
+            assignment, created = PathwayAssignment.objects.get_or_create(
+                pathway=new_pathway,
+                group=group,
+                defaults={'assigned_at': timezone.now(), 'due_date': due_date}
+            )
+
+            if not created:
+                # Aggiorna data scadenza se necessario
+                if due_date is not None and assignment.due_date != due_date:
+                    assignment.due_date = due_date
+                    assignment.save(update_fields=['due_date'])
+                logger.info(f"Assegnazione Percorso {new_pathway.id} a Gruppo {group.id} già esistente. Data scadenza aggiornata se necessario.")
+
+            logger.info(f"Template Percorso {template.id} assegnato a Gruppo {group.id} (creata Istanza Percorso {new_pathway.id}, Assegnazione ID {assignment.id})")
+
+            # Serializza l'assegnazione per la risposta
+            assignment_serializer = PathwayAssignmentSerializer(assignment) # Assicurati che esista e sia importato
+            return Response(assignment_serializer.data, status=status.HTTP_201_CREATED)
+
+        except IntegrityError as e:
+             logger.error(f"Errore di integrità durante assegnazione template percorso {template.id} a gruppo {group.id}: {e}", exc_info=True)
+             return Response({'detail': f'Errore di integrità durante l\'assegnazione: {e}'}, status=status.HTTP_409_CONFLICT)
+        except Exception as e:
+            logger.error(f"Errore imprevisto durante assegnazione template percorso {template.id} a gruppo {group.id}: {e}", exc_info=True)
+            # Potrebbe essere utile fare rollback manuale se non si usa @transaction.atomic, ma qui lo usiamo.
+            return Response({'detail': f'Errore interno durante l\'assegnazione: {e}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 # ViewSet per gestire i QuizTemplate dentro un PathwayTemplate (simile a PathwayQuizViewSet)
@@ -211,6 +358,253 @@ class TeacherQuizTemplateViewSet(viewsets.ModelViewSet):
             logger.warning(f"Errore di validazione dati upload template da utente {request.user.id}: {serializer.errors}")
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     # Per ora, questo ViewSet gestisce solo il CRUD del QuizTemplate stesso.
+
+    # --- Azione per Assegnare Template a Gruppo ---
+    @action(detail=True, methods=['post'], url_path='assign-group', permission_classes=[permissions.IsAuthenticated, IsTeacherUser])
+    def assign_group(self, request, pk=None):
+        """
+        Assegna questo template quiz a un gruppo specificato.
+        Crea un'istanza Quiz dal template e poi un QuizAssignment.
+        Richiede 'group' (ID del gruppo) e opzionalmente 'due_date' nel payload.
+        """
+        template = self.get_object() # Ottiene il QuizTemplate dal pk nell'URL
+        teacher = request.user
+
+        # Verifica ownership del template (già fatto da get_object con permessi, ma doppia sicurezza)
+        if template.teacher != teacher:
+            raise DRFPermissionDenied("Non puoi assegnare un template che non possiedi.")
+
+        group_id = request.data.get('group')
+        due_date_str = request.data.get('due_date')
+
+        if not group_id:
+            return Response({'group': 'ID del gruppo è richiesto.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            group_id = int(group_id)
+            group = StudentGroup.objects.get(pk=group_id, teacher=teacher) # Verifica che il gruppo esista e appartenga al docente
+        except (ValueError, TypeError):
+            return Response({'group': 'ID gruppo non valido.'}, status=status.HTTP_400_BAD_REQUEST)
+        except StudentGroup.DoesNotExist:
+            return Response({'group': 'Gruppo non trovato o non appartenente a questo docente.'}, status=status.HTTP_404_NOT_FOUND)
+
+        # Valida la data di scadenza se fornita
+        due_date = None
+        if due_date_str:
+            try:
+                # Prova a parsare la data/ora
+                due_date = timezone.datetime.fromisoformat(due_date_str.replace('Z', '+00:00'))
+                # Rendi timezone-aware se non lo è (assumendo UTC se non specificato)
+                if timezone.is_naive(due_date):
+                    due_date = timezone.make_aware(due_date, timezone.utc)
+                # Verifica che la data non sia nel passato
+                if due_date < timezone.now():
+                     raise ValidationError("La data di scadenza non può essere nel passato.")
+            except (ValueError, ValidationError) as e:
+                 error_detail = e.detail if isinstance(e, ValidationError) else "Formato data/ora non valido. Usare ISO 8601 (es. YYYY-MM-DDTHH:MM:SSZ)."
+                 return Response({'due_date': error_detail}, status=status.HTTP_400_BAD_REQUEST)
+
+
+        try:
+            # Usa l'helper del QuizViewSet per creare l'istanza Quiz
+            # Dobbiamo istanziare QuizViewSet temporaneamente o spostare l'helper?
+            # Per ora, replichiamo la logica essenziale qui o chiamiamo l'helper se possibile.
+            # Assumiamo di avere accesso a _create_quiz_instance_from_template (potrebbe richiedere refactoring)
+            # Se non accessibile direttamente, potremmo dover chiamare l'endpoint 'create-from-template' internamente
+            # o duplicare la logica. Duplichiamo per semplicità momentanea.
+
+            with transaction.atomic():
+                # 1. Crea l'istanza Quiz dal template
+                # Titolo per la nuova istanza (potrebbe essere personalizzabile in futuro)
+                instance_title = f"{template.title} (Gruppo: {group.name})"
+
+                # --- Logica duplicata da _create_quiz_instance_from_template ---
+                new_quiz = Quiz.objects.create(
+                    teacher=teacher,
+                    source_template=template,
+                    title=instance_title,
+                    description=template.description,
+                    metadata=template.metadata.copy() if template.metadata else {}
+                )
+                questions_to_create = []
+                options_to_create_map = {}
+                question_order_counter = 0
+                for q_template in template.question_templates.prefetch_related('answer_option_templates').order_by('order'):
+                    new_question = Question(
+                        quiz=new_quiz, text=q_template.text, question_type=q_template.question_type,
+                        order=question_order_counter, metadata=q_template.metadata.copy() if q_template.metadata else {}
+                    )
+                    questions_to_create.append(new_question)
+                    question_order_counter += 1
+                    options_to_create_map[q_template.id] = []
+                    for opt_template in q_template.answer_option_templates.order_by('order'):
+                         options_to_create_map[q_template.id].append(
+                             AnswerOption(text=opt_template.text, is_correct=opt_template.is_correct, order=opt_template.order)
+                         )
+                created_questions = Question.objects.bulk_create(questions_to_create)
+                created_question_map = {q.order: q for q in created_questions}
+                options_final_list = []
+                for q_template_id, options_list in options_to_create_map.items():
+                    q_template_order = QuestionTemplate.objects.get(id=q_template_id).order
+                    newly_created_question = created_question_map.get(q_template_order)
+                    if newly_created_question:
+                        for option in options_list:
+                            option.question = newly_created_question
+                            options_final_list.append(option)
+                if options_final_list:
+                    AnswerOption.objects.bulk_create(options_final_list)
+                # --- Fine logica duplicata ---
+
+                # 2. Crea l'assegnazione per il gruppo e il nuovo quiz
+                assignment, created = QuizAssignment.objects.get_or_create(
+                    quiz=new_quiz,
+                    group=group,
+                    defaults={'assigned_at': timezone.now(), 'due_date': due_date}
+                )
+
+                if not created:
+                    # Se esisteva già, aggiorna la data di scadenza se fornita una nuova
+                    if due_date is not None and assignment.due_date != due_date:
+                        assignment.due_date = due_date
+                        assignment.save(update_fields=['due_date'])
+                    logger.info(f"Assegnazione Quiz {new_quiz.id} a Gruppo {group.id} già esistente. Data scadenza aggiornata se necessario.")
+                    # Potremmo voler restituire 200 OK invece di 201 CREATED se non è stato creato nulla di nuovo
+                    # Ma per semplicità, restituiamo 201 assumendo che l'intento fosse creare/assicurare l'assegnazione.
+
+                logger.info(f"Template Quiz {template.id} assegnato a Gruppo {group.id} (creata Istanza Quiz {new_quiz.id}, Assegnazione ID {assignment.id})")
+
+                # Serializza l'assegnazione creata/trovata per la risposta
+                assignment_serializer = QuizAssignmentSerializer(assignment) # Assicurati che esista e sia importato
+                return Response(assignment_serializer.data, status=status.HTTP_201_CREATED)
+
+        except IntegrityError as e:
+             logger.error(f"Errore di integrità durante assegnazione template {template.id} a gruppo {group.id}: {e}", exc_info=True)
+             return Response({'detail': f'Errore di integrità durante l\'assegnazione: {e}'}, status=status.HTTP_409_CONFLICT) # Conflict
+        except Exception as e:
+            logger.error(f"Errore imprevisto durante assegnazione template {template.id} a gruppo {group.id}: {e}", exc_info=True)
+            return Response({'detail': f'Errore interno durante l\'assegnazione: {e}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    # --- Azione per Assegnare Template a Studente Singolo ---
+    @action(detail=True, methods=['post'], url_path='assign-student', permission_classes=[permissions.IsAuthenticated, IsTeacherUser])
+    def assign_student(self, request, pk=None):
+        """
+        Assegna questo template quiz a uno studente specificato.
+        Crea un'istanza Quiz dal template e poi un QuizAssignment.
+        Richiede 'student' (ID dello studente) e opzionalmente 'due_date' nel payload.
+        """
+        template = self.get_object() # Ottiene il QuizTemplate dal pk nell'URL
+        teacher = request.user
+
+        # Verifica ownership del template
+        if template.teacher != teacher:
+            raise DRFPermissionDenied("Non puoi assegnare un template che non possiedi.")
+
+        student_id = request.data.get('student')
+        due_date_str = request.data.get('due_date')
+
+        if not student_id:
+            return Response({'student': 'ID dello studente è richiesto.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            student_id = int(student_id)
+            # Verifica che lo studente esista (non necessariamente che sia "del docente",
+            # un docente potrebbe assegnare a qualsiasi studente nel sistema? Da chiarire requisiti.
+            # Per ora, verifichiamo solo l'esistenza.
+            student = Student.objects.get(id=student_id) # CORRETTO: Usa l'ID primario dello studente
+        except (ValueError, TypeError):
+            return Response({'student': 'ID studente non valido.'}, status=status.HTTP_400_BAD_REQUEST)
+        except Student.DoesNotExist:
+            return Response({'student': 'Studente non trovato.'}, status=status.HTTP_404_NOT_FOUND)
+
+        # Valida la data di scadenza se fornita (logica identica a assign_group)
+        due_date = None
+        if due_date_str:
+            try:
+                due_date = timezone.datetime.fromisoformat(due_date_str.replace('Z', '+00:00'))
+                if timezone.is_naive(due_date):
+                    due_date = timezone.make_aware(due_date, timezone.utc)
+                if due_date < timezone.now():
+                     raise ValidationError("La data di scadenza non può essere nel passato.")
+            except (ValueError, ValidationError) as e:
+                 error_detail = e.detail if isinstance(e, ValidationError) else "Formato data/ora non valido. Usare ISO 8601 (es. YYYY-MM-DDTHH:MM:SSZ)."
+                 return Response({'due_date': error_detail}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            with transaction.atomic():
+                # 1. Crea l'istanza Quiz dal template (logica identica a assign_group)
+                instance_title = f"{template.title} (Studente: {student.full_name})" # Titolo specifico per studente (CORRETTO)
+
+                # --- Logica duplicata da _create_quiz_instance_from_template ---
+                # TODO: Refactor questa logica in un metodo helper riutilizzabile
+                new_quiz = Quiz.objects.create(
+                    teacher=teacher,
+                    source_template=template,
+                    title=instance_title,
+                    description=template.description,
+                    metadata=template.metadata.copy() if template.metadata else {}
+                )
+                questions_to_create = []
+                options_to_create_map = {}
+                question_order_counter = 0
+                for q_template in template.question_templates.prefetch_related('answer_option_templates').order_by('order'):
+                    new_question = Question(
+                        quiz=new_quiz, text=q_template.text, question_type=q_template.question_type,
+                        order=question_order_counter, metadata=q_template.metadata.copy() if q_template.metadata else {}
+                    )
+                    questions_to_create.append(new_question)
+                    question_order_counter += 1
+                    options_to_create_map[q_template.id] = []
+                    for opt_template in q_template.answer_option_templates.order_by('order'):
+                         options_to_create_map[q_template.id].append(
+                             AnswerOption(text=opt_template.text, is_correct=opt_template.is_correct, order=opt_template.order)
+                         )
+                created_questions = Question.objects.bulk_create(questions_to_create)
+                # Mappa ID template -> istanza domanda creata (più robusto dell'ordine)
+                template_to_instance_map = {}
+                q_templates_list = list(template.question_templates.all()) # Ottieni la lista per fare il mapping
+                for i, q_instance in enumerate(created_questions):
+                    if i < len(q_templates_list):
+                        template_to_instance_map[q_templates_list[i].id] = q_instance
+
+                options_final_list = []
+                for q_template_id, options_list in options_to_create_map.items():
+                    newly_created_question = template_to_instance_map.get(q_template_id)
+                    if newly_created_question:
+                        for option in options_list:
+                            option.question = newly_created_question
+                            options_final_list.append(option)
+                if options_final_list:
+                    AnswerOption.objects.bulk_create(options_final_list)
+                # --- Fine logica duplicata ---
+
+                # 2. Crea l'assegnazione per lo studente e il nuovo quiz
+                assignment, created = QuizAssignment.objects.get_or_create(
+                    quiz=new_quiz,
+                    student=student, # Usa l'oggetto Student trovato
+                    defaults={'assigned_at': timezone.now(), 'due_date': due_date}
+                )
+
+                if not created:
+                    # Se esisteva già, aggiorna la data di scadenza se fornita una nuova
+                    if due_date is not None and assignment.due_date != due_date:
+                        assignment.due_date = due_date
+                        assignment.save(update_fields=['due_date'])
+                    logger.info(f"Assegnazione Quiz {new_quiz.id} a Studente {student.full_name} (ID: {student_id}) già esistente. Data scadenza aggiornata se necessario.") # CORRETTO
+
+                logger.info(f"Template Quiz {template.id} assegnato a Studente {student.full_name} (ID: {student_id}) (creata Istanza Quiz {new_quiz.id}, Assegnazione ID {assignment.id})") # CORRETTO
+
+                # Serializza l'assegnazione creata/trovata per la risposta
+                assignment_serializer = QuizAssignmentSerializer(assignment)
+                return Response(assignment_serializer.data, status=status.HTTP_201_CREATED)
+
+        except IntegrityError as e:
+             logger.error(f"Errore di integrità durante assegnazione template {template.id} a studente {student_id}: {e}", exc_info=True)
+             return Response({'detail': f'Errore di integrità durante l\'assegnazione: {e}'}, status=status.HTTP_409_CONFLICT)
+        except Exception as e:
+            logger.error(f"Errore imprevisto durante assegnazione template {template.id} a studente {student_id}: {e}", exc_info=True)
+            return Response({'detail': f'Errore interno durante l\'assegnazione: {e}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
 # --- ViewSets Nidificati per Docenti (Gestione Domande/Opzioni Template Quiz) ---
 
 class TeacherQuestionTemplateViewSet(viewsets.ModelViewSet): # Aggiunta azione question_ids
@@ -469,61 +863,6 @@ class QuizViewSet(viewsets.ModelViewSet):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     # Modificata per usare QuizAssignmentSerializer e gestire creazione da template
-    @action(detail=False, methods=['post'], url_path='assign-student', permission_classes=[permissions.IsAuthenticated, IsTeacherUser])
-    def assign_student(self, request):
-        """Assegna un Quiz a uno studente, creandolo da un template."""
-        # Usa il serializer specifico per l'azione di assegnazione da template
-        from .serializers import QuizAssignActionSerializer, QuizAssignmentSerializer # Importa entrambi
-        action_serializer = QuizAssignActionSerializer(data=request.data, context={'request': request})
-
-        if action_serializer.is_valid():
-            quiz_template_id = action_serializer.validated_data.get('quiz_template_id')
-            student = action_serializer.validated_data.get('student')
-            due_date = action_serializer.validated_data.get('due_date')
-
-            quiz_to_assign = None
-            template = get_object_or_404(QuizTemplate, pk=quiz_template_id)
-
-            # Verifica ownership del template (o se è admin)
-            if not request.user.is_admin and template.teacher != request.user and template.admin != request.user:
-                raise DRFPermissionDenied("Non puoi usare questo template di quiz.")
-
-            # Crea l'istanza Quiz dal template
-            try:
-                quiz_to_assign = self._create_quiz_instance_from_template(template, request.user)
-            except Exception as e:
-                logger.error(f"Fallimento creazione Quiz da template {quiz_template_id} durante assegnazione a studente {student.id}: {e}", exc_info=True)
-                return Response({'detail': f'Errore durante la creazione del quiz dal template: {e}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-            # Verifica se l'assegnazione esiste già
-            existing_assignment = QuizAssignment.objects.filter(quiz=quiz_to_assign, student=student).first()
-            if existing_assignment:
-                # Potremmo aggiornare la due_date qui se volessimo
-                # existing_assignment.due_date = due_date
-                # existing_assignment.save()
-                serializer = QuizAssignmentSerializer(existing_assignment, context={'request': request})
-                return Response({'status': 'Quiz già assegnato a questo studente.', 'assignment': serializer.data}, status=status.HTTP_200_OK)
-
-            # Crea la nuova assegnazione
-            try:
-                assignment = QuizAssignment.objects.create(
-                    quiz=quiz_to_assign,
-                    student=student,
-                    assigned_by=request.user,
-                    due_date=due_date
-                )
-                serializer = QuizAssignmentSerializer(assignment, context={'request': request})
-                return Response({'status': 'Quiz assegnato con successo.', 'assignment': serializer.data}, status=status.HTTP_201_CREATED)
-            except IntegrityError:
-                # Gestisce race condition
-                logger.warning(f"Race condition rilevata durante assegnazione quiz {quiz_to_assign.id} a studente {student.id}")
-                existing_assignment = QuizAssignment.objects.get(quiz=quiz_to_assign, student=student)
-                serializer = QuizAssignmentSerializer(existing_assignment, context={'request': request})
-                return Response({'status': 'Quiz già assegnato a questo studente (race condition).', 'assignment': serializer.data}, status=status.HTTP_200_OK)
-        else:
-            # Logga errori di validazione del serializer dell'azione
-            logger.error(f"Errore validazione QuizAssignActionSerializer: {action_serializer.errors}")
-            return Response(action_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 from django.db.models import F # Assicurati che F sia importato all'inizio del file
 
@@ -726,64 +1065,63 @@ class PathwayViewSet(viewsets.ModelViewSet):
              logger.error(f"Errore di integrità aggiungendo quiz {quiz_id} a percorso {pathway.id}: {e}", exc_info=True)
              return Response({'detail': 'Errore di integrità durante l\'aggiunta del quiz al percorso.'}, status=status.HTTP_400_BAD_REQUEST)
 
-    # Modificata per usare PathwayAssignmentSerializer e gestire creazione da template
-    @action(detail=False, methods=['post'], url_path='assign-student', permission_classes=[permissions.IsAuthenticated, IsTeacherUser]) # Non più detail=True
-    def assign_student_pathway(self, request):
-        # Usa il nuovo serializer specifico per l'azione
-        from .serializers import PathwayAssignActionSerializer # Importa il nuovo serializer
-        action_serializer = PathwayAssignActionSerializer(data=request.data, context={'request': request})
-        if action_serializer.is_valid():
-            # Recupera i dati validati dal nuovo serializer
-            # pathway_id non è più presente qui
-            pathway_template_id = action_serializer.validated_data.get('pathway_template_id')
-            student = action_serializer.validated_data.get('student')
+    # --- NUOVE Azioni per Assegnazione/Revoca a Studenti/Gruppi ---
 
-            pathway_to_assign = None
-            quiz_viewset = QuizViewSet() # Istanzia QuizViewSet per accedere al suo helper
+    @action(detail=True, methods=['post'], url_path='assign', permission_classes=[permissions.IsAuthenticated, IsPathwayOwnerOrAdmin])
+    def assign(self, request, pk=None):
+        """
+        Assegna questo Percorso (pk) a uno Studente o a un Gruppo.
+        Richiede 'student_id' o 'group_id' nel corpo della richiesta.
+        """
+        pathway = self.get_object() # Verifica ownership e recupera il percorso
+        # Usa il serializer importato all'inizio del file
+        serializer = AssignPathwaySerializer(data=request.data, context={'request': request, 'pathway': pathway})
 
-            # Ora sappiamo che pathway_template_id è presente e valido grazie a PathwayAssignActionSerializer
-            # Quindi procediamo direttamente con la creazione da template
-            template = get_object_or_404(PathwayTemplate, pk=pathway_template_id)
-            # Verifica ownership del template
-            if template.teacher != request.user and not request.user.is_admin:
-                raise DRFPermissionDenied("Non puoi usare questo template di percorso.")
+        if serializer.is_valid():
             try:
-                # Crea nuova istanza Pathway, passando l'helper di QuizViewSet per creare i quiz interni
-                pathway_to_assign = self._create_pathway_instance_from_template(
-                    template,
-                    request.user,
-                    quiz_viewset._create_quiz_instance_from_template # Passa la funzione helper
-                )
+                assignment = serializer.save()
+                # Usa PathwayAssignmentSerializer per la risposta (fatto da to_representation)
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+            except ValidationError as e:
+                logger.warning(f"Errore validazione assegnazione percorso {pk} da utente {request.user.id}: {e.detail}")
+                return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
+            except IntegrityError as e:
+                 logger.error(f"Errore integrità assegnazione percorso {pk} da utente {request.user.id}: {e}", exc_info=True)
+                 return Response({'detail': 'Errore durante il salvataggio dell\'assegnazione.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             except Exception as e:
-                logger.error(f"Fallimento creazione Pathway da template {pathway_template_id} durante assegnazione a studente {student.id}: {e}", exc_info=True)
-                return Response({'detail': f'Errore durante la creazione del percorso dal template: {e}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-            # Rimosso blocco else, perché pathway_template_id è ora obbligatorio nel action_serializer
-            # else: ...
-
-            # Verifica assegnazione esistente
-            existing_assignment = PathwayAssignment.objects.filter(pathway=pathway_to_assign, student=student).first()
-            if existing_assignment:
-                 serializer = PathwayAssignmentSerializer(existing_assignment, context={'request': request})
-                 return Response({'status': 'Percorso già assegnato a questo studente.', 'assignment': serializer.data}, status=status.HTTP_200_OK)
-
-            # Crea la nuova assegnazione
-            try:
-                assignment = PathwayAssignment.objects.create(
-                    pathway=pathway_to_assign,
-                    student=student,
-                    assigned_by=request.user
-                )
-                serializer = PathwayAssignmentSerializer(assignment, context={'request': request})
-                return Response({'status': 'Percorso assegnato con successo.', 'assignment': serializer.data}, status=status.HTTP_201_CREATED)
-            except IntegrityError:
-                 logger.warning(f"Race condition rilevata durante assegnazione percorso {pathway_to_assign.id} a studente {student.id}")
-                 existing_assignment = PathwayAssignment.objects.get(pathway=pathway_to_assign, student=student)
-                 serializer = PathwayAssignmentSerializer(existing_assignment, context={'request': request})
-                 return Response({'status': 'Percorso già assegnato a questo studente (race condition).', 'assignment': serializer.data}, status=status.HTTP_200_OK)
+                 logger.error(f"Errore imprevisto assegnazione percorso {pk} da utente {request.user.id}: {e}", exc_info=True)
+                 return Response({'detail': 'Errore interno durante l\'assegnazione.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         else:
-            # Logga gli errori specifici del NUOVO serializer per debug
-            logger.error(f"Errore validazione PathwayAssignActionSerializer: {action_serializer.errors}")
-            return Response(action_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            logger.warning(f"Errore dati richiesta assegnazione percorso {pk} da utente {request.user.id}: {serializer.errors}")
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    # Usa lo stesso RevokeAssignmentSerializer definito in QuizViewSet
+    @action(detail=True, methods=['post'], url_path='revoke', permission_classes=[permissions.IsAuthenticated, IsPathwayOwnerOrAdmin])
+    def revoke(self, request, pk=None):
+        """
+        Revoca un'assegnazione specifica (identificata da 'assignment_id') per questo Percorso (pk).
+        """
+        pathway = self.get_object() # Verifica ownership percorso
+        # Assumiamo che RevokeAssignmentSerializer sia definito sopra o importato
+        serializer = QuizViewSet.RevokeAssignmentSerializer(data=request.data) # Riusa il serializer
+
+        if serializer.is_valid():
+            assignment_id = serializer.validated_data['assignment_id']
+            try:
+                assignment = get_object_or_404(PathwayAssignment, id=assignment_id, pathway=pathway)
+                assignment.delete()
+                logger.info(f"Assegnazione Percorso ID {assignment_id} (Percorso ID {pk}) revocata da utente {request.user.id}")
+                return Response(status=status.HTTP_204_NO_CONTENT)
+            except PathwayAssignment.DoesNotExist:
+                 logger.warning(f"Tentativo revoca assegnazione percorso non trovata ID {assignment_id} per percorso {pk} da utente {request.user.id}")
+                 return Response({'detail': 'Assegnazione non trovata per questo percorso.'}, status=status.HTTP_404_NOT_FOUND)
+            except Exception as e:
+                 logger.error(f"Errore imprevisto revoca assegnazione percorso {assignment_id} (Percorso {pk}) da utente {request.user.id}: {e}", exc_info=True)
+                 return Response({'detail': 'Errore interno durante la revoca.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        else:
+            logger.warning(f"Errore dati richiesta revoca assegnazione percorso {pk} da utente {request.user.id}: {serializer.errors}")
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
     @action(detail=True, methods=['delete'], url_path='remove-quiz/(?P<pathway_quiz_pk>[^/.]+)', permission_classes=[permissions.IsAuthenticated, IsPathwayOwnerOrAdmin])
     def remove_quiz(self, request, pk=None, pathway_quiz_pk=None):
@@ -860,15 +1198,23 @@ class StudentQuizAttemptViewSet(viewsets.GenericViewSet):
          # Verifica se il quiz è assegnato direttamente
          is_directly_assigned = QuizAssignment.objects.filter(student=student, quiz=quiz).exists()
 
-         # Verifica se il quiz fa parte di un percorso assegnato (query alternativa corretta)
+         # Verifica se il quiz fa parte di un percorso assegnato
          is_in_assigned_pathway = Pathway.objects.filter(
-             assignments__student=student,      # Usa il related_name corretto 'assignments'
-             pathwayquiz__quiz=quiz             # Usa 'pathwayquiz' come suggerito da FieldError
+             assignments__student=student,
+             pathwayquiz__quiz=quiz
          ).exists()
 
-         if not is_directly_assigned and not is_in_assigned_pathway:
-             logger.warning(f"Tentativo accesso non autorizzato a quiz {quiz.id} da studente {student.id}. Assegnato direttamente: {is_directly_assigned}, In percorso assegnato: {is_in_assigned_pathway}")
-             return Response({'detail': 'Questo quiz non ti è stato assegnato direttamente o tramite un percorso.'}, status=status.HTTP_403_FORBIDDEN)
+         # Verifica se il quiz è assegnato a un gruppo a cui lo studente appartiene
+         student_group_ids = StudentGroupMembership.objects.filter(student=student).values_list('group_id', flat=True)
+         is_assigned_via_group = QuizAssignment.objects.filter(
+             quiz=quiz,
+             group_id__in=student_group_ids
+         ).exists()
+
+         # Se non è assegnato in nessuno dei modi consentiti, nega l'accesso
+         if not is_directly_assigned and not is_in_assigned_pathway and not is_assigned_via_group:
+             logger.warning(f"Tentativo accesso non autorizzato a quiz {quiz.id} da studente {student.id}. Assegnato direttamente: {is_directly_assigned}, In percorso assegnato: {is_in_assigned_pathway}, Via gruppo: {is_assigned_via_group}")
+             return Response({'detail': 'Questo quiz non ti è stato assegnato direttamente, tramite un percorso o tramite un gruppo.'}, status=status.HTTP_403_FORBIDDEN)
 
          # Seleziona solo i campi necessari per QuizAttemptDetailSerializer se l'attempt esiste
          existing_attempt = QuizAttempt.objects.filter(
@@ -1282,35 +1628,255 @@ class TeacherGradingViewSet(viewsets.GenericViewSet):
 
 class StudentAssignedQuizzesView(generics.ListAPIView):
     """
-    Restituisce l'elenco dei quiz assegnati allo studente loggato,
-    arricchiti con informazioni sull'ultimo tentativo.
+    Restituisce l'elenco dei TENTATIVI di quiz assegnati allo studente loggato per la dashboard.
+    Restituisce un elenco di QuizAttempt con dettagli del Quiz associato.
     """
-    serializer_class = StudentQuizDashboardSerializer
-    permission_classes = [IsStudentAuthenticated]
+    # Importa il nuovo serializer all'inizio del file se non già fatto
+    from .serializers import StudentQuizAttemptDashboardSerializer
+    serializer_class = StudentQuizAttemptDashboardSerializer # Usa il NUOVO serializer basato su QuizAttempt
+    permission_classes = [IsStudentAuthenticated] # Solo studenti autenticati
 
     def get_queryset(self):
+        """
+        Restituisce un elenco dei TENTATIVI più recenti per ogni quiz assegnato allo studente.
+        """
         student = self.request.user # Assicurato da IsStudentAuthenticated
-        assigned_quiz_ids = QuizAssignment.objects.filter(student=student).values_list('quiz_id', flat=True)
 
-        # Filtra i quiz assegnati e prefetch tutti i tentativi dello studente per questi quiz
-        queryset = Quiz.objects.filter(id__in=assigned_quiz_ids).select_related('teacher').prefetch_related(
-             Prefetch(
-                 'attempts',
-                 # Seleziona solo i campi necessari per SimpleQuizAttemptSerializer
-                 queryset=QuizAttempt.objects.filter(student=student).order_by('-started_at').only(
-                     'id', 'score', 'status', 'completed_at', 'quiz_id' # quiz_id è necessario per il prefetch
-                 ),
-                 to_attr='student_attempts_for_quiz' # Salva in un attributo temporaneo
-             )
-        ).order_by('-created_at') # Ordina per data di creazione (o altro criterio)
+        # 1. Trova tutti i Quiz ID assegnati allo studente (direttamente o via gruppo)
+        assigned_quiz_ids_direct = QuizAssignment.objects.filter(
+            student=student
+        ).values_list('quiz_id', flat=True)
 
-        return queryset
+        # Recupera gli ID dei gruppi a cui appartiene lo studente
+        student_group_ids = list(StudentGroupMembership.objects.filter(
+            student=student
+        ).values_list('group_id', flat=True))
+        
+        # Recupera gli ID dei quiz dalle assegnazioni a quei gruppi
+        if student_group_ids:
+            assigned_quiz_ids_group = QuizAssignment.objects.filter(
+                group_id__in=student_group_ids # Usa group_id__in
+            ).values_list('quiz_id', flat=True)
+        else:
+            assigned_quiz_ids_group = QuizAssignment.objects.none()
+
+        all_assigned_quiz_ids = set(assigned_quiz_ids_direct) | set(assigned_quiz_ids_group)
+
+        if not all_assigned_quiz_ids:
+            return QuizAttempt.objects.none() # Nessun quiz assegnato
+
+        # 2. Trova l'ID del tentativo più recente per ogni quiz assegnato a questo studente
+        latest_attempt_subquery = QuizAttempt.objects.filter(
+            quiz_id=OuterRef('quiz_id'), # Filtra per quiz_id (corretto)
+            student=student
+        ).order_by('-started_at').values('id')[:1]
+
+        # 3. Recupera i tentativi più recenti (se esistono) usando la subquery
+        # Filtra solo per i quiz che sono effettivamente assegnati
+        latest_attempts = QuizAttempt.objects.filter(
+            quiz_id__in=all_assigned_quiz_ids, # Assicura che il tentativo sia per un quiz assegnato
+            student=student, # Assicura che il tentativo sia dello studente corrente
+            id__in=Subquery(latest_attempt_subquery) # Seleziona solo l'ID più recente per ogni quiz
+        ).select_related('quiz', 'quiz__teacher')
+
+        return latest_attempts.order_by('-started_at') # Ordina i tentativi più recenti
 
     def get_serializer_context(self):
-        """ Aggiunge lo studente al contesto del serializer. """
+        """
+        Aggiunge al contesto la lista di tutti i Quiz assegnati e lo studente.
+        Il serializer userà queste informazioni per costruire la risposta completa.
+        """
         context = super().get_serializer_context()
-        context['student'] = self.request.user
+        student = self.request.user
+
+        # Recupera nuovamente tutti gli ID dei quiz assegnati (come in get_queryset)
+        assigned_quiz_ids_direct = QuizAssignment.objects.filter(
+            student=student
+        ).values_list('quiz_id', flat=True)
+        # Recupera gli ID dei gruppi a cui appartiene lo studente
+        student_group_ids = StudentGroupMembership.objects.filter(
+            student=student
+        ).values_list('group_id', flat=True)
+        # Filtra le assegnazioni per quegli ID di gruppo
+        # Recupera gli oggetti StudentGroup a cui appartiene lo studente
+        student_groups = StudentGroup.objects.filter(
+            id__in=student_group_ids
+        )
+        # Recupera gli ID dei quiz dalle assegnazioni a quei gruppi
+        assigned_quiz_ids_group = QuizAssignment.objects.filter(
+            group__in=student_groups
+        ).values_list('quiz_id', flat=True)
+        all_assigned_quiz_ids = set(assigned_quiz_ids_direct) | set(assigned_quiz_ids_group)
+
+        # Recupera gli oggetti Quiz assegnati
+        assigned_quizzes = Quiz.objects.filter(
+            id__in=all_assigned_quiz_ids
+        ).select_related('teacher')
+
+        context['student'] = student
+        context['assigned_quizzes'] = assigned_quizzes # Passa i quiz assegnati al serializer
         return context
+
+    def list(self, request, *args, **kwargs):
+        """
+        Costruisce l'elenco dei quiz per la dashboard basandosi sulle assegnazioni attive.
+        Mostra lo stato del tentativo più recente per ogni istanza quiz assegnata,
+        o "PENDING" se quell'istanza non è mai stata tentata.
+        """
+        student = request.user
+        now = timezone.now()
+        logger.debug(f"Inizio recupero dashboard quiz per studente: {student.id}")
+
+        # 1. Ottieni ID dei gruppi dello studente
+        try:
+            student_group_ids = list(StudentGroupMembership.objects.filter(
+                student=student
+            ).values_list('group_id', flat=True))
+            logger.debug(f"ID Gruppi studente {student.id}: {student_group_ids}")
+        except Exception as e:
+            logger.error(f"Errore nel recuperare i gruppi per studente {student.id}: {e}", exc_info=True)
+            student_group_ids = []
+
+        # 2. Ottieni tutte le QuizAssignment attive (dirette e di gruppo)
+        try:
+            assignments_queryset = QuizAssignment.objects.filter(
+                Q(student=student) | Q(group_id__in=student_group_ids)
+            ).filter(
+                # Opzionale: Filtro per non mostrare assegnazioni scadute?
+                # Q(due_date__isnull=True) | Q(due_date__gte=now)
+                # Opzionale: Filtro per non mostrare assegnazioni future?
+                # Q(assigned_at__lte=now) # O basarsi su quiz.available_from?
+            ).select_related(
+                'quiz', 'quiz__teacher' # Precarica dati correlati per efficienza
+            ).order_by('-assigned_at') # Ordina per le più recenti prima (o altro criterio?)
+
+            # Estrai gli ID delle istanze Quiz da tutte le assegnazioni attive
+            # Usiamo un set per evitare duplicati se un quiz è in più gruppi
+            assigned_quiz_ids = set(assignments_queryset.values_list('quiz_id', flat=True))
+            logger.debug(f"ID Quiz assegnati (istanze) per studente {student.id}: {assigned_quiz_ids}")
+
+        except Exception as e:
+            logger.error(f"Errore nel recuperare le assegnazioni quiz per studente {student.id}: {e}", exc_info=True)
+            return Response({"detail": "Errore nel recupero delle assegnazioni."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        # 3. Ottieni i QuizAttempt più recenti per ciascuno di questi quiz_id specifici
+        latest_attempts_map = {}
+        if assigned_quiz_ids: # Procedi solo se ci sono quiz assegnati
+            try:
+                # Subquery per trovare l'ID del tentativo più recente per ogni (quiz_id, student)
+                latest_attempts_subquery = QuizAttempt.objects.filter(
+                    quiz_id=OuterRef('quiz_id'),
+                    student=student
+                ).order_by('-started_at') # Il più recente per data di inizio
+
+                # Annotiamo ogni (quiz_id, student) con l'ID del suo tentativo più recente
+                latest_attempt_ids_qs = QuizAttempt.objects.filter(
+                    quiz_id__in=assigned_quiz_ids,
+                    student=student
+                ).values(
+                    'quiz_id' # Raggruppa per quiz
+                ).annotate(
+                    latest_attempt_id=Subquery(latest_attempts_subquery.values('id')[:1]) # Ottieni l'ID del più recente
+                ).values('quiz_id', 'latest_attempt_id') # Estrai coppie quiz_id -> latest_attempt_id
+
+                # Estrai solo gli ID dei tentativi più recenti validi
+                valid_latest_attempt_ids = [item['latest_attempt_id'] for item in latest_attempt_ids_qs if item['latest_attempt_id'] is not None]
+
+                # Recupera gli oggetti QuizAttempt completi per questi ID
+                latest_attempts_queryset = QuizAttempt.objects.filter(
+                    id__in=valid_latest_attempt_ids
+                ).select_related('quiz', 'quiz__teacher') # Prendi i dati necessari
+
+                # Crea la mappa quiz_id -> ultimo tentativo per un accesso rapido
+                latest_attempts_map = {attempt.quiz_id: attempt for attempt in latest_attempts_queryset}
+                logger.debug(f"Mappa ultimi tentativi per studente {student.id}: {latest_attempts_map.keys()}")
+
+            except Exception as e:
+                logger.error(f"Errore nel recuperare gli ultimi tentativi per studente {student.id}: {e}", exc_info=True)
+                # Continua senza tentativi, verranno mostrati come PENDING
+
+        # 4. Costruisci l'elenco finale basato sulle assegnazioni
+        final_data_list = []
+        # Usiamo un set per tenere traccia degli ID delle *istanze quiz* già processate
+        # se vogliamo mostrare solo l'assegnazione più recente per ogni istanza quiz.
+        # Se invece vogliamo mostrare *ogni* assegnazione, rimuoviamo questo set.
+        # Assumiamo di voler mostrare ogni assegnazione attiva.
+        # processed_quiz_instance_ids = set()
+
+        for assignment in assignments_queryset:
+            quiz = assignment.quiz
+            # if quiz.id in processed_quiz_instance_ids: # Salta se già processato (se mostriamo solo l'ultima assegnazione)
+            #     continue
+            # processed_quiz_instance_ids.add(quiz.id)
+
+            attempt = latest_attempts_map.get(quiz.id) # Trova l'ultimo tentativo per questa istanza quiz
+
+            # Determina il tipo di assegnazione
+            assignment_type = 'unknown'
+            if assignment.student_id == student.id:
+                assignment_type = 'student'
+            elif assignment.group_id is not None and assignment.group_id in student_group_ids:
+                assignment_type = 'group'
+
+            # Determina le date di disponibilità (dal Quiz)
+            available_from = quiz.available_from
+            available_until = quiz.available_until
+
+            # Costruisci l'oggetto dati per questa assegnazione
+            item_data = {}
+            if attempt:
+                # Se esiste un tentativo per questa istanza quiz, usa i suoi dati
+                item_data = {
+                    "attempt_id": attempt.id,
+                    "quiz_id": quiz.id,
+                    "title": quiz.title, # Potremmo voler aggiungere info sull'assegnazione? Es. f"{quiz.title} (Assegnato il {assignment.assigned_at})"
+                    "description": quiz.description,
+                    "status": attempt.status,
+                    "score": attempt.score,
+                    "available_from": available_from,
+                    "available_until": available_until,
+                    "metadata": quiz.metadata,
+                    "teacher_username": quiz.teacher.username if quiz.teacher else None,
+                    "started_at": attempt.started_at,
+                    "completed_at": attempt.completed_at,
+                    "assignment_type": assignment_type,
+                    # Campi aggiuntivi richiesti dal serializer
+                    "status_display": attempt.get_status_display(), # Usa il metodo del modello
+                    "quiz_title": quiz.title,
+                    "quiz_description": quiz.description,
+                }
+            else:
+                # Se non esiste NESSUN tentativo per questa istanza quiz, è "PENDING"
+                item_data = {
+                    "attempt_id": None,
+                    "quiz_id": quiz.id,
+                    "title": quiz.title,
+                    "description": quiz.description,
+                    "status": "PENDING", # Stato implicito se non tentato
+                    "score": None,
+                    "available_from": available_from,
+                    "available_until": available_until,
+                    "metadata": quiz.metadata,
+                    "teacher_username": quiz.teacher.username if quiz.teacher else None,
+                    "started_at": None,
+                    "completed_at": None,
+                    "assignment_type": assignment_type,
+                    # Campi aggiuntivi richiesti dal serializer
+                    "status_display": "Da Iniziare",
+                    "quiz_title": quiz.title,
+                    "quiz_description": quiz.description,
+                }
+            final_data_list.append(item_data)
+
+        # 5. Serializza l'elenco costruito
+        try:
+            # Passiamo la lista di dizionari direttamente al serializer
+            serializer = self.get_serializer(final_data_list, many=True)
+            logger.debug(f"Dati finali serializzati per studente {student.id}: {len(serializer.data)} elementi.")
+            return Response(serializer.data)
+        except Exception as e:
+            logger.error(f"Errore durante la serializzazione della dashboard quiz per studente {student.id}: {e}", exc_info=True)
+            return Response({"detail": "Errore durante la preparazione dei dati della dashboard."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class StudentAssignedPathwaysView(generics.ListAPIView):
     """
@@ -1321,19 +1887,32 @@ class StudentAssignedPathwaysView(generics.ListAPIView):
     permission_classes = [IsStudentAuthenticated]
 
     def get_queryset(self):
+        """
+        Restituisce i Percorsi assegnati allo studente autenticato (direttamente o tramite gruppo).
+        """
         student = self.request.user
-        assigned_pathway_ids = PathwayAssignment.objects.filter(student=student).values_list('pathway_id', flat=True)
 
-        # Filtra i percorsi assegnati e prefetch tutti i progressi dello studente per questi percorsi
-        queryset = Pathway.objects.filter(id__in=assigned_pathway_ids).select_related('teacher').prefetch_related(
-            Prefetch(
-                'progresses', # Usa il related_name corretto
-                queryset=PathwayProgress.objects.filter(student=student).order_by('-started_at'), # Ordina per trovare facilmente l'ultimo nel serializer
-                to_attr='student_progresses_for_pathway' # Salva in un attributo temporaneo
-            ),
-            'pathwayquiz_set__quiz' # Prefetch anche i quiz nel percorso
+        # Trova ID percorsi assegnati direttamente
+        direct_pathway_ids = PathwayAssignment.objects.filter(student=student).values_list('pathway_id', flat=True)
+
+        # Trova ID gruppi dello studente
+        # Usa il related_name corretto definito nel modello StudentGroupMembership
+        group_ids = student.group_memberships.values_list('group_id', flat=True)
+
+        # Trova ID percorsi assegnati ai gruppi dello studente
+        group_pathway_ids = PathwayAssignment.objects.filter(group_id__in=group_ids).values_list('pathway_id', flat=True)
+
+        # Unisci gli ID e filtra i Percorsi
+        all_pathway_ids = set(direct_pathway_ids) | set(group_pathway_ids)
+
+        queryset = Pathway.objects.filter(id__in=all_pathway_ids).select_related('teacher').prefetch_related(
+             Prefetch(
+                 'progresses', # Usa il related_name corretto
+                 queryset=PathwayProgress.objects.filter(student=student).order_by('-started_at'),
+                 to_attr='student_progresses_for_pathway'
+             ),
+             'pathwayquiz_set__quiz'
         ).order_by('-created_at')
-
         return queryset
 
     def get_serializer_context(self):

@@ -36,6 +36,8 @@ async function fetchAttemptResults() {
   try {
     // Usa props.attemptId
     attemptDetails.value = await QuizService.getAttemptDetails(props.attemptId);
+    // Log per debug: vediamo cosa riceviamo dall'API
+    console.log('Attempt Details Received in QuizResultView:', JSON.stringify(attemptDetails.value, null, 2));
   } catch (err) {
     // Usa props.attemptId nel log
     console.error(`Errore durante il recupero dei risultati per il tentativo ${props.attemptId}:`, err);
@@ -107,19 +109,40 @@ function getCorrectnessText(isCorrect: boolean | null): string {
 const quizOutcome = computed(() => {
   if (!attemptDetails.value) return 'loading';
   const status = attemptDetails.value.status;
-  const score = attemptDetails.value.score;
-  // Usa la soglia fornita dall'API (che è già in percentuale)
-  const threshold = attemptDetails.value.completion_threshold;
+  // Converti score in numero (potrebbe essere stringa dall'API)
+  const scoreString = attemptDetails.value.score;
+  const score = typeof scoreString === 'string' ? parseFloat(scoreString) : scoreString; // Converte se stringa
+
+  // Ottieni la soglia: prima dal tentativo, poi dai metadati del quiz
+  let threshold = attemptDetails.value.completion_threshold;
+  if (threshold === null && attemptDetails.value.quiz?.metadata?.completion_threshold !== undefined) {
+    threshold = attemptDetails.value.quiz.metadata.completion_threshold;
+  }
 
   // Usa i valori di stato MAIUSCOLI come definiti nel tipo aggiornato
   if (status === 'PENDING_GRADING') {
     return 'pending';
   }
-  if (status === 'COMPLETED' && score !== null && threshold !== null && score >= threshold) {
-    return 'success';
+  // Gestione stato COMPLETED
+  // Gestione stato COMPLETED
+  if (status === 'COMPLETED') {
+    // Verifica se score è un numero valido (dopo la conversione)
+    if (typeof score !== 'number' || isNaN(score)) { // Aggiunto controllo isNaN
+        console.warn("Score non è un numero valido dopo la conversione:", scoreString, score);
+        return 'unknown';
+    }
+    // Verifica se threshold è un numero valido (dopo averlo cercato)
+    if (threshold !== null && typeof threshold === 'number') {
+        return score >= threshold ? 'success' : 'failure';
+    } else {
+        // Se non c'è soglia valida (threshold è null o non è un numero),
+        // considera COMPLETED come successo se score >= 0 (o altra logica di default se necessaria)
+        console.warn("Soglia non valida o non definita, considerando successo se score >= 0. Soglia:", threshold);
+        return score >= 0 ? 'success' : 'failure'; // Modificato: considera fallimento se score < 0
+    }
   }
-  // Se lo stato è FAILED o se è COMPLETED ma sotto soglia
-  if (status === 'FAILED' || (status === 'COMPLETED' && score !== null && threshold !== null && score < threshold)) {
+  // Gestione stato FAILED
+  if (status === 'FAILED') {
     return 'failure';
   }
   return 'unknown'; // Fallback per stati inattesi o in_progress (non dovrebbe accadere qui)
@@ -164,6 +187,20 @@ const handleClose = () => {
   emit('close');
 };
 
+// Calcola la soglia da visualizzare, gestendo decimali (0-1) e percentuali (0-100)
+const displayThreshold = computed(() => {
+  const thresholdValue = attemptDetails.value?.completion_threshold ?? attemptDetails.value?.quiz?.metadata?.completion_threshold;
+  if (thresholdValue !== null && typeof thresholdValue === 'number') {
+    // Se il valore è compreso tra 0 (escluso) e 1 (incluso), moltiplica per 100
+    if (thresholdValue > 0 && thresholdValue <= 1) {
+      return Math.round(thresholdValue * 100);
+    }
+    // Altrimenti, assumi sia già 0-100 e arrotonda
+    return Math.round(thresholdValue);
+  }
+  return 'N/D'; // Fallback
+});
+
 </script>
 
 <template>
@@ -201,7 +238,7 @@ const handleClose = () => {
         <div v-else-if="quizOutcome === 'failure'" class="outcome-content animate-fade-in">
           <span class="text-5xl mb-2 block">😥</span>
           <h3 class="text-2xl font-semibold mb-2">Peccato! Non hai superato il quiz.</h3>
-          <p class="text-lg">Punteggio: <strong>{{ Math.round(attemptDetails.score ?? 0) }}%</strong> (Soglia: {{ attemptDetails.completion_threshold ?? 'N/D' }}%)</p>
+          <p class="text-lg">Punteggio: <strong>{{ Math.round(attemptDetails.score ?? 0) }}%</strong> (Soglia: {{ displayThreshold }}%)</p>
           <p>Hai risposto correttamente a <strong>{{ attemptDetails.correct_answers_count ?? '?' }}</strong> su <strong>{{ attemptDetails.total_questions ?? '?' }}</strong> domande.</p>
           <p class="mt-2 text-sm">Non arrenderti, riprova se possibile!</p>
         </div>

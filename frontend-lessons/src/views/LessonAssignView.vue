@@ -13,35 +13,71 @@
     </div>
 
     <div v-else-if="lesson && students">
-      <p class="mb-4">Seleziona gli studenti a cui vuoi assegnare questa lezione:</p>
+      <p class="mb-4">Seleziona gli studenti e/o i gruppi a cui vuoi assegnare questa lezione:</p>
 
-      <!-- Sezione Selezione Studenti con Modale -->
-      <div class="mb-6">
-        <div v-if="loadingStudents" class="text-gray-500 italic">Caricamento studenti...</div>
-        <div v-else-if="errorStudents" class="text-red-600">{{ errorStudents }}</div>
-        <div v-else-if="students.length > 0">
-           <button
-             type="button"
-             @click="isStudentModalOpen = true"
-             class="mb-3 px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-           >
-             Seleziona Studenti
-           </button>
-           <div class="text-sm text-gray-600">
-             <span v-if="selectedStudentIds.length === 0">Nessuno studente selezionato.</span>
-             <span v-else-if="selectedStudentIds.length === 1">1 studente selezionato.</span>
-             <span v-else>{{ selectedStudentIds.length }} studenti selezionati.</span>
-           </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        <!-- Colonna Selezione Studenti -->
+        <div>
+          <h3 class="text-lg font-medium mb-2">Studenti</h3>
+          <div v-if="loadingStudents" class="text-gray-500 italic">Caricamento studenti...</div>
+          <div v-else-if="errorStudents" class="text-red-600">{{ errorStudents }}</div>
+          <div v-else-if="students.length > 0">
+            <button
+              type="button"
+              @click="isStudentModalOpen = true"
+              class="mb-3 px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            >
+              Seleziona Studenti
+            </button>
+            <div class="text-sm text-gray-600">
+              <span v-if="selectedStudentIds.length === 0">Nessuno studente selezionato.</span>
+              <span v-else-if="selectedStudentIds.length === 1">1 studente selezionato.</span>
+              <span v-else>{{ selectedStudentIds.length }} studenti selezionati.</span>
+            </div>
+          </div>
+          <div v-else class="text-center py-4 text-gray-500">Nessuno studente disponibile.</div>
         </div>
-         <div v-else class="text-center py-4 text-gray-500">Nessuno studente disponibile da selezionare.</div>
+
+        <!-- Colonna Selezione Gruppi -->
+        <div>
+          <h3 class="text-lg font-medium mb-2">Gruppi</h3>
+          <div v-if="loadingGroups" class="text-gray-500 italic">Caricamento gruppi...</div>
+          <div v-else-if="errorGroups" class="text-red-600">{{ errorGroups }}</div>
+          <div v-else-if="groups.length > 0">
+            <div class="space-y-2 max-h-60 overflow-y-auto border p-3 rounded-md">
+              <div v-for="group in groups" :key="group.id" class="flex items-center">
+                <input
+                  type="checkbox"
+                  :id="'group-' + group.id"
+                  :value="group.id"
+                  v-model="selectedGroupIds"
+                  class="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                />
+                <label :for="'group-' + group.id" class="ml-2 block text-sm text-gray-900">
+                  {{ group.name }}
+                </label>
+              </div>
+            </div>
+             <div class="text-sm text-gray-600 mt-2">
+              <span v-if="selectedGroupIds.length === 0">Nessun gruppo selezionato.</span>
+              <span v-else-if="selectedGroupIds.length === 1">1 gruppo selezionato.</span>
+              <span v-else>{{ selectedGroupIds.length }} gruppi selezionati.</span>
+            </div>
+          </div>
+          <div v-else class="text-center py-4 text-gray-500">Nessun gruppo disponibile.</div>
+        </div>
       </div>
-      <!-- Fine Sezione Selezione Studenti -->
+      <!-- Fine Griglia Selezione -->
+
+       <!-- Riepilogo Selezione -->
+       <div class="mb-6 text-center text-gray-700 font-medium">
+         {{ selectionSummary }}
+       </div>
 
       <div class="flex justify-end space-x-4">
-         <!-- Rimossi pulsanti Seleziona/Deseleziona Tutti -->
         <button
-          @click="assignLesson"
-          :disabled="selectedStudentIds.length === 0 || assigning"
+          @click="assignLessonToTargets"
+          :disabled="(selectedStudentIds.length === 0 && selectedGroupIds.length === 0) || assigning"
           class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <span v-if="assigning">Assegnazione in corso...</span>
@@ -49,18 +85,57 @@
         </button>
       </div>
 
-      <div v-if="assignmentSuccess" class="mt-4 p-3 bg-green-100 text-green-700 rounded">
-        Lezione assegnata con successo agli studenti selezionati!
+      <!-- Messaggi di Risultato Assegnazione -->
+      <div v-if="assignmentAttempted" class="mt-6 p-4 border rounded"
+           :class="{
+               'bg-green-50 border-green-300': assignmentSuccess && assignmentResultsSummary.failed === 0 && !assignmentError,
+               'bg-yellow-50 border-yellow-300': assignmentSuccess && (assignmentResultsSummary.skipped > 0 || assignmentResultsSummary.failed > 0) && !assignmentError,
+               'bg-orange-50 border-orange-300': !assignmentSuccess && assignmentResultsSummary.skipped > 0 && assignmentResultsSummary.failed === 0 && !assignmentError,
+               'bg-red-50 border-red-300': assignmentResultsSummary.failed > 0 || assignmentError
+           }">
+
+          <p class="font-semibold mb-2 text-lg"
+             :class="{
+                 'text-green-800': assignmentSuccess && assignmentResultsSummary.failed === 0 && !assignmentError,
+                 'text-yellow-800': assignmentSuccess && (assignmentResultsSummary.skipped > 0 || assignmentResultsSummary.failed > 0) && !assignmentError,
+                 'text-orange-800': !assignmentSuccess && assignmentResultsSummary.skipped > 0 && assignmentResultsSummary.failed === 0 && !assignmentError,
+                 'text-red-800': assignmentResultsSummary.failed > 0 || assignmentError
+             }">
+              <span v-if="assignmentError">Errore API durante l'assegnazione</span>
+              <span v-else-if="assignmentSuccess && assignmentResultsSummary.skipped === 0 && assignmentResultsSummary.failed === 0">Assegnazione completata con successo!</span>
+              <span v-else-if="assignmentSuccess">Assegnazione completata con note</span>
+              <span v-else-if="!assignmentSuccess && assignmentResultsSummary.skipped > 0 && assignmentResultsSummary.failed === 0">Nessuna nuova assegnazione effettuata</span>
+              <span v-else>Assegnazione fallita per alcuni target</span>
+          </p>
+
+          <div class="text-sm space-y-1"
+               :class="{
+                   'text-green-700': assignmentSuccess && assignmentResultsSummary.failed === 0 && !assignmentError,
+                   'text-yellow-700': assignmentSuccess && (assignmentResultsSummary.skipped > 0 || assignmentResultsSummary.failed > 0) && !assignmentError,
+                   'text-orange-700': !assignmentSuccess && assignmentResultsSummary.skipped > 0 && assignmentResultsSummary.failed === 0 && !assignmentError,
+                   'text-red-700': assignmentResultsSummary.failed > 0 || assignmentError
+               }">
+              <p v-if="assignmentResultsSummary.created > 0">
+                  <span class="font-medium">{{ assignmentResultsSummary.created }}</span>
+                  {{ assignmentResultsSummary.created === 1 ? 'nuova assegnazione' : 'nuove assegnazioni' }} effettuata{{ assignmentResultsSummary.created === 1 ? '' : 'e' }}.
+              </p>
+              <p v-if="assignmentResultsSummary.skipped > 0">
+                  <span class="font-medium">{{ assignmentResultsSummary.skipped }}</span>
+                  {{ assignmentResultsSummary.skipped === 1 ? 'target già assegnato' : 'target già assegnati' }} (saltato).
+              </p>
+               <p v-if="assignmentResultsSummary.failed > 0">
+                  <span class="font-medium">{{ assignmentResultsSummary.failed }}</span>
+                  {{ assignmentResultsSummary.failed === 1 ? 'assegnazione fallita' : 'assegnazioni fallite' }} (ID non valido o errore).
+              </p>
+              <p v-if="assignmentError" class="mt-2 font-semibold">Dettaglio Errore API: {{ assignmentError }}</p>
+
+              <!-- Mostra dettagli specifici se ci sono skipped o failed -->
+              <ul v-if="assignmentResultsSummary.details.length > 0 && (assignmentResultsSummary.skipped > 0 || assignmentResultsSummary.failed > 0)" class="list-disc list-inside pl-4 mt-2 text-xs">
+                  <li v-for="(detail, index) in assignmentResultsSummary.details" :key="index">{{ detail }}</li>
+              </ul>
+          </div>
       </div>
-      <div v-if="assignmentError" class="mt-4 p-3 bg-red-100 text-red-700 rounded">
-        Errore durante l'assegnazione: {{ assignmentError }}
-      </div>
-       <div v-if="partialAssignmentInfo.length > 0" class="mt-4 p-3 bg-yellow-100 text-yellow-700 rounded">
-        <p>Nota: Alcuni studenti potrebbero essere già stati assegnati a questa lezione:</p>
-        <ul>
-          <li v-for="info in partialAssignmentInfo" :key="info">{{ info }}</li>
-        </ul>
-      </div>
+      <!-- Fine Messaggi Risultato -->
 
     </div>
 
@@ -76,12 +151,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
-import { useRoute } from 'vue-router'
-import { useLessonStore } from '@/stores/lessons'
-import type { Lesson, Student, AssignmentResult } from '@/types/lezioni'
-import StudentSelectionModal from '@/components/common/StudentSelectionModal.vue'; // Importa la modale
-// import BaseButton from '@/components/common/BaseButton.vue'; // Importa se necessario
+import { ref, onMounted, computed } from 'vue';
+import { useRoute } from 'vue-router';
+import { useLessonStore } from '@/stores/lessons';
+import type { Lesson, Student, AssignmentResult } from '@/types/lezioni';
+import type { StudentGroup } from '@/types/groups';
+import StudentSelectionModal from '@/components/common/StudentSelectionModal.vue';
+// Potrebbe servire un GroupSelectionModal se la lista diventa lunga
 
 const route = useRoute()
 // const router = useRouter() // Rimosso - non utilizzato
@@ -89,18 +165,24 @@ const lessonStore = useLessonStore()
 // const authStore = useAuthStore() // Rimosso - non utilizzato
 
 const lesson = ref<Lesson | null>(null)
-const students = ref<Student[]>([]) // Assumi che lo store auth o un altro store fornisca gli studenti del docente
-const selectedStudentIds = ref<number[]>([])
-const assigning = ref(false)
-const assignmentSuccess = ref(false)
-const assignmentError = ref<string | null>(null)
-const partialAssignmentInfo = ref<string[]>([]) // Info su assegnazioni parziali o fallite
-const isStudentModalOpen = ref(false); // Stato per la modale
+const students = ref<Student[]>([]);
+const groups = ref<StudentGroup[]>([]); // Stato per i gruppi
+const selectedStudentIds = ref<number[]>([]);
+const selectedGroupIds = ref<number[]>([]); // Stato per gli ID dei gruppi selezionati
+const assigning = ref(false);
+const assignmentSuccess = ref(false); // Indica se almeno un'assegnazione è andata a buon fine
+const assignmentAttempted = ref(false); // Flag per mostrare i messaggi di risultato
+const assignmentError = ref<string | null>(null); // Errore generico dell'operazione
+const assignmentResultsSummary = ref<{ created: number; skipped: number; failed: number; details: string[] }>({ created: 0, skipped: 0, failed: 0, details: [] }); // Nuovo stato per riepilogo dettagliato
+const isStudentModalOpen = ref(false); // Stato per la modale studenti
+// Aggiungere isGroupModalOpen se si usa una modale per gruppi
 
-const loadingLesson = ref(true)
-const loadingStudents = ref(true)
-const errorLesson = ref<string | null>(null)
-const errorStudents = ref<string | null>(null)
+const loadingLesson = ref(true);
+const loadingStudents = ref(true);
+const loadingGroups = ref(true); // Stato di caricamento per i gruppi
+const errorLesson = ref<string | null>(null);
+const errorStudents = ref<string | null>(null);
+const errorGroups = ref<string | null>(null); // Stato di errore per i gruppi
 
 const lessonId = computed(() => Number(route.params.lessonId))
 
@@ -132,6 +214,22 @@ const fetchStudents = async () => {
   }
 };
 
+// Funzione per caricare i gruppi del docente
+const fetchGroups = async () => {
+  loadingGroups.value = true;
+  errorGroups.value = null;
+  try {
+    await lessonStore.fetchGroupsAction(); // Chiama l'azione dello store
+    groups.value = lessonStore.groups; // Prende i gruppi dallo stato dello store
+  } catch (err: any) {
+    console.error("Errore caricamento gruppi:", err);
+    errorGroups.value = err.message || 'Errore sconosciuto durante caricamento gruppi';
+    groups.value = [];
+  } finally {
+    loadingGroups.value = false;
+  }
+};
+
 
 const fetchLesson = async () => {
   if (!lessonId.value) return;
@@ -152,47 +250,90 @@ const fetchLesson = async () => {
   }
 };
 
-const assignLesson = async () => {
-  if (!lesson.value || selectedStudentIds.value.length === 0) return;
+// Rinominata e corretta per gestire studenti E gruppi
+const assignLessonToTargets = async () => {
+  // Modificato controllo: deve esserci almeno uno studente O un gruppo selezionato
+  if (!lesson.value || (selectedStudentIds.value.length === 0 && selectedGroupIds.value.length === 0)) return;
 
   assigning.value = true;
-  assignmentSuccess.value = false;
-  assignmentError.value = null;
-  partialAssignmentInfo.value = [];
+  assignmentAttempted.value = false; // Resetta il flag tentativo
+  assignmentSuccess.value = false; // Resetta successo
+  assignmentError.value = null; // Resetta errore generico
+  assignmentResultsSummary.value = { created: 0, skipped: 0, failed: 0, details: [] }; // Resetta riepilogo
 
   try {
-    const results = await lessonStore.assignLessonToStudents(lessonId.value, selectedStudentIds.value);
+    // Chiama la nuova azione dello store passando entrambi gli array di ID
+    // Assumiamo che lo store restituisca la risposta diretta dal backend
+    // L'azione dello store restituisce un array di AssignmentResult
+    const results: AssignmentResult[] = await lessonStore.assignLessonToTargets(
+        lessonId.value,
+        selectedStudentIds.value,
+        selectedGroupIds.value
+    );
 
-    // Gestione risultati parziali (alcuni successi, alcuni fallimenti/già assegnati)
-    const successes = results.filter((r: AssignmentResult) => r.success);
-    const failures = results.filter((r: AssignmentResult) => !r.success);
+    // Processa l'array di AssignmentResult
+    let createdCount = 0;
+    let skippedCount = 0;
+    let failedCount = 0;
+    const details: string[] = [];
 
-    if (successes.length === selectedStudentIds.value.length) {
-      assignmentSuccess.value = true;
-      selectedStudentIds.value = []; // Deseleziona dopo successo completo
-       setTimeout(() => assignmentSuccess.value = false, 5000); // Nascondi messaggio dopo 5s
-    } else {
-       assignmentSuccess.value = successes.length > 0; // Successo parziale se almeno uno ok
-       partialAssignmentInfo.value = failures.map((f: AssignmentResult) => {
-           const student = students.value.find((s: Student) => s.id === f.studentId);
-           const studentName = student ? `${student.first_name} ${student.last_name}` : `ID: ${f.studentId}`;
-           return `${studentName}: ${f.error || 'Errore sconosciuto'}`;
-       });
-       // Mantieni selezionati gli studenti falliti per eventuale ri-tentativo? O deseleziona tutti?
-       // Per ora deselezioniamo solo quelli andati a buon fine
-       selectedStudentIds.value = failures.map((f: AssignmentResult) => f.studentId);
-    }
-     if (failures.length > 0 && successes.length === 0) {
-        assignmentError.value = "Nessuna assegnazione riuscita. Controlla i dettagli sopra.";
-     }
+    results.forEach((result: AssignmentResult) => {
+        let targetName = `ID ${result.targetId}`;
+        try { // Aggiunto try-catch per sicurezza nell'accesso ai dati
+            if (result.targetType === 'student') {
+                const student = students.value.find(s => s.id === result.targetId);
+                targetName = student ? `Studente: ${student.first_name} ${student.last_name}` : `Studente ID ${result.targetId}`;
+            } else if (result.targetType === 'group') {
+                const group = groups.value.find(g => g.id === result.targetId);
+                targetName = group ? `Gruppo: ${group.name}` : `Gruppo ID ${result.targetId}`;
+            }
+        } catch (e) {
+             console.error("Errore nel trovare nome target:", e);
+        }
+
+        if (result.success) {
+            createdCount++;
+            // Non aggiungiamo dettagli per i successi di default
+        } else {
+            // Controlla se l'errore indica "già assegnato" o un altro fallimento
+            const isAlreadyAssigned = result.error?.toLowerCase().includes('già assegnato');
+            if (isAlreadyAssigned) {
+                skippedCount++;
+                details.push(`${targetName}: Già assegnato (saltato).`);
+            } else {
+                failedCount++;
+                details.push(`${targetName}: Assegnazione fallita (${result.error || 'errore sconosciuto'}).`);
+            }
+        }
+    });
+
+    assignmentSuccess.value = createdCount > 0; // Successo se almeno uno creato
+
+    assignmentResultsSummary.value = {
+        created: createdCount,
+        skipped: skippedCount,
+        failed: failedCount,
+        details: details // Popola con i messaggi raccolti
+    };
+
+
+    // Deseleziona TUTTI i target dopo il tentativo, indipendentemente dal risultato
+    // L'utente può riselezionare se necessario vedendo i messaggi
+    selectedStudentIds.value = [];
+    selectedGroupIds.value = [];
+
+    // Non impostare errore generico se ci sono solo skipped/failed gestiti sopra
+    // assignmentError viene impostato solo per errori API generali nel blocco catch
 
 
   } catch (err: any) {
+    // Errore generale API (es. network error, 500 server error)
     console.error("Errore durante l'assegnazione:", err);
-    assignmentError.value = err.message || 'Si è verificato un errore imprevisto.';
-     setTimeout(() => assignmentError.value = null, 7000); // Nascondi messaggio dopo 7s
+    assignmentError.value = err.message || 'Si è verificato un errore imprevisto durante la richiesta.';
+    // Non nascondere automaticamente l'errore generale
   } finally {
     assigning.value = false;
+    assignmentAttempted.value = true; // Indica che il tentativo è stato fatto, per mostrare i messaggi
   }
 };
 
@@ -201,13 +342,37 @@ const updateSelectedStudents = (newSelectedIds: number[]) => {
     selectedStudentIds.value = newSelectedIds;
 };
 
+// Proprietà calcolata per il riepilogo della selezione
+const selectionSummary = computed(() => {
+  const studentCount = selectedStudentIds.value.length;
+  const groupCount = selectedGroupIds.value.length;
+
+  if (studentCount === 0 && groupCount === 0) {
+    return 'Nessuno studente o gruppo selezionato.';
+  }
+
+  let parts: string[] = [];
+  if (studentCount > 0) {
+    parts.push(`${studentCount} ${studentCount === 1 ? 'studente' : 'studenti'}`);
+  }
+  if (groupCount > 0) {
+    parts.push(`${groupCount} ${groupCount === 1 ? 'gruppo' : 'gruppi'}`);
+  }
+
+  return `Selezionati: ${parts.join(' e ')}.`;
+});
+
+
 // Rimosse funzioni selectAllStudents e deselectAllStudents
 
 onMounted(async () => {
   await fetchLesson();
-  // Solo se la lezione è stata caricata correttamente, carica gli studenti
+  // Solo se la lezione è stata caricata correttamente, carica studenti e gruppi
   if (lesson.value) {
-      await fetchStudents();
+      await Promise.all([ // Carica in parallelo
+          fetchStudents(),
+          fetchGroups()
+      ]);
   }
 });
 </script>

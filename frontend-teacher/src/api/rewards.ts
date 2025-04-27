@@ -20,6 +20,7 @@ export interface Reward {
     is_active: boolean;
     created_at: string;
     available_to_specific_students?: number[]; // Array di ID studente se availability_type è 'SPECIFIC'
+    available_to_specific_groups?: number[];   // NUOVO: Array di ID gruppo se availability_type è 'SPECIFIC'
     // available_students_info?: Student[]; // Se si sceglie di mostrarli
 }
 
@@ -34,6 +35,26 @@ export interface RewardPayload {
     is_active?: boolean;
     metadata?: Record<string, any> | null;
     specific_student_ids?: number[]; // Array di ID studente se availability_type è 'SPECIFIC'
+}
+
+// Payload per rendere disponibile una ricompensa a uno studente o gruppo
+export interface MakeRewardAvailablePayload {
+   student_id?: number; // ID studente (opzionale) - Corretto da 'student'
+   group_id?: number;   // ID gruppo (opzionale) - Corretto da 'group'
+   // Assicurarsi che almeno uno dei due sia fornito
+}
+
+// Payload per revocare la disponibilità di una ricompensa da uno studente o gruppo
+export interface RevokeRewardAvailabilityPayload {
+   student?: number; // ID studente (opzionale)
+   group?: number;   // ID gruppo (opzionale)
+   // Assicurarsi che almeno uno dei due sia fornito
+}
+
+// Risposta generica per le operazioni di disponibilità (potrebbe essere vuota o contenere dettagli)
+export interface RewardAvailabilityResponse {
+   detail?: string;
+   // Altri campi se restituiti dall'API
 }
 
 // Interfaccia per i dettagli di un acquisto per la vista consegne
@@ -132,6 +153,50 @@ export const deleteRewardApi = async (rewardId: number): Promise<void> => {
         // }
         throw error;
     }
+};
+
+/**
+* Rende una ricompensa disponibile per uno studente o un gruppo specifico.
+* @param rewardId L'ID della ricompensa.
+* @param payload Contiene l'ID dello studente o del gruppo.
+*/
+export const makeRewardAvailable = async (rewardId: number, payload: MakeRewardAvailablePayload): Promise<RewardAvailabilityResponse> => {
+   if (!payload.student_id && !payload.group_id) { // Corretto: student -> student_id, group -> group_id
+       throw new Error("È necessario specificare un ID studente o un ID gruppo.");
+   }
+   try {
+       // Assumendo un'azione 'make-available' sul ViewSet Reward
+       const response = await apiClient.post<RewardAvailabilityResponse>(`/rewards/rewards/${rewardId}/make-available/`, payload); // Corretto: make_available -> make-available
+       return response.data;
+   } catch (error) {
+       const targetType = payload.student_id ? 'studente' : 'gruppo'; // Corretto: student -> student_id
+       const targetId = payload.student_id ?? payload.group_id; // Corretto: student -> student_id, group -> group_id
+       console.error(`Errore nel rendere disponibile la ricompensa ${rewardId} per ${targetType} ${targetId}:`, error);
+       throw error;
+   }
+};
+
+/**
+* Revoca la disponibilità di una ricompensa per uno studente o un gruppo specifico.
+* @param rewardId L'ID della ricompensa.
+* @param payload Contiene l'ID dello studente o del gruppo.
+*/
+export const revokeRewardAvailability = async (rewardId: number, payload: RevokeRewardAvailabilityPayload): Promise<RewardAvailabilityResponse> => {
+    if (!payload.student && !payload.group) {
+       throw new Error("È necessario specificare un ID studente o un ID gruppo.");
+   }
+   try {
+       // Assumendo un'azione 'revoke_availability' sul ViewSet Reward
+       // Usiamo POST anche per la revoca se l'azione è definita così nel backend,
+       // altrimenti potrebbe essere DELETE o un altro metodo HTTP.
+       const response = await apiClient.post<RewardAvailabilityResponse>(`/rewards/rewards/${rewardId}/revoke_availability/`, payload);
+       return response.data;
+   } catch (error) {
+       const targetType = payload.student ? 'studente' : 'gruppo';
+       const targetId = payload.student ?? payload.group;
+       console.error(`Errore nel revocare la disponibilità della ricompensa ${rewardId} per ${targetType} ${targetId}:`, error);
+       throw error;
+   }
 };
 
 /**

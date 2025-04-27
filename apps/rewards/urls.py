@@ -31,10 +31,12 @@ urlpatterns = [
 # Nota: Gli URL generati saranno tipo:
 # /api/rewards/reward-templates/
 # /api/rewards/rewards/
+# /api/rewards/rewards/{pk}/make-available/  (Azione custom)
+# /api/rewards/rewards/{pk}/revoke-availability/ (Azione custom)
 # /api/rewards/student/shop/
 # /api/rewards/student/shop/{pk}/purchase/
 # /api/rewards/student/wallet/
-# /api/rewards/student/wallet/{pk}/transactions/
+# /api/rewards/student/wallet/{pk}/transactions/ # Azione custom (corretto)
 # /api/rewards/student/purchases/
-# /api/rewards/teacher/delivery/pending-delivery/
-# /api/rewards/teacher/delivery/{pk}/mark-delivered/
+# /api/rewards/teacher/delivery/pending-delivery/ (Azione custom)
+# /api/rewards/teacher/delivery/{pk}/mark-delivered/ (Azione custom)

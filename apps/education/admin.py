@@ -129,19 +129,19 @@ class PathwayProgressAdmin(admin.ModelAdmin):
 @admin.register(QuizAssignment)
 class QuizAssignmentAdmin(admin.ModelAdmin):
     # Rimosso 'due_date' da list_display e list_filter
-    list_display = ('student', 'quiz', 'assigned_by', 'assigned_at') 
-    list_filter = ('assigned_at', 'quiz__teacher') # Filtra per docente del quiz
-    search_fields = ('student__first_name', 'student__last_name', 'quiz__title', 'assigned_by__username')
-    autocomplete_fields = ['student', 'quiz', 'assigned_by']
-    list_select_related = ('student', 'quiz', 'assigned_by')
+    list_display = ('student', 'group', 'quiz', 'assigned_at') # Aggiunto group, rimosso assigned_by
+    list_filter = ('assigned_at', 'quiz__teacher', 'group') # Aggiunto filtro per gruppo
+    search_fields = ('student__first_name', 'student__last_name', 'group__name', 'quiz__title') # Aggiunto group__name, rimosso assigned_by__username
+    autocomplete_fields = ['student', 'group', 'quiz'] # Aggiunto group, rimosso assigned_by
+    list_select_related = ('student', 'group', 'quiz') # Aggiunto group, rimosso assigned_by
 
 @admin.register(PathwayAssignment)
 class PathwayAssignmentAdmin(admin.ModelAdmin):
     # Rimosso 'due_date' da list_display e list_filter
-    list_display = ('student', 'pathway', 'assigned_by', 'assigned_at') 
-    list_filter = ('assigned_at', 'pathway__teacher')
-    search_fields = ('student__first_name', 'student__last_name', 'pathway__title', 'assigned_by__username')
-    autocomplete_fields = ['student', 'pathway', 'assigned_by']
-    list_select_related = ('student', 'pathway', 'assigned_by')
+    list_display = ('student', 'group', 'pathway', 'assigned_at') # Aggiunto group, rimosso assigned_by
+    list_filter = ('assigned_at', 'pathway__teacher', 'group') # Aggiunto filtro per gruppo
+    search_fields = ('student__first_name', 'student__last_name', 'group__name', 'pathway__title') # Aggiunto group__name, rimosso assigned_by__username
+    autocomplete_fields = ['student', 'group', 'pathway'] # Aggiunto group, rimosso assigned_by
+    list_select_related = ('student', 'group', 'pathway') # Aggiunto group, rimosso assigned_by
 
 # Non registriamo AnswerOptionTemplate, AnswerOption, PathwayQuiz direttamente (gestiti da inline)

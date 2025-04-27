@@ -1,8 +1,7 @@
 import { defineStore } from 'pinia';
-// Rimosso import axios locale
-import apiClient from '@/services/api'; // Importa l'istanza Axios condivisa e configurata
+import apiClient, { fetchGroups, assignLesson } from '@/services/api'; // Importa l'istanza Axios e le funzioni API specifiche
 import type { Lesson, LessonContent, LessonAssignment, Student, AssignmentResult } from '@/types/lezioni'; // Importa i tipi definiti
-// Rimosso blocco creazione apiClient locale e interceptor locale
+import type { StudentGroup } from '@/types/groups'; // Importa il tipo per i gruppi
 
 // Le interfacce locali sono state rimosse, usiamo quelle importate da @/types/lezioni.ts
 
@@ -15,6 +14,8 @@ export const useLessonStore = defineStore('lessons', {
     isLoading: false,
     isLoadingContents: false, // Loading specifico per i contenuti
     isLoadingAssignments: false, // Loading specifico per le assegnazioni
+    groups: [] as StudentGroup[], // Lista dei gruppi disponibili per l'assegnazione
+    isLoadingGroups: false, // Loading specifico per i gruppi
     error: null as string | null,
   }),
 
@@ -239,46 +240,68 @@ export const useLessonStore = defineStore('lessons', {
         }
      },
 
-     async assignLessonToStudents(lessonId: number, studentIds: number[]): Promise<AssignmentResult[]> {
+      // Rinominata e modificata per gestire studenti E gruppi
+      async assignLessonToTargets(lessonId: number, studentIds: number[], groupIds: number[]): Promise<AssignmentResult[]> {
         this.isLoadingAssignments = true;
         this.error = null;
         try {
-            // Usa l'azione custom definita nel LessonViewSet
-            // Aggiunto prefisso /lezioni/
-            const response = await apiClient.post(`/lezioni/lessons/${lessonId}/assign/`, { student_ids: studentIds });
-            console.log("Risposta assegnazione:", response.data);
+          // Chiama la nuova funzione API unificata
+          const response = await assignLesson(lessonId, studentIds, groupIds);
+          console.log("Risposta assegnazione (studenti/gruppi):", response);
 
-            // Estrai i dati dalla risposta strutturata del backend
-            const createdAssignments: { student: number }[] = response.data.assignments || []; // Array di oggetti assegnazione creati
-            const alreadyAssignedIds: number[] = response.data.already_assigned || []; // Array di ID già assegnati
+          // Gestione della risposta API (DA VERIFICARE E ADATTARE ALLA RISPOSTA REALE)
+          // Assumiamo una struttura di risposta che separi i risultati per studenti e gruppi
+          // NOTA: La struttura esatta della risposta da `assignLesson` deve essere confermata dal backend.
+          // Questa è un'ipotesi basata sulla logica precedente e sulla necessità di distinguere.
+          const createdStudentAssignments: { student: number }[] = response?.student_assignments?.created || [];
+          const alreadyAssignedStudentIds: number[] = response?.student_assignments?.already_assigned || [];
+          const failedStudentIds: number[] = response?.student_assignments?.failed || []; // Ipotetico
 
-            // Costruisci l'array AssignmentResult[] che il componente si aspetta
-            const results: AssignmentResult[] = studentIds.map(id => {
-                const isCreated = createdAssignments.some(a => a.student === id); // Verifica se l'ID è tra quelli creati
-                const isAlreadyAssigned = alreadyAssignedIds.includes(id);
+          const createdGroupAssignments: { group: number }[] = response?.group_assignments?.created || [];
+          const alreadyAssignedGroupIds: number[] = response?.group_assignments?.already_assigned || [];
+          const failedGroupIds: number[] = response?.group_assignments?.failed || []; // Ipotetico
 
-                if (isCreated) {
-                    return { studentId: id, success: true };
-                } else if (isAlreadyAssigned) {
-                    // Marcato come fallimento ma con messaggio specifico
-                    return { studentId: id, success: false, error: 'Studente già assegnato' };
-                } else {
-                    // Se non è né creato né già assegnato, assumiamo un fallimento generico
-                    // (potrebbe essere uno studente non trovato dal backend, ma la risposta non lo specifica qui)
-                    return { studentId: id, success: false, error: 'Assegnazione fallita' };
-                }
-            });
+          // Costruiamo i risultati per gli studenti
+          const studentResults: AssignmentResult[] = studentIds.map(id => {
+            if (createdStudentAssignments.some(a => a.student === id)) {
+              return { targetId: id, targetType: 'student', success: true };
+            } else if (alreadyAssignedStudentIds.includes(id)) {
+              return { targetId: id, targetType: 'student', success: false, error: 'Studente già assegnato' };
+            } else if (failedStudentIds.includes(id)) {
+              return { targetId: id, targetType: 'student', success: false, error: 'Assegnazione studente fallita (specifico)' };
+            } else {
+                // Caso non coperto dalla risposta? Fallimento generico
+               return { targetId: id, targetType: 'student', success: false, error: 'Assegnazione studente fallita (generico)' };
+            }
+          });
 
-            return results; // Restituisce l'array costruito
+          // Costruiamo i risultati per i gruppi
+          const groupResults: AssignmentResult[] = groupIds.map(id => {
+            if (createdGroupAssignments.some(a => a.group === id)) {
+              return { targetId: id, targetType: 'group', success: true };
+            } else if (alreadyAssignedGroupIds.includes(id)) {
+              return { targetId: id, targetType: 'group', success: false, error: 'Gruppo già assegnato' };
+            } else if (failedGroupIds.includes(id)) {
+              return { targetId: id, targetType: 'group', success: false, error: 'Assegnazione gruppo fallita (specifico)' };
+            } else {
+               return { targetId: id, targetType: 'group', success: false, error: 'Assegnazione gruppo fallita (generico)' };
+            }
+          });
+
+          return [...studentResults, ...groupResults]; // Uniamo i risultati
+
         } catch (err: any) {
-            console.error("Errore nell'assegnazione della lezione:", err);
-            this.error = err.response?.data?.detail || JSON.stringify(err.response?.data) || err.message || 'Errore sconosciuto';
-            // In caso di errore generale della richiesta, restituiamo un array di fallimenti per tutti gli studenti
-            return studentIds.map(id => ({ studentId: id, success: false, error: this.error || 'Errore API' }));
+          console.error("Errore nell'assegnazione della lezione a studenti/gruppi:", err);
+          const apiError = err.response?.data?.detail || JSON.stringify(err.response?.data) || err.message || 'Errore API';
+          this.error = apiError;
+          // Restituisce fallimento per tutti i target richiesti
+          const studentErrors = studentIds.map(id => ({ targetId: id, targetType: 'student' as const, success: false, error: apiError }));
+          const groupErrors = groupIds.map(id => ({ targetId: id, targetType: 'group' as const, success: false, error: apiError }));
+          return [...studentErrors, ...groupErrors];
         } finally {
-            this.isLoadingAssignments = false;
+          this.isLoadingAssignments = false;
         }
-    },
+      },
 
     async fetchAssignedLessons() { // Per lo studente loggato
         this.isLoadingAssignments = true;
@@ -317,6 +340,23 @@ export const useLessonStore = defineStore('lessons', {
              return false;
          }
      },
+
+    // --- Azioni Gruppi ---
+    async fetchGroupsAction() {
+      this.isLoadingGroups = true;
+      this.error = null;
+      try {
+        const fetchedGroups = await fetchGroups(); // Chiama la funzione API
+        this.groups = fetchedGroups;
+        console.log("[lessons.ts] Groups loaded:", this.groups);
+      } catch (err: any) {
+        console.error("Errore nel caricamento dei gruppi:", err);
+        this.error = err.response?.data?.detail || err.message || 'Errore sconosciuto durante caricamento gruppi';
+        this.groups = [];
+      } finally {
+        this.isLoadingGroups = false;
+      }
+    },
 
   },
 });

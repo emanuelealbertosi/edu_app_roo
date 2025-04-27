@@ -1,26 +1,36 @@
-import logging # Aggiunto import per logging
-from rest_framework import serializers
+import logging
+from rest_framework import serializers, status
+from rest_framework.exceptions import ValidationError
+from django.utils import timezone
 from .models import (
     Wallet, PointTransaction, RewardTemplate, Reward,
-    RewardStudentSpecificAvailability, RewardPurchase
+    RewardAvailability, RewardPurchase, Badge, EarnedBadge
 )
-from apps.users.models import User, Student, UserRole # Import User, Student for validation/representation
-from apps.users.serializers import StudentSerializer
-from .models import Badge, EarnedBadge # Importa i nuovi modelli
+from apps.users.models import User, Student, UserRole
+from apps.student_groups.models import StudentGroup
+# Importa i serializer base per Studente e Gruppo
+from apps.users.serializers import StudentSerializer, StudentBasicSerializer
+try:
+    # Usa lo stesso serializer base definito in education (o creane uno qui se preferisci)
+    from apps.education.serializers import StudentGroupBasicSerializer
+except ImportError:
+    # Fallback se non trovato
+    class StudentGroupBasicSerializer(serializers.ModelSerializer):
+        class Meta:
+            model = StudentGroup
+            fields = ['id', 'name']
+            read_only_fields = fields
 
-logger = logging.getLogger(__name__) # Inizializza il logger
-
-# Nota: Non creiamo un serializer per RewardStudentSpecificAvailability direttamente,
-# la sua gestione avverrà tramite il RewardSerializer.
+logger = logging.getLogger(__name__)
 
 class WalletSerializer(serializers.ModelSerializer):
     """ Serializer per il modello Wallet (generalmente sola lettura tramite API). """
-    student_info = StudentSerializer(source='student', read_only=True) # Mostra info studente
+    student_info = StudentSerializer(source='student', read_only=True)
 
     class Meta:
         model = Wallet
         fields = ['student', 'student_info', 'current_points']
-        read_only_fields = ['student', 'student_info', 'current_points'] # Il saldo è gestito internamente
+        read_only_fields = ['student', 'student_info', 'current_points']
 
 
 class PointTransactionSerializer(serializers.ModelSerializer):
@@ -28,7 +38,7 @@ class PointTransactionSerializer(serializers.ModelSerializer):
     class Meta:
         model = PointTransaction
         fields = ['id', 'wallet', 'points_change', 'reason', 'timestamp']
-        read_only_fields = fields # Le transazioni sono create internamente
+        read_only_fields = fields
 
 
 class RewardTemplateSerializer(serializers.ModelSerializer):
@@ -44,129 +54,135 @@ class RewardTemplateSerializer(serializers.ModelSerializer):
             'name', 'description', 'type', 'type_display', 'metadata', 'created_at'
         ]
         read_only_fields = ['creator', 'creator_username', 'scope', 'scope_display', 'type_display', 'created_at']
-        # Admin può creare scope=GLOBAL, Docente può creare scope=LOCAL (logica nella view)
-
-    def validate(self, data):
-        # La logica per impostare creator e scope in base all'utente autenticato
-        # verrà gestita nella ViewSet (perform_create).
-        return data
 
 
 class RewardSerializer(serializers.ModelSerializer):
     """ Serializer per le Reward specifiche create dai Docenti. """
     teacher_username = serializers.CharField(source='teacher.username', read_only=True)
     type_display = serializers.CharField(source='get_type_display', read_only=True)
-    availability_type_display = serializers.CharField(source='get_availability_type_display', read_only=True)
-    # Campo per ricevere gli ID degli studenti specifici durante la creazione/aggiornamento
-    # Il queryset verrà sovrascritto dalla ViewSet per filtrare per docente
-    specific_student_ids = serializers.PrimaryKeyRelatedField(
-        queryset=Student.objects.all(), # Queryset base, la validazione specifica avverrà in validate()
-        many=True,
-        write_only=True, # Usato solo per input, non mostrato nell'output standard
-        required=False, # Non richiesto se availability_type è ALL
-        source='available_to_specific_students' # Collega a M2M
-    )
-    # Campo per OUTPUT (read-only) con gli ID degli studenti specifici
-    available_to_specific_students = serializers.PrimaryKeyRelatedField(
-        many=True,
-        read_only=True # Legge dalla relazione M2M 'available_to_specific_students'
-    )
-    # Opzionale: Mostrare le info complete degli studenti specifici (sola lettura)
-    available_students_info = StudentSerializer(source='available_to_specific_students', many=True, read_only=True)
+    description = serializers.CharField(allow_blank=True, allow_null=True, required=False, style={'base_template': 'textarea.html'}) # Permetti blank/null
+    # Rimossi availability_type e availability_type_display
+
     class Meta:
         model = Reward
         fields = [
             'id', 'teacher', 'teacher_username', 'template', 'name', 'description',
-            'type', 'type_display', 'cost_points', 'availability_type', 'availability_type_display',
-            'specific_student_ids', # Input per studenti specifici
-            'available_to_specific_students', # Output ID studenti specifici
-            'available_students_info', # Output info complete studenti (opzionale)
+            'type', 'type_display', 'cost_points',
+            # Campi rimossi: 'availability_type', 'availability_type_display',
             'metadata', 'is_active', 'created_at'
         ]
-        read_only_fields = ['teacher', 'teacher_username', 'type_display', 'availability_type_display', 'available_to_specific_students', 'available_students_info', 'created_at']
+        read_only_fields = ['teacher', 'teacher_username', 'type_display', 'created_at']
 
-    def validate(self, data):
-        availability_type = data.get('availability_type', self.instance.availability_type if self.instance else None)
-        specific_students = data.get('available_to_specific_students') # source='available_to_specific_students'
-
-        if availability_type == Reward.AvailabilityType.SPECIFIC_STUDENTS and not specific_students:
-            raise serializers.ValidationError({
-                'specific_student_ids': "Se la disponibilità è 'Specific Students', è necessario fornire almeno un ID studente."
-            })
-        if availability_type == Reward.AvailabilityType.ALL_STUDENTS and specific_students:
-             raise serializers.ValidationError({
-                'specific_student_ids': "Non fornire ID studenti specifici se la disponibilità è 'All Students'."
-            })
-
-        # Validazione aggiuntiva: assicurarsi che gli studenti specificati appartengano al docente
-        request = self.context.get('request')
-        if not request or not hasattr(request, 'user'):
-            # Questo non dovrebbe accadere se la view passa il contesto correttamente
-            raise serializers.ValidationError("Contesto della richiesta mancante per la validazione.")
-
-        user = request.user
-        if isinstance(user, User) and user.is_teacher:
-            if specific_students: # Se sono stati forniti studenti specifici
-                teacher_student_ids = set(user.students.values_list('id', flat=True))
-                for student in specific_students:
-                    if student.pk not in teacher_student_ids:
-                        raise serializers.ValidationError({
-                            'specific_student_ids': f"Lo studente con ID {student.pk} non appartiene a questo docente."
-                        })
-        else:
-            # Se l'utente non è un docente, non dovrebbe poter specificare studenti
-            if specific_students:
-                 raise serializers.ValidationError({
-                    'specific_student_ids': "Solo i docenti possono specificare studenti."
-                })
-
-        return data
-
-
-    def create(self, validated_data):
-        # La logica per impostare il 'teacher' e validare gli studenti specifici
-        # rispetto al docente verrà gestita nella ViewSet (perform_create).
-        # Il campo M2M 'available_to_specific_students' viene gestito automaticamente
-        # da DRF se 'specific_student_ids' è nel validated_data.
-        return super().create(validated_data)
-
-    def update(self, instance, validated_data):
-        # Gestione M2M per 'available_to_specific_students'
-        # DRF gestisce l'aggiornamento M2M se il campo è presente in validated_data.
-        # Se availability_type cambia da SPECIFIC a ALL, potremmo voler pulire la M2M.
-        availability_type = validated_data.get('availability_type', instance.availability_type)
-        if availability_type == Reward.AvailabilityType.ALL_STUDENTS:
-             # Se si passa a ALL, assicuriamoci che la M2M sia vuota
-             validated_data['available_to_specific_students'] = []
-
-        return super().update(instance, validated_data)
+    # Validazione e create/update non gestiscono più la disponibilità direttamente
 
 
 class RewardPurchaseSerializer(serializers.ModelSerializer):
     """ Serializer per la creazione e visualizzazione degli acquisti di ricompense. """
     student_info = StudentSerializer(source='student', read_only=True)
-    reward_info = RewardSerializer(source='reward', read_only=True) # Mostra dettagli ricompensa
+    reward_info = RewardSerializer(source='reward', read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     delivered_by_username = serializers.CharField(source='delivered_by.username', read_only=True, allow_null=True)
 
     class Meta:
         model = RewardPurchase
         fields = [
-            'id', 'student', 'student_info', 'reward',
-            'reward_info', # Assicura che i dettagli della ricompensa siano inclusi
+            'id', 'student', 'student_info', 'reward', 'reward_info',
             'points_spent', 'purchased_at', 'status', 'status_display',
             'delivered_by', 'delivered_by_username', 'delivered_at',
-            'delivery_notes' # Assicura che le note di consegna siano incluse
+            'delivery_notes'
         ]
         read_only_fields = [
             'student', 'student_info', 'reward_info', 'points_spent', 'purchased_at',
             'status', 'status_display', 'delivered_by', 'delivered_by_username', 'delivered_at'
-            # 'reward' è scrivibile solo in fase di creazione (nella view)
-            # 'delivery_notes' è modificabile dal docente (nella view di consegna)
         ]
 
-    # La logica di acquisto (controllo punti, disponibilità ricompensa, creazione transazione)
-    # verrà gestita nella ViewSet (perform_create).
+
+# --- Serializers per Disponibilità Ricompense ---
+
+class RewardAvailabilitySerializer(serializers.ModelSerializer):
+    """ Serializer per VISUALIZZARE un record RewardAvailability esistente. """
+    reward = RewardSerializer(read_only=True)
+    student = StudentBasicSerializer(read_only=True, allow_null=True)
+    group = StudentGroupBasicSerializer(read_only=True, allow_null=True)
+
+    class Meta:
+        model = RewardAvailability
+        fields = [
+            'id',
+            'reward',
+            'student',
+            'group',
+            'made_available_at',
+        ]
+        read_only_fields = fields
+
+
+class MakeRewardAvailableSerializer(serializers.Serializer):
+    """ Serializer per l'AZIONE di rendere disponibile una Ricompensa a uno Studente o Gruppo. """
+    # reward_id verrà preso dall'URL nella view action
+    student_id = serializers.PrimaryKeyRelatedField(
+        queryset=Student.objects.all(), # Validazione ownership nella view
+        required=False,
+        allow_null=True,
+        help_text="ID dello Studente a cui rendere disponibile (alternativo a group_id)."
+    )
+    group_id = serializers.PrimaryKeyRelatedField(
+        queryset=StudentGroup.objects.all(), # Validazione ownership nella view
+        required=False,
+        allow_null=True,
+        help_text="ID del Gruppo a cui rendere disponibile (alternativo a student_id)."
+    )
+    # made_available_at viene impostato automaticamente
+
+    def validate(self, attrs):
+        student_id = attrs.get('student_id')
+        group_id = attrs.get('group_id')
+
+        if not student_id and not group_id:
+            raise ValidationError("È necessario specificare 'student_id' o 'group_id'.")
+        if student_id and group_id:
+            raise ValidationError("Specificare solo 'student_id' o 'group_id', non entrambi.")
+        return attrs
+
+    def create(self, validated_data):
+        reward = self.context['reward'] # Preso dal contesto passato dalla view
+        student = validated_data.get('student_id')
+        group = validated_data.get('group_id')
+        teacher = self.context['request'].user
+
+        # Verifica ownership
+        if reward.teacher != teacher:
+             raise ValidationError("Non puoi gestire la disponibilità di una ricompensa che non hai creato.")
+        # Verifica che il docente che assegna sia il docente dello studente
+        if student and student.teacher != teacher:
+             raise ValidationError("Non puoi rendere disponibile una ricompensa a uno studente che non gestisci.")
+        if group and group.teacher != teacher:
+             raise ValidationError("Non puoi rendere disponibile a un gruppo che non hai creato.")
+
+        # Controlla duplicati
+        availability_exists = RewardAvailability.objects.filter(
+            reward=reward,
+            student=student,
+            group=group
+        ).exists()
+
+        if availability_exists:
+            target_type = "studente" if student else "gruppo"
+            target_id = student.id if student else group.id
+            raise ValidationError(f"Questa ricompensa è già disponibile per questo {target_type} (ID: {target_id}).")
+
+        # Crea record disponibilità
+        availability = RewardAvailability.objects.create(
+            reward=reward,
+            student=student,
+            group=group,
+            made_available_at=timezone.now()
+        )
+        return availability
+
+    def to_representation(self, instance):
+        # Usa il serializer di visualizzazione per l'output
+        return RewardAvailabilitySerializer(instance, context=self.context).data
 
 
 # --- Serializer Specifico per Dashboard Studente ---
@@ -177,11 +193,7 @@ class StudentWalletDashboardSerializer(serializers.Serializer):
     Combina i punti correnti con le transazioni recenti.
     """
     current_points = serializers.IntegerField(read_only=True)
-    # Usa PointTransactionSerializer per le transazioni recenti
     recent_transactions = PointTransactionSerializer(many=True, read_only=True)
-
-    # Nota: Questo non è un ModelSerializer perché aggrega dati da Wallet e PointTransaction.
-    # La view dovrà costruire l'oggetto dati da passare a questo serializer.
 
 
 # --- Serializers per Gamification (Badge) ---
@@ -189,67 +201,50 @@ class StudentWalletDashboardSerializer(serializers.Serializer):
 class BadgeSerializer(serializers.ModelSerializer):
     """ Serializer per visualizzare le definizioni dei Badge. """
     trigger_type_display = serializers.CharField(source='get_trigger_type_display', read_only=True)
-    # Usa SerializerMethodField per costruire manualmente l'URL completo
     image_url = serializers.SerializerMethodField()
 
     def get_image_url(self, obj):
-        # DEBUGGING: Log per capire cosa succede
-        logger.debug(f"Serializing image for Badge ID: {obj.id}")
-        logger.debug(f"  obj.image value: {obj.image}")
         request = self.context.get('request')
-        logger.debug(f"  request in context: {'Present' if request else 'Missing'}")
         if obj.image and request:
-            image_full_url = request.build_absolute_uri(obj.image.url)
-            logger.debug(f"  Generated image_url: {image_full_url}")
-            return image_full_url
-        else:
-            logger.debug(f"  Condition (obj.image and request) is False, returning None.")
-            return None
+            try:
+                return request.build_absolute_uri(obj.image.url)
+            except ValueError: # Gestisce casi in cui l'URL non è valido o completo
+                logger.warning(f"Impossibile costruire URL assoluto per l'immagine del badge {obj.id}")
+                return None
+        return None
+
     class Meta:
         model = Badge
         fields = [
-            'id', 'name', 'description', 'image', 'image_url', # Manteniamo 'image' per ora, aggiungiamo image_url
+            'id', 'name', 'description', 'image', 'image_url',
             'trigger_type', 'trigger_type_display', 'trigger_condition',
             'is_active', 'created_at'
         ]
-        # read_only_fields = fields # Rimosso temporaneamente per non bloccare 'image'
 
 
 class EarnedBadgeSerializer(serializers.ModelSerializer):
     """ Serializer per visualizzare i Badge guadagnati da uno studente. """
-    # Includi i dettagli del badge guadagnato
     badge = BadgeSerializer(read_only=True)
-    # Opzionale: includere info studente se la view non è già filtrata per studente
-    # student_info = StudentSerializer(source='student', read_only=True)
 
     class Meta:
         model = EarnedBadge
         fields = ['id', 'student', 'badge', 'earned_at']
-        read_only_fields = fields # Questi record sono creati dalla logica interna
+        read_only_fields = fields
 
 
 class SimpleBadgeSerializer(serializers.ModelSerializer):
-    """ Serializer semplificato per i Badge, usato per le notifiche. """
-    # Aggiunto image (che ora è ImageField) - Manteniamo per confronto
-    image = serializers.ImageField(read_only=True)
-    # Aggiungiamo anche image_url qui per coerenza se necessario in futuro
+    """ Serializer semplificato per i Badge, usato per le notifiche o liste. """
     image_url = serializers.SerializerMethodField()
 
-    # Aggiunto metodo mancante per generare l'URL
     def get_image_url(self, obj):
         request = self.context.get('request')
         if obj.image and request:
-            return request.build_absolute_uri(obj.image.url)
-        return None
-
-    def get_image_url(self, obj):
-        request = self.context.get('request')
-        if obj.image and request:
-            return request.build_absolute_uri(obj.image.url)
+             try:
+                 return request.build_absolute_uri(obj.image.url)
+             except ValueError:
+                 return None
         return None
 
     class Meta:
         model = Badge
-        # Sostituito image_url con image, aggiunto image_url
-        fields = ['id', 'name', 'description', 'image', 'image_url']
-        # read_only_fields = fields # Rimosso temporaneamente
+        fields = ['id', 'name', 'description', 'image_url'] # Mostra solo URL immagine

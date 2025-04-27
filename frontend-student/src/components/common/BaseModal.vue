@@ -28,12 +28,12 @@
           </div>
 
           <!-- Body -->
-          <div class="p-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
+          <div class="max-h-[70vh] overflow-y-auto custom-scrollbar"> <!-- Rimosso p-6 -->
             <slot></slot>
           </div>
 
           <!-- Footer (Opzionale) -->
-          <div v-if="$slots.footer" class="px-6 py-4 bg-neutral-light border-t border-neutral-DEFAULT flex justify-end space-x-3">
+          <div v-if="$slots.footer" class="px-6 bg-neutral-light border-t border-neutral-DEFAULT flex justify-end space-x-3"> <!-- Rimosso py-4 -->
             <slot name="footer"></slot>
           </div>
         </div>

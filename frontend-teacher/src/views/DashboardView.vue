@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
 import { useAuthStore } from '@/stores/auth';
-import { fetchStudents, type Student } from '@/api/students'; // Import type from API file
+import { getMyStudents } from '@/api/students'; // Importa solo la funzione API
+import type { Student } from '@/types/users'; // Importa il tipo dalla sua fonte originale
 import { fetchTeacherQuizTemplates, type QuizTemplate } from '@/api/quizzes'; // Import type from API file
 import { fetchPathwayTemplates, type PathwayTemplate } from '@/api/pathways'; // Import type from API file
 import { fetchRewards, type Reward } from '@/api/rewards'; // Import type from API file
@@ -34,13 +35,13 @@ const loadDashboardData = async () => {
   try {
     // Fetch all data in parallel
     const [studentsRes, quizTemplatesRes, pathwayTemplatesRes, rewardsRes] = await Promise.all([
-      fetchStudents(),
+      getMyStudents(), // Usa il nome corretto della funzione
       fetchTeacherQuizTemplates(), // Correct function name
       fetchPathwayTemplates(),
       fetchRewards() // Removed argument
     ]);
     // Filter rewards locally if needed (e.g., for active ones)
-    students.value = studentsRes;
+    students.value = studentsRes.data; // Estrai l'array dalla proprietà 'data'
     quizTemplates.value = quizTemplatesRes;
     pathwayTemplates.value = pathwayTemplatesRes;
     // Example: Filter for active rewards if the API returns all

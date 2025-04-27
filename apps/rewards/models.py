@@ -170,8 +170,8 @@ class Reward(models.Model):
     Ricompensa specifica creata da un Docente, potenzialmente basata su un Template.
     """
     class AvailabilityType(models.TextChoices):
-        ALL_STUDENTS = 'ALL', _('All Students of Teacher')
-        SPECIFIC_STUDENTS = 'SPECIFIC', _('Specific Students')
+        ALL_STUDENTS = 'ALL', _('All Students of Teacher') # Implicitly available to all teacher's students
+        MANUAL = 'MANUAL', _('Manual Assignment (Specific Students/Groups)') # Availability defined by RewardAvailability records
 
     teacher = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -189,7 +189,7 @@ class Reward(models.Model):
         verbose_name=_('Source Template')
     )
     name = models.CharField(_('Name'), max_length=200)
-    description = models.TextField(_('Description'), blank=True)
+    description = models.TextField(_('Description'), blank=True, null=True) # Aggiunto null=True
     type = models.CharField(
         _('Type'),
         max_length=20,
@@ -201,15 +201,10 @@ class Reward(models.Model):
         _('Availability'),
         max_length=10,
         choices=AvailabilityType.choices,
-        default=AvailabilityType.ALL_STUDENTS
+        default=AvailabilityType.ALL_STUDENTS,
+        help_text=_("Defines the base availability rule. 'ALL' makes it available to all teacher's students. 'MANUAL' requires explicit assignment via RewardAvailability.")
     )
-    # Relazione M2M per disponibilità specifica, definita tramite through model implicito o esplicito
-    available_to_specific_students = models.ManyToManyField(
-        Student,
-        through='RewardStudentSpecificAvailability', # Specifica il modello intermedio
-        blank=True, # Permette di non avere studenti specifici se availability_type è ALL
-        verbose_name=_('Specifically Available To')
-    )
+    # Rimosso M2M 'available_to_specific_students', la disponibilità specifica/gruppo è gestita da RewardAvailability
     metadata = models.JSONField(
         _('Metadata'),
         default=dict,
@@ -232,20 +227,67 @@ class Reward(models.Model):
         return f"{self.name} ({self.cost_points} points)"
 
 
-class RewardStudentSpecificAvailability(models.Model):
-    """
-    Modello intermedio per la relazione M2M tra Reward e Student
-    quando availability_type è 'SPECIFIC'.
-    """
-    reward = models.ForeignKey(Reward, on_delete=models.CASCADE)
-    student = models.ForeignKey(Student, on_delete=models.CASCADE)
-    assigned_at = models.DateTimeField(auto_now_add=True) # Opzionale: quando è stata resa disponibile
+# Rimosso il modello RewardStudentSpecificAvailability
+
+from django.db.models import Q, CheckConstraint # Aggiungere import
+from apps.student_groups.models import StudentGroup # Importare StudentGroup
+
+class RewardAvailability(models.Model):
+    """ Modello che rappresenta la disponibilità di una Ricompensa per uno Studente o un Gruppo. """
+    reward = models.ForeignKey(
+        Reward,
+        on_delete=models.CASCADE,
+        related_name='availabilities',
+        verbose_name="Ricompensa"
+    )
+    student = models.ForeignKey(
+        Student,
+        on_delete=models.CASCADE,
+        related_name='reward_availabilities',
+        verbose_name="Studente (Individuale)",
+        null=True, # Può essere nullo se disponibile per gruppo
+        blank=True
+    )
+    group = models.ForeignKey(
+        StudentGroup, # Riferimento all'app creata
+        on_delete=models.CASCADE,
+        related_name='reward_availabilities',
+        verbose_name="Gruppo",
+        null=True, # Può essere nullo se disponibile per studente
+        blank=True
+    )
+    made_available_at = models.DateTimeField(auto_now_add=True, verbose_name="Data Disponibilità")
 
     class Meta:
-        verbose_name = _('Reward Specific Availability')
-        verbose_name_plural = _('Reward Specific Availabilities')
-        unique_together = ('reward', 'student') # Assicura che una coppia sia unica
-        ordering = ['assigned_at']
+        verbose_name = "Disponibilità Ricompensa"
+        verbose_name_plural = "Disponibilità Ricompense"
+        # Assicura che una ricompensa sia resa disponibile o a uno studente specifico o a un gruppo specifico una sola volta
+        unique_together = (
+            ('reward', 'student'), # Una ricompensa può essere resa disponibile una sola volta a uno studente specifico (se student non è null)
+            ('reward', 'group'),   # Una ricompensa può essere resa disponibile una sola volta a un gruppo specifico (se group non è null)
+        )
+        ordering = ['reward', 'group', 'student']
+        constraints = [
+            CheckConstraint(
+                check=Q(student__isnull=False) | Q(group__isnull=False),
+                name='reward_availability_target_not_null',
+                violation_error_message='La disponibilità della ricompensa deve avere uno studente o un gruppo.'
+            ),
+            CheckConstraint(
+                check=~(Q(student__isnull=False) & Q(group__isnull=False)),
+                name='reward_availability_target_exclusive',
+                violation_error_message='La disponibilità della ricompensa non può avere sia uno studente che un gruppo.'
+            )
+        ]
+
+    def __str__(self):
+        if self.student:
+            target = f"Studente: {self.student.full_name}"
+        elif self.group:
+            target = f"Gruppo: {self.group.name}"
+        else:
+            target = "Nessuna destinazione" # Should not happen due to constraints
+        return f"Ricompensa '{self.reward.name}' disponibile per {target}"
 
 
 class RewardPurchase(models.Model):

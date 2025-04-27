@@ -56,30 +56,72 @@
         <select id="availability_type" v-model="rewardData.availability_type" required
                 class="mt-1 block w-full px-3 py-2 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
           <option value="ALL">Tutti gli studenti</option>
-          <option value="SPECIFIC">Studenti Specifici</option>
+          <option value="SPECIFIC">Disponibilità Specifica (Studenti o Gruppi)</option> <!-- Testo aggiornato -->
         </select>
       </div>
 
-      <!-- Specific Students Section (con Modale) -->
-      <div v-if="rewardData.availability_type === 'SPECIFIC'">
-        <label class="block text-sm font-medium text-gray-700 mb-2">Studenti Specifici</label>
-        <div v-if="isLoadingStudents" class="text-gray-500 italic">Caricamento studenti...</div>
-        <div v-else-if="studentsError" class="text-red-600">{{ studentsError }}</div>
-        <div v-else-if="allStudents.length > 0">
-           <BaseButton type="button" variant="outline" @click="isStudentModalOpen = true" class="mb-3"> <!-- Aggiunto type="button" -->
-             Seleziona Studenti Specifici
-           </BaseButton>
+      <!-- Specific Availability Section -->
+      <div v-if="rewardData.availability_type === 'SPECIFIC'" class="space-y-4 border border-gray-200 p-4 rounded-md">
+         <label class="block text-sm font-medium text-gray-700 mb-2">Rendi disponibile specificamente per:</label>
+         <div class="flex items-center space-x-4 mb-4">
+            <label class="flex items-center">
+                <input type="radio" v-model="specificTargetType" value="students" name="specificTargetType" class="form-radio h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300">
+                <span class="ml-2 text-sm text-gray-700">Studenti Singoli</span>
+            </label>
+            <label class="flex items-center">
+                <input type="radio" v-model="specificTargetType" value="groups" name="specificTargetType" class="form-radio h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300">
+                <span class="ml-2 text-sm text-gray-700">Gruppi</span>
+            </label>
+        </div>
+
+        <!-- Student Selection (Conditional) -->
+        <div v-if="specificTargetType === 'students'">
+            <h3 class="text-md font-medium text-gray-800 mb-2">Seleziona Studenti</h3>
+            <div v-if="isLoadingStudents" class="text-gray-500 italic">Caricamento studenti...</div>
+            <div v-else-if="studentsError" class="text-red-600">{{ studentsError }}</div>
+            <!-- Blocco v-else-if / v-else per studenti - Struttura corretta -->
+            <div v-else-if="allStudents.length > 0"> <!-- Questo div contiene il caso in cui ci sono studenti -->
+               <BaseButton type="button" variant="outline" @click="isStudentModalOpen = true" class="mb-3">
+                 Seleziona Studenti Specifici
+               </BaseButton>
            <div class="text-sm text-neutral-dark">
              <span v-if="selectedStudentIds.length === 0">Nessuno studente selezionato.</span>
              <span v-else-if="selectedStudentIds.length === 1">1 studente selezionato.</span>
              <span v-else>{{ selectedStudentIds.length }} studenti selezionati.</span>
-           </div>
-        </div>
-         <div v-else class="text-center py-4 text-neutral-dark">Nessuno studente disponibile da selezionare.</div>
-      </div>
+           </div> <!-- Chiusura del div per il testo degli studenti selezionati -->
+           </div> <!-- Chiusura del div v-else-if="allStudents.length > 0" -->
+           <div v-else class="text-center py-4 text-neutral-dark">Nessuno studente disponibile da selezionare.</div> <!-- Questo v-else segue direttamente il v-else-if -->
+        </div> <!-- Chiusura del div v-if="specificTargetType === 'students'" -->
+
+        <!-- Group Selection (Conditional) -->
+        <div v-if="specificTargetType === 'groups'">
+            <h3 class="text-md font-medium text-gray-800 mb-2">Seleziona Gruppi</h3>
+            <div v-if="isLoadingGroups" class="text-gray-500 italic">Caricamento gruppi...</div>
+            <div v-else-if="groupsError" class="text-red-600">{{ groupsError }}</div>
+            <div v-else-if="availableGroups.length > 0">
+                <label for="group-select" class="block text-sm font-medium text-gray-700 mb-1">Gruppi disponibili:</label>
+                <select
+                   id="group-select"
+                   v-model="selectedGroupIds"
+                   multiple
+                   class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 h-32 bg-white"
+                >
+                   <option v-for="group in availableGroups" :key="group.id" :value="group.id">
+                       {{ group.name }} ({{ group.student_count ?? '?' }} membri)
+                   </option>
+                </select>
+                <div class="text-sm text-neutral-dark mt-2">
+                   <span v-if="selectedGroupIds.length === 0">Nessun gruppo selezionato.</span>
+                   <span v-else-if="selectedGroupIds.length === 1">1 gruppo selezionato.</span>
+                   <span v-else>{{ selectedGroupIds.length }} gruppi selezionati.</span>
+                </div>
+            </div>
+            <div v-else class="text-center py-4 text-neutral-dark">Nessun gruppo trovato. <router-link :to="{ name: 'GroupsList' }" class="text-indigo-600 hover:underline">Gestisci Gruppi</router-link></div>
+        </div> <!-- Chiusura del div v-if="specificTargetType === 'groups'" -->
+     </div> <!-- Questo è il div di chiusura per Specific Availability Section -->
 
       <!-- Is Active Checkbox -->
-      <div class="flex items-center">
+      <div class="flex items-center mt-4"> <!-- Aggiunto margine sopra -->
         <input id="is_active" type="checkbox" v-model="rewardData.is_active"
                class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded" />
         <label for="is_active" class="ml-2 block text-sm text-gray-900">
@@ -105,9 +147,9 @@
           {{ isSaving ? 'Salvataggio...' : (isEditing ? 'Salva Modifiche' : 'Crea Ricompensa') }}
         </button>
       </div>
-    </form>
+    </form> <!-- Chiusura corretta del form -->
 
-    <!-- Modale Selezione Studenti -->
+    <!-- Modale Selezione Studenti (fuori dal form) -->
     <StudentSelectionModal
       :show="isStudentModalOpen"
       :students="allStudents"
@@ -115,14 +157,18 @@
       @close="isStudentModalOpen = false"
       @update:selectedIds="updateSelectedStudents"
     />
-  </div>
+  </div> <!-- Chiusura del div principale del template -->
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, reactive } from 'vue';
+import { ref, onMounted, computed, reactive, watch } from 'vue'; // Aggiunto watch
 import { useRoute, useRouter } from 'vue-router';
-import { createReward, fetchRewardDetails, updateReward, type RewardPayload } from '@/api/rewards';
-import { fetchStudents, type Student } from '@/api/students'; // Importa API studenti
+import { createReward, fetchRewardDetails, updateReward, makeRewardAvailable, revokeRewardAvailability, type RewardPayload } from '@/api/rewards'; // Corretto revokeAvailability -> revokeRewardAvailability
+import { getMyStudents } from '@/api/students'; // Importa API studenti
+import type { Student } from '@/types/users'; // Importa il tipo Student dalla sua fonte originale
+import { useGroupStore } from '@/stores/groups'; // NUOVO: Importa store gruppi
+import { storeToRefs } from 'pinia'; // NUOVO: Per usare storeToRefs
+import type { StudentGroup } from '@/types/groups'; // NUOVO: Tipo gruppo
 import BaseButton from '@/components/common/BaseButton.vue'; // Importa BaseButton
 import StudentSelectionModal from '@/components/features/assignment/StudentSelectionModal.vue'; // Importa la modale
 
@@ -153,13 +199,19 @@ const selectedStudentIds = ref<number[]>([]); // ID studenti selezionati nel for
 
 const isStudentModalOpen = ref(false); // Stato per la modale
 
+// --- NUOVO: Stato per Gruppi ---
+const groupStore = useGroupStore();
+const { groups: availableGroups, isLoadingList: isLoadingGroups, error: groupsError } = storeToRefs(groupStore);
+const selectedGroupIds = ref<number[]>([]); // ID gruppi selezionati
+const specificTargetType = ref<'students' | 'groups'>('students'); // Target per disponibilità specifica
+
 // Usiamo reactive per l'oggetto del form
 const rewardData = reactive<RewardFormData>({
   name: '',
   description: null,
   cost_points: 0,
   type: '',
-  availability_type: 'ALL_STUDENTS', // Default
+  availability_type: 'ALL', // Default aggiornato a 'ALL'
   is_active: true,
   metadata: {},
   // available_to_specific_students non serve qui, è solo in lettura
@@ -181,8 +233,8 @@ onMounted(async () => {
       rewardId.value = null;
     }
   }
-  // Carica anche la lista studenti
-  await loadAllStudents();
+  // Carica studenti e gruppi
+  await Promise.all([loadAllStudents(), loadGroups()]);
 });
 
 const loadRewardData = async (id: number) => {
@@ -202,8 +254,17 @@ const loadRewardData = async (id: number) => {
       // Assumiamo che l'API restituisca gli ID in available_to_specific_students
       selectedStudentIds.value = fetchedReward.available_to_specific_students || [];
     } else {
-      selectedStudentIds.value = []; // Resetta se non è SPECIFIC
+      selectedStudentIds.value = [];
     }
+    // Nota: Il caricamento iniziale non imposta i gruppi selezionati
+    // perché l'API fetchRewardDetails non restituisce (ancora?) gli ID dei gruppi
+    // a cui la ricompensa è disponibile. Questa logica andrà aggiunta se/quando
+    // l'API verrà aggiornata per restituire anche `available_to_specific_groups`.
+    // Per ora, la selezione dei gruppi parte sempre vuota in modifica.
+    selectedGroupIds.value = [];
+    // Imposta il target type iniziale in base a cosa è selezionato (solo studenti per ora)
+    specificTargetType.value = selectedStudentIds.value.length > 0 ? 'students' : 'students'; // Default a students se nessuno è selezionato
+
   } catch (err: any) {
     console.error("Errore nel caricamento della ricompensa:", err);
     error.value = err.response?.data?.detail || err.message || 'Errore nel caricamento dei dati della ricompensa.';
@@ -217,13 +278,27 @@ const loadAllStudents = async () => {
     isLoadingStudents.value = true;
     studentsError.value = null;
     try {
-        allStudents.value = await fetchStudents();
+        // TODO: Verificare se getMyStudents restituisce direttamente Student[] o { data: Student[] }
+        // Se restituisce { data: Student[] }, la riga sotto dovrebbe essere:
+        // const response = await getMyStudents();
+        // allStudents.value = response.data;
+        // Per ora assumiamo restituisca direttamente Student[] come suggerito dal nome
+        // ma l'implementazione in students.ts restituisce Promise<{ data: Student[] }>
+        // Correggo per usare .data
+        const response = await getMyStudents();
+        allStudents.value = response.data;
     } catch (err: any) {
         console.error("Errore nel caricamento degli studenti:", err);
         studentsError.value = err.response?.data?.detail || err.message || 'Errore nel caricamento della lista studenti.';
     } finally {
         isLoadingStudents.value = false;
     }
+};
+
+// --- NUOVO: Funzione per caricare i gruppi ---
+const loadGroups = async () => {
+   // Usa l'azione dello store, isLoadingGroups e groupsError sono già gestiti da storeToRefs
+   await groupStore.fetchGroups();
 };
 
 // Funzione per aggiornare gli studenti selezionati dalla modale
@@ -245,25 +320,93 @@ const saveReward = async () => {
     is_active: rewardData.is_active,
     // Ometti metadata se vuoto, altrimenti invialo
     ...(rewardData.metadata && Object.keys(rewardData.metadata).length > 0 && { metadata: rewardData.metadata }),
-    // Includi specific_student_ids solo se availability_type è SPECIFIC
-    ...(rewardData.availability_type === 'SPECIFIC' && { specific_student_ids: selectedStudentIds.value }),
+    // NON includere specific_student_ids o group_ids nel payload di salvataggio base.
+    // La disponibilità specifica verrà gestita separatamente.
     // template: null, // Rimuoviamo template, è opzionale
   };
 
+  // Rimuovi specific_student_ids se presente (per sicurezza)
+  delete payload.specific_student_ids;
+
   try {
+    let savedRewardId: number | null = null;
+
     if (isEditing.value && rewardId.value) {
       await updateReward(rewardId.value, payload);
+      savedRewardId = rewardId.value;
+      // TODO: Implementare logica di revoca/aggiornamento disponibilità esistenti se necessario
+      // Per ora, aggiungiamo solo le nuove selezioni senza rimuovere le vecchie in caso di modifica.
+      // Una logica più completa richiederebbe di confrontare le selezioni precedenti e attuali.
+      console.warn("Modifica ricompensa: la logica di aggiornamento della disponibilità specifica non rimuove le vecchie assegnazioni.");
+
     } else {
-      // Assicurati che i campi obbligatori per la creazione siano presenti
+      // Creazione
       if (!payload.type) {
           throw new Error("Il tipo di ricompensa è obbligatorio.");
       }
-      await createReward(payload as RewardPayload); // Cast a RewardPayload completo
+      const createdReward = await createReward(payload as RewardPayload); // Ottieni la ricompensa creata
+      savedRewardId = createdReward.id; // Salva l'ID della nuova ricompensa
     }
-    router.push({ name: 'rewards' }); // Torna alla lista
+
+    // --- Gestione Disponibilità Specifica ---
+    if (savedRewardId && rewardData.availability_type === 'SPECIFIC') {
+        console.log(`Gestione disponibilità specifica per ricompensa ID: ${savedRewardId}, tipo target: ${specificTargetType.value}`);
+
+        // TODO: Aggiungere logica per revocare disponibilità precedenti se necessario (in modifica)
+
+        const availabilityPromises: Promise<any>[] = [];
+
+        if (specificTargetType.value === 'students' && selectedStudentIds.value.length > 0) {
+            console.log(`Rendo disponibile per studenti: ${selectedStudentIds.value.join(', ')}`);
+            selectedStudentIds.value.forEach(studentId => {
+                availabilityPromises.push(
+                    makeRewardAvailable(savedRewardId!, { student_id: studentId }) // Ripristinato: student -> student_id
+                        .catch(err => {
+                            console.error(`Errore rendendo disponibile ricompensa ${savedRewardId} per studente ${studentId}:`, err);
+                            // Accumula errore parziale? Per ora logga e continua.
+                            error.value = (error.value ? error.value + '; ' : '') + `Errore assegnando a studente ${studentId}`;
+                        })
+                );
+            });
+        } else if (specificTargetType.value === 'groups' && selectedGroupIds.value.length > 0) {
+            console.log(`Rendo disponibile per gruppi: ${selectedGroupIds.value.join(', ')}`);
+            selectedGroupIds.value.forEach(groupId => {
+                availabilityPromises.push(
+                    makeRewardAvailable(savedRewardId!, { group_id: groupId }) // Ripristinato: group -> group_id
+                         .catch(err => {
+                            console.error(`Errore rendendo disponibile ricompensa ${savedRewardId} per gruppo ${groupId}:`, err);
+                            // Accumula errore parziale? Per ora logga e continua.
+                             error.value = (error.value ? error.value + '; ' : '') + `Errore assegnando a gruppo ${groupId}`;
+                        })
+                );
+            });
+        }
+
+        if (availabilityPromises.length > 0) {
+            console.log(`Eseguo ${availabilityPromises.length} chiamate per la disponibilità...`);
+            await Promise.all(availabilityPromises);
+            console.log("Chiamate disponibilità completate.");
+        }
+    } else if (savedRewardId && rewardData.availability_type === 'ALL') {
+         // TODO: Se si passa da SPECIFIC a ALL, bisognerebbe revocare tutte le disponibilità specifiche esistenti.
+         console.warn("Modifica ricompensa: la logica di aggiornamento non revoca le disponibilità specifiche precedenti quando si passa ad 'ALL'.");
+    }
+    // --- Fine Gestione Disponibilità Specifica ---
+
+
+    // Se non ci sono stati errori parziali nella gestione disponibilità, reindirizza
+    if (!error.value) {
+        router.push({ name: 'rewards' }); // Torna alla lista
+    } else {
+        // Se ci sono stati errori parziali, non reindirizzare ma mostrali
+        console.error("Errori parziali durante il salvataggio della disponibilità:", error.value);
+        // L'errore è già impostato nel ref 'error', verrà mostrato nel template
+    }
+
   } catch (err: any) {
-    console.error("Errore durante il salvataggio della ricompensa:", err);
-    // Tenta di estrarre messaggi di errore specifici per campo
+    // Errore durante createReward o updateReward (errore principale)
+    console.error("Errore durante il salvataggio della ricompensa (principale):", err);
+    // Tenta di estrarre messaggi di errore specifici per campo dal payload base
     if (err.response?.data && typeof err.response.data === 'object') {
         console.error("Dettagli errore API:", err.response.data);
         // Cerca errori specifici (es. per specific_student_ids)
@@ -281,6 +424,25 @@ const saveReward = async () => {
 const cancel = () => {
   router.push({ name: 'rewards' }); // Torna alla lista
 };
+
+// --- Watchers ---
+// Resetta selezioni specifiche quando cambia il tipo di disponibilità
+watch(() => rewardData.availability_type, (newType) => {
+  if (newType !== 'SPECIFIC') {
+    selectedStudentIds.value = [];
+    selectedGroupIds.value = [];
+    specificTargetType.value = 'students'; // Resetta anche il tipo di target
+  }
+});
+
+// Resetta l'altra selezione quando cambia il tipo di target specifico
+watch(specificTargetType, (newTarget) => {
+    if (newTarget === 'students') {
+        selectedGroupIds.value = [];
+    } else if (newTarget === 'groups') {
+        selectedStudentIds.value = [];
+    }
+});
 
 </script>
 

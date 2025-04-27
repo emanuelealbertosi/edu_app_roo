@@ -70,64 +70,64 @@ const handleLogout = () => {
     <!-- Sidebar Desktop (visibile da md in su) -->
     <aside
       v-if="authStore.isAuthenticated"
-      class="bg-indigo-900 text-white hidden md:flex flex-col w-64 transition-all duration-300 ease-in-out"
+      class="bg-indigo-900 text-white hidden md:flex flex-col w-20 group hover:w-64 transition-all duration-300 ease-in-out overflow-hidden"
       aria-label="Sidebar"
     >
       <!-- Logo/Titolo App -->
        <div class="h-16 flex items-center justify-center flex-shrink-0 px-4">
-         <span class="text-xl font-semibold">Lezioni App</span>
+         <span class="text-xl font-semibold opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Lezioni App</span>
        </div>
 
       <!-- Navigazione Desktop -->
-      <nav class="flex-grow p-4 overflow-y-auto">
+      <nav class="flex-grow p-4 overflow-y-auto overflow-x-hidden">
         <ul>
           <!-- Dashboard -->
           <li class="mb-3">
             <router-link :to="{ name: 'dashboard' }" class="flex items-center p-2 rounded hover:bg-indigo-700">
               <HomeIcon class="h-6 w-6 flex-shrink-0" />
-              <span class="ml-3">Dashboard</span>
+              <span class="ml-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Dashboard</span>
             </router-link>
           </li>
           <!-- Materie (Admin/Teacher) -->
           <li v-if="authStore.userRole === 'TEACHER' || authStore.userRole === 'Admin'" class="mb-3">
             <router-link :to="{ name: 'subjects' }" class="flex items-center p-2 rounded hover:bg-indigo-700">
               <BookOpenIcon class="h-6 w-6 flex-shrink-0" />
-              <span class="ml-3">Materie</span>
+              <span class="ml-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Materie</span>
             </router-link>
           </li>
           <!-- Argomenti (Admin/Teacher) -->
           <li v-if="authStore.userRole === 'TEACHER' || authStore.userRole === 'Admin'" class="mb-3">
             <router-link :to="{ name: 'topics' }" class="flex items-center p-2 rounded hover:bg-indigo-700">
               <AcademicCapIcon class="h-6 w-6 flex-shrink-0" />
-              <span class="ml-3">Argomenti</span>
+              <span class="ml-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Argomenti</span>
             </router-link>
           </li>
           <!-- Gestione Lezioni (Teacher) -->
            <li v-if="authStore.userRole === 'TEACHER'" class="mb-3">
              <router-link :to="{ name: 'teacher-lessons' }" class="flex items-center p-2 rounded hover:bg-indigo-700">
                <CogIcon class="h-6 w-6 flex-shrink-0" />
-               <span class="ml-3">Gestione Lezioni</span>
+               <span class="ml-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Gestione Lezioni</span>
              </router-link>
            </li>
            <!-- Lezioni Assegnate (Studente) -->
            <li v-if="authStore.userRole === 'Studente'" class="mb-3">
              <router-link :to="{ name: 'assigned-lessons' }" class="flex items-center p-2 rounded hover:bg-indigo-700">
                <CogIcon class="h-6 w-6 flex-shrink-0" />
-               <span class="ml-3">Lezioni Assegnate</span>
+               <span class="ml-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Lezioni Assegnate</span>
              </router-link>
            </li>
            <!-- Link Quiz Studente -->
             <li v-if="authStore.userRole === 'Studente'" class="mb-3">
               <a :href="studentAppUrl" class="flex items-center p-2 rounded hover:bg-indigo-700">
                 <QuestionMarkCircleIcon class="h-6 w-6 flex-shrink-0" />
-                <span class="ml-3">Quiz</span>
+                <span class="ml-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Quiz</span>
               </a>
             </li>
              <!-- Link Gestione Quiz TEACHER/Admin -->
              <li v-if="authStore.userRole === 'TEACHER' || authStore.userRole === 'Admin'" class="mb-3">
                <a :href="teacherAppUrl" class="flex items-center p-2 rounded hover:bg-indigo-700">
                  <QuestionMarkCircleIcon class="h-6 w-6 flex-shrink-0" />
-                 <span class="ml-3">Gestione Quiz</span>
+                 <span class="ml-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Gestione Quiz</span>
                </a>
              </li>
         </ul>
@@ -137,7 +137,7 @@ const handleLogout = () => {
        <div class="p-4 mt-auto border-t border-indigo-700 flex-shrink-0">
          <button @click="handleLogout" class="w-full flex items-center p-2 rounded hover:bg-red-700">
            <ArrowLeftOnRectangleIcon class="h-6 w-6 flex-shrink-0" />
-           <span class="ml-3">Logout</span>
+           <span class="ml-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Logout</span>
          </button>
        </div>
     </aside>

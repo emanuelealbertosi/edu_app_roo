@@ -42,11 +42,17 @@ export interface Student {
 
 export interface LessonAssignment {
   id: number;
-  lesson: number; // ID Lezione
-  lesson_details?: Lesson; // Opzionale - Attenzione: riferimento circolare potenziale se non gestito con cura
-  student: number; // ID Studente
-  student_details?: Student; // Opzionale
-  assigned_by: UserSummary; // Docente che ha assegnato
+  // Modificato: lesson è un oggetto annidato dal serializer, non solo l'ID
+  lesson: {
+      id: number;
+      title?: string; // Aggiungiamo almeno il titolo se presente nel serializer annidato
+      // Aggiungere altri campi se il LessonSerializer annidato li include
+  };
+  // lesson_details?: Lesson; // Rimosso, usiamo l'oggetto lesson annidato
+  student: Student | null; // Modificato per usare l'oggetto Student o null
+  group: { id: number; name: string } | null; // Aggiunto tipo per gruppo annidato
+  // student_details?: Student; // Rimosso, usiamo l'oggetto student annidato
+  // assigned_by: UserSummary; // Campo rimosso dal backend
   assigned_at: string;
   viewed_at: string | null;
 }
@@ -83,7 +89,8 @@ export interface LessonContent {
 
 // Tipo per il risultato dell'operazione di assegnazione multipla
 export interface AssignmentResult {
-    studentId: number;
+    targetId: number; // ID dello studente o del gruppo
+    targetType: 'student' | 'group'; // Tipo di target
     success: boolean;
     error?: string; // Messaggio di errore in caso di fallimento
 }

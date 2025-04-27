@@ -10,7 +10,7 @@ from ..models import Lesson, LessonContent, Topic
 # from apps.users.models import Student # Verificare path
 from ..serializers import (
     LessonSerializer, LessonWriteSerializer, LessonContentSerializer,
-    BulkLessonAssignSerializer, LessonAssignmentSerializer
+    LessonAssignmentSerializer, AssignLessonSerializer # Aggiunto AssignLessonSerializer
 )
 from ..permissions import (
     IsTeacherOwner, IsAdminOrTeacherOwner, IsAssignedStudentOrTeacherOwner,
@@ -20,8 +20,10 @@ from ..permissions import (
 from ..models import LessonAssignment
 try:
     from apps.users.models import Student
+    from apps.student_groups.models import StudentGroup # Aggiunto import StudentGroup
 except ImportError:
-    Student = None # Gestiremo il caso in cui Student non sia importabile
+    Student = None
+    StudentGroup = None # Gestiremo il caso in cui non siano importabili
 
 class LessonViewSet(viewsets.ModelViewSet):
     """
@@ -122,51 +124,85 @@ class LessonViewSet(viewsets.ModelViewSet):
              raise NotFound(f"Argomento con ID {topic_id} non trovato.")
         serializer.save(creator=self.request.user)
 
-    # Azione custom per assegnare la lezione a studenti
-    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated, IsTeacherOwner], url_path='assign')
-    def assign_students(self, request, pk=None):
+    # --- Azione per Assegnazione a Studenti/Gruppi ---
+    @action(detail=True, methods=['post'], url_path='assign', permission_classes=[permissions.IsAuthenticated, IsTeacherOwner])
+    def assign(self, request, pk=None):
         """
-        Assegna questa lezione a una lista di ID studenti forniti nel body.
-        Body atteso: { "student_ids": [1, 2, 3] }
+        Assegna questa Lezione (pk) a una lista di Studenti e/o Gruppi.
+        Richiede 'student_ids' (lista di ID) e/o 'group_ids' (lista di ID) nel corpo della richiesta.
+        Restituisce un riepilogo delle assegnazioni create, già esistenti o fallite.
         """
-        lesson = self.get_object() # Ottiene la lezione, verifica permessi oggetto
-        serializer = BulkLessonAssignSerializer(data=request.data)
+        lesson = self.get_object() # Verifica ownership e recupera lezione
+        student_ids = request.data.get('student_ids', [])
+        group_ids = request.data.get('group_ids', [])
 
-        if serializer.is_valid():
-            student_ids = serializer.validated_data['student_ids']
-            if not Student:
-                 return Response({"detail": "Modello Studente non configurato correttamente."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        if not isinstance(student_ids, list) or not all(isinstance(sid, int) for sid in student_ids):
+            return Response({'detail': "'student_ids' deve essere una lista di interi."}, status=status.HTTP_400_BAD_REQUEST)
+        if not isinstance(group_ids, list) or not all(isinstance(gid, int) for gid in group_ids):
+            return Response({'detail': "'group_ids' deve essere una lista di interi."}, status=status.HTTP_400_BAD_REQUEST)
 
-            students = Student.objects.filter(id__in=student_ids)
-            found_ids = students.values_list('id', flat=True)
-            not_found_ids = list(set(student_ids) - set(found_ids))
+        if not student_ids and not group_ids:
+            return Response({'detail': "È necessario fornire almeno uno 'student_ids' o 'group_ids'."}, status=status.HTTP_400_BAD_REQUEST)
 
-            if not_found_ids:
-                return Response({"detail": f"Studenti non trovati con ID: {not_found_ids}"}, status=status.HTTP_400_BAD_REQUEST)
+        # Validazione ID e Ownership
+        valid_students = []
+        invalid_student_ids = []
+        if Student and student_ids:
+            students = Student.objects.filter(id__in=student_ids, user_id=request.user.id) # Solo studenti del docente
+            valid_students = list(students)
+            valid_student_ids = {s.id for s in valid_students}
+            invalid_student_ids = [sid for sid in student_ids if sid not in valid_student_ids]
 
-            assignments = []
-            skipped_students = []
-            for student in students:
-                # Crea l'assegnazione solo se non esiste già
+        valid_groups = []
+        invalid_group_ids = []
+        if StudentGroup and group_ids:
+            groups = StudentGroup.objects.filter(id__in=group_ids, teacher=request.user) # Solo gruppi del docente
+            valid_groups = list(groups)
+            valid_group_ids = {g.id for g in valid_groups}
+            invalid_group_ids = [gid for gid in group_ids if gid not in valid_group_ids]
+
+        # Costruzione risultati
+        results = {
+            "student_assignments": {"created": [], "already_assigned": [], "failed": invalid_student_ids},
+            "group_assignments": {"created": [], "already_assigned": [], "failed": invalid_group_ids}
+        }
+
+        # Assegnazione Studenti
+        for student in valid_students:
+            try:
                 assignment, created = LessonAssignment.objects.get_or_create(
                     lesson=lesson,
                     student=student,
-                    defaults={'assigned_by': request.user}
+                    defaults={'group': None} # Assicura che group sia None se si crea per studente
                 )
                 if created:
-                    assignments.append(assignment)
+                    results["student_assignments"]["created"].append({'student': student.id})
                 else:
-                    skipped_students.append(student.id) # Studente già assegnato
+                    results["student_assignments"]["already_assigned"].append(student.id)
+            except Exception as e:
+                 # Loggare l'errore specifico se necessario
+                 results["student_assignments"]["failed"].append(student.id) # Aggiunge a falliti se c'è errore in get_or_create
 
-            assignment_serializer = LessonAssignmentSerializer(assignments, many=True)
-            response_data = {
-                "success": f"{len(assignments)} studenti assegnati con successo.",
-                "already_assigned": skipped_students,
-                "assignments": assignment_serializer.data
-            }
-            return Response(response_data, status=status.HTTP_201_CREATED if assignments else status.HTTP_200_OK)
-        else:
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        # Assegnazione Gruppi
+        for group in valid_groups:
+             try:
+                assignment, created = LessonAssignment.objects.get_or_create(
+                    lesson=lesson,
+                    group=group,
+                    defaults={'student': None} # Assicura che student sia None se si crea per gruppo
+                )
+                if created:
+                    results["group_assignments"]["created"].append({'group': group.id})
+                else:
+                    results["group_assignments"]["already_assigned"].append(group.id)
+             except Exception as e:
+                 results["group_assignments"]["failed"].append(group.id)
+
+        # Determina lo status code finale
+        final_status = status.HTTP_201_CREATED if results["student_assignments"]["created"] or results["group_assignments"]["created"] else status.HTTP_200_OK
+
+        return Response(results, status=final_status)
+
 
 # Rimosso @action list_contents perché gestito dal LessonContentViewSet annidato
 

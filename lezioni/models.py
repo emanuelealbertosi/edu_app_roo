@@ -95,22 +95,66 @@ class LessonContent(models.Model):
     def __str__(self):
          return f"Contenuto per '{self.lesson.title}' ({self.get_content_type_display()}) - Ordine: {self.order}"
 
+from django.db.models import Q, CheckConstraint # Aggiungere import
+
 class LessonAssignment(models.Model):
-    lesson = models.ForeignKey(Lesson, on_delete=models.CASCADE, related_name='assignments')
+    """ Modello che rappresenta l'assegnazione di una Lezione a uno Studente o a un Gruppo. """
+    lesson = models.ForeignKey(
+        Lesson,
+        on_delete=models.CASCADE,
+        related_name='assignments',
+        verbose_name="Lezione Assegnata"
+    )
     # Assicurarsi che l'import di Student sia corretto
-    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='lesson_assignments')
-    # Docente che ha assegnato
-    assigned_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='made_lesson_assignments')
-    assigned_at = models.DateTimeField(auto_now_add=True)
+    student = models.ForeignKey(
+        Student,
+        on_delete=models.CASCADE,
+        related_name='lesson_assignments',
+        verbose_name="Studente Assegnato (Individuale)",
+        null=True, # Può essere nullo se assegnato a gruppo
+        blank=True
+    )
+    group = models.ForeignKey(
+        'student_groups.StudentGroup', # Riferimento all'app creata
+        on_delete=models.CASCADE,
+        related_name='lesson_assignments',
+        verbose_name="Gruppo Assegnato",
+        null=True, # Può essere nullo se assegnato a studente
+        blank=True
+    )
+    # Rimosso assigned_by per semplicità iniziale
+    assigned_at = models.DateTimeField(auto_now_add=True, verbose_name="Data Assegnazione")
     viewed_at = models.DateTimeField(null=True, blank=True, help_text="Data e ora prima visualizzazione da parte dello studente")
 
     class Meta:
-        unique_together = ('lesson', 'student') # Uno studente può essere assegnato a una lezione solo una volta
-        ordering = ['-assigned_at']
         verbose_name = "Assegnazione Lezione"
         verbose_name_plural = "Assegnazioni Lezioni"
+        # Assicura che una lezione sia assegnata o a uno studente specifico o a un gruppo specifico una sola volta
+        unique_together = (
+            ('lesson', 'student'), # Una lezione può essere assegnata una sola volta a uno studente specifico (se student non è null)
+            ('lesson', 'group'),   # Una lezione può essere assegnata una sola volta a un gruppo specifico (se group non è null)
+        )
+        ordering = ['lesson', 'group', 'student']
+        constraints = [
+            CheckConstraint(
+                check=Q(student__isnull=False) | Q(group__isnull=False),
+                name='lesson_assignment_target_not_null',
+                violation_error_message='L\'assegnazione della lezione deve avere uno studente o un gruppo.'
+            ),
+            CheckConstraint(
+                check=~(Q(student__isnull=False) & Q(group__isnull=False)),
+                name='lesson_assignment_target_exclusive',
+                violation_error_message='L\'assegnazione della lezione non può avere sia uno studente che un gruppo.'
+            )
+        ]
 
     def __str__(self):
-        # Tentativo di ottenere un nome rappresentativo per lo studente
-        student_name = getattr(self.student, 'unique_identifier', getattr(self.student, 'username', self.student.id))
-        return f"'{self.lesson.title}' assegnata a {student_name}"
+        if self.student:
+            # Tentativo di ottenere un nome rappresentativo per lo studente
+            student_name = getattr(self.student, 'unique_identifier', getattr(self.student, 'username', self.student.id))
+            target = f"Studente: {student_name}"
+        elif self.group:
+            target = f"Gruppo: {self.group.name}"
+        else:
+            target = "Nessuna destinazione" # Should not happen due to constraints
+        return f"Lezione '{self.lesson.title}' assegnata a {target}"

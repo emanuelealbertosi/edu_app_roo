@@ -3,7 +3,7 @@ from django.db import models # Import models
 from django_json_widget.widgets import JSONEditorWidget # Import the widget
 from .models import (
     Wallet, PointTransaction, RewardTemplate, Reward,
-    RewardStudentSpecificAvailability, RewardPurchase,
+    RewardAvailability, RewardPurchase, # Sostituito RewardStudentSpecificAvailability con RewardAvailability
     Badge, EarnedBadge # Aggiunto Badge e EarnedBadge
 )
 
@@ -21,11 +21,19 @@ class PointTransactionAdmin(admin.ModelAdmin):
     search_fields = ('wallet__student__first_name', 'wallet__student__last_name', 'reason')
     readonly_fields = ('wallet', 'points_change', 'reason', 'timestamp') # Solo visualizzazione
 
-# Inline per mostrare la disponibilità specifica direttamente nella Reward
-class RewardStudentSpecificAvailabilityInline(admin.TabularInline):
-    model = RewardStudentSpecificAvailability
+# Rimosso RewardStudentSpecificAvailabilityInline
+
+# Inline per mostrare/gestire la disponibilità specifica (studenti/gruppi) direttamente nella Reward
+class RewardAvailabilityInline(admin.TabularInline):
+    model = RewardAvailability
     extra = 1 # Numero di righe vuote da mostrare
-    autocomplete_fields = ['student'] # Rende più facile selezionare studenti
+    # Aggiungere autocomplete per student e group se si hanno molti record
+    autocomplete_fields = ['student', 'group']
+    verbose_name = "Disponibilità Manuale (Studente/Gruppo)"
+    verbose_name_plural = "Disponibilità Manuali (Studenti/Gruppi)"
+    # Mostra solo i campi rilevanti
+    fields = ('student', 'group', 'made_available_at')
+    readonly_fields = ('made_available_at',)
 
 @admin.register(Reward)
 class RewardAdmin(admin.ModelAdmin):
@@ -33,7 +41,7 @@ class RewardAdmin(admin.ModelAdmin):
     list_filter = ('type', 'availability_type', 'is_active', 'teacher')
     search_fields = ('name', 'description', 'teacher__username')
     autocomplete_fields = ['teacher', 'template'] # Se si hanno molti template/docenti
-    inlines = [RewardStudentSpecificAvailabilityInline] # Mostra la M2M inline
+    inlines = [RewardAvailabilityInline] # Usa la nuova inline
     formfield_overrides = {
         models.JSONField: {'widget': JSONEditorWidget},
     }
@@ -70,7 +78,7 @@ class RewardPurchaseAdmin(admin.ModelAdmin):
     # mark_delivered_action.short_description = "Mark selected purchases as delivered"
     # actions = [mark_delivered_action]
 
-# Non registriamo RewardStudentSpecificAvailability direttamente, è gestito dall'inline.
+# Non registriamo RewardAvailability direttamente, è gestito dall'inline.
 
 @admin.register(Badge)
 class BadgeAdmin(admin.ModelAdmin):

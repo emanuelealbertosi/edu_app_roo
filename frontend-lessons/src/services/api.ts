@@ -72,3 +72,55 @@ apiClient.interceptors.response.use(
 */
 
 export default apiClient;
+
+// --- Funzioni Specifiche per Lezioni ---
+
+/**
+ * Assegna una lezione a studenti e/o gruppi specifici.
+ * @param lessonId L'ID della lezione da assegnare.
+ * @param studentIds Array degli ID degli studenti a cui assegnare la lezione.
+ * @param groupIds Array degli ID dei gruppi a cui assegnare la lezione.
+ * @returns La risposta dell'API (solitamente conferma o dettagli dell'assegnazione).
+ */
+export const assignLesson = async (lessonId: number, studentIds: number[], groupIds: number[]) => {
+  console.log(`[api.ts] Assigning lesson ${lessonId} to students: [${studentIds.join(', ')}] and groups: [${groupIds.join(', ')}]`);
+  try {
+    // Corretto URL: aggiunto /lessons/ prima dell'ID
+    const response = await apiClient.post(`/lezioni/lessons/${lessonId}/assign/`, {
+      student_ids: studentIds,
+      group_ids: groupIds,
+    });
+    console.log(`[api.ts] Lesson ${lessonId} assignment successful:`, response.data);
+    return response.data;
+  } catch (error) {
+    console.error(`[api.ts] Error assigning lesson ${lessonId}:`, error);
+    // Potrebbe essere utile rilanciare l'errore o gestirlo in modo più specifico
+    // a seconda di come viene usato nello store/componente.
+    throw error;
+  }
+};
+
+// Aggiungere qui altre funzioni API specifiche per lezioni se necessario
+// es. revokeLesson, getLessonDetails, ecc.
+
+// --- Funzioni Specifiche per Gruppi ---
+
+/**
+ * Recupera l'elenco dei gruppi del docente autenticato.
+ * @returns Un array di oggetti StudentGroup.
+ */
+export const fetchGroups = async () => {
+  console.log(`[api.ts] Fetching groups...`);
+  try {
+    const response = await apiClient.get('/groups/'); // Assumendo endpoint standard
+    console.log(`[api.ts] Groups fetched successfully:`, response.data);
+    return response.data; // Assumendo che l'API restituisca direttamente l'array
+  } catch (error) {
+    console.error(`[api.ts] Error fetching groups:`, error);
+    throw error;
+  }
+};
+
+
+// Sarebbe opportuno spostare anche le chiamate API esistenti (implicite negli store)
+// qui per centralizzare la logica API.

@@ -315,3 +315,32 @@ export const removeQuizFromPathway = async (pathwayId: number, pathwayQuizId: nu
         throw error; // Rilancia l'errore per gestirlo nel componente Vue
     }
 };
+
+
+// --- Assegnazione a Gruppi ---
+
+// Importa l'interfaccia di risposta generica dall'API dei quiz
+import type { GroupAssignmentResponse } from './quizzes';
+
+// Interfaccia per i dati di assegnazione Pathway Template a Gruppo
+export interface AssignPathwayTemplateToGroupPayload {
+    group: number; // ID del gruppo
+    // Non c'è data di scadenza per i percorsi
+}
+
+
+/**
+ * Assegna un template percorso a un gruppo.
+ * @param templateId L'ID del template percorso da assegnare.
+ * @param payload Contiene l'ID del gruppo.
+ */
+export const assignPathwayTemplateToGroup = async (templateId: number, payload: AssignPathwayTemplateToGroupPayload): Promise<GroupAssignmentResponse> => {
+    try {
+        // Ipotizziamo un'azione 'assign' sul template
+        const response: AxiosResponse<GroupAssignmentResponse> = await apiClient.post(`/education/pathway-templates/${templateId}/assign-group/`, payload);
+        return response.data;
+    } catch (error) {
+        console.error(`Errore durante l'assegnazione del template percorso ${templateId} al gruppo ${payload.group}:`, error);
+        throw error;
+    }
+};

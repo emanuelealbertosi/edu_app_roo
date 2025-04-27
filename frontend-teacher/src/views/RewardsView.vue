@@ -21,7 +21,8 @@
             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider">Nome</th> <!-- Stile th aggiornato -->
             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider">Descrizione</th>
             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider">Costo (Punti)</th>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider">Stato</th> <!-- Modificato da Disponibilità -->
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider">Stato</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider">Disponibilità</th> <!-- NUOVA COLONNA -->
             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider">Azioni</th>
           </tr>
         </thead>
@@ -35,9 +36,20 @@
                 {{ reward.is_active ? 'Attiva' : 'Non Attiva' }}
               </span>
             </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-neutral-darker"> <!-- NUOVA CELLA -->
+               {{ reward.availability_type === 'ALL' ? 'Tutti' : 'Specifica' }}
+            </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2"> <!-- Spazio ok -->
-              <BaseButton variant="warning" size="sm" @click="editReward(reward.id)">Modifica</BaseButton> <!-- Usa BaseButton -->
-              <BaseButton variant="danger" size="sm" @click="deleteReward(reward.id)">Elimina</BaseButton> <!-- Usa BaseButton -->
+              <BaseButton variant="warning" size="sm" @click="editReward(reward.id)">Modifica</BaseButton>
+              <BaseButton
+                  v-if="reward.availability_type === 'SPECIFIC'"
+                  variant="info"
+                  size="sm"
+                  @click="openAvailabilityModal(reward)"
+              > <!-- NUOVO PULSANTE -->
+                  Disponibilità
+              </BaseButton>
+              <BaseButton variant="danger" size="sm" @click="deleteReward(reward.id)">Elimina</BaseButton>
             </td>
           </tr>
         </tbody>
@@ -52,13 +64,19 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { fetchRewards, deleteRewardApi, type Reward } from '@/api/rewards'; // Importa API e tipo
-import BaseButton from '@/components/common/BaseButton.vue'; // Importa BaseButton
+import { fetchRewards, deleteRewardApi, type Reward } from '@/api/rewards';
+import BaseButton from '@/components/common/BaseButton.vue';
+// Importa la modale
+import RewardAvailabilityModal from '@/components/features/rewards/RewardAvailabilityModal.vue'; // RIMOSSO COMMENTO
 
 const router = useRouter();
 const rewards = ref<Reward[]>([]);
 const isLoading = ref(false);
 const error = ref<string | null>(null);
+
+// Stato per la modale di disponibilità
+const isAvailabilityModalOpen = ref(false);
+const selectedRewardForAvailability = ref<Reward | null>(null);
 
 const loadRewards = async () => {
   isLoading.value = true;
@@ -100,8 +118,48 @@ const deleteReward = async (id: number) => {
     // Attenzione: potrebbe essere un ProtectedError (409) se già acquistata
   }
 };
+
+// Funzione per aprire la modale di gestione disponibilità
+const openAvailabilityModal = (reward: Reward) => {
+  selectedRewardForAvailability.value = reward;
+  isAvailabilityModalOpen.value = true;
+  console.log("Apertura modale disponibilità per:", reward.id); // Placeholder
+};
+
+// Funzione per chiudere la modale
+const closeAvailabilityModal = () => {
+  isAvailabilityModalOpen.value = false;
+  selectedRewardForAvailability.value = null;
+};
+
+// Funzione chiamata dalla modale dopo aver salvato le modifiche (per ricaricare i dati se necessario)
+const handleAvailabilityUpdate = () => {
+   closeAvailabilityModal();
+   // Potrebbe essere utile ricaricare i dati della ricompensa specifica o l'intera lista
+   // loadRewards(); // Opzionale: ricarica tutta la lista
+   console.log("Disponibilità aggiornata, chiusura modale."); // Placeholder
+};
+
 </script>
+
+<!-- Aggiungi il componente modale qui quando sarà creato -->
+<!--
+<RewardAvailabilityModal
+   :show="isAvailabilityModalOpen"
+   :reward="selectedRewardForAvailability"
+   @close="closeAvailabilityModal"
+   @updated="handleAvailabilityUpdate"
+/>
+
 
 <style scoped>
 /* Stili specifici rimossi in favore di Tailwind */
 </style>
+
+<!-- Modale per Gestire Disponibilità -->
+<RewardAvailabilityModal
+   :show="isAvailabilityModalOpen"
+   :reward="selectedRewardForAvailability"
+   @close="closeAvailabilityModal"
+   @updated="handleAvailabilityUpdate"
+/>

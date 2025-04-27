@@ -103,6 +103,14 @@ class StudentSerializer(serializers.ModelSerializer):
     # Questo di solito viene gestito nella ViewSet.
 
 
+class StudentBasicSerializer(serializers.ModelSerializer):
+    """ Serializer minimale per lo studente, usato per rappresentazioni annidate. """
+    class Meta:
+        model = Student
+        fields = ['id', 'student_code', 'first_name', 'last_name', 'full_name']
+        read_only_fields = fields # Sola lettura in questo contesto
+
+
 # --- Serializer per Sommario Progressi Studente ---
 
 class StudentProgressSummarySerializer(serializers.Serializer):
@@ -196,10 +204,12 @@ class StudentRegistrationSerializer(serializers.Serializer):
     def create(self, validated_data):
         """
         Crea il nuovo studente, lo associa al docente del token,
-        imposta il PIN, crea il Wallet e marca il token come usato.
+        imposta il PIN, crea il Wallet, marca il token come usato
+        e aggiunge lo studente al gruppo di origine del token (se presente).
         """
         token_instance = self.context['token_instance']
         teacher = token_instance.teacher
+        source_group = token_instance.source_group # Ottieni il gruppo di origine (può essere None)
 
         # Genera un codice studente univoco (esempio semplice, potrebbe essere migliorato)
         base_code = f"{validated_data['first_name'][:2]}{validated_data['last_name'][:2]}".lower()
@@ -222,6 +232,21 @@ class StudentRegistrationSerializer(serializers.Serializer):
 
         # Non creare il Wallet qui, viene creato automaticamente dal segnale post_save
         # Wallet.objects.create(student=student)
+
+        # Aggiungi lo studente al gruppo di origine, se specificato nel token
+        if source_group:
+            from apps.student_groups.models import StudentGroupMembership # Importa qui per evitare dipendenze circolari
+            try:
+                StudentGroupMembership.objects.create(group=source_group, student=student)
+                # Log o gestione successo opzionale
+            except Exception as e:
+                # Logga l'errore ma non interrompere la registrazione
+                # Potrebbe accadere se lo studente è già nel gruppo per qualche motivo? (get_or_create sarebbe più sicuro)
+                # O se ci sono altri vincoli.
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.error(f"Errore durante l'aggiunta automatica dello studente {student.id} al gruppo {source_group.id} dopo registrazione con token {token_instance.token}: {e}", exc_info=True)
+
 
         # Marca il token come usato
         token_instance.used_at = timezone.now()

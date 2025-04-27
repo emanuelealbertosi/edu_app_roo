@@ -1054,85 +1054,126 @@ class PathwayProgress(models.Model):
 
 
 class QuizAssignment(models.Model):
-    """ Modello che rappresenta l'assegnazione di un Quiz a uno Studente. """
+    """ Modello che rappresenta l'assegnazione di un Quiz a uno Studente o a un Gruppo. """
     quiz = models.ForeignKey(
         Quiz,
         on_delete=models.CASCADE,
         related_name='assignments',
-        verbose_name=_('Quiz')
+        verbose_name=_('Quiz Assegnato')
     )
     student = models.ForeignKey(
         Student,
         on_delete=models.CASCADE,
         related_name='quiz_assignments',
-        verbose_name=_('Student')
+        verbose_name=_('Studente Assegnato (Individuale)'),
+        null=True, # Può essere nullo se assegnato a gruppo
+        blank=True
     )
-    assigned_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL, # Mantiene l'assegnazione se chi l'ha assegnato viene eliminato
-        null=True,
-        related_name='assigned_quizzes',
-        limit_choices_to=Q(role=UserRole.TEACHER) | Q(role=UserRole.ADMIN), # Docente o Admin
-        verbose_name=_('Assigned By')
+    group = models.ForeignKey(
+        'student_groups.StudentGroup', # Riferimento all'app creata
+        on_delete=models.CASCADE,
+        related_name='quiz_assignments',
+        verbose_name=_('Gruppo Assegnato'),
+        null=True, # Può essere nullo se assegnato a studente
+        blank=True
     )
-    assigned_at = models.DateTimeField(_('Assigned At'), auto_now_add=True)
+    # Rimosso assigned_by per semplicità iniziale, può essere aggiunto se necessario
+    # Manteniamo due_date se era già presente
     due_date = models.DateTimeField(_('Due Date'), null=True, blank=True)
-    # Potremmo aggiungere uno stato (es. 'pending', 'completed', 'overdue') se necessario
+    assigned_at = models.DateTimeField(_('Data Assegnazione'), auto_now_add=True)
 
     class Meta:
-        verbose_name = _('Quiz Assignment')
-        verbose_name_plural = _('Quiz Assignments')
-        ordering = ['student', 'assigned_at']
-        unique_together = ('quiz', 'student') # Uno studente può essere assegnato allo stesso quiz una sola volta
+        verbose_name = _('Assegnazione Quiz')
+        verbose_name_plural = _('Assegnazioni Quiz')
+        # Assicura che un quiz sia assegnato o a uno studente specifico o a un gruppo specifico una sola volta
+        unique_together = (
+            ('quiz', 'student'), # Un quiz può essere assegnato una sola volta a uno studente specifico (se student non è null)
+            ('quiz', 'group'),   # Un quiz può essere assegnato una sola volta a un gruppo specifico (se group non è null)
+        )
+        ordering = ['quiz', 'group', 'student']
+        constraints = [
+            models.CheckConstraint(
+                check=models.Q(student__isnull=False) | models.Q(group__isnull=False),
+                name='quiz_assignment_target_not_null',
+                violation_error_message=_('L\'assegnazione del quiz deve avere uno studente o un gruppo.')
+            ),
+            models.CheckConstraint(
+                check=~(models.Q(student__isnull=False) & models.Q(group__isnull=False)),
+                name='quiz_assignment_target_exclusive',
+                violation_error_message=_('L\'assegnazione del quiz non può avere sia uno studente che un gruppo.')
+            )
+        ]
 
     def __str__(self):
-        return f"Quiz '{self.quiz.title}' assigned to {self.student.full_name}"
+        if self.student:
+            target = f"Studente: {self.student.full_name}"
+        elif self.group:
+            target = f"Gruppo: {self.group.name}"
+        else:
+            target = "Nessuna destinazione" # Should not happen due to constraints
+        return f"Quiz '{self.quiz.title}' assegnato a {target}"
 
-    def clean(self):
-        # Validazione opzionale: assicurarsi che assigned_by sia un docente o admin
-        if self.assigned_by and self.assigned_by.role not in [UserRole.TEACHER, UserRole.ADMIN]:
-            raise ValidationError(_('Only Teachers or Admins can assign quizzes.'))
-        # Validazione opzionale: assicurarsi che lo studente appartenga allo stesso docente (se applicabile)
-        # if self.assigned_by and self.assigned_by.is_teacher and self.student.teacher != self.assigned_by:
-        #     raise ValidationError(_('Teacher can only assign quizzes to their own students.'))
+    # Rimosso clean() method per ora, può essere reintrodotto con logica aggiornata se necessario
 
 
 class PathwayAssignment(models.Model):
-    """ Modello che rappresenta l'assegnazione di un Percorso a uno Studente. """
+    """ Modello che rappresenta l'assegnazione di un Percorso a uno Studente o a un Gruppo. """
     pathway = models.ForeignKey(
         Pathway,
         on_delete=models.CASCADE,
         related_name='assignments',
-        verbose_name=_('Pathway')
+        verbose_name=_('Percorso Assegnato')
     )
     student = models.ForeignKey(
         Student,
         on_delete=models.CASCADE,
         related_name='pathway_assignments',
-        verbose_name=_('Student')
+        verbose_name=_('Studente Assegnato (Individuale)'),
+        null=True, # Può essere nullo se assegnato a gruppo
+        blank=True
     )
-    assigned_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True,
-        related_name='assigned_pathways',
-        limit_choices_to=Q(role=UserRole.TEACHER) | Q(role=UserRole.ADMIN),
-        verbose_name=_('Assigned By')
+    group = models.ForeignKey(
+        'student_groups.StudentGroup', # Riferimento all'app creata
+        on_delete=models.CASCADE,
+        related_name='pathway_assignments',
+        verbose_name=_('Gruppo Assegnato'),
+        null=True, # Può essere nullo se assegnato a studente
+        blank=True
     )
-    assigned_at = models.DateTimeField(_('Assigned At'), auto_now_add=True)
+    # Rimosso assigned_by per semplicità iniziale
+    # Manteniamo due_date se era già presente
     due_date = models.DateTimeField(_('Due Date'), null=True, blank=True)
+    assigned_at = models.DateTimeField(_('Data Assegnazione'), auto_now_add=True)
 
     class Meta:
-        verbose_name = _('Pathway Assignment')
-        verbose_name_plural = _('Pathway Assignments')
-        ordering = ['student', 'assigned_at']
-        unique_together = ('pathway', 'student')
+        verbose_name = _('Assegnazione Percorso')
+        verbose_name_plural = _('Assegnazioni Percorsi')
+        # Assicura che un percorso sia assegnato o a uno studente specifico o a un gruppo specifico una sola volta
+        unique_together = (
+            ('pathway', 'student'), # Un percorso può essere assegnato una sola volta a uno studente specifico (se student non è null)
+            ('pathway', 'group'),   # Un percorso può essere assegnato una sola volta a un gruppo specifico (se group non è null)
+        )
+        ordering = ['pathway', 'group', 'student']
+        constraints = [
+            models.CheckConstraint(
+                check=models.Q(student__isnull=False) | models.Q(group__isnull=False),
+                name='pathway_assignment_target_not_null',
+                violation_error_message=_('L\'assegnazione del percorso deve avere uno studente o un gruppo.')
+            ),
+            models.CheckConstraint(
+                check=~(models.Q(student__isnull=False) & models.Q(group__isnull=False)),
+                name='pathway_assignment_target_exclusive',
+                violation_error_message=_('L\'assegnazione del percorso non può avere sia uno studente che un gruppo.')
+            )
+        ]
 
     def __str__(self):
-        return f"Pathway '{self.pathway.title}' assigned to {self.student.full_name}"
+        if self.student:
+            target = f"Studente: {self.student.full_name}"
+        elif self.group:
+            target = f"Gruppo: {self.group.name}"
+        else:
+            target = "Nessuna destinazione" # Should not happen due to constraints
+        return f"Percorso '{self.pathway.title}' assegnato a {target}"
 
-    def clean(self):
-        if self.assigned_by and self.assigned_by.role not in [UserRole.TEACHER, UserRole.ADMIN]:
-            raise ValidationError(_('Only Teachers or Admins can assign pathways.'))
-        # if self.assigned_by and self.assigned_by.is_teacher and self.student.teacher != self.assigned_by:
-        #     raise ValidationError(_('Teacher can only assign pathways to their own students.'))
+    # Rimosso clean() method per ora

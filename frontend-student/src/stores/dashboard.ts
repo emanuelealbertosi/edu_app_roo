@@ -1,7 +1,8 @@
 import { defineStore } from 'pinia';
 import DashboardService from '@/api/dashboard';
 import RewardsService, { type EarnedBadge, type Badge } from '@/api/rewards'; // Importa RewardsService e tipi
-import type { Quiz, Pathway, WalletInfo } from '@/api/dashboard';
+// Importa la nuova interfaccia per i tentativi e rimuovi Quiz
+import type { QuizAttemptDashboardItem, Pathway, WalletInfo } from '@/api/dashboard';
 
 // Interfaccia BadgeInfo (se non importata da altrove)
 interface BadgeInfo extends Badge { // Estende Badge per includere potenzialmente animation_class
@@ -15,7 +16,7 @@ interface EarnedBadgeInfo extends EarnedBadge {
 
 
 interface DashboardState {
-  quizzes: Quiz[];
+  quizzes: QuizAttemptDashboardItem[]; // Aggiornato tipo a array di tentativi
   pathways: Pathway[];
   wallet: WalletInfo | null;
   earnedBadges: EarnedBadgeInfo[]; // Aggiunto stato per badge guadagnati
@@ -45,45 +46,48 @@ export const useDashboardStore = defineStore('dashboard', {
   
   getters: {
     // Quiz disponibili (non scaduti)
-    availableQuizzes(state): Quiz[] {
+    // Quiz disponibili: tentativi non completati/in attesa e entro le date
+    // Tentativi disponibili: stato non COMPLETED/PENDING e entro le date
+    availableQuizzes(state): QuizAttemptDashboardItem[] {
       const now = new Date();
-      return state.quizzes.filter(quiz => {
-        // Escludi se l'ultimo tentativo è COMPLETED (superato) o PENDING_GRADING.
-        // Se è FAILED o IN_PROGRESS (o non esiste tentativo), il quiz rimane disponibile (se le date lo permettono).
-        const lastStatus = quiz.latest_attempt?.status;
-        if (lastStatus === 'COMPLETED' || lastStatus === 'PENDING_GRADING') {
-             return false;
+      // Filtra l'array di tentativi (state.quizzes) per trovare quelli "nuovi"
+      return state.quizzes.filter(attempt => {
+        // 1. Filtra per stato: deve essere 'PENDING' (quiz assegnato ma non iniziato)
+        if (attempt.status !== 'PENDING') {
+          return false; // Esclude quiz con altri stati (IN_PROGRESS, FAILED, COMPLETED, etc.)
         }
-        // Se lo stato è 'FAILED' o 'IN_PROGRESS' o non c'è un tentativo, procedi con i controlli data.
 
-        const availableFrom = quiz.available_from ? new Date(quiz.available_from) : null;
-        const availableUntil = quiz.available_until ? new Date(quiz.available_until) : null;
-        
-        // Se non c'è una data di inizio, è disponibile
-        if (!availableFrom) return true;
-        
-        // Se c'è una data di inizio ma è nel futuro, non è disponibile
-        if (availableFrom > now) return false;
-        
+        // 2. Filtra per date di disponibilità (invariato)
+        const availableFrom = attempt.available_from ? new Date(attempt.available_from) : null;
+        const availableUntil = attempt.available_until ? new Date(attempt.available_until) : null;
+
+        // Se c'è una data di inizio ed è nel futuro, non è disponibile
+        if (availableFrom && availableFrom > now) {
+          return false;
+        }
+
         // Se c'è una data di fine ed è passata, non è disponibile
-        if (availableUntil && availableUntil < now) return false;
-        
+        if (availableUntil && availableUntil < now) {
+          return false;
+        }
+
+        // Se passa i controlli di stato e data, il tentativo è disponibile
         return true;
       });
     },
-    
-    // Quiz completati (solo quelli superati)
-    completedQuizzes(state): Quiz[] {
-      return state.quizzes.filter(quiz =>
-        quiz.latest_attempt?.status === 'COMPLETED' // Mostra solo quelli passati
-      );
+
+    // Tentativi completati: stato COMPLETED
+    completedQuizzes(state): QuizAttemptDashboardItem[] {
+      // Filtra i tentativi con stato COMPLETED
+      return state.quizzes.filter(attempt => attempt.status === 'COMPLETED');
     },
-    
-    // Quiz in corso, falliti o in attesa di correzione
-    inProgressOrFailedQuizzes(state): Quiz[] {
-      return state.quizzes.filter(quiz =>
-        quiz.latest_attempt &&
-        ['IN_PROGRESS', 'PENDING_GRADING', 'FAILED'].includes(quiz.latest_attempt.status) // Includi FAILED qui
+
+    // Tentativi in corso, falliti o in attesa di correzione
+    inProgressOrFailedQuizzes(state): QuizAttemptDashboardItem[] {
+      // Filtra i tentativi con stato IN_PROGRESS, PENDING_GRADING o FAILED
+      return state.quizzes.filter(attempt =>
+        attempt.status && // Assicurati che lo stato esista
+        ['IN_PROGRESS', 'PENDING_GRADING', 'FAILED'].includes(attempt.status)
       );
     },
     
@@ -136,10 +140,14 @@ export const useDashboardStore = defineStore('dashboard', {
     async fetchQuizzes() {
       this.loading.quizzes = true;
       try {
-        this.quizzes = await DashboardService.getAssignedQuizzes();
+        // La chiamata API ora restituisce QuizAttemptDashboardItem[]
+        const fetchedAttempts = await DashboardService.getAssignedQuizzes();
+        // Log per debug: vediamo cosa restituisce l'API
+        console.log('Raw attempts received from API:', JSON.stringify(fetchedAttempts, null, 2));
+        this.quizzes = fetchedAttempts;
       } catch (error) {
-        console.error('Error in fetchQuizzes:', error);
-        this.error = 'Errore nel caricamento dei quiz';
+        console.error('Error in fetchQuizzes (attempts):', error); // Aggiornato log errore
+        this.error = 'Errore nel caricamento dei tentativi quiz'; // Aggiornato messaggio errore
       } finally {
         this.loading.quizzes = false;
       }

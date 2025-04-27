@@ -17,6 +17,7 @@ import { useDashboardStore } from '@/stores/dashboard'; // <-- AGGIUNTO: Importa
 // --- Props & Emits ---
 const props = defineProps<{
   quizId: number; // Accetta quizId come prop
+  attemptId?: number | null; // Nuovo: ID del tentativo esistente (opzionale)
 }>();
 
 const emit = defineEmits<{
@@ -64,8 +65,38 @@ const feedbackTimeoutId = ref<number | null>(null); // Nuovo: Per gestire il tim
 
 // --- Funzioni Logiche ---
 
-async function startQuizAttempt() {
-  // Usa props.quizId
+// Nuovo: Funzione per caricare un tentativo esistente
+async function loadExistingAttempt(existingAttemptId: number) {
+  isLoading.value = true;
+  error.value = null;
+  try {
+    // Carica i dettagli base del tentativo
+    attempt.value = await QuizService.getAttemptDetails(existingAttemptId);
+
+    if (attempt.value) {
+       // Dopo aver caricato i dettagli del tentativo, recupera la domanda corrente
+       await fetchCurrentQuestion();
+    } else {
+       throw new Error("Dettagli del tentativo non trovati.");
+    }
+    console.log(`Tentativo ${existingAttemptId} caricato.`);
+    startCountdown(); // Avvia il countdown dopo il caricamento
+  } catch (err: any) {
+    console.error(`Errore durante il caricamento del tentativo ${existingAttemptId}:`, err);
+    if (err.response?.data?.detail) {
+        error.value = `Errore caricamento: ${err.response.data.detail}`;
+    } else {
+        error.value = "Impossibile caricare il tentativo esistente.";
+    }
+    setTimeout(() => { error.value = null; }, 7000);
+    emit('close'); // Chiudi la modale in caso di errore nel caricamento
+  } finally {
+    isLoading.value = false;
+  }
+}
+
+// Modificato: Funzione per avviare un *nuovo* tentativo
+async function startNewQuizAttempt() {
   if (!props.quizId) {
     error.value = "ID del quiz non valido.";
     emit('close'); // Chiudi se l'ID non è valido
@@ -74,11 +105,14 @@ async function startQuizAttempt() {
   isLoading.value = true;
   error.value = null;
   try {
-    attempt.value = await QuizService.startAttempt(props.quizId); // Usa props.quizId
-    await fetchCurrentQuestion();
+    attempt.value = await QuizService.startAttempt(props.quizId);
+    // Non chiamare fetchCurrentQuestion qui, startAttempt dovrebbe restituire la prima domanda o getCurrentQuestion la gestirà
+    await fetchCurrentQuestion(); // Manteniamo per ora, ma potrebbe essere ridondante se startAttempt restituisce la domanda
+    console.log(`Nuovo tentativo avviato per quiz ${props.quizId}.`);
+    startCountdown(); // Avvia il countdown dopo l'avvio
   } catch (err: any) {
     // ... (gestione errore invariata, ma potremmo emettere 'close' qui?)
-    console.error("Errore durante l'avvio del tentativo:", err);
+    console.error("Errore durante l'avvio del nuovo tentativo:", err);
      if (err.response?.data?.detail) {
          error.value = `Errore avvio: ${err.response.data.detail}`;
      } else {
@@ -87,7 +121,7 @@ async function startQuizAttempt() {
      // Cancella l'errore dopo 7 secondi
      setTimeout(() => { error.value = null; }, 7000);
      // Considera di chiudere la modale in caso di errore grave all'avvio
-     // emit('close');
+     emit('close'); // Chiudi la modale in caso di errore grave all'avvio
   } finally {
     isLoading.value = false;
   }
@@ -237,15 +271,24 @@ async function completeAttemptHandler() {
 
 // --- Lifecycle Hooks ---
 
+// Nuovo: Decide se caricare o iniziare un tentativo
+async function loadOrStartAttempt() {
+  if (props.attemptId) {
+    await loadExistingAttempt(props.attemptId);
+  } else if (props.quizId) {
+    await startNewQuizAttempt();
+  } else {
+    error.value = "ID del quiz o del tentativo mancante.";
+    emit('close');
+  }
+}
+
 onMounted(() => {
   // Imposta il primo gradiente
   currentBackgroundClass.value = backgroundGradients[backgroundIndex.value];
 
-  // Avvia il contatore
-  startCountdown();
-
-  // Avvia il quiz
-  startQuizAttempt();
+  // Carica o avvia il tentativo (il countdown partirà internamente dopo il successo)
+  loadOrStartAttempt();
 });
 
 // --- Computed Properties ---
@@ -321,116 +364,119 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div
-    class="quiz-attempt-view min-h-screen flex flex-col items-center justify-center p-4 relative transition-colors duration-500"
-    :class="currentBackgroundClass"
-  >
-    <!-- Overlay per leggibilità -->
-    <div class="absolute inset-0 bg-black bg-opacity-50 z-0"></div>
+  <div class="quiz-attempt-view fixed inset-0 flex items-center justify-center z-50">
+    <!-- Overlay con sfondo dinamico -->
+    <div
+      class="absolute inset-0 bg-black bg-opacity-50 z-0 transition-colors duration-500"
+      :class="currentBackgroundClass"
+    ></div>
 
-    <!-- Pulsante Chiudi Modale (in alto a destra) -->
-     <button
+    <!-- Box Modale Effettivo -->
+    <div class="relative z-10 bg-white rounded-lg shadow-xl overflow-y-auto max-h-[80vh] w-full max-w-3xl flex flex-col pb-6">
+
+      <!-- Pulsante Chiudi Modale (interno al box) -->
+      <button
         @click="handleClose"
-        class="absolute top-4 right-4 z-20 text-white bg-black bg-opacity-30 hover:bg-opacity-50 rounded-full p-2 transition-colors"
+        class="absolute top-3 right-3 z-20 text-gray-500 hover:text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-full p-2 transition-colors"
         aria-label="Chiudi svolgimento quiz"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
         </svg>
       </button>
 
-    <!-- Contenuto principale sopra l'overlay -->
-    <div class="main-content mx-auto w-full lg:w-11/12 relative z-10">
+      <!-- Contenuto principale dentro il box modale -->
+      <div class="main-content w-full px-6 pt-6">
 
-      <!-- Animazione Iniziale (invariata) -->
-      <!-- Animazione Iniziale con Contatore -->
-      <transition name="start-anim">
-        <div v-if="showStartAnimation" class="start-animation text-center mb-8 p-10 rounded-lg bg-blue-500 bg-opacity-90 shadow-xl">
-          <p class="text-6xl font-bold text-white animate-pulse">
-            {{ countdownValue }}
-          </p>
-        </div>
-      </transition>
-
-      <h1 class="text-3xl font-bold text-center text-white mb-6">Svolgimento Quiz</h1>
-
-    <div v-if="isLoading && !attempt" class="loading bg-white bg-opacity-80 text-blue-700 px-4 py-3 rounded relative text-center mb-6 shadow">
-      <p>Avvio del tentativo...</p>
-      <!-- Spinner Tailwind -->
-      <svg class="animate-spin h-5 w-5 text-blue-600 mx-auto mt-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-      </svg>
-    </div>
-
-    <div v-if="error" class="error-message bg-red-100 bg-opacity-90 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6 shadow" role="alert">
-      <strong class="font-bold">Errore!</strong>
-      <span class="block sm:inline"> {{ error }}</span>
-    </div>
-
-    <!-- Mostra il contenuto del quiz solo se l'animazione iniziale è finita -->
-    <div v-if="attempt && !isLoading && !showStartAnimation" class="bg-white bg-opacity-95 p-6 rounded-lg shadow-xl">
-      <h2 class="text-2xl font-semibold text-gray-800 mb-2">{{ attempt.quiz.title }}</h2>
-      <p class="text-gray-600 mb-6">{{ attempt.quiz.description }}</p>
-
-      <div v-if="isLoading && currentQuestion === null" class="loading bg-gray-100 text-gray-600 px-4 py-3 rounded text-center mb-6 shadow-inner">
-        <p>Caricamento domanda...</p>
-        <!-- Spinner rimosso -->
-        <svg class="animate-spin h-5 w-5 text-gray-500 mx-auto mt-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-        </svg>
-      </div>
-
-      <!-- Blocco Condizionale per Domanda o Completamento -->
-      <!-- Usiamo un template per il v-if in modo che la transizione non interrompa la catena -->
-      <template v-if="currentQuestion">
-        <transition name="question-fade" mode="out-in" appear>
-           <!-- Blocco Domanda Effettivo -->
-          <div :key="currentQuestion.id" class="question-container bg-purple-50 bg-opacity-90 border border-purple-200 p-6 rounded-lg mb-6 shadow-md">
-            <h3 class="text-lg font-semibold text-purple-700 mb-3">Domanda {{ currentQuestion.order + 1 }}</h3>
-            <p class="question-text text-gray-800 text-lg mb-5">{{ currentQuestion.text }}</p>
-
-            <!-- Renderizza dinamicamente il componente domanda corretto -->
-            <div class="answer-area">
-              <component
-                v-if="currentQuestionComponent && currentQuestion"
-                :is="currentQuestionComponent"
-                :question="currentQuestion"
-                @update:answer="updateUserAnswer"
-              />
-              <div v-else>
-                <p v-if="currentQuestion">Tipo di domanda non supportato: {{ currentQuestion.question_type }}</p>
-                <!-- Potrebbe essere un placeholder o un messaggio di errore -->
-              </div>
-            </div>
-
-            <button
-              @click="submitAnswerHandler"
-              :disabled="isSubmitting || !userAnswer"
-              class="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white font-bold py-3 px-4 rounded-lg shadow transition-colors duration-200"
-            >
-              {{ isSubmitting ? 'Invio...' : 'Invia Risposta' }}
-            </button>
+        <!-- Animazione Iniziale con Contatore -->
+        <transition name="start-anim">
+          <div v-if="showStartAnimation" class="start-animation text-center mb-8 p-10 rounded-lg bg-blue-500 bg-opacity-90 shadow-xl">
+            <p class="text-6xl font-bold text-white animate-pulse">
+              {{ countdownValue }}
+            </p>
           </div>
         </transition>
-      </template>
-      <!-- Blocco Completamento: mostrato se NON c'è domanda corrente, NON sta caricando e NON c'è errore -->
-      <!-- Questo v-else-if ora segue direttamente il <template v-if="currentQuestion"> -->
-      <div v-else-if="!currentQuestion && !isLoading && !error" class="text-center mt-8">
-        <p class="text-xl text-green-600 font-semibold mb-4">Hai risposto a tutte le domande!</p>
-        <button
-          @click="completeAttemptHandler"
-          :disabled="isCompleting"
-          class="bg-green-500 hover:bg-green-600 disabled:bg-gray-400 text-white font-bold py-3 px-6 rounded-lg shadow transition-colors duration-200"
-        >
-          {{ isCompleting ? 'Completamento...' : 'Completa Quiz e Vedi Risultati 🎉' }}
-        </button>
-      </div>
 
-    </div>
-    </div> <!-- Fine main-content -->
-  </div>
+        <h1 class="text-3xl font-bold text-center text-gray-800 mb-6">Svolgimento Quiz</h1>
+
+        <div v-if="isLoading && !attempt" class="loading bg-gray-100 text-blue-700 px-4 py-3 rounded relative text-center mb-6 shadow">
+          <p>Avvio del tentativo...</p>
+          <!-- Spinner Tailwind -->
+          <svg class="animate-spin h-5 w-5 text-blue-600 mx-auto mt-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+        </div>
+
+        <div v-if="error" class="error-message bg-red-100 bg-opacity-90 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6 shadow" role="alert">
+          <strong class="font-bold">Errore!</strong>
+          <span class="block sm:inline"> {{ error }}</span>
+        </div>
+
+        <!-- Mostra il contenuto del quiz solo se l'animazione iniziale è finita -->
+        <div v-if="attempt && !isLoading && !showStartAnimation" class="">
+          <h2 class="text-2xl font-semibold text-gray-800 mb-2">{{ attempt.quiz.title }}</h2>
+          <p class="text-gray-600 mb-6">{{ attempt.quiz.description }}</p>
+
+          <div v-if="isLoading && currentQuestion === null" class="loading bg-gray-100 text-gray-600 px-4 py-3 rounded text-center mb-6 shadow-inner">
+            <p>Caricamento domanda...</p>
+            <!-- Spinner rimosso -->
+            <svg class="animate-spin h-5 w-5 text-gray-500 mx-auto mt-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+          </div>
+
+          <!-- Blocco Condizionale per Domanda o Completamento -->
+          <!-- Usiamo un template per il v-if in modo che la transizione non interrompa la catena -->
+          <template v-if="currentQuestion">
+            <transition name="question-fade" mode="out-in" appear>
+               <!-- Blocco Domanda Effettivo -->
+              <div :key="currentQuestion.id" class="question-container py-4 px-6"> <!-- Rimosso bg, border, padding extra, shadow -->
+                <h3 class="text-lg font-semibold text-purple-700 mb-3">Domanda {{ currentQuestion.order + 1 }}</h3>
+                <p class="question-text text-gray-800 text-lg mb-5">{{ currentQuestion.text }}</p>
+
+                <!-- Renderizza dinamicamente il componente domanda corretto -->
+                <div class="answer-area">
+                  <component
+                    v-if="currentQuestionComponent && currentQuestion"
+                    :is="currentQuestionComponent"
+                    :question="currentQuestion"
+                    @update:answer="updateUserAnswer"
+                  />
+                  <div v-else>
+                    <p v-if="currentQuestion">Tipo di domanda non supportato: {{ currentQuestion.question_type }}</p>
+                    <!-- Potrebbe essere un placeholder o un messaggio di errore -->
+                  </div>
+                </div>
+
+                <button
+                  @click="submitAnswerHandler"
+                  :disabled="isSubmitting || !userAnswer"
+                  class="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white font-bold py-3 px-4 rounded-lg shadow transition-colors duration-200"
+                >
+                  {{ isSubmitting ? 'Invio...' : 'Invia Risposta' }}
+                </button>
+              </div>
+            </transition>
+          </template>
+          <!-- Blocco Completamento: mostrato se NON c'è domanda corrente, NON sta caricando e NON c'è errore -->
+          <!-- Questo v-else-if ora segue direttamente il <template v-if="currentQuestion"> -->
+          <div v-else-if="!currentQuestion && !isLoading && !error" class="text-center mt-8">
+            <p class="text-xl text-green-600 font-semibold mb-4">Hai risposto a tutte le domande!</p>
+            <button
+              @click="completeAttemptHandler"
+              :disabled="isCompleting"
+              class="bg-green-500 hover:bg-green-600 disabled:bg-gray-400 text-white font-bold py-3 px-6 rounded-lg shadow transition-colors duration-200"
+            >
+              {{ isCompleting ? 'Completamento...' : 'Completa Quiz e Vedi Risultati 🎉' }}
+            </button>
+          </div>
+
+        </div> <!-- Fine v-if attempt -->
+      </div> <!-- Fine main-content -->
+    </div> <!-- Fine Box Modale -->
+  </div> <!-- Fine quiz-attempt-view -->
 </template>
 
 <style scoped>
@@ -442,7 +488,7 @@ onUnmounted(() => {
 .answer-area {
   /* Questo spazio conterrà i componenti delle domande specifiche */
   /* Potremmo aggiungere un margine inferiore qui se necessario universalmente */
-   margin-bottom: 1.5rem; /* Esempio: 24px */
+   margin-bottom: 1.5rem; /* Ripristinato per spazio sotto risposte */
 }
 
 /* Stili per l'animazione iniziale */

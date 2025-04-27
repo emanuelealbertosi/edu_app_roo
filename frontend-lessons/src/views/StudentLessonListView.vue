@@ -75,7 +75,8 @@ const viewLesson = (assignment: LessonAssignment) => {
     if (!assignment.viewed_at) {
         lessonStore.markAssignmentAsViewed(assignment.id);
     }
-    router.push({ name: 'lesson-detail', params: { id: assignment.lesson.toString() } });
+    // Corretto: passare l'ID numerico della lezione, non l'oggetto intero convertito in stringa
+    router.push({ name: 'lesson-detail', params: { id: assignment.lesson.id.toString() } });
 };
 
 </script>

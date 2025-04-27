@@ -40,6 +40,7 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'fallback-insecure-key-replace-me-in-env')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 # Leggi DEBUG dall'ambiente, convertendo la stringa in Booleano. Default a False per produzione.
+# Leggi DEBUG dall'ambiente, convertendo la stringa in Booleano. Default a False per produzione.
 DEBUG = os.getenv('DEBUG', 'False').lower() in ('true', '1', 't')
 
 # Leggi ALLOWED_HOSTS dall'ambiente, separando la stringa per virgole.
@@ -71,6 +72,7 @@ INSTALLED_APPS = [
     'apps.education.apps.EducationConfig',
     'apps.rewards.apps.RewardsConfig',
     'lezioni.apps.LezioniConfig', # Aggiunta nuova app lezioni
+    'apps.student_groups.apps.StudentGroupsConfig', # Aggiunta app per gruppi studenti
 ]
 
 MIDDLEWARE = [

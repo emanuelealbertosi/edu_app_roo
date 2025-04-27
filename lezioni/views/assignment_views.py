@@ -3,6 +3,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.utils import timezone
 from django.contrib.auth import get_user_model # Utile per Admin/Docente
+from django.db.models import Q # Import per query OR
 
 from ..models import LessonAssignment, Lesson
 # Importa Student per controllo tipo
@@ -36,7 +37,11 @@ class LessonAssignmentViewSet(mixins.ListModelMixin,
             return LessonAssignment.objects.none()
 
         queryset = LessonAssignment.objects.select_related(
-            'lesson__topic__subject', 'student', 'assigned_by'
+            'lesson__topic__subject', # Precarica dati correlati per efficienza
+            'lesson__creator',
+            'student', # Assegnatario studente (se diretto)
+            'group' # Gruppo assegnatario (se via gruppo)
+            # 'assigned_by' rimosso perché non presente nel modello
         ).all()
 
         # Filtro per lezione specifica (se fornito come query param)
@@ -54,8 +59,12 @@ class LessonAssignmentViewSet(mixins.ListModelMixin,
 
         # Filtro per tipo utente/ruolo
         if isinstance(user, Student):
-            # Lo studente vede solo le proprie assegnazioni
-            queryset = queryset.filter(student=user)
+            # Lo studente vede le assegnazioni dirette O quelle dei suoi gruppi
+            # Corretto related_name: 'group_memberships' come definito nel modello StudentGroupMembership
+            student_group_ids = user.group_memberships.values_list('group_id', flat=True)
+            queryset = queryset.filter(
+                Q(student=user) | Q(group_id__in=student_group_ids)
+            ).distinct() # distinct() per evitare duplicati se assegnato sia a studente che a gruppo
         # Controlla se l'utente ha l'attributo 'role' (per Docente/Admin)
         elif hasattr(user, 'role'):
             if user.role == 'Docente':
@@ -82,9 +91,20 @@ class LessonAssignmentViewSet(mixins.ListModelMixin,
         """
         assignment = self.get_object() # Ottiene l'assegnazione specifica
 
-        # Verifica che l'utente sia lo studente assegnato (controllando il tipo)
-        if not request.user.is_authenticated or not isinstance(request.user, Student) or assignment.student != request.user:
-             return Response({"detail": "Non autorizzato."}, status=status.HTTP_403_FORBIDDEN)
+        # Verifica che l'utente sia uno studente e che sia l'assegnatario diretto O membro del gruppo assegnato
+        is_authorized = False
+        if request.user.is_authenticated and isinstance(request.user, Student):
+            is_direct_assignee = (assignment.student == request.user)
+            is_group_member = False
+            if assignment.group:
+                 # Verifica se lo studente è membro del gruppo assegnato
+                 is_group_member = request.user.group_memberships.filter(group=assignment.group).exists()
+
+            if is_direct_assignee or is_group_member:
+                is_authorized = True
+
+        if not is_authorized:
+             return Response({"detail": "Non autorizzato a marcare questa assegnazione come vista."}, status=status.HTTP_403_FORBIDDEN)
 
         # Marca come vista solo se non è già stata marcata
         if assignment.viewed_at is None:

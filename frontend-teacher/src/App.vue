@@ -7,6 +7,7 @@ import GlobalLoadingIndicator from '@/components/common/GlobalLoadingIndicator.v
 import {
   HomeIcon, // Dashboard
   UsersIcon, // Studenti
+  UserGroupIcon, // Gruppi Studenti (NUOVO)
   ClipboardDocumentListIcon, // Quiz Templates
   MapIcon, // Template Percorsi (Pathways)
   ClipboardDocumentCheckIcon, // Quiz Assegnati
@@ -54,99 +55,106 @@ const goToProfile = () => {
     <!-- Sidebar Desktop (visibile da md in su) -->
     <aside
       v-if="authStore.isAuthenticated"
-      class="bg-secondary text-neutral-lightest hidden md:flex flex-col w-64 transition-all duration-300 ease-in-out"
+      class="bg-secondary text-neutral-lightest hidden md:flex flex-col w-20 group hover:w-64 transition-all duration-300 ease-in-out overflow-hidden"
       aria-label="Sidebar"
     >
       <!-- Logo/Titolo App -->
        <div class="h-16 flex items-center justify-center flex-shrink-0 px-4">
-         <span class="text-xl font-semibold">Teacher Portal</span>
+         <span class="text-xl font-semibold opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Teacher Portal</span>
        </div>
 
       <!-- Navigazione Desktop -->
-      <nav class="flex-grow p-4 overflow-y-auto">
+      <nav class="flex-grow p-4 overflow-y-auto overflow-x-hidden">
         <ul>
           <!-- Dashboard -->
           <li class="mb-2">
             <router-link :to="{ name: 'dashboard' }" class="flex items-center p-2 rounded hover:bg-secondary-light">
               <HomeIcon class="h-5 w-5 flex-shrink-0" />
-              <span class="ml-3 text-sm">Dashboard</span>
+              <span class="ml-3 text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Dashboard</span>
             </router-link>
           </li>
           <!-- Studenti -->
           <li class="mb-2">
             <router-link :to="{ name: 'students' }" class="flex items-center p-2 rounded hover:bg-secondary-light">
               <UsersIcon class="h-5 w-5 flex-shrink-0" />
-              <span class="ml-3 text-sm">Studenti</span>
+              <span class="ml-3 text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Studenti</span>
+            </router-link>
+          </li>
+          <!-- Gruppi Studenti (NUOVO) -->
+          <li class="mb-2">
+            <router-link :to="{ name: 'GroupsList' }" class="flex items-center p-2 rounded hover:bg-secondary-light">
+              <UserGroupIcon class="h-5 w-5 flex-shrink-0" />
+              <span class="ml-3 text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Gruppi</span>
             </router-link>
           </li>
            <!-- Quiz Templates -->
           <li class="mb-2">
             <router-link :to="{ name: 'quiz-templates' }" class="flex items-center p-2 rounded hover:bg-secondary-light">
               <ClipboardDocumentListIcon class="h-5 w-5 flex-shrink-0" />
-              <span class="ml-3 text-sm">Quiz Templates</span>
+              <span class="ml-3 text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Quiz Templates</span>
             </router-link>
           </li>
           <!-- Template Percorsi -->
           <li class="mb-2">
             <router-link :to="{ name: 'pathway-templates' }" class="flex items-center p-2 rounded hover:bg-secondary-light">
               <MapIcon class="h-5 w-5 flex-shrink-0" />
-              <span class="ml-3 text-sm">Template Percorsi</span>
+              <span class="ml-3 text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Template Percorsi</span>
             </router-link>
           </li>
           <!-- Quiz Assegnati -->
           <li class="mb-2">
             <router-link :to="{ name: 'assigned-quizzes' }" class="flex items-center p-2 rounded hover:bg-secondary-light">
               <ClipboardDocumentCheckIcon class="h-5 w-5 flex-shrink-0" />
-              <span class="ml-3 text-sm">Quiz Assegnati</span>
+              <span class="ml-3 text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Quiz Assegnati</span>
             </router-link>
           </li>
           <!-- Percorsi Assegnati -->
           <li class="mb-2">
             <router-link :to="{ name: 'assigned-pathways' }" class="flex items-center p-2 rounded hover:bg-secondary-light">
               <MapPinIcon class="h-5 w-5 flex-shrink-0" />
-              <span class="ml-3 text-sm">Percorsi Assegnati</span>
+              <span class="ml-3 text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Percorsi Assegnati</span>
             </router-link>
           </li>
           <!-- Ricompense -->
           <li class="mb-2">
             <router-link :to="{ name: 'rewards' }" class="flex items-center p-2 rounded hover:bg-secondary-light">
               <GiftIcon class="h-5 w-5 flex-shrink-0" />
-              <span class="ml-3 text-sm">Ricompense</span>
+              <span class="ml-3 text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Ricompense</span>
             </router-link>
           </li>
           <!-- Assegna -->
           <li class="mb-2">
             <router-link :to="{ name: 'assign' }" class="flex items-center p-2 rounded hover:bg-secondary-light">
               <PaperAirplaneIcon class="h-5 w-5 flex-shrink-0" />
-              <span class="ml-3 text-sm">Assegna</span>
+              <span class="ml-3 text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Assegna</span>
             </router-link>
           </li>
           <!-- Valutazioni -->
           <li class="mb-2">
             <router-link :to="{ name: 'grading' }" class="flex items-center p-2 rounded hover:bg-secondary-light">
               <PencilSquareIcon class="h-5 w-5 flex-shrink-0" />
-              <span class="ml-3 text-sm">Valutazioni</span>
+              <span class="ml-3 text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Valutazioni</span>
             </router-link>
           </li>
           <!-- Consegne -->
           <li class="mb-2">
             <router-link :to="{ name: 'delivery' }" class="flex items-center p-2 rounded hover:bg-secondary-light">
               <InboxArrowDownIcon class="h-5 w-5 flex-shrink-0" />
-              <span class="ml-3 text-sm">Consegne</span>
+              <span class="ml-3 text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Consegne</span>
             </router-link>
           </li>
           <!-- Progressi -->
           <li class="mb-2">
             <router-link :to="{ name: 'student-progress' }" class="flex items-center p-2 rounded hover:bg-secondary-light">
               <ChartBarIcon class="h-5 w-5 flex-shrink-0" />
-              <span class="ml-3 text-sm">Progressi</span>
+              <span class="ml-3 text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Progressi</span>
             </router-link>
           </li>
           <!-- Lezioni (Link Esterno) -->
           <li class="mb-2">
             <a :href="lessonsAppUrl" class="flex items-center p-2 rounded hover:bg-secondary-light">
               <BookOpenIcon class="h-5 w-5 flex-shrink-0" />
-              <span class="ml-3 text-sm">Lezioni</span>
+              <span class="ml-3 text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Lezioni</span>
             </a>
           </li>
         </ul>
@@ -156,7 +164,7 @@ const goToProfile = () => {
        <div class="p-4 mt-auto border-t border-secondary-light flex-shrink-0">
          <button @click="handleLogout" class="w-full flex items-center p-2 rounded hover:bg-error">
            <ArrowLeftOnRectangleIcon class="h-6 w-6 flex-shrink-0" />
-           <span class="ml-3">Logout</span>
+           <span class="ml-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Logout</span>
          </button>
        </div>
     </aside>
@@ -193,6 +201,13 @@ const goToProfile = () => {
               <router-link :to="{ name: 'students' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-secondary-light">
                 <UsersIcon class="h-5 w-5 flex-shrink-0" />
                 <span class="ml-3 text-sm">Studenti</span>
+              </router-link>
+            </li>
+            <!-- Gruppi Studenti (NUOVO) -->
+            <li class="mb-2">
+              <router-link :to="{ name: 'GroupsList' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-secondary-light">
+                <UserGroupIcon class="h-5 w-5 flex-shrink-0" />
+                <span class="ml-3 text-sm">Gruppi</span>
               </router-link>
             </li>
              <!-- Quiz Templates -->

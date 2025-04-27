@@ -40,6 +40,33 @@ const router = createRouter({
       component: () => import('../views/StudentsView.vue'), // Lazy load
       meta: { requiresAuth: true }
     },
+    // --- Rotte per Gruppi Studenti ---
+    {
+      path: '/groups',
+      name: 'GroupsList', // Nome per la lista dei gruppi
+      component: () => import('../views/GroupsListView.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/groups/new',
+      name: 'GroupCreate',
+      component: () => import('../views/GroupFormView.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/groups/:id/edit',
+      name: 'GroupEdit',
+      component: () => import('../views/GroupFormView.vue'),
+      props: true, // Passa :id come prop
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/groups/:id', // Rotta per i dettagli del gruppo
+      name: 'GroupDetail',
+      component: () => import('../views/GroupDetailView.vue'),
+      props: true, // Passa :id come prop
+      meta: { requiresAuth: true }
+    },
     {
       path: '/quiz-templates', // Aggiornato path
       name: 'quiz-templates', // Aggiornato nome rotta

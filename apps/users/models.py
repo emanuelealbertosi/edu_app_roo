@@ -192,6 +192,16 @@ class RegistrationToken(models.Model):
         verbose_name=_('Student Registered'),
         help_text=_('Lo studente che si è registrato utilizzando questo token.')
     )
+    # Aggiungi ForeignKey opzionale al gruppo
+    source_group = models.ForeignKey(
+        'student_groups.StudentGroup', # Riferimento stringa al modello nell'altra app
+        on_delete=models.SET_NULL, # Se il gruppo viene eliminato, non eliminare il token
+        null=True,
+        blank=True,
+        related_name='registration_tokens_generated', # Nome per accedere ai token dal gruppo
+        verbose_name=_('Gruppo di Origine'),
+        help_text=_('Il gruppo specifico per cui questo token è stato generato (se applicabile).')
+    )
 
     class Meta:
         verbose_name = _('Registration Token')
@@ -230,6 +240,7 @@ class RegistrationToken(models.Model):
              base_url += '/'
 
         # Il path relativo per la registrazione (senza slash iniziale se base_url finisce con slash)
+        # Usa il path corretto definito nel router frontend
         registration_path = f"register/student?token={self.token}"
 
         # Unisci la base URL e il path relativo

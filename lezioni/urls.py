@@ -8,7 +8,7 @@ from .views import (
     TopicViewSet,
     LessonViewSet,
     LessonContentViewSet,
-    LessonAssignmentViewSet
+    LessonAssignmentViewSet # Ripristinato
 )
 
 app_name = 'lezioni'
@@ -17,8 +17,8 @@ app_name = 'lezioni'
 router = DefaultRouter()
 router.register(r'subjects', SubjectViewSet, basename='subject')
 router.register(r'topics', TopicViewSet, basename='topic')
-router.register(r'lessons', LessonViewSet, basename='lesson') # Include azioni custom come /assign e /contents
-router.register(r'assignments', LessonAssignmentViewSet, basename='lessonassignment') # Per listare/recuperare assegnazioni
+router.register(r'lessons', LessonViewSet, basename='lesson') # Include azioni custom come /assign, /revoke, /contents
+router.register(r'assignments', LessonAssignmentViewSet, basename='lessonassignment') # Ripristinato
 
 # Router annidato per i contenuti delle lezioni
 # Crea un router annidato sotto 'lessons' (identificato da 'lesson_pk')
@@ -45,8 +45,9 @@ urlpatterns = [
 # /api/lezioni/lessons/
 # /api/lezioni/lessons/{lesson_pk}/
 # /api/lezioni/lessons/{lesson_pk}/assign/  (Azione custom)
+# /api/lezioni/lessons/{lesson_pk}/revoke/  (Azione custom)
 # /api/lezioni/lessons/{lesson_pk}/contents/ (Lista contenuti - dal router annidato)
 # /api/lezioni/lessons/{lesson_pk}/contents/{content_pk}/ (Dettaglio contenuto - dal router annidato)
-# /api/lezioni/assignments/
-# /api/lezioni/assignments/{assignment_pk}/
+# /api/lezioni/assignments/ (Lista assegnazioni - filtrata per utente)
+# /api/lezioni/assignments/{assignment_pk}/ (Dettaglio assegnazione)
 # /api/lezioni/assignments/{assignment_pk}/mark-viewed/ (Azione custom)

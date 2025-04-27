@@ -22,6 +22,21 @@ export interface StudentRegistrationResponse {
   full_name: string;
 }
 
+// --- Registrazione specifica con Token di Gruppo ---
+
+export interface GroupTokenRegistrationPayload {
+  group_token: string; // Token specifico del gruppo
+  first_name: string;
+  last_name: string;
+  pin: string; // O password, a seconda del backend
+}
+
+export interface GroupRegistrationResponse {
+  student: StudentRegistrationResponse; // Dati studente creato
+  access: string; // Access Token JWT
+  refresh: string; // Refresh Token JWT
+}
+
 /**
  * Effettua una chiamata API per registrare un nuovo studente utilizzando un token.
  * @param {StudentRegistrationPayload} payload - I dati dello studente e il token.
@@ -36,6 +51,22 @@ export const registerStudentWithToken = async (payload: StudentRegistrationPaylo
   } catch (error: any) {
     console.error('Errore durante la registrazione dello studente con token:', error);
     // Rilancia l'errore per permettere alla view di gestirlo
+    throw error;
+  }
+};
+
+/**
+ * Effettua una chiamata API per registrare un nuovo studente utilizzando un TOKEN DI GRUPPO.
+ * @param {GroupTokenRegistrationPayload} payload - I dati dello studente e il token di gruppo.
+ * @returns {Promise<GroupRegistrationResponse>} Una Promise che risolve con i dati dello studente registrato e i token di autenticazione.
+ */
+export const registerStudentWithGroupToken = async (payload: GroupTokenRegistrationPayload): Promise<GroupRegistrationResponse> => {
+  try {
+    // Chiama l'endpoint specifico per la registrazione con token di gruppo
+    const response = await apiClient.post<GroupRegistrationResponse>('/auth/register-by-token/', payload);
+    return response.data;
+  } catch (error: any) {
+    console.error('Errore durante la registrazione dello studente con token di gruppo:', error);
     throw error;
   }
 };

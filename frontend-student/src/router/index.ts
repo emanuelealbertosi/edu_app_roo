@@ -124,6 +124,22 @@ const router = createRouter({
         }
       }
     },
+    // Nuova rotta pubblica per la registrazione tramite token di gruppo
+    {
+      path: '/register/group/:token', // Il token è un parametro della rotta
+      name: 'GroupTokenRegistration',
+      component: () => import('../views/GroupTokenRegistrationView.vue'),
+      props: true, // Passa i parametri della rotta come props al componente
+      meta: { requiresGuest: true }, // Solo per utenti non autenticati
+      beforeEnter: (to, from, next) => {
+        // Se l'utente è già autenticato, reindirizza alla dashboard
+        if (AuthService.isAuthenticated()) {
+          next({ name: 'dashboard' });
+        } else {
+          next();
+        }
+      }
+    },
     // Rotta 404 per pagine non trovate
     {
       path: '/:pathMatch(.*)*',
@@ -158,9 +174,9 @@ router.beforeEach(async (to, from, next) => {
       next({ name: 'login' }); // Reindirizza alla pagina di login
     }
   } else { // Se la rotta di destinazione NON richiede autenticazione (es. '/', '/login', '/register')
-    // Se l'utente è autenticato e cerca di accedere a una rotta pubblica che non dovrebbe vedere (login, root, register),
+    // Se l'utente è autenticato e cerca di accedere a una rotta pubblica che non dovrebbe vedere (login, root, register, register-group),
     // reindirizza alla dashboard.
-    if (isAuthenticated && (to.name === 'root' || to.name === 'login' || to.name === 'StudentRegistration')) {
+    if (isAuthenticated && (to.name === 'root' || to.name === 'login' || to.name === 'StudentRegistration' || to.name === 'GroupTokenRegistration')) {
       next({ name: 'dashboard' }); // Reindirizza alla dashboard
     } else {
       // Altrimenti (utente non autenticato su rotta pubblica, o utente autenticato su altra rotta pubblica), procedi

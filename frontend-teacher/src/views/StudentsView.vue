@@ -102,7 +102,8 @@
 
 <script setup lang="ts">
 import { ref, onMounted, nextTick } from 'vue'; // Aggiungi nextTick
-import { fetchStudents, type Student } from '@/api/students'; // Importa la funzione API e il tipo
+import { getMyStudents } from '@/api/students'; // Usa il nome corretto della funzione
+import type { Student } from '@/types/users'; // Importa il tipo dalla sua fonte originale
 import { createRegistrationToken, type RegistrationTokenResponse } from '@/api/registrationTokens'; // Importa API per token
 import BaseButton from '@/components/common/BaseButton.vue'; // Importa BaseButton
 
@@ -120,7 +121,8 @@ onMounted(async () => {
   isLoading.value = true;
   error.value = null;
   try {
-    students.value = await fetchStudents();
+    const studentsRes = await getMyStudents(); // Usa il nome corretto e salva la risposta
+    students.value = studentsRes.data; // Estrai l'array dalla proprietà 'data'
     // console.log('Studenti ricevuti:', students.value); // Rimosso log di debug
   } catch (err: any) {
     console.error("Errore nel recupero degli studenti:", err);

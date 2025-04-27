@@ -1,4 +1,5 @@
 from rest_framework import permissions
+from django.db.models import Q # Import per query OR
 # Assumiamo che i ruoli siano definiti nel modello User o in un profilo collegato
 # Potrebbe essere necessario importare il modello User: from apps.users.models import User
 # O usare settings.AUTH_USER_MODEL e accedere ai ruoli/profili da lì.
@@ -107,10 +108,16 @@ class IsAssignedStudentOrTeacherOwner(permissions.BasePermission):
 
             # Basandoci sui log di StudentAuth, assumiamo che request.user SIA l'istanza Studente.
             try:
-                # Verifica se esiste un'assegnazione per questa lezione e questo studente
-                return LessonAssignment.objects.filter(lesson=lesson, student=request.user).exists()
-            except Exception as e: # Cattura altri errori potenziali (es. field error)
-                 print(f"Errore durante la verifica dell'assegnazione studente: {e}")
+                # Verifica se esiste un'assegnazione per questa lezione diretta allo studente
+                # O a uno dei gruppi a cui lo studente appartiene
+                student_group_ids = request.user.group_memberships.values_list('group_id', flat=True)
+                return LessonAssignment.objects.filter(
+                    lesson=lesson
+                ).filter(
+                    Q(student=request.user) | Q(group_id__in=student_group_ids)
+                ).exists()
+            except Exception as e: # Cattura altri errori potenziali (es. field error, related_name error)
+                 print(f"Errore durante la verifica dell'assegnazione studente/gruppo: {e}")
                  return False # Meglio negare l'accesso se non sicuri
 
         # Caso 2: L'utente ha un ruolo (Docente/Teacher/Admin?)

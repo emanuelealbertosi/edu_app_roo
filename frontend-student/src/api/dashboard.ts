@@ -1,8 +1,18 @@
 import apiClient from './config';
 
 // Interfacce per TypeScript
-export interface Quiz {
-  id: number;
+// NUOVA Interfaccia per i dati dei tentativi restituiti dalla dashboard API
+export interface QuizAttemptDashboardItem {
+  // Campi specifici del tentativo
+  attempt_id: number; // ID del tentativo
+  status: string; // Stato del tentativo (es. PENDING, IN_PROGRESS, COMPLETED, FAILED)
+  score: number | null;
+  started_at: string;
+  completed_at: string | null;
+  assignment_type: 'student' | 'group' | 'unknown' | null; // Tipo di assegnazione
+
+  // Campi dal Quiz associato
+  quiz_id: number;
   title: string;
   description: string;
   available_from: string | null;
@@ -14,17 +24,11 @@ export interface Quiz {
     completion_threshold?: number;
     [key: string]: any;
   };
-  attempts_count?: number;
-  latest_attempt?: {
-    id: number;
-    status: string;
-    score: number | null;
-    started_at: string;
-    completed_at: string | null;
-  } | null;
+  teacher_username: string;
 }
 
-// Interfaccia per i dettagli dei quiz all'interno di un percorso
+
+// Interfaccia per i dettagli dei quiz all'interno di un percorso (invariata)
 export interface PathwayQuizDetail {
     id: number;
     quiz_id: number;
@@ -70,13 +74,14 @@ const DashboardService = {
   /**
    * Recupera tutti i quiz assegnati allo studente
    */
-  async getAssignedQuizzes(): Promise<Quiz[]> {
+  async getAssignedQuizzes(): Promise<QuizAttemptDashboardItem[]> { // Aggiornato tipo restituito
     try {
-      // Aggiunto prefisso completo relativo a /api/
+      // L'endpoint API rimane lo stesso, ma ora restituisce tentativi
       const response = await apiClient.get('student/dashboard/quizzes/');
-      return response.data;
+      // Assicurati che la risposta corrisponda alla nuova interfaccia
+      return response.data as QuizAttemptDashboardItem[];
     } catch (error) {
-      console.error('Error fetching assigned quizzes:', error);
+      console.error('Error fetching assigned quiz attempts:', error); // Messaggio errore aggiornato
       throw error;
     }
   },

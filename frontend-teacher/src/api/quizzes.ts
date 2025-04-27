@@ -250,11 +250,11 @@ export const uploadQuiz = async (file: File, title: string): Promise<Quiz> => {
         throw error;
     }
 };
-// Interfaccia per i dati di assegnazione Quiz
-export interface AssignQuizPayload {
-    student: number; // Modificato da student_id a student
-    quiz_id?: number | null; // ID del quiz esistente
-    quiz_template_id?: number | null; // ID del template da cui creare
+// Interfaccia per i dati di assegnazione Quiz (da Template a Studente)
+export interface AssignQuizPayload { // Rinominata per chiarezza? No, lasciamo così per ora.
+    student: number; // ID dello studente (user_id)
+    // quiz_id non serve più qui, assegniamo sempre da template
+    // quiz_template_id va nell'URL
     due_date?: string | null; // Data di scadenza opzionale (formato ISO 8601)
 }
 
@@ -275,17 +275,61 @@ export interface QuizAssignmentResponse {
 
 
 /**
- * Assegna un quiz (esistente o da template) a uno studente.
+ * Assegna un template quiz a uno studente singolo.
+ * @param templateId L'ID del template quiz da assegnare.
+ * @param payload Contiene l'ID dello studente e la data di scadenza opzionale.
  */
-export const assignQuizToStudent = async (payload: AssignQuizPayload): Promise<QuizAssignmentResponse> => {
+export const assignQuizToStudent = async (templateId: number, payload: AssignQuizPayload): Promise<QuizAssignmentResponse> => {
+    // Verifica che il payload contenga 'student' e non altri campi non necessari
+    const finalPayload = {
+        student: payload.student,
+        due_date: payload.due_date || null
+    };
+
     try {
-        // L'URL per l'azione custom è /education/quizzes/assign-student/
-        const response: AxiosResponse<QuizAssignmentResponse> = await apiClient.post('/education/quizzes/assign-student/', payload);
+        // Usa il nuovo URL corretto che punta all'azione sul TeacherQuizTemplateViewSet
+        const url = `/education/teacher/quiz-templates/${templateId}/assign-student/`;
+        const response: AxiosResponse<QuizAssignmentResponse> = await apiClient.post(url, finalPayload);
         return response.data;
     } catch (error) {
-        console.error('Errore durante l\'assegnazione del quiz:', error);
+        console.error(`Errore durante l'assegnazione del template quiz ${templateId} allo studente ${payload.student}:`, error);
         // Potresti voler gestire errori specifici (es. 400, 403, 404)
         throw error;
     }
 };
 // es. gestione domande, assegnazione studenti, etc.
+
+
+// --- Assegnazione a Gruppi ---
+
+// Interfaccia per i dati di assegnazione Quiz Template a Gruppo
+export interface AssignQuizTemplateToGroupPayload {
+    group: number; // ID del gruppo
+    due_date?: string | null; // Data di scadenza opzionale (formato ISO 8601)
+    // L'ID del template sarà nell'URL
+}
+
+// Interfaccia per la risposta (potrebbe essere simile a QuizAssignmentResponse o più semplice)
+// Assumiamo una risposta semplice per ora, da adattare se necessario
+export interface GroupAssignmentResponse {
+    status: string;
+    // Potrebbe includere dettagli sugli assignment creati se l'API li restituisce
+}
+
+
+/**
+ * Assegna un template quiz a un gruppo.
+ * @param templateId L'ID del template quiz da assegnare.
+ * @param payload Contiene l'ID del gruppo e la data di scadenza.
+ */
+export const assignQuizTemplateToGroup = async (templateId: number, payload: AssignQuizTemplateToGroupPayload): Promise<GroupAssignmentResponse> => {
+    try {
+        // Ipotizziamo un'azione 'assign' sul template
+        // Usa il nuovo url_path 'assign-group' definito nel backend
+        const response: AxiosResponse<GroupAssignmentResponse> = await apiClient.post(`/education/teacher/quiz-templates/${templateId}/assign-group/`, payload);
+        return response.data;
+    } catch (error) {
+        console.error(`Errore durante l'assegnazione del template quiz ${templateId} al gruppo ${payload.group}:`, error);
+        throw error;
+    }
+};

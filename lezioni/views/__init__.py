@@ -5,7 +5,7 @@
 from .subject_views import SubjectViewSet
 from .topic_views import TopicViewSet
 from .lesson_views import LessonViewSet, LessonContentViewSet
-from .assignment_views import LessonAssignmentViewSet
+from .assignment_views import LessonAssignmentViewSet # Ripristinato import
 
 # Esporta le classi per l'uso in urls.py
 __all__ = [
@@ -13,5 +13,5 @@ __all__ = [
     'TopicViewSet',
     'LessonViewSet',
     'LessonContentViewSet',
-    'LessonAssignmentViewSet',
+    'LessonAssignmentViewSet', # Ripristinato export
 ]
