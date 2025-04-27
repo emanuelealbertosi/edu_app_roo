@@ -85,7 +85,8 @@ import { ref, watch, computed, onMounted } from 'vue';
 import BaseModal from '@/components/common/BaseModal.vue';
 import BaseButton from '@/components/common/BaseButton.vue';
 import type { Reward } from '@/api/rewards';
-import { fetchStudents, type Student } from '@/api/students';
+import { getMyStudents } from '@/api/students';
+import type { Student } from '@/types/users'; // Importa Student da types/users
 import { useGroupStore } from '@/stores/groups';
 import { storeToRefs } from 'pinia';
 import type { StudentGroup } from '@/types/groups';
@@ -140,7 +141,8 @@ const loadInitialData = async () => {
     // }
 
     try {
-        allStudents.value = await fetchStudents();
+        const response = await getMyStudents();
+        allStudents.value = response.data;
         // Inizializza i Set con gli ID correnti dalla prop reward
         selectedStudentIds.value = new Set(props.reward.available_to_specific_students || []);
         selectedGroupIds.value = new Set(props.reward.available_to_specific_groups || []);
@@ -181,7 +183,7 @@ const isGroupSelected = (groupId: number): boolean => {
 const toggleStudentAvailability = async (studentId: number, event: Event) => {
     if (!props.reward) return;
     const isChecked = (event.target as HTMLInputElement).checked;
-    await updateAvailability({ student: studentId }, isChecked);
+    await updateAvailability({ student_id: studentId }, isChecked); // Usa student_id
     if (!updateError.value) { // Aggiorna il Set solo se l'API ha successo
          isChecked ? selectedStudentIds.value.add(studentId) : selectedStudentIds.value.delete(studentId);
          selectedStudentIds.value = new Set(selectedStudentIds.value); // Forza reattività
@@ -191,7 +193,7 @@ const toggleStudentAvailability = async (studentId: number, event: Event) => {
 const toggleGroupAvailability = async (groupId: number, event: Event) => {
     if (!props.reward) return;
     const isChecked = (event.target as HTMLInputElement).checked;
-    await updateAvailability({ group: groupId }, isChecked);
+    await updateAvailability({ group_id: groupId }, isChecked); // Usa group_id
      if (!updateError.value) { // Aggiorna il Set solo se l'API ha successo
         isChecked ? selectedGroupIds.value.add(groupId) : selectedGroupIds.value.delete(groupId);
         selectedGroupIds.value = new Set(selectedGroupIds.value); // Forza reattività
@@ -206,7 +208,8 @@ const updateAvailability = async (payload: MakeRewardAvailablePayload | RevokeRe
     updateSuccess.value = null;
     const action = makeAvailable ? makeRewardAvailable : revokeRewardAvailability;
     const actionText = makeAvailable ? 'rendere disponibile' : 'revocare la disponibilità';
-    const targetText = payload.student ? `studente ${payload.student}` : `gruppo ${payload.group}`;
+    // Usa 'in' per controllare la presenza della proprietà nel tipo unione
+    const targetText = 'student_id' in payload ? `studente ${payload.student_id}` : `gruppo ${payload.group_id}`;
 
     try {
         await action(props.reward.id, payload);

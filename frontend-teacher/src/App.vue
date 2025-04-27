@@ -94,13 +94,15 @@ const goToProfile = () => {
               <span class="ml-3 text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Quiz Templates</span>
             </router-link>
           </li>
-          <!-- Template Percorsi -->
+          <!-- Template Percorsi - Temporarily Hidden -->
+          <!--
           <li class="mb-2">
             <router-link :to="{ name: 'pathway-templates' }" class="flex items-center p-2 rounded hover:bg-secondary-light">
               <MapIcon class="h-5 w-5 flex-shrink-0" />
               <span class="ml-3 text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Template Percorsi</span>
             </router-link>
           </li>
+          -->
           <!-- Quiz Assegnati -->
           <li class="mb-2">
             <router-link :to="{ name: 'assigned-quizzes' }" class="flex items-center p-2 rounded hover:bg-secondary-light">
@@ -108,13 +110,15 @@ const goToProfile = () => {
               <span class="ml-3 text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Quiz Assegnati</span>
             </router-link>
           </li>
-          <!-- Percorsi Assegnati -->
+          <!-- Percorsi Assegnati - Temporarily Hidden -->
+          <!--
           <li class="mb-2">
             <router-link :to="{ name: 'assigned-pathways' }" class="flex items-center p-2 rounded hover:bg-secondary-light">
               <MapPinIcon class="h-5 w-5 flex-shrink-0" />
               <span class="ml-3 text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Percorsi Assegnati</span>
             </router-link>
           </li>
+          -->
           <!-- Ricompense -->
           <li class="mb-2">
             <router-link :to="{ name: 'rewards' }" class="flex items-center p-2 rounded hover:bg-secondary-light">
@@ -217,13 +221,15 @@ const goToProfile = () => {
                 <span class="ml-3 text-sm">Quiz Templates</span>
               </router-link>
             </li>
-            <!-- Template Percorsi -->
+            <!-- Template Percorsi - Temporarily Hidden -->
+            <!--
             <li class="mb-2">
               <router-link :to="{ name: 'pathway-templates' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-secondary-light">
                 <MapIcon class="h-5 w-5 flex-shrink-0" />
                 <span class="ml-3 text-sm">Template Percorsi</span>
               </router-link>
             </li>
+            -->
             <!-- Quiz Assegnati -->
             <li class="mb-2">
               <router-link :to="{ name: 'assigned-quizzes' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-secondary-light">
@@ -231,13 +237,15 @@ const goToProfile = () => {
                 <span class="ml-3 text-sm">Quiz Assegnati</span>
               </router-link>
             </li>
-            <!-- Percorsi Assegnati -->
+            <!-- Percorsi Assegnati - Temporarily Hidden -->
+            <!--
             <li class="mb-2">
               <router-link :to="{ name: 'assigned-pathways' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-secondary-light">
                 <MapPinIcon class="h-5 w-5 flex-shrink-0" />
                 <span class="ml-3 text-sm">Percorsi Assegnati</span>
               </router-link>
             </li>
+            -->
             <!-- Ricompense -->
             <li class="mb-2">
               <router-link :to="{ name: 'rewards' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-secondary-light">

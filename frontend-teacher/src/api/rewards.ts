@@ -46,8 +46,8 @@ export interface MakeRewardAvailablePayload {
 
 // Payload per revocare la disponibilità di una ricompensa da uno studente o gruppo
 export interface RevokeRewardAvailabilityPayload {
-   student?: number; // ID studente (opzionale)
-   group?: number;   // ID gruppo (opzionale)
+   student_id?: number; // ID studente (opzionale) - Coerente con Make...
+   group_id?: number;   // ID gruppo (opzionale) - Coerente con Make...
    // Assicurarsi che almeno uno dei due sia fornito
 }
 
@@ -182,7 +182,7 @@ export const makeRewardAvailable = async (rewardId: number, payload: MakeRewardA
 * @param payload Contiene l'ID dello studente o del gruppo.
 */
 export const revokeRewardAvailability = async (rewardId: number, payload: RevokeRewardAvailabilityPayload): Promise<RewardAvailabilityResponse> => {
-    if (!payload.student && !payload.group) {
+    if (!payload.student_id && !payload.group_id) { // Usa i nomi corretti
        throw new Error("È necessario specificare un ID studente o un ID gruppo.");
    }
    try {
@@ -192,8 +192,8 @@ export const revokeRewardAvailability = async (rewardId: number, payload: Revoke
        const response = await apiClient.post<RewardAvailabilityResponse>(`/rewards/rewards/${rewardId}/revoke_availability/`, payload);
        return response.data;
    } catch (error) {
-       const targetType = payload.student ? 'studente' : 'gruppo';
-       const targetId = payload.student ?? payload.group;
+       const targetType = payload.student_id ? 'studente' : 'gruppo'; // Usa i nomi corretti
+       const targetId = payload.student_id ?? payload.group_id; // Usa i nomi corretti
        console.error(`Errore nel revocare la disponibilità della ricompensa ${rewardId} per ${targetType} ${targetId}:`, error);
        throw error;
    }

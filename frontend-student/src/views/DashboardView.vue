@@ -112,12 +112,12 @@ const goToShop = () => {
                 :loading="dashboardStore.loading.quizzes"
                 :showStartButton="true"
               />
-              <PathwayList
+              <!-- PathwayList
                 :pathways="dashboardStore.inProgressPathways"
                 title="Percorsi in Corso"
                 emptyMessage="Non hai percorsi in corso al momento."
                 :loading="dashboardStore.loading.pathways"
-              />
+              / -->
             </div>
           </template>
 
@@ -129,13 +129,13 @@ const goToShop = () => {
                 emptyMessage="Non hai ancora completato nessun quiz."
                 :loading="dashboardStore.loading.quizzes"
               />
-              <PathwayList
+              <!-- PathwayList
                 :pathways="dashboardStore.completedPathways"
                 title="Percorsi Completati"
                 emptyMessage="Non hai ancora completato nessun percorso."
                 :loading="dashboardStore.loading.pathways"
                 :showResultLink="true"
-              />
+              / -->
             </div>
           </template>
         </BaseTabs>

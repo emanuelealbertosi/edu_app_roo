@@ -148,7 +148,7 @@ class LessonViewSet(viewsets.ModelViewSet):
         valid_students = []
         invalid_student_ids = []
         if Student and student_ids:
-            students = Student.objects.filter(id__in=student_ids, user_id=request.user.id) # Solo studenti del docente
+            students = Student.objects.filter(id__in=student_ids, teacher_id=request.user.id) # Solo studenti del docente
             valid_students = list(students)
             valid_student_ids = {s.id for s in valid_students}
             invalid_student_ids = [sid for sid in student_ids if sid not in valid_student_ids]

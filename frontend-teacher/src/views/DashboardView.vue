@@ -63,7 +63,7 @@ onMounted(() => {
 const quickLinks = [
   { name: 'Gestisci Studenti', path: '/students', icon: UsersIcon },
   { name: 'Template Quiz', path: '/quiz-templates', icon: ClipboardDocumentListIcon },
-  { name: 'Template Percorsi', path: '/pathway-templates', icon: MapIcon },
+  // { name: 'Template Percorsi', path: '/pathway-templates', icon: MapIcon },
   { name: 'Gestisci Ricompense', path: '/rewards', icon: GiftIcon },
   { name: 'Assegna Contenuti', path: '/assign', icon: PaperAirplaneIcon },
   { name: 'Correggi Quiz', path: '/grading', icon: PencilSquareIcon },

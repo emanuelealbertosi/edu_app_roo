@@ -59,6 +59,21 @@
       Nessuna ricompensa trovata.
     </div>
   </div>
+
+  <!-- Modale per Creare Nuova Ricompensa -->
+  <RewardCreateModal
+    :show="isCreateModalOpen"
+    @close="closeCreateModal"
+    @created="handleRewardCreated"
+  />
+
+  <!-- Modale per Gestire Disponibilità -->
+  <RewardAvailabilityModal
+     :show="isAvailabilityModalOpen"
+     :reward="selectedRewardForAvailability"
+     @close="closeAvailabilityModal"
+     @updated="handleAvailabilityUpdate"
+  />
 </template>
 
 <script setup lang="ts">
@@ -66,13 +81,17 @@ import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { fetchRewards, deleteRewardApi, type Reward } from '@/api/rewards';
 import BaseButton from '@/components/common/BaseButton.vue';
-// Importa la modale
-import RewardAvailabilityModal from '@/components/features/rewards/RewardAvailabilityModal.vue'; // RIMOSSO COMMENTO
+// Importa le modali
+import RewardAvailabilityModal from '@/components/features/rewards/RewardAvailabilityModal.vue';
+import RewardCreateModal from '@/components/features/rewards/RewardCreateModal.vue'; // Importa la modale di creazione
 
 const router = useRouter();
 const rewards = ref<Reward[]>([]);
 const isLoading = ref(false);
 const error = ref<string | null>(null);
+
+// Stato per la modale di creazione
+const isCreateModalOpen = ref(false);
 
 // Stato per la modale di disponibilità
 const isAvailabilityModalOpen = ref(false);
@@ -93,12 +112,25 @@ const loadRewards = async () => {
 
 onMounted(loadRewards);
 
+// --- Gestione Modale Creazione ---
 const createNewReward = () => {
-  router.push({ name: 'reward-new' }); // Naviga alla rotta di creazione
+  // router.push({ name: 'reward-new' }); // Non naviga più
+  isCreateModalOpen.value = true; // Apre la modale
 };
 
+const closeCreateModal = () => {
+  isCreateModalOpen.value = false;
+};
+
+const handleRewardCreated = () => {
+  closeCreateModal(); // Chiude la modale
+  loadRewards(); // Ricarica l'elenco delle ricompense
+  // Potresti aggiungere un messaggio di successo qui (es. con un toast)
+};
+// --- Fine Gestione Modale Creazione ---
+
 const editReward = (id: number) => {
-  router.push({ name: 'reward-edit', params: { id: id.toString() } }); // Naviga alla rotta di modifica
+  router.push({ name: 'reward-edit', params: { id: id.toString() } }); // Naviga alla rotta di modifica (usa RewardFormView)
 };
 
 const deleteReward = async (id: number) => {
@@ -113,53 +145,30 @@ const deleteReward = async (id: number) => {
     console.log(`Ricompensa ${id} eliminata.`); // Log di successo
   } catch (err: any) {
     console.error(`Errore eliminazione ricompensa ${id}:`, err);
-    // Usa il messaggio specifico dall'errore lanciato da deleteRewardApi se disponibile
     error.value = `Errore eliminazione ricompensa: ${err.message || 'Errore sconosciuto'}`;
-    // Attenzione: potrebbe essere un ProtectedError (409) se già acquistata
   }
 };
 
-// Funzione per aprire la modale di gestione disponibilità
+// --- Gestione Modale Disponibilità ---
 const openAvailabilityModal = (reward: Reward) => {
   selectedRewardForAvailability.value = reward;
   isAvailabilityModalOpen.value = true;
-  console.log("Apertura modale disponibilità per:", reward.id); // Placeholder
 };
 
-// Funzione per chiudere la modale
 const closeAvailabilityModal = () => {
   isAvailabilityModalOpen.value = false;
   selectedRewardForAvailability.value = null;
 };
 
-// Funzione chiamata dalla modale dopo aver salvato le modifiche (per ricaricare i dati se necessario)
 const handleAvailabilityUpdate = () => {
    closeAvailabilityModal();
-   // Potrebbe essere utile ricaricare i dati della ricompensa specifica o l'intera lista
-   // loadRewards(); // Opzionale: ricarica tutta la lista
-   console.log("Disponibilità aggiornata, chiusura modale."); // Placeholder
+   loadRewards(); // Ricarica l'elenco per vedere l'aggiornamento (es. tipo disponibilità)
+   console.log("Disponibilità aggiornata, chiusura modale.");
 };
+// --- Fine Gestione Modale Disponibilità ---
 
 </script>
-
-<!-- Aggiungi il componente modale qui quando sarà creato -->
-<!--
-<RewardAvailabilityModal
-   :show="isAvailabilityModalOpen"
-   :reward="selectedRewardForAvailability"
-   @close="closeAvailabilityModal"
-   @updated="handleAvailabilityUpdate"
-/>
-
 
 <style scoped>
 /* Stili specifici rimossi in favore di Tailwind */
 </style>
-
-<!-- Modale per Gestire Disponibilità -->
-<RewardAvailabilityModal
-   :show="isAvailabilityModalOpen"
-   :reward="selectedRewardForAvailability"
-   @close="closeAvailabilityModal"
-   @updated="handleAvailabilityUpdate"
-/>

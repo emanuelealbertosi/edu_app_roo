@@ -17,10 +17,10 @@
     <div v-if="!lessonStore.isLoadingAssignments && assignedLessons.length > 0" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
        <div v-for="assignment in assignedLessons" :key="assignment.id" class="lesson-card bg-white rounded-lg shadow-md overflow-hidden flex flex-col">
            <div class="p-5 flex-grow">
-               <h3 class="text-lg font-semibold text-gray-800 mb-2">{{ assignment.lesson_details?.title || 'Lezione (ID: ' + assignment.lesson + ')' }}</h3>
+               <h3 class="text-lg font-semibold text-gray-800 mb-2">{{ assignment.lesson.title || 'Lezione (ID: ' + assignment.lesson.id + ')' }}</h3>
                <p class="text-xs text-gray-500 mb-3">
-                   Assegnata da: <span class="font-medium">{{ assignment.assigned_by?.username || (assignment.assigned_by?.first_name ? `${assignment.assigned_by.first_name} ${assignment.assigned_by.last_name}` : 'N/D') }}</span> <br>
-                   il: {{ formatDate(assignment.assigned_at) }} <br>
+                   <!-- Rimosso 'Assegnata da:' perché il campo non è più disponibile -->
+                   Assegnata il: {{ formatDate(assignment.assigned_at) }} <br>
                    <span v-if="assignment.viewed_at" class="text-green-600">Vista il: {{ formatDate(assignment.viewed_at) }}</span>
                    <span v-else class="text-yellow-600 italic">Non ancora vista</span>
                </p>
