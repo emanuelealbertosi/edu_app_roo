@@ -23,6 +23,14 @@ interface LoginResponse {
     is_active: boolean;
     created_at: string;
   };
+  // Aggiungiamo un tipo per la risposta di /me (potrebbe essere leggermente diverso da quello nel login)
+  student_me: {
+    id: number;
+    first_name: string;
+    last_name: string;
+    student_code: string;
+    // Aggiungere altri campi se restituiti da /me
+  };
 }
 
 /**
@@ -78,7 +86,29 @@ const AuthService = {
     const userStr = localStorage.getItem('user');
     return userStr ? JSON.parse(userStr) : null;
   },
-  
+
+  /**
+   * Recupera i dati dello studente attualmente autenticato dal backend.
+   * @returns Promise con i dati dello studente.
+   */
+  async fetchCurrentStudent(): Promise<LoginResponse['student_me']> { // Usa il nuovo tipo
+    try {
+      // Assumiamo che l'endpoint sia /api/auth/student/me/
+      // Aggiunto prefisso completo relativo a /api/
+      const response = await apiClient.get<LoginResponse['student_me']>('student/auth/student/me/');
+      // Potremmo voler salvare/aggiornare l'utente in localStorage qui, ma è meglio
+      // che sia lo store a gestire la persistenza coerentemente.
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching current student:', error);
+      // Se l'errore è 401, il token non è valido, esegui il logout
+      if (axios.isAxiosError(error) && error.response && error.response.status === 401) {
+        this.logout(); // Esegui il logout se il token non è valido
+      }
+      throw error; // Rilancia per lo store
+    }
+  },
+
   /**
    * Verifica se il token è ancora valido
    * In una implementazione completa questo dovrebbe verificare se il token è scaduto

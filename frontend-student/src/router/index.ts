@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import AuthService from '@/api/auth';
+import AuthService from '@/api/auth'; // Mantenuto per eventuali chiamate API specifiche se necessarie altrove
 import { usePathwayStore } from '@/stores/pathway';
+import { useSharedAuthStore } from '@/stores/sharedAuth'; // Importa lo store condiviso
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -18,7 +19,9 @@ const router = createRouter({
       meta: { requiresGuest: true }, // Marca la login come "guest"
       // La guardia beforeEnter è ridondante se beforeEach gestisce requiresGuest, ma la lasciamo per sicurezza/chiarezza
       beforeEnter: (to, from, next) => {
-        if (AuthService.isAuthenticated()) {
+        // Ottieni lo store all'interno della guardia
+        const sharedAuth = useSharedAuthStore();
+        if (sharedAuth.isAuthenticated) {
           next({ name: 'dashboard' }) // Usa il nome della rotta per coerenza
         } else {
           next()
@@ -116,8 +119,9 @@ const router = createRouter({
       name: 'StudentRegistration',
       component: () => import('../views/StudentRegistrationView.vue'),
       beforeEnter: (to, from, next) => {
-        // Se l'utente è già autenticato, reindirizza alla dashboard
-        if (AuthService.isAuthenticated()) {
+        // Ottieni lo store all'interno della guardia
+        const sharedAuth = useSharedAuthStore();
+        if (sharedAuth.isAuthenticated) {
           next('/dashboard');
         } else {
           next();
@@ -132,8 +136,9 @@ const router = createRouter({
       props: true, // Passa i parametri della rotta come props al componente
       meta: { requiresGuest: true }, // Solo per utenti non autenticati
       beforeEnter: (to, from, next) => {
-        // Se l'utente è già autenticato, reindirizza alla dashboard
-        if (AuthService.isAuthenticated()) {
+        // Ottieni lo store all'interno della guardia
+        const sharedAuth = useSharedAuthStore();
+        if (sharedAuth.isAuthenticated) {
           next({ name: 'dashboard' });
         } else {
           next();
@@ -151,37 +156,28 @@ const router = createRouter({
 
 // Guardia di navigazione globale aggiornata
 router.beforeEach(async (to, from, next) => {
+  // Ottieni lo store condiviso DENTRO la guardia
+  const sharedAuth = useSharedAuthStore();
   const requiresAuth = to.matched.some(record => record.meta.requiresAuth);
-  const isAuthenticated = AuthService.isAuthenticated(); // Assicurati che AuthService sia importato e funzioni
+  const requiresGuest = to.matched.some(record => record.meta.requiresGuest); // Controlla anche le rotte "guest"
+  const isAuthenticated = sharedAuth.isAuthenticated; // Usa lo stato dello store
 
-  if (requiresAuth) { // Se la rotta di destinazione richiede autenticazione
-    if (isAuthenticated) {
-      // Verifica la validità del token (gestisce refresh/logout se necessario)
-      try {
-        const isValid = await AuthService.checkTokenValidity();
-        if (isValid) {
-          next(); // Utente autenticato e token valido, procedi
-        } else {
-          // Token non valido (scaduto e non rinnovabile o altro errore)
-          next({ name: 'login' }); // Reindirizza alla pagina di login
-        }
-      } catch (error) {
-         console.error('Errore durante la verifica del token:', error);
-         next({ name: 'login' }); // In caso di errore nella verifica, vai al login
-      }
-    } else {
-      // Utente non autenticato che tenta di accedere a una rotta protetta
-      next({ name: 'login' }); // Reindirizza alla pagina di login
-    }
-  } else { // Se la rotta di destinazione NON richiede autenticazione (es. '/', '/login', '/register')
-    // Se l'utente è autenticato e cerca di accedere a una rotta pubblica che non dovrebbe vedere (login, root, register, register-group),
-    // reindirizza alla dashboard.
-    if (isAuthenticated && (to.name === 'root' || to.name === 'login' || to.name === 'StudentRegistration' || to.name === 'GroupTokenRegistration')) {
-      next({ name: 'dashboard' }); // Reindirizza alla dashboard
-    } else {
-      // Altrimenti (utente non autenticato su rotta pubblica, o utente autenticato su altra rotta pubblica), procedi
-      next();
-    }
+  console.log(`[Router Guard] Navigating to: ${to.path}, requiresAuth: ${requiresAuth}, requiresGuest: ${requiresGuest}, isAuthenticated: ${isAuthenticated}`);
+
+  if (requiresAuth && !isAuthenticated) {
+    // Utente non autenticato che tenta di accedere a una rotta protetta
+    console.log('[Router Guard] Auth required, but user not authenticated. Redirecting to login.');
+    next({ name: 'login' });
+  } else if (requiresGuest && isAuthenticated) {
+    // Utente autenticato che tenta di accedere a una rotta "guest" (es. login, register)
+    console.log('[Router Guard] Guest required, but user is authenticated. Redirecting to dashboard.');
+    next({ name: 'dashboard' });
+  } else {
+    // Utente autenticato su rotta protetta,
+    // Utente non autenticato su rotta pubblica/guest,
+    // Utente autenticato su rotta pubblica non-guest
+    console.log('[Router Guard] Access granted.');
+    next(); // Procedi con la navigazione
   }
 })
 

@@ -82,12 +82,14 @@
 import { ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { registerStudentWithGroupToken } from '@/api/registration';
-import { useAuthStore } from '@/stores/auth'; // Assumiamo esista uno store auth
+// Rimuovi import dello store auth specifico studente
+// import { useAuthStore } from '@/stores/auth';
+import { useSharedAuthStore, type SharedUser } from '@/stores/sharedAuth'; // Importa store condiviso
 import { AxiosError } from 'axios';
 
 const route = useRoute();
 const router = useRouter();
-const authStore = useAuthStore(); // Istanza dello store di autenticazione
+const sharedAuth = useSharedAuthStore(); // Istanza dello store condiviso
 
 const groupToken = ref<string>('');
 const firstName = ref('');
@@ -132,21 +134,23 @@ const handleSubmit = async () => {
     const response = await registerStudentWithGroupToken(payload);
 
     // Registrazione avvenuta con successo, ora effettua il login automatico
-    // Imposta manualmente lo stato di autenticazione nello store e salva in localStorage
-    authStore.user = response.student; // Imposta i dati utente nello store
-    authStore.token = response.access; // Imposta il token nello store
-    // Nello store setup, isAuthenticated è un computed basato su token/user,
-    // quindi impostare user e token dovrebbe essere sufficiente.
-    // Non impostiamo direttamente isAuthenticated.value qui.
+    // utilizzando lo store condiviso.
 
-    // Salva manualmente in localStorage (similmente a quanto farebbe login)
-    localStorage.setItem('auth_token', response.access);
-    localStorage.setItem('user', JSON.stringify(response.student));
-    // Nota: Il refresh token non viene usato attivamente in questo store, ma potresti salvarlo se necessario
-    // localStorage.setItem('refresh_token', response.refresh);
+    // Mappa i dati della risposta a SharedUser
+    const studentData = response.student; // Assumendo che la risposta abbia la chiave 'student'
+    const sharedUserData: SharedUser = {
+        id: studentData.id,
+        student_code: studentData.student_code,
+        first_name: studentData.first_name,
+        last_name: studentData.last_name,
+        role: 'STUDENT' // Imposta ruolo esplicitamente
+    };
 
-    // Reindirizza alla dashboard o alla pagina principale post-login
-    router.push({ name: 'Dashboard' }); // Assicurati che 'Dashboard' sia il nome corretto della route
+    // Salva nello store condiviso
+    sharedAuth.setAuthData(response.access, response.refresh || null, sharedUserData);
+
+    // Reindirizza alla landing page usando il redirect a livello browser
+    window.location.href = '/landing';
 
   } catch (error) {
     console.error('Errore durante la registrazione con token di gruppo:', error);

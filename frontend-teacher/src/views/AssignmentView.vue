@@ -9,7 +9,7 @@
         <label for="content-type" class="block text-sm font-medium text-neutral-darker mb-1">Tipo Contenuto da Assegnare:</label> <!-- Stile label aggiornato -->
         <select id="content-type" v-model="selectedContentType" class="w-full p-2 border border-neutral-DEFAULT rounded-md shadow-sm focus:ring-primary focus:border-primary"> <!-- Stili select aggiornati -->
           <option value="quiz">Template Quiz</option>
-          <option value="pathway">Template Percorso</option>
+          <option value="pathway" v-if="false">Template Percorso</option> <!-- Nascosto temporaneamente -->
         </select>
       </div>
 

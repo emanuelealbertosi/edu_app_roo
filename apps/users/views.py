@@ -177,7 +177,10 @@ class StudentProtectedTestView(APIView):
 
     def get(self, request):
         # request.student è disponibile grazie a StudentJWTAuthentication
-        return Response({"message": "Access granted", "student_id": request.student.pk})
+        # Modificato per restituire i dati completi dello studente serializzati
+        serializer = StudentSerializer(request.student) # Usa StudentSerializer
+        logger.debug(f"Returning full student data for student ID {request.student.pk} in StudentProtectedTestView")
+        return Response(serializer.data) # Restituisce i dati serializzati
 
 
 # --- Teacher Views ---

@@ -1,5 +1,6 @@
 import { createApp } from 'vue'
 import { createPinia } from 'pinia' // Importa Pinia
+import piniaPluginPersistedstate from 'pinia-plugin-persistedstate' // Importa il plugin
 import router from './router' // Importa il router
 import './index.css' // Importa gli stili Tailwind
 import App from './App.vue'
@@ -9,9 +10,10 @@ const app = createApp(App)
 
 // Crea l'istanza di Pinia
 const pinia = createPinia()
+pinia.use(piniaPluginPersistedstate) // Usa il plugin
 
 // Usa Pinia e il Router nell'app
-app.use(pinia)
+app.use(pinia) // Usa l'istanza Pinia configurata
 app.use(router)
 
 // Monta l'applicazione

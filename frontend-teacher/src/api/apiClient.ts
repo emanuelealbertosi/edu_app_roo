@@ -1,5 +1,6 @@
 import axios from 'axios';
-import { useAuthStore } from '@/stores/auth'; // Assumendo che lo store sia qui
+import { useAuthStore } from '@/stores/auth'; // Store specifico Teacher (per azione refresh?)
+import { useSharedAuthStore } from '@/stores/sharedAuth'; // Importa store condiviso
 import router from '@/router'; // Importa il router per i redirect
 
 // Configura l'URL base dell'API. Dovrebbe puntare al backend Django.
@@ -16,8 +17,9 @@ const apiClient = axios.create({
 // Interceptor per aggiungere il token JWT alle richieste
 apiClient.interceptors.request.use(
   (config) => {
-    const authStore = useAuthStore();
-    const token = authStore.accessToken; // Prendi il token di accesso dallo store
+    // Usa lo store condiviso per prendere il token
+    const sharedAuth = useSharedAuthStore();
+    const token = sharedAuth.accessToken;
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -36,25 +38,33 @@ apiClient.interceptors.response.use(
   },
   async (error) => {
     const originalRequest = error.config;
-    const authStore = useAuthStore();
+    // Usa store condiviso per stato e store teacher per azione refresh specifica
+    const sharedAuth = useSharedAuthStore();
+    const authTeacherStore = useAuthStore(); // Per chiamare refreshTokenAction specifica del teacher
 
     // Controlla se l'errore è 401 e non è una richiesta di refresh fallita
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true; // Marca la richiesta per evitare loop infiniti
 
       try {
-        console.log('Access token expired, attempting refresh...');
-        await authStore.refreshToken(); // Tenta di rinnovare il token
-        console.log('Token refreshed successfully.');
-        // Riprova la richiesta originale con il nuovo token
-        originalRequest.headers.Authorization = `Bearer ${authStore.accessToken}`;
+        console.log('[API Interceptor Teacher] Access token expired or invalid, attempting refresh...');
+        // Chiama l'azione di refresh specifica dello store teacher,
+        // che a sua volta aggiornerà lo store condiviso.
+        await authTeacherStore.refreshTokenAction();
+        console.log('[API Interceptor Teacher] Token refreshed successfully via teacher action.');
+        // Riprova la richiesta originale con il nuovo token dallo store condiviso
+        originalRequest.headers.Authorization = `Bearer ${sharedAuth.accessToken}`;
         return apiClient(originalRequest);
       } catch (refreshError) {
-        console.error('Unable to refresh token:', refreshError);
-        // Se il refresh fallisce, esegui il logout
-        authStore.logout();
-        // Reindirizza alla pagina di login
-        router.push({ name: 'Login' }); // Assicurati che 'Login' sia il nome corretto della rotta
+        console.error('[API Interceptor Teacher] Unable to refresh token:', refreshError);
+        // Se il refresh fallisce, lo store teacher (o shared) dovrebbe aver già gestito il logout/clear.
+        // Non chiamare logout() di nuovo qui per evitare doppioni.
+        // sharedAuth.clearAuthData(); // Già fatto da refreshTokenAction in caso di errore
+        // Reindirizza alla pagina di login del teacher (o alla root?)
+        // La guardia di navigazione dovrebbe comunque intercettare e mandare al login corretto.
+        // router.push({ name: 'login' }); // Usa il nome corretto della rotta login teacher
+        // Meglio reindirizzare alla root e lasciare che le guardie facciano il loro lavoro
+        window.location.href = '/';
         return Promise.reject(refreshError); // Rifiuta la promise
       }
     }

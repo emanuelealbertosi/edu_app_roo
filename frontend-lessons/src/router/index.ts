@@ -45,25 +45,31 @@ const router = createRouter({
       path: '/materie',
       name: 'subjects',
       component: () => import('../views/SubjectListView.vue'), // Lazy loading
-      meta: { requiresAuth: true, roles: ['Admin', 'Docente', 'Teacher'] } // Richiede auth e ruolo Admin, Docente o Teacher
+      meta: { requiresAuth: true, roles: ['Admin', 'Docente', 'Teacher', 'ADMIN', 'TEACHER'] } // Includi case corretto
     },
     {
       path: '/argomenti', // URL per la lista argomenti
       name: 'topics',
       component: () => import('../views/TopicListView.vue'), // Lazy loading
-      meta: { requiresAuth: true, roles: ['Admin', 'Docente', 'Teacher'] } // Stessi permessi delle materie (incluso Teacher)
+      meta: { requiresAuth: true, roles: ['Admin', 'Docente', 'Teacher', 'ADMIN', 'TEACHER'] } // Includi case corretto
     },
      {
-      path: '/lezioni-docente', // URL per la lista lezioni del docente
-      name: 'teacher-lessons',
+      path: '/docente', // Rotta per l'atterraggio del docente da /lezioni/docente
+      name: 'teacher-landing', // Nome univoco
+      component: () => import('../views/TeacherLessonListView.vue'), // Mostra la lista lezioni
+      meta: { requiresAuth: true, roles: ['Docente', 'Teacher', 'TEACHER'] } // Includi case corretto
+     },
+     {
+      path: '/lezioni-docente', // URL alternativo per la lista lezioni del docente (se serve)
+      name: 'teacher-lessons', // Nome diverso se si mantiene questa rotta
       component: () => import('../views/TeacherLessonListView.vue'),
-      meta: { requiresAuth: true, roles: ['Docente', 'Teacher'] } // Solo per Docenti o Teacher
+      meta: { requiresAuth: true, roles: ['Docente', 'Teacher', 'TEACHER'] } // Includi case corretto
     },
     {
       path: '/lezioni-assegnate', // URL per la lista lezioni dello studente
       name: 'assigned-lessons',
       component: () => import('../views/StudentLessonListView.vue'),
-      meta: { requiresAuth: true, roles: ['Studente'] } // Solo per Studenti
+      meta: { requiresAuth: true, roles: ['Studente', 'STUDENT'] } // Includi case corretto
     },
     {
       path: '/lezioni/:id(\\d+)', // Usa regex per assicurare che id sia numerico
@@ -77,14 +83,14 @@ const router = createRouter({
       name: 'lesson-contents',
       component: () => import('../views/LessonContentView.vue'),
       props: true, // Passa lessonId come prop
-      meta: { requiresAuth: true, roles: ['Docente', 'Teacher'] } // Solo Docenti/Teacher possono gestire contenuti
+      meta: { requiresAuth: true, roles: ['Docente', 'Teacher', 'TEACHER'] } // Includi case corretto
     },
      {
       path: '/lezioni/:lessonId(\\d+)/assegna', // Rotta per assegnare la lezione
       name: 'lesson-assign',
       component: () => import('../views/LessonAssignView.vue'),
       props: true, // Passa lessonId come prop
-      meta: { requiresAuth: true, roles: ['Docente', 'Teacher'] } // Solo Docenti/Teacher possono assegnare
+      meta: { requiresAuth: true, roles: ['Docente', 'Teacher', 'TEACHER'] } // Includi case corretto
     },
 
     // Catch-all route per pagine non trovate (deve essere l'ultima)
@@ -97,45 +103,45 @@ const router = createRouter({
 })
 
 // --- Navigation Guards ---
-import { useAuthStore } from '@/stores/auth'; // Importa lo store per le guardie
+import { useSharedAuthStore } from '@/stores/sharedAuth'; // Importa lo store condiviso
 
 router.beforeEach(async (to, from, next) => {
-  const authStore = useAuthStore();
+  const sharedAuth = useSharedAuthStore(); // Usa lo store condiviso
 
-  // Tenta di caricare l'utente se manca ma c'è un token
-  if (!authStore.user && authStore.accessToken) {
-    try {
-      console.log('Guard: Fetching user before proceeding...');
-      await authStore.fetchUser();
-    } catch (error) {
-      console.error('Guard: Failed to fetch user, proceeding as unauthenticated.', error);
-    }
-  }
+  // La logica di inizializzazione/fetch utente è meglio gestirla
+  // a livello di App.vue o main.ts per garantire che lo stato sia pronto.
+  // Rimuoviamo il tentativo di fetch da qui.
 
   const requiresAuth = to.matched.some(record => record.meta.requiresAuth);
-  const requiresGuest = to.matched.some(record => record.meta.requiresGuest); // Include la nuova root '/'
+  const requiresGuest = to.matched.some(record => record.meta.requiresGuest);
   const requiredRoles = to.meta.roles as string[] | undefined;
-  const isAuthenticated = authStore.isAuthenticated;
+  const isAuthenticated = sharedAuth.isAuthenticated; // Usa stato condiviso
 
-  console.log(`Guard: To: ${String(to.name)}, From: ${String(from.name)}, Auth: ${isAuthenticated}, Roles: ${authStore.user?.role}`);
+  console.log(`Guard: To: ${String(to.name)}, From: ${String(from.name)}, Auth: ${isAuthenticated}, Role: ${sharedAuth.userRole}`);
 
   if (requiresAuth && !isAuthenticated) {
     // Utente non autenticato tenta di accedere a rotta protetta
     console.log('Guard: Auth required, redirecting to default login.');
+    // Reindirizza alla pagina di login appropriata (es. quella del docente come default)
+    // Potremmo voler salvare `to.fullPath` per reindirizzare dopo il login.
     next({ name: 'teacher-admin-login', query: { redirect: to.fullPath } });
   } else if (requiresGuest && isAuthenticated) {
     // Utente autenticato tenta di accedere a rotta guest (login, root)
     console.log('Guard: Guest required but user is authenticated, redirecting to dashboard.');
+    // Reindirizza alla dashboard interna di questa app (lessons)
     next({ name: 'dashboard' });
   } else if (requiresAuth && isAuthenticated && requiredRoles) {
     // Utente autenticato, rotta protetta con controllo ruoli
-    const userRoleUpper = (authStore.user?.role ?? '').toUpperCase();
-    const requiredRolesUpper = requiredRoles.map(role => role.toUpperCase());
+    const userRoleUpper = (sharedAuth.userRole ?? '').toUpperCase(); // Usa ruolo condiviso
+    const requiredRolesUpper = requiredRoles.map(role => role.toUpperCase()); // Assicura che anche i ruoli richiesti siano maiuscoli
     if (!requiredRolesUpper.includes(userRoleUpper)) {
-      console.warn(`Guard: Role mismatch. Required: ${requiredRoles}, User has: ${authStore.user?.role}. Redirecting to dashboard.`);
-      next({ name: 'dashboard' }); // O pagina 'Unauthorized'
+      // Ruolo non corrispondente
+      console.warn(`Guard: Role mismatch. Required: ${requiredRoles}, User has: ${sharedAuth.userRole}. Redirecting to dashboard.`);
+      // Reindirizza alla dashboard o a una pagina 'Unauthorized'
+      next({ name: 'dashboard' });
     } else {
-      next(); // Ruolo corretto, procedi
+      // Ruolo corretto, procedi
+      next();
     }
   } else {
     // Tutti gli altri casi (utente non auth su rotta guest, utente auth su rotta protetta senza ruoli specifici, rotte pubbliche)

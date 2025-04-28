@@ -20,7 +20,11 @@ const handleLogin = async () => {
   try {
     await authStore.login(studentCode.value, pin.value); // Use student credentials
     // Redirect to dashboard after successful login
-    await router.push({ name: 'dashboard' }); // Use named route if available, or '/dashboard'
+    // NOTA: Questo reindirizzerà alla rotta '/landing' definita nel router di frontend-teacher.
+    // Assicurarsi che il server web (es. Nginx) sia configurato per gestire correttamente
+    // il passaggio tra le diverse applicazioni SPA sulla base dell'URL.
+    window.location.href = '/landing'; // Usa redirect a livello di browser per cambiare potenziale SPA
+    // await router.push({ name: 'landing' }); // Non usare router.push se /landing è gestito da un'altra app
   } catch (error: any) {
      console.error("Login component error:", error);
      // Detailed error handling from LoginForm.vue

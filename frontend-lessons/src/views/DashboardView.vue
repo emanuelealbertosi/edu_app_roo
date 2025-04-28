@@ -8,36 +8,7 @@
       <p class="text-xl mb-2">
         Benvenuto/a, <span class="font-semibold">{{ authStore.user.first_name || authStore.user.username || 'Utente' }}</span>!
       </p>
-      <p class="text-gray-600 mb-4">Ruolo: <span class="font-medium text-indigo-600">{{ authStore.user.role }}</span></p>
-
-      <div class="mt-6 border-t pt-6">
-        <h2 class="text-xl font-semibold mb-4 text-gray-700">Azioni Rapide</h2>
-
-        <div v-if="authStore.userRole === 'Docente'" class="space-y-3">
-          <p class="text-gray-700">Gestisci le tue risorse didattiche:</p>
-          <div class="flex flex-wrap gap-4">
-             <router-link :to="{ name: 'teacher-lessons' }" class="action-link bg-blue-500 hover:bg-blue-600">Le Mie Lezioni</router-link>
-             <router-link :to="{ name: 'topics' }" class="action-link bg-green-500 hover:bg-green-600">Gestisci Argomenti</router-link>
-             <router-link :to="{ name: 'subjects' }" class="action-link bg-purple-500 hover:bg-purple-600">Gestisci Materie</router-link>
-          </div>
-        </div>
-
-        <div v-else-if="authStore.userRole === 'Studente'" class="space-y-3">
-          <p class="text-gray-700">Accedi alle tue lezioni:</p>
-           <div class="flex flex-wrap gap-4">
-            <router-link :to="{ name: 'assigned-lessons' }" class="action-link bg-cyan-500 hover:bg-cyan-600">Lezioni Assegnate</router-link>
-          </div>
-       </div>
-
-        <div v-else-if="authStore.userRole === 'Admin'" class="space-y-3">
-          <p class="text-gray-700">Gestisci le impostazioni globali:</p>
-           <div class="flex flex-wrap gap-4">
-             <router-link :to="{ name: 'subjects' }" class="action-link bg-purple-500 hover:bg-purple-600">Gestisci Materie</router-link>
-             <router-link :to="{ name: 'topics' }" class="action-link bg-green-500 hover:bg-green-600">Gestisci Argomenti</router-link>
-           </div>
-        </div>
-      </div>
-
+      <!-- Rimossa visualizzazione ruolo e sezione Azioni Rapide -->
     </div>
     <div v-else class="text-center text-gray-500 mt-10">
       <p>Caricamento dati utente...</p>

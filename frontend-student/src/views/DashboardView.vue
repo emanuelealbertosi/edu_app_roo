@@ -27,8 +27,9 @@ const dashboardTabs = ref([
 const latestBadge = computed(() => dashboardStore.latestEarnedBadge);
 
 onMounted(async () => {
-  const isAuthenticated = await authStore.checkAuth();
-  if (!isAuthenticated) {
+  // Usa il getter isAuthenticated invece della funzione checkAuth rimossa
+  if (!authStore.isAuthenticated) {
+    console.warn('[DashboardView] User not authenticated, redirecting to login.'); // Aggiunto log
     router.push('/login');
     return;
   }

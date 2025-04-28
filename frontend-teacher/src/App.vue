@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
-import { useAuthStore } from '@/stores/auth';
+import { useAuthStore } from '@/stores/auth'; // Store specifico Teacher (per logout)
+import { useSharedAuthStore } from '@/stores/sharedAuth'; // Importa store condiviso
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router';
 import GlobalLoadingIndicator from '@/components/common/GlobalLoadingIndicator.vue';
 // import NotificationContainer from '@/components/common/NotificationContainer.vue'; // Se esiste
@@ -25,7 +26,8 @@ import {
   XMarkIcon // Icona per chiudere menu mobile
 } from '@heroicons/vue/24/outline';
 
-const authStore = useAuthStore();
+const authStore = useAuthStore(); // Mantenuto per azione logout specifica
+const sharedAuth = useSharedAuthStore(); // Usa store condiviso per stato auth
 const route = useRoute();
 const router = useRouter();
 const isMobileMenuOpen = ref(false); // Stato per menu mobile
@@ -53,8 +55,9 @@ const goToProfile = () => {
 
   <div class="flex h-screen bg-neutral-lightest font-sans text-neutral-darkest">
     <!-- Sidebar Desktop (visibile da md in su) -->
+    <!-- Mostra sidebar solo se autenticato E non sulla landing page -->
     <aside
-      v-if="authStore.isAuthenticated"
+      v-if="sharedAuth.isAuthenticated && route.name !== 'landing'"
       class="bg-secondary text-neutral-lightest hidden md:flex flex-col w-20 group hover:w-64 transition-all duration-300 ease-in-out overflow-hidden"
       aria-label="Sidebar"
     >
@@ -173,8 +176,8 @@ const goToProfile = () => {
        </div>
     </aside>
 
-    <!-- Sidebar Mobile (Overlay) -->
-    <div v-if="isMobileMenuOpen && authStore.isAuthenticated" class="md:hidden" role="dialog" aria-modal="true">
+    <!-- Sidebar Mobile (Overlay) - Mostra solo se autenticato E non sulla landing page -->
+    <div v-if="isMobileMenuOpen && sharedAuth.isAuthenticated && route.name !== 'landing'" class="md:hidden" role="dialog" aria-modal="true">
       <!-- Overlay Sfondo -->
       <div class="fixed inset-0 bg-gray-600 bg-opacity-75 z-30" @click="toggleMobileMenu"></div>
 
@@ -303,8 +306,8 @@ const goToProfile = () => {
 
     <!-- Contenuto Principale -->
     <div class="flex flex-col flex-grow">
-        <!-- Header -->
-        <header v-if="authStore.isAuthenticated" class="bg-white shadow p-4 h-16 flex items-center justify-between flex-shrink-0">
+        <!-- Header - Mostra solo se autenticato E non sulla landing page -->
+        <header v-if="sharedAuth.isAuthenticated && route.name !== 'landing'" class="bg-white shadow p-4 h-16 flex items-center justify-between flex-shrink-0">
              <!-- Pulsante Hamburger (visibile solo su mobile) -->
              <button @click="toggleMobileMenu" class="md:hidden p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded focus:outline-none focus:ring-2 focus:ring-inset focus:ring-purple-500">
                <span class="sr-only">Apri menu principale</span>
@@ -333,8 +336,8 @@ const goToProfile = () => {
         <header v-else class="h-0"></header> <!-- Placeholder per mantenere struttura flex -->
 
         <!-- Area Contenuto -->
-        <!-- Aggiunto padding-top se header è visibile -->
-        <main class="flex-grow p-4 md:p-8 overflow-auto" :class="{ 'pt-20': authStore.isAuthenticated }">
+        <!-- Aggiunto padding-top solo se header è visibile (autenticato e non su landing) -->
+        <main class="flex-grow p-4 md:p-8 overflow-auto" :class="{ 'pt-20': sharedAuth.isAuthenticated && route.name !== 'landing' }">
           <RouterView />
         </main>
     </div>

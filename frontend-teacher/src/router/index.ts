@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory, type RouteLocationNormalized, type NavigationGuardNext, type RouteRecordNormalized } from 'vue-router' // Importa tipi per la guardia
-import { useAuthStore } from '@/stores/auth' // Import auth store
+import { useAuthStore } from '@/stores/auth' // Store specifico Teacher (per logout?)
+import { useSharedAuthStore, type SharedUser } from '@/stores/sharedAuth'; // Importa store condiviso E TIPO SharedUser
 // Views are lazy-loaded below
 
 const router = createRouter({
@@ -12,20 +13,29 @@ const router = createRouter({
       meta: { requiresGuest: true } // Marca anche la root come "guest"
     },
     {
-      path: '/login',
-      name: 'login',
+      path: '/docenti/login', // Aggiornato il path per corrispondere a Nginx
+      name: 'login', // Manteniamo il nome per coerenza interna (es. nelle guardie)
       component: () => import('../views/LoginView.vue'),
       meta: { requiresGuest: true }, // Marca la login come "guest"
       // La guardia beforeEnter è ridondante se beforeEach gestisce requiresGuest, ma la lasciamo per sicurezza/chiarezza
       beforeEnter: (to, from, next) => {
-        const authStore = useAuthStore();
-        if (authStore.isAuthenticated) {
-          console.log('Login Route Guard: User authenticated, redirecting to dashboard.');
-          next({ name: 'dashboard' });
+        // Usa lo store condiviso anche qui
+        const sharedAuth = useSharedAuthStore();
+        if (sharedAuth.isAuthenticated) {
+          console.log('Login Route Guard (Teacher): Shared user authenticated, redirecting to landing.');
+          // Se l'utente è già loggato (da studente o teacher), mandalo a /landing
+          next({ name: 'landing' });
         } else {
-          next(); // Proceed to login page
+          next(); // Proceed to teacher login page
         }
       }
+    },
+    {
+      // Rotta per la Landing Page post-login
+      path: '/landing',
+      name: 'landing',
+      component: () => import('../views/LandingView.vue'),
+      meta: { requiresAuth: true } // Richiede autenticazione
     },
     {
       // Define the dashboard route separately now
@@ -219,39 +229,53 @@ const router = createRouter({
 // Navigation Guard
 // Guardia di navigazione globale aggiornata
 router.beforeEach(async (to, from, next) => {
-  const authStore = useAuthStore(); // Ottieni lo store
+  // Usa lo store condiviso per leggere lo stato di autenticazione
+  const sharedAuth = useSharedAuthStore();
   const requiresAuth = to.matched.some(record => record.meta.requiresAuth);
-  // Non chiamare isAuthenticated() qui, usa il getter dello store
-  const isAuthenticated = authStore.isAuthenticated;
+  const requiresGuest = to.matched.some(record => record.meta.requiresGuest);
+  const isAuthenticated = sharedAuth.isAuthenticated;
+  const userRole = sharedAuth.userRole;
 
-  if (requiresAuth) { // Se la rotta di destinazione richiede autenticazione
+  console.log(`[Teacher Router Guard] Navigating to: ${to.path}, requiresAuth: ${requiresAuth}, requiresGuest: ${requiresGuest}, isAuthenticated: ${isAuthenticated}, role: ${userRole}`);
+
+  if (requiresAuth) {
     if (isAuthenticated) {
-      // Verifica la validità del token (lo store dovrebbe gestire il refresh/logout se necessario)
-      // Potremmo aggiungere una chiamata esplicita a checkTokenValidity o fetchUserProfile se necessario
-      // Per ora, assumiamo che lo stato dello store sia affidabile o che le chiamate API falliranno
-      // Se vuoi una verifica più robusta ad ogni navigazione protetta:
-      try {
-          // await authStore.fetchUserProfile(); // Assicurati che il profilo sia aggiornato e il token valido
-          // O una chiamata più leggera se disponibile: await authStore.checkTokenValidity();
-          next(); // Utente autenticato, procedi
-      } catch (error) {
-          console.error("Errore durante la verifica dell'utente prima della navigazione:", error);
-          next({ name: 'login' }); // In caso di errore, vai al login
+      // Utente autenticato, verifica ruolo per rotte specifiche del teacher
+      // Definisci i ruoli permessi come stringhe letterali
+      const allowedRoles = ['TEACHER', 'ADMIN'];
+      const isTeacherOrAdmin = userRole && allowedRoles.includes(userRole);
+
+      if (to.name === 'landing') {
+         // Chiunque sia autenticato può accedere a /landing
+         console.log('[Teacher Router Guard] Accessing landing page (authenticated). Allowing.');
+         next();
+      } else if (isTeacherOrAdmin) {
+         // Utente Teacher/Admin che accede ad altre rotte protette del teacher
+         console.log('[Teacher Router Guard] Teacher/Admin accessing protected route. Allowing.');
+         // Qui potresti aggiungere la verifica del token se necessaria (try/catch con fetchUserProfile)
+         next();
+      } else {
+         // Utente autenticato ma NON Teacher/Admin (es. Studente) che tenta di accedere a rotte teacher diverse da /landing
+         console.warn(`[Teacher Router Guard] Authenticated user with role '${userRole}' tried to access teacher route '${String(to.name)}'. Redirecting to landing.`);
+         next({ name: 'landing' }); // Rimanda alla landing page
       }
     } else {
       // Utente non autenticato che tenta di accedere a una rotta protetta
-      next({ name: 'login' }); // Reindirizza alla pagina di login
+      console.log('[Teacher Router Guard] Auth required, but user not authenticated. Redirecting to teacher login.');
+      next({ name: 'login' }); // Reindirizza alla pagina di login del teacher
     }
-  } else { // Rotta non protetta (né auth né guest specificato esplicitamente O requiresGuest)
-    const requiresGuest = to.matched.some(record => record.meta.requiresGuest);
-    if (requiresGuest && isAuthenticated) {
-       // Utente autenticato tenta di accedere a rotta guest (login, root)
-       console.log('Guard: Guest required but user is authenticated, redirecting to dashboard.');
-       next({ name: 'dashboard' });
-    } else {
-       // Utente non autenticato su rotta guest O qualsiasi utente su rotta veramente pubblica
-       next();
-    }
+  } else if (requiresGuest) {
+      if (isAuthenticated) {
+        // Utente autenticato tenta di accedere a rotta guest (login teacher)
+        console.log('[Teacher Router Guard] Guest required, but user is authenticated. Redirecting to landing.');
+        next({ name: 'landing' }); // Mandalo alla landing page
+      } else {
+        // Utente non autenticato su rotta guest, procedi
+        next();
+      }
+  } else {
+    // Rotta pubblica non marcata come guest (es. una pagina informativa se esistesse)
+    next();
   }
 })
 

@@ -78,6 +78,8 @@ services:
       - static_data:/usr/share/nginx/static:ro
       # Monta l'index.html statico
       - ./index.html:/usr/share/nginx/html/index.html:ro
+      # Monta il logo.png statico
+      - ./logo.png:/usr/share/nginx/html/logo.png:ro
     depends_on:
       - backend
       - frontend-student

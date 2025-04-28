@@ -4,9 +4,9 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 
 // https://vitejs.dev/config/
-export default defineConfig({
+export default defineConfig(({ command }) => ({ // Modificato per accedere a 'command'
   envDir: '../', // Cerca i file .env nella directory principale del progetto
-  base: '/docenti/', // Aggiungi il percorso base per la produzione
+  base: '/', // Imposta sempre la base a '/' sia per build che per dev
   plugins: [
     vue(),
   ],
@@ -18,4 +18,4 @@ export default defineConfig({
   server: { // Optional: Configure a different port if needed
     port: 5174 // Example: Run teacher frontend on port 5174
   }
-})
+})); // Aggiunta parentesi di chiusura mancante

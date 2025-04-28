@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
-import { useAuthStore } from '@/stores/auth';
+import { useSharedAuthStore } from '@/stores/sharedAuth'; // Importa lo store condiviso
 import { RouterLink, RouterView, useRouter } from 'vue-router'; // RouterView importata qui
 import emitter from '@/eventBus';
 // Rimosso import GlobalLoadingIndicator perché non esiste in questo FE
@@ -20,7 +20,7 @@ import {
   XMarkIcon // Close
 } from '@heroicons/vue/24/outline';
 
-const authStore = useAuthStore();
+const sharedAuth = useSharedAuthStore(); // Usa lo store condiviso
 const router = useRouter();
 const isMobileMenuOpen = ref(false); // Stato per menu mobile
 const isCreateMenuOpen = ref(false); // Stato per il dropdown "Create"
@@ -57,7 +57,8 @@ const studentAppUrl = computed(() => (import.meta.env.VITE_STUDENT_APP_URL as st
 const teacherAppUrl = computed(() => (import.meta.env.VITE_TEACHER_APP_URL as string | undefined) || '/docenti/');
 
 const handleLogout = () => {
-  authStore.logout(); // Lo store gestisce il redirect a '/' (dominio)
+  sharedAuth.clearAuthData(); // Pulisci lo store condiviso
+  window.location.href = '/'; // Reindirizza manually alla root del dominio
 };
 
 </script>
@@ -69,7 +70,7 @@ const handleLogout = () => {
   <div class="flex h-screen bg-gray-100 font-sans">
     <!-- Sidebar Desktop (visibile da md in su) -->
     <aside
-      v-if="authStore.isAuthenticated"
+      v-if="sharedAuth.isAuthenticated"
       class="bg-indigo-900 text-white hidden md:flex flex-col w-20 group hover:w-64 transition-all duration-300 ease-in-out overflow-hidden"
       aria-label="Sidebar"
     >
@@ -89,42 +90,42 @@ const handleLogout = () => {
             </router-link>
           </li>
           <!-- Materie (Admin/Teacher) -->
-          <li v-if="authStore.userRole === 'TEACHER' || authStore.userRole === 'Admin'" class="mb-3">
+          <li v-if="sharedAuth.userRole === 'TEACHER' || sharedAuth.userRole === 'ADMIN'" class="mb-3">
             <router-link :to="{ name: 'subjects' }" class="flex items-center p-2 rounded hover:bg-indigo-700">
               <BookOpenIcon class="h-6 w-6 flex-shrink-0" />
               <span class="ml-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Materie</span>
             </router-link>
           </li>
           <!-- Argomenti (Admin/Teacher) -->
-          <li v-if="authStore.userRole === 'TEACHER' || authStore.userRole === 'Admin'" class="mb-3">
+          <li v-if="sharedAuth.userRole === 'TEACHER' || sharedAuth.userRole === 'ADMIN'" class="mb-3">
             <router-link :to="{ name: 'topics' }" class="flex items-center p-2 rounded hover:bg-indigo-700">
               <AcademicCapIcon class="h-6 w-6 flex-shrink-0" />
               <span class="ml-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Argomenti</span>
             </router-link>
           </li>
           <!-- Gestione Lezioni (Teacher) -->
-           <li v-if="authStore.userRole === 'TEACHER'" class="mb-3">
+           <li v-if="sharedAuth.userRole === 'TEACHER'" class="mb-3">
              <router-link :to="{ name: 'teacher-lessons' }" class="flex items-center p-2 rounded hover:bg-indigo-700">
                <CogIcon class="h-6 w-6 flex-shrink-0" />
                <span class="ml-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Gestione Lezioni</span>
              </router-link>
            </li>
            <!-- Lezioni Assegnate (Studente) -->
-           <li v-if="authStore.userRole === 'Studente'" class="mb-3">
+           <li v-if="sharedAuth.userRole === 'STUDENT'" class="mb-3"> <!-- Corretto case 'STUDENT' -->
              <router-link :to="{ name: 'assigned-lessons' }" class="flex items-center p-2 rounded hover:bg-indigo-700">
                <CogIcon class="h-6 w-6 flex-shrink-0" />
                <span class="ml-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Lezioni Assegnate</span>
              </router-link>
            </li>
            <!-- Link Quiz Studente -->
-            <li v-if="authStore.userRole === 'Studente'" class="mb-3">
+            <li v-if="sharedAuth.userRole === 'STUDENT'" class="mb-3"> <!-- Corretto case 'STUDENT' -->
               <a :href="studentAppUrl" class="flex items-center p-2 rounded hover:bg-indigo-700">
                 <QuestionMarkCircleIcon class="h-6 w-6 flex-shrink-0" />
                 <span class="ml-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Quiz</span>
               </a>
             </li>
              <!-- Link Gestione Quiz TEACHER/Admin -->
-             <li v-if="authStore.userRole === 'TEACHER' || authStore.userRole === 'Admin'" class="mb-3">
+             <li v-if="sharedAuth.userRole === 'TEACHER' || sharedAuth.userRole === 'ADMIN'" class="mb-3">
                <a :href="teacherAppUrl" class="flex items-center p-2 rounded hover:bg-indigo-700">
                  <QuestionMarkCircleIcon class="h-6 w-6 flex-shrink-0" />
                  <span class="ml-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Gestione Quiz</span>
@@ -143,7 +144,7 @@ const handleLogout = () => {
     </aside>
 
     <!-- Sidebar Mobile (Overlay) -->
-    <div v-if="isMobileMenuOpen && authStore.isAuthenticated" class="md:hidden" role="dialog" aria-modal="true">
+    <div v-if="isMobileMenuOpen && sharedAuth.isAuthenticated" class="md:hidden" role="dialog" aria-modal="true">
       <!-- Overlay Sfondo -->
       <div class="fixed inset-0 bg-gray-600 bg-opacity-75 z-30" @click="toggleMobileMenu"></div>
 
@@ -170,42 +171,42 @@ const handleLogout = () => {
               </router-link>
             </li>
             <!-- Materie (Admin/Teacher) -->
-            <li v-if="authStore.userRole === 'TEACHER' || authStore.userRole === 'Admin'" class="mb-3">
+            <li v-if="sharedAuth.userRole === 'TEACHER' || sharedAuth.userRole === 'ADMIN'" class="mb-3">
               <router-link :to="{ name: 'subjects' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-indigo-700">
                 <BookOpenIcon class="h-6 w-6 flex-shrink-0" />
                 <span class="ml-3">Materie</span>
               </router-link>
             </li>
             <!-- Argomenti (Admin/Teacher) -->
-            <li v-if="authStore.userRole === 'TEACHER' || authStore.userRole === 'Admin'" class="mb-3">
+            <li v-if="sharedAuth.userRole === 'TEACHER' || sharedAuth.userRole === 'ADMIN'" class="mb-3">
               <router-link :to="{ name: 'topics' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-indigo-700">
                 <AcademicCapIcon class="h-6 w-6 flex-shrink-0" />
                 <span class="ml-3">Argomenti</span>
               </router-link>
             </li>
             <!-- Gestione Lezioni (Teacher) -->
-             <li v-if="authStore.userRole === 'TEACHER'" class="mb-3">
+             <li v-if="sharedAuth.userRole === 'TEACHER'" class="mb-3">
                <router-link :to="{ name: 'teacher-lessons' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-indigo-700">
                  <CogIcon class="h-6 w-6 flex-shrink-0" />
                  <span class="ml-3">Gestione Lezioni</span>
                </router-link>
              </li>
              <!-- Lezioni Assegnate (Studente) -->
-             <li v-if="authStore.userRole === 'Studente'" class="mb-3">
+             <li v-if="sharedAuth.userRole === 'STUDENT'" class="mb-3"> <!-- Corretto case 'STUDENT' -->
                <router-link :to="{ name: 'assigned-lessons' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-indigo-700">
                  <CogIcon class="h-6 w-6 flex-shrink-0" />
                  <span class="ml-3">Lezioni Assegnate</span>
                </router-link>
              </li>
              <!-- Link Quiz Studente -->
-              <li v-if="authStore.userRole === 'Studente'" class="mb-3">
+              <li v-if="sharedAuth.userRole === 'STUDENT'" class="mb-3"> <!-- Corretto case 'STUDENT' -->
                 <a :href="studentAppUrl" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-indigo-700">
                   <QuestionMarkCircleIcon class="h-6 w-6 flex-shrink-0" />
                   <span class="ml-3">Quiz</span>
                 </a>
               </li>
                <!-- Link Gestione Quiz TEACHER/Admin -->
-               <li v-if="authStore.userRole === 'TEACHER' || authStore.userRole === 'Admin'" class="mb-3">
+               <li v-if="sharedAuth.userRole === 'TEACHER' || sharedAuth.userRole === 'ADMIN'" class="mb-3">
                  <a :href="teacherAppUrl" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-indigo-700">
                    <QuestionMarkCircleIcon class="h-6 w-6 flex-shrink-0" />
                    <span class="ml-3">Gestione Quiz</span>
@@ -227,7 +228,7 @@ const handleLogout = () => {
     <!-- Contenuto Principale -->
     <div class="flex flex-col flex-grow">
         <!-- Header -->
-        <header v-if="authStore.isAuthenticated" class="bg-white shadow p-4 h-16 flex items-center justify-between flex-shrink-0">
+        <header v-if="sharedAuth.isAuthenticated" class="bg-white shadow p-4 h-16 flex items-center justify-between flex-shrink-0">
              <!-- Pulsante Hamburger (visibile solo su mobile) -->
              <button @click="toggleMobileMenu" class="md:hidden p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500">
                <span class="sr-only">Apri menu principale</span>
@@ -242,7 +243,7 @@ const handleLogout = () => {
              <!-- Pulsanti Header -->
              <div class="flex items-center space-x-4">
                  <!-- Pulsante Create (Dropdown) - Visibile solo a Teacher/Admin -->
-                 <div v-if="authStore.userRole === 'TEACHER' || authStore.userRole === 'Admin'" class="relative">
+                 <div v-if="sharedAuth.userRole === 'TEACHER' || sharedAuth.userRole === 'ADMIN'" class="relative">
                      <button @click="toggleCreateMenu" class="flex items-center px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-md shadow-sm transition duration-150 ease-in-out">
                          <PlusCircleIcon class="h-5 w-5 mr-1" />
                          Crea
@@ -275,9 +276,9 @@ const handleLogout = () => {
 
         <!-- Area Contenuto -->
          <!-- Aggiunto padding-top se header è visibile -->
-        <main class="flex-grow p-4 md:p-8 overflow-auto" :class="{ 'pt-20': authStore.isAuthenticated }">
-          <RouterView /> <!-- RouterView importata nello script -->
-        </main>
+        <main class="flex-grow p-4 md:p-8 overflow-auto" :class="{ 'pt-20': sharedAuth.isAuthenticated }">
+         <RouterView /> <!-- RouterView importata nello script -->
+       </main>
     </div>
 
   </div>

@@ -26,9 +26,24 @@ apiClient.interceptors.request.use(
     const uiStore = useUiStore();
     uiStore.apiRequestStarted(); // Segnala inizio richiesta
 
-    const token = localStorage.getItem('auth_token');
+    let token: string | null = null;
+    try {
+      const persistedStateString = localStorage.getItem('sharedAuth'); // Leggi lo stato persistito
+      if (persistedStateString) {
+        const persistedState = JSON.parse(persistedStateString);
+        token = persistedState?.accessToken || null; // Estrai l'accessToken
+      }
+    } catch (e) {
+      console.error("Failed to parse persisted auth state from localStorage:", e);
+      token = null; // Assicurati che il token sia null se il parsing fallisce
+    }
+
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+    } else {
+      // Opzionale: rimuovi l'header se il token non è trovato,
+      // per evitare di inviare un header "Bearer null" o simile.
+      delete config.headers.Authorization;
     }
     return config;
   },
@@ -58,7 +73,9 @@ apiClient.interceptors.response.use(
       // Se riceviamo un 401 (Unauthorized), potremmo voler reindirizzare al login
       if (error.response.status === 401) {
         // Qui potremmo gestire il logout
-        localStorage.removeItem('auth_token');
+        // Rimuovi lo stato persistito condiviso. Idealmente, questo dovrebbe
+        // essere gestito chiamando sharedAuthStore.clearAuthData() nell'app.
+        localStorage.removeItem('sharedAuth');
         // In un'app reale, potremmo usare il router per reindirizzare
         // router.push('/login');
       }

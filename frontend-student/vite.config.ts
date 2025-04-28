@@ -6,9 +6,9 @@ import vueJsx from '@vitejs/plugin-vue-jsx'
 import vueDevTools from 'vite-plugin-vue-devtools'
 
 // https://vite.dev/config/
-export default defineConfig({
+export default defineConfig(({ command }) => ({ // Modificato per accedere a 'command'
   envDir: '../', // Cerca i file .env nella directory principale del progetto
-  base: '/studenti/', // Aggiungi il percorso base per la produzione
+  base: command === 'build' ? '/studenti/' : '/', // Base condizionale: '/studenti/' per build, '/' per dev
   plugins: [
     vue(),
     vueJsx(),
@@ -18,5 +18,6 @@ export default defineConfig({
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url))
     }
-  }
-})
+  },
+  // Aggiunta parentesi di chiusura per la funzione defineConfig
+}));

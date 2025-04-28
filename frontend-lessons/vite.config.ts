@@ -4,9 +4,9 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 
 // https://vite.dev/config/
-export default defineConfig({
+export default defineConfig(({ command }) => ({ // Modificato per accedere a 'command'
   envDir: '../', // Cerca i file .env nella directory principale del progetto
-  base: '/lezioni/', // Imposta il base path per l'applicazione
+  base: command === 'build' ? '/lezioni/' : '/', // Base condizionale: '/lezioni/' per build, '/' per dev
   plugins: [vue()],
   resolve: {
     alias: {
@@ -23,5 +23,6 @@ export default defineConfig({
         // Django dovrebbe trovare la corrispondenza in config/urls.py
       }
     }
-  }
-})
+  },
+  // Aggiunta parentesi di chiusura per la funzione defineConfig
+}));

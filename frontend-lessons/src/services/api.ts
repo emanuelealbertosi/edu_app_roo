@@ -16,12 +16,22 @@ const apiClient = axios.create({
 
 // Interceptor per aggiungere il token JWT alle richieste
 apiClient.interceptors.request.use(config => {
-  // È più sicuro leggere il token direttamente da localStorage qui,
-  // perché lo store potrebbe non essere ancora inizializzato o accessibile facilmente.
-  const token = localStorage.getItem('accessToken');
+  // Leggiamo lo stato persistito di sharedAuth da localStorage
+  const persistedStateString = localStorage.getItem('sharedAuth');
+  let token: string | null = null;
+
+  if (persistedStateString) {
+    try {
+      const persistedState = JSON.parse(persistedStateString);
+      token = persistedState.accessToken || null; // Estrai il token dallo stato persistito
+    } catch (e) {
+      console.error('[api.ts Interceptor] Failed to parse persisted sharedAuth state:', e);
+    }
+  }
+
   if (token) {
     // Non loggare il token stesso per sicurezza
-    console.log(`[api.ts Interceptor] Adding token from localStorage to request for ${config.url}`);
+    console.log(`[api.ts Interceptor] Adding token from persisted state to request for ${config.url}`);
     config.headers.Authorization = `Bearer ${token}`;
   } else {
     console.log(`[api.ts Interceptor] No token found in localStorage for request to ${config.url}`);
