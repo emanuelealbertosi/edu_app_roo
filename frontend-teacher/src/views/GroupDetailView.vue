@@ -218,9 +218,18 @@ const goToEditGroup = () => {
 const handleGenerateToken = async () => {
   if (!currentGroup.value) return;
   isLoadingAction.value = true;
-  await groupStore.generateRegistrationToken(groupId.value);
-  isLoadingAction.value = false;
-  // Token in currentGroup should update reactively
+  groupStore.clearError(); // Pulisce errori precedenti
+  try {
+    await groupStore.generateRegistrationToken(groupId.value);
+    // Dopo la generazione, ricarica SOLO i dati del gruppo per visualizzare il nuovo token/link
+    // Questo è più mirato rispetto a loadGroupData che ricarica anche i membri
+    await groupStore.fetchGroupDetails(groupId.value);
+  } catch (err) {
+      // L'errore dovrebbe essere gestito dallo store e mostrato nel template
+      console.error("Errore durante la generazione del token:", err);
+  } finally {
+      isLoadingAction.value = false;
+  }
 };
 
 const handleDeleteToken = async () => {
