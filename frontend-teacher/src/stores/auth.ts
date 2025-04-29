@@ -86,6 +86,8 @@ export const useAuthStore = defineStore('authTeacher', () => { // Cambiato nome 
           last_name: fetchedUser.last_name,
           // Assicurati che il ruolo sia nel formato corretto per SharedUser
           role: fetchedUser.role === 'TEACHER' ? 'TEACHER' : fetchedUser.role === 'ADMIN' ? 'ADMIN' : null,
+          // Aggiungi il campo can_create_public_groups (assumendo che l'API lo restituisca)
+          can_create_public_groups: fetchedUser.can_create_public_groups ?? false,
       };
 
       // Salva tutto nello store condiviso

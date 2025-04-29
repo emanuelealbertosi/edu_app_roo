@@ -65,10 +65,69 @@
              </BaseButton>
               <p v-if="copySuccess" class="text-green-600 text-xs mt-2">Token copiato!</p>
               <p v-if="copyError" class="text-red-600 text-xs mt-2">Errore nella copia.</p>
-           </div>
-        </div>
-
-        <!-- Colonna Destra: Membri -->
+            </div>
+ 
+            <!-- Access Requests Card (Owner Only) -->
+            <div v-if="isOwner" class="bg-white shadow-md rounded-lg p-6 mt-6">
+              <h2 class="text-xl font-semibold mb-4">Richieste di Accesso Pendenti</h2>
+ 
+              <!-- Loading Indicator for Requests -->
+              <GlobalLoadingIndicator :is-loading="isLoadingRequests" />
+ 
+              <!-- Requests Error Message -->
+              <div v-if="requestsError" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
+                <strong class="font-bold">Errore Richieste!</strong>
+                <span class="block sm:inline"> {{ requestsError }}</span>
+                 <span class="absolute top-0 bottom-0 right-0 px-4 py-3" @click="groupStore.requestsError = null">
+                  <svg class="fill-current h-6 w-6 text-red-500" role="button" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><title>Close</title><path d="M14.348 14.849a1.2 1.2 0 0 1-1.697 0L10 11.819l-2.651 3.029a1.2 1.2 0 1 1-1.697-1.697l2.758-3.15-2.759-3.152a1.2 1.2 0 1 1 1.697-1.697L10 8.183l2.651-3.031a1.2 1.2 0 1 1 1.697 1.697l-2.758 3.152 2.758 3.15a1.2 1.2 0 0 1 0 1.698z"/></svg>
+                </span>
+              </div>
+ 
+              <!-- No Pending Requests Message -->
+              <div v-if="!isLoadingRequests && accessRequests.length === 0 && !requestsError" class="text-center text-gray-500 py-4">
+                Nessuna richiesta di accesso pendente.
+              </div>
+ 
+              <!-- List of Requests -->
+              <ul v-if="!isLoadingRequests && accessRequests.length > 0" class="divide-y divide-gray-200">
+                <li v-for="request in accessRequests" :key="request.id" class="py-3 flex flex-col sm:flex-row justify-between items-start sm:items-center">
+                  <div>
+                    <p class="text-sm font-medium text-gray-900">
+                      {{ request.requesting_teacher_name || `Docente ID: ${request.requesting_teacher}` }}
+                    </p>
+                    <p class="text-xs text-gray-500">
+                      Richiesto il: {{ formatDate(request.requested_at) }} <!-- Corretto: usa requested_at -->
+                    </p>
+                  </div>
+                  <div class="mt-2 sm:mt-0 flex space-x-2 flex-shrink-0">
+                    <BaseButton
+                      @click="handleRespondToRequest(request.id, true)"
+                      :is-loading="isRespondingToRequest === request.id"
+                      :disabled="!!isRespondingToRequest"
+                      variant="success"
+                      size="sm"
+                    >
+                      <CheckCircleIcon class="h-4 w-4 mr-1" />
+                      Approva
+                    </BaseButton>
+                    <BaseButton
+                      @click="handleRespondToRequest(request.id, false)"
+                      :is-loading="isRespondingToRequest === request.id"
+                      :disabled="!!isRespondingToRequest"
+                      variant="danger"
+                      size="sm"
+                    >
+                       <XCircleIcon class="h-4 w-4 mr-1" />
+                      Rifiuta
+                    </BaseButton>
+                  </div>
+                </li>
+              </ul>
+            </div>
+ 
+         </div>
+ 
+         <!-- Colonna Destra: Membri -->
         <div class="md:col-span-2">
           <div class="bg-white shadow-md rounded-lg p-6">
             <h2 class="text-xl font-semibold mb-4">Membri del Gruppo ({{ currentGroupMembers.length }})</h2>
@@ -144,17 +203,29 @@ import { ref, onMounted, computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { storeToRefs } from 'pinia';
 import { useGroupStore } from '@/stores/groups';
+import { useAuthStore } from '@/stores/auth'; // Import auth store
+import type { GroupAccessRequest } from '@/types/groups'; // Import type
 import BaseButton from '@/components/common/BaseButton.vue';
 import GlobalLoadingIndicator from '@/components/common/GlobalLoadingIndicator.vue';
 import StudentSelectionModal from '@/components/groups/StudentSelectionModal.vue'; // Importa la modale
-import { ClipboardDocumentIcon } from '@heroicons/vue/24/outline'; // Import copy icon
+import { ClipboardDocumentIcon, CheckCircleIcon, XCircleIcon } from '@heroicons/vue/24/outline'; // Import copy icon + check/x icons
 
 const route = useRoute();
 const router = useRouter();
 const groupStore = useGroupStore();
+const authStore = useAuthStore(); // Initialize auth store
 
 // Use storeToRefs for reactive access to state and getters
-const { currentGroup, currentGroupMembers, error, isLoadingDetail } = storeToRefs(groupStore);
+const {
+    currentGroup,
+    currentGroupMembers,
+    accessRequests, // Get access requests
+    error,
+    requestsError, // Get requests error
+    isLoadingDetail,
+    isLoadingRequests // Get requests loading state
+} = storeToRefs(groupStore);
+const { user } = storeToRefs(authStore); // Get user from auth store
 
 const groupId = computed(() => Number(route.params.id));
 
@@ -162,6 +233,7 @@ const groupId = computed(() => Number(route.params.id));
 const isLoadingInitial = ref(false); // For the initial load of group details + members
 const isLoadingMembers = ref(false); // Specifically for member list refresh (if needed separately)
 const isLoadingAction = ref(false); // For actions like add/remove student, token generation/deletion
+const isRespondingToRequest = ref<number | null>(null); // Track which request is being responded to
 
 // Rimosso: const studentIdToAdd = ref<number | null>(null);
 // Rimosso: const addStudentError = ref<string | null>(null);
@@ -183,6 +255,11 @@ const loadGroupData = async () => {
         isLoadingMembers.value = true; // Usiamo un loading specifico per i membri
         await groupStore.fetchGroupMembers(groupId.value);
         isLoadingMembers.value = false;
+
+        // Fetch access requests ONLY if the current user is the owner
+        if (isOwner.value && currentGroup.value) {
+             await groupStore.fetchAccessRequests(groupId.value);
+        }
     }
   } catch (err) {
     // Error is handled by the store, displayed via the 'error' ref
@@ -206,6 +283,13 @@ watch(groupId, (newId, oldId) => {
 // --- Computed ---
 const existingMemberIds = computed(() => {
     return currentGroupMembers.value.map(member => member.id); // Usa member.id
+});
+
+// Computed property to check if the logged-in user is the owner of the current group
+const isOwner = computed(() => {
+  // Make sure user and currentGroup are loaded and owner_id exists
+  // Corretto: Usa 'owner' (che contiene l'ID) invece di 'owner_id' come restituito dal serializer
+  return !!user.value && !!currentGroup.value && typeof currentGroup.value.owner === 'number' && user.value.id === currentGroup.value.owner;
 });
 
 
@@ -329,6 +413,19 @@ const formatDate = (dateString: string | null) => {
     console.error("Error formatting date:", e);
     return dateString; // Fallback
   }
+};
+
+const handleRespondToRequest = async (requestId: number, approve: boolean) => {
+    if (!groupId.value) {
+        console.error("Group ID is missing, cannot respond to request.");
+        // Potresti voler mostrare un errore all'utente qui
+        return;
+    }
+    isRespondingToRequest.value = requestId; // Set loading state for this specific request
+    // Passa groupId.value come primo argomento all'azione dello store aggiornata
+    await groupStore.respondToRequest(groupId.value, requestId, approve);
+    isRespondingToRequest.value = null; // Reset loading state
+    // The request list should update reactively via the store
 };
 
 // Clear group details when leaving the view

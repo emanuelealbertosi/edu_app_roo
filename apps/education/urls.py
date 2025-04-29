@@ -7,6 +7,7 @@ from .views import (
     AttemptViewSet, # Importa la nuova viewset
     StudentAssignedQuizzesView, StudentAssignedPathwaysView, # Importa le nuove view
     PathwayAttemptDetailView, # Importa la nuova view per i dettagli del tentativo percorso
+    StudentQuizDetailView, # Importa la nuova vista per i dettagli del quiz studente
     # Nuovi ViewSet per Template Percorsi
     PathwayTemplateViewSet, PathwayQuizTemplateViewSet, TeacherQuizTemplateViewSet,
     TeacherQuestionTemplateViewSet, TeacherAnswerOptionTemplateViewSet # Aggiungo i nuovi ViewSet nidificati
@@ -60,17 +61,17 @@ teacher_question_templates_router.register(r'options', TeacherAnswerOptionTempla
 
 # Combina tutti gli URL
 urlpatterns = [
-    path('', include(router.urls)),
-
-    # URLs specifici per la dashboard studente (il prefisso 'student/' verrà aggiunto in config/urls.py)
+    # URLs specifici per lo studente (devono precedere il router principale per matching corretto)
+    # Il prefisso 'student/' verrà aggiunto in config/urls.py
     path('dashboard/quizzes/', StudentAssignedQuizzesView.as_view(), name='student-dashboard-quizzes'),
     path('dashboard/pathways/', StudentAssignedPathwaysView.as_view(), name='student-dashboard-pathways'),
-
-    # URL per ottenere i dettagli di un tentativo di percorso (per lo studente)
-    # Il prefisso 'student/' verrà aggiunto in config/urls.py
+    path('quizzes/<int:pk>/', StudentQuizDetailView.as_view(), name='student-quiz-detail'),
     path('pathways/<int:pk>/attempt/', PathwayAttemptDetailView.as_view(), name='student-pathway-attempt-detail'),
 
-    # Include i router annidati
+    # Router principale (include ViewSet per admin/docenti e azioni generiche)
+    path('', include(router.urls)),
+
+    # Include i router annidati (devono seguire il router principale a cui si agganciano)
     path('', include(quiz_templates_router.urls)),
     path('', include(question_templates_router.urls)),
     path('', include(quizzes_router.urls)),

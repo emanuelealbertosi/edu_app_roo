@@ -34,6 +34,10 @@
             <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
               Studenti
             </th>
+            <!-- Nuova Intestazione Colonna -->
+            <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Richieste
+            </th>
              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               Creato il
             </th>
@@ -53,6 +57,13 @@
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
               {{ group.student_count ?? 'N/A' }}
             </td>
+            <!-- Nuova Cella Dati -->
+            <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
+               <span v-if="group.pending_requests_count && group.pending_requests_count > 0" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800" title="Richieste di accesso pendenti">
+                 {{ group.pending_requests_count }}
+               </span>
+               <span v-else class="text-gray-400">-</span>
+             </td>
              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
               {{ formatDate(group.created_at) }}
             </td>
@@ -105,6 +116,10 @@ const goToCreateGroup = () => {
 const goToGroupDetail = (groupId: number) => {
   // TODO: Define the route '/groups/:id' later
   router.push({ name: 'GroupDetail', params: { id: groupId } }); // Assuming named route
+};
+
+const goToEditGroup = (groupId: number) => {
+  router.push({ name: 'GroupEdit', params: { id: groupId } });
 };
 
 const handleDeleteGroup = async (groupId: number) => {

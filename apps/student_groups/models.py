@@ -2,7 +2,8 @@ from django.db import models
 from django.conf import settings
 from django.utils.crypto import get_random_string
 from urllib.parse import urljoin, urlencode
-from apps.users.models import RegistrationToken # Importa il modello RegistrationToken
+from apps.users.models import RegistrationToken, User, UserRole # Importa User e UserRole
+from django.utils.translation import gettext_lazy as _ # Import per traduzioni
 
 # Create your models here.
 
@@ -13,12 +14,12 @@ def generate_registration_token():
 
 class StudentGroup(models.Model):
     """Represents a group of students managed by a teacher."""
-    teacher = models.ForeignKey(
+    owner = models.ForeignKey( # Rinominato da teacher
         settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name='teaching_groups',
-        verbose_name="Docente Proprietario",
-        limit_choices_to={'role': 'Docente'} # Assicurati che il modello User abbia un campo 'role'
+        on_delete=models.CASCADE, # Considerare SET_NULL se si vuole mantenere il gruppo senza owner?
+        related_name='owned_groups', # Aggiornato related_name
+        verbose_name=_("Docente Proprietario"),
+        limit_choices_to={'role': UserRole.TEACHER} # Usa UserRole importato
     )
     name = models.CharField(
         max_length=100,
@@ -45,19 +46,24 @@ class StudentGroup(models.Model):
     )
     is_active = models.BooleanField(
         default=True,
-        verbose_name="Attivo"
+        verbose_name=_("Attivo")
+    )
+    is_public = models.BooleanField(
+        _("Gruppo Pubblico"),
+        default=False,
+        help_text=_("Indica se il gruppo è visibile ad altri docenti per richieste di accesso.")
     )
     # ManyToManyField defined implicitly by StudentGroupMembership
 
     class Meta:
-        verbose_name = "Gruppo di Studenti"
-        verbose_name_plural = "Gruppi di Studenti"
-        ordering = ['teacher', 'name']
-        # Ensure a teacher cannot have two groups with the same name
-        unique_together = ('teacher', 'name')
+        verbose_name = _("Gruppo di Studenti")
+        verbose_name_plural = _("Gruppi di Studenti")
+        ordering = ['owner', 'name'] # Aggiornato a owner
+        # Ensure an owner cannot have two groups with the same name
+        unique_together = ('owner', 'name') # Aggiornato a owner
 
     def __str__(self):
-        return f"{self.name} (Docente: {self.teacher.username})"
+        return f"{self.name} (Owner: {self.owner.username})" # Aggiornato a owner
 
     def generate_token(self):
         """
@@ -70,7 +76,7 @@ class StudentGroup(models.Model):
 
         # Crea un nuovo token associato al docente E al gruppo corrente
         new_token = RegistrationToken.objects.create(
-            teacher=self.teacher,
+            teacher=self.owner, # Aggiornato a owner
             source_group=self # Associa questo gruppo al token
         )
         self.registration_token = new_token
@@ -132,3 +138,58 @@ class StudentGroupMembership(models.Model):
 #     related_name='student_groups',
 #     verbose_name="Studenti Membri"
 # )
+class GroupAccessRequest(models.Model):
+    """ Modello per gestire le richieste di accesso ai gruppi pubblici da parte di altri docenti. """
+    class AccessStatus(models.TextChoices):
+        PENDING = 'PENDING', _('In Attesa')
+        APPROVED = 'APPROVED', _('Approvato')
+        REJECTED = 'REJECTED', _('Rifiutato')
+
+    group = models.ForeignKey(
+        StudentGroup,
+        on_delete=models.CASCADE,
+        related_name='access_requests',
+        verbose_name=_("Gruppo Richiesto")
+    )
+    requesting_teacher = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='group_access_requests',
+        limit_choices_to={'role': UserRole.TEACHER},
+        verbose_name=_("Docente Richiedente")
+    )
+    status = models.CharField(
+        _("Stato Richiesta"),
+        max_length=10,
+        choices=AccessStatus.choices,
+        default=AccessStatus.PENDING
+    )
+    requested_at = models.DateTimeField(
+        _("Data Richiesta"),
+        auto_now_add=True
+    )
+    responded_at = models.DateTimeField(
+        _("Data Risposta"),
+        null=True,
+        blank=True
+    )
+    # Chi ha risposto? Dovrebbe essere l'owner del gruppo.
+    responder = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL, # Mantiene la traccia anche se l'owner viene eliminato
+        related_name='responded_group_requests',
+        limit_choices_to={'role': UserRole.TEACHER},
+        verbose_name=_("Docente che ha Risposto"),
+        null=True,
+        blank=True
+    )
+
+    class Meta:
+        verbose_name = _("Richiesta Accesso Gruppo")
+        verbose_name_plural = _("Richieste Accesso Gruppi")
+        # Un docente può richiedere accesso a un gruppo una sola volta
+        unique_together = ('group', 'requesting_teacher')
+        ordering = ['group', '-requested_at']
+
+    def __str__(self):
+        return f"Richiesta di {self.requesting_teacher.username} per '{self.group.name}' ({self.get_status_display()})"

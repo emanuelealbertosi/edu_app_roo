@@ -80,86 +80,68 @@ class LessonAssignmentSerializer(serializers.ModelSerializer):
     lesson = LessonSerializer(read_only=True) # Mostra dettagli lezione
     student = StudentBasicSerializer(read_only=True, allow_null=True) # Dettagli studente (se applicabile)
     group = StudentGroupBasicSerializer(read_only=True, allow_null=True) # Dettagli gruppo (se applicabile)
-    # assigned_by_username = serializers.CharField(source='assigned_by.username', read_only=True) # Campo rimosso dal modello
+    assigned_by = serializers.PrimaryKeyRelatedField(read_only=True) # Mostra ID di chi ha assegnato
+    assigned_by_username = serializers.CharField(source='assigned_by.username', read_only=True, default='N/A') # Mostra username
 
     class Meta:
         model = LessonAssignment
         fields = [
             'id',
             'lesson',
-            'student',
+            'student', # Mantenuto per compatibilità, ma sarà sempre null nelle nuove assegnazioni
             'group',
-            # 'assigned_by', # Campo rimosso dal modello
-            # 'assigned_by_username', # Campo rimosso dal modello
+            'assigned_by', # Aggiunto campo FK
+            'assigned_by_username', # Aggiunto campo per username
             'assigned_at',
             'viewed_at',
-            # Aggiungere eventuali altri campi rilevanti dal modello LessonAssignment
         ]
         # Questo serializer è principalmente per la lettura dei dati di un'assegnazione esistente
         read_only_fields = fields
 
 
 class AssignLessonSerializer(serializers.Serializer):
-    """ Serializer per l'AZIONE di assegnare una Lezione esistente a uno Studente o a un Gruppo. """
-    # lesson_id verrà preso dall'URL nella view action, non serve qui
-    student_id = serializers.PrimaryKeyRelatedField(
-        queryset=Student.objects.all(), # Validazione ownership nella view
-        required=False,
-        allow_null=True,
-        help_text="ID dello Studente a cui assegnare (alternativo a group_id)."
-    )
+    """ Serializer per l'AZIONE di assegnare una Lezione esistente a un Gruppo. """
+    # lesson_id verrà preso dall'URL nella view action
+    # student_id rimosso, si assegna solo a gruppi
     group_id = serializers.PrimaryKeyRelatedField(
-        queryset=StudentGroup.objects.all(), # Validazione ownership nella view
-        required=False,
-        allow_null=True,
-        help_text="ID del Gruppo a cui assegnare (alternativo a student_id)."
+        queryset=StudentGroup.objects.all(), # La view verificherà l'accesso al gruppo
+        required=True, # Ora è obbligatorio
+        allow_null=False,
+        help_text="ID del Gruppo a cui assegnare la lezione."
     )
-    # assigned_at e assigned_by vengono impostati automaticamente nella view
+    # assigned_at e assigned_by vengono impostati automaticamente (assigned_by nel create)
 
-    def validate(self, attrs):
-        student_id = attrs.get('student_id')
-        group_id = attrs.get('group_id')
-
-        if not student_id and not group_id:
-            raise ValidationError("È necessario specificare 'student_id' o 'group_id'.")
-        if student_id and group_id:
-            raise ValidationError("Specificare solo 'student_id' o 'group_id', non entrambi.")
-
-        # Validazione ownership sarà fatta nel metodo create/view
-        return attrs
+    # validate non è più necessario per controllare student_id vs group_id
+    # def validate(self, attrs):
+    #     group_id = attrs.get('group_id')
+    #     # Il campo è già required=True, quindi non serve controllare se è vuoto
+    #     # La view controllerà se l'utente ha accesso a questo group_id
+    #     return attrs
 
     def create(self, validated_data):
         lesson = self.context['lesson'] # Preso dal contesto passato dalla view
-        student = validated_data.get('student_id')
-        group = validated_data.get('group_id')
-        teacher = self.context['request'].user
+        group = validated_data['group_id'] # Ora è obbligatorio e si chiama group_id
+        assigning_user = self.context['request'].user # Utente che sta eseguendo l'azione
 
-        # Verifica ownership
-        if lesson.creator != teacher:
-             raise ValidationError("Non puoi assegnare una lezione che non hai creato.")
-        if student and student.user_id != teacher.id:
-             raise ValidationError("Non puoi assegnare a uno studente non associato a te.")
-        if group and group.teacher != teacher:
-             raise ValidationError("Non puoi assegnare a un gruppo che non hai creato.")
+        # I controlli di permesso (accesso al gruppo) sono fatti nella view prima di chiamare il serializer
+        # Rimuoviamo i controlli di ownership obsoleti
 
-        # Controlla duplicati
+        # Controlla duplicati (solo per gruppo ora)
         assignment_exists = LessonAssignment.objects.filter(
             lesson=lesson,
-            student=student,
-            group=group
+            group=group,
+            student=None # Assicurati di controllare solo assegnazioni a gruppo
         ).exists()
 
         if assignment_exists:
-            target_type = "studente" if student else "gruppo"
-            target_id = student.id if student else group.id
-            raise ValidationError(f"Questa lezione è già assegnata a questo {target_type} (ID: {target_id}).")
+            raise ValidationError(f"Questa lezione è già assegnata a questo gruppo (ID: {group.id}).")
 
-        # Crea assegnazione
+        # Crea assegnazione impostando assigned_by
         assignment = LessonAssignment.objects.create(
             lesson=lesson,
-            student=student,
+            student=None, # Non assegniamo più a studenti singoli direttamente
             group=group,
-            # assigned_by=teacher, # Campo rimosso dal modello
+            assigned_by=assigning_user, # Imposta chi ha assegnato
             assigned_at=timezone.now()
         )
         return assignment

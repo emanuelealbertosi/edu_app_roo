@@ -12,10 +12,11 @@ class StudentGroupMembershipInline(admin.TabularInline):
 @admin.register(StudentGroup)
 class StudentGroupAdmin(admin.ModelAdmin):
     """Admin view for Student Groups."""
-    list_display = ('name', 'teacher', 'registration_token', 'is_active', 'created_at')
-    list_filter = ('is_active', 'teacher')
-    search_fields = ('name', 'description', 'teacher__username')
-    autocomplete_fields = ['teacher']
+    # Sostituito 'teacher' con 'owner', aggiunto 'is_public'
+    list_display = ('name', 'owner', 'is_public', 'registration_token', 'is_active', 'created_at')
+    list_filter = ('is_active', 'is_public', 'owner') # Sostituito 'teacher' con 'owner', aggiunto 'is_public'
+    search_fields = ('name', 'description', 'owner__username') # Sostituito 'teacher__username' con 'owner__username'
+    autocomplete_fields = ['owner'] # Sostituito 'teacher' con 'owner'
     inlines = [StudentGroupMembershipInline]
     readonly_fields = ('created_at',)
     # Azione per generare/eliminare token?

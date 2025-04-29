@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue'; // Importa watch
 import { useAuthStore } from '@/stores/auth'; // Store specifico Teacher (per logout)
 import { useSharedAuthStore } from '@/stores/sharedAuth'; // Importa store condiviso
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router';
@@ -23,7 +23,8 @@ import {
   ArrowLeftOnRectangleIcon, // Logout
   BellIcon, // Notifiche
   Bars3Icon, // Icona Hamburger per menu mobile
-  XMarkIcon // Icona per chiudere menu mobile
+  XMarkIcon, // Icona per chiudere menu mobile
+  MagnifyingGlassIcon // Icona per Sfoglia Gruppi
 } from '@heroicons/vue/24/outline';
 
 const authStore = useAuthStore(); // Mantenuto per azione logout specifica
@@ -46,6 +47,11 @@ const handleLogout = () => {
 const goToProfile = () => {
   router.push({ name: 'profile' });
 };
+
+// LOGGING per debug menu
+watch(route, (to) => {
+  console.log(`[App.vue Watch Route] Navigated to: ${to.path}, Route Name: ${String(to.name)}, IsAuthenticated: ${sharedAuth.isAuthenticated}`);
+}, { immediate: true, deep: true }); // immediate per log iniziale, deep non strettamente necessario ma sicuro
 
 </script>
 
@@ -88,6 +94,13 @@ const goToProfile = () => {
             <router-link :to="{ name: 'GroupsList' }" class="flex items-center p-2 rounded hover:bg-secondary-light">
               <UserGroupIcon class="h-5 w-5 flex-shrink-0" />
               <span class="ml-3 text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Gruppi</span>
+            </router-link>
+          </li>
+          <!-- Sfoglia Gruppi Pubblici -->
+          <li class="mb-2">
+            <router-link :to="{ name: 'BrowseGroups' }" class="flex items-center p-2 rounded hover:bg-secondary-light">
+              <MagnifyingGlassIcon class="h-5 w-5 flex-shrink-0" />
+              <span class="ml-3 text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Sfoglia Gruppi</span>
             </router-link>
           </li>
            <!-- Quiz Templates -->
@@ -215,6 +228,13 @@ const goToProfile = () => {
               <router-link :to="{ name: 'GroupsList' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-secondary-light">
                 <UserGroupIcon class="h-5 w-5 flex-shrink-0" />
                 <span class="ml-3 text-sm">Gruppi</span>
+              </router-link>
+            </li>
+            <!-- Sfoglia Gruppi Pubblici -->
+            <li class="mb-2">
+              <router-link :to="{ name: 'BrowseGroups' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-secondary-light">
+                <MagnifyingGlassIcon class="h-5 w-5 flex-shrink-0" />
+                <span class="ml-3 text-sm">Sfoglia Gruppi</span>
               </router-link>
             </li>
              <!-- Quiz Templates -->

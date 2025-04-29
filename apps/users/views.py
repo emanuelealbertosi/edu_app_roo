@@ -15,6 +15,8 @@ from .serializers import (
 from apps.education.models import QuizAttempt, PathwayProgress
 from apps.rewards.models import Wallet
 from rest_framework import mixins # Importa mixins
+# Importa modelli necessari per la nuova logica queryset studenti
+from apps.student_groups.models import StudentGroup, GroupAccessRequest
 
 # Get an instance of a logger
 logger = logging.getLogger(__name__)
@@ -70,7 +72,20 @@ class StudentViewSet(viewsets.ModelViewSet):
         if user.is_admin:
             return Student.objects.all().order_by('last_name', 'first_name')
         elif user.is_teacher:
-            return Student.objects.filter(teacher=user).order_by('last_name', 'first_name')
+            # Nuova logica: Trova studenti nei gruppi posseduti o accessibili dal docente
+            # 1. Trova ID gruppi posseduti
+            owned_group_ids = StudentGroup.objects.filter(owner=user).values_list('id', flat=True)
+            # 2. Trova ID gruppi con accesso approvato
+            approved_group_ids = GroupAccessRequest.objects.filter(
+                requesting_teacher=user,
+                status=GroupAccessRequest.AccessStatus.APPROVED
+            ).values_list('group_id', flat=True)
+            # 3. Combina gli ID
+            accessible_group_ids = set(owned_group_ids) | set(approved_group_ids)
+            # 4. Filtra studenti membri di questi gruppi
+            return Student.objects.filter(
+                group_memberships__group_id__in=accessible_group_ids
+            ).distinct().order_by('last_name', 'first_name')
         else:
             # Teoricamente non dovrebbe accadere a causa dei permessi a livello di vista,
             # ma per sicurezza restituiamo un queryset vuoto.
@@ -82,22 +97,55 @@ class StudentViewSet(viewsets.ModelViewSet):
         Questo metodo viene chiamato solo se l'utente è un Docente (grazie ai permessi).
         Se un Admin crea uno studente, il campo 'teacher' deve essere fornito nel request body.
         """
-        if self.request.user.is_teacher:
-            serializer.save(teacher=self.request.user)
-        elif self.request.user.is_admin:
-            # L'Admin deve specificare il docente nel payload della richiesta.
-            # Dato che 'teacher' è read_only nel serializer, lo recuperiamo dalla request.data
-            # e lo passiamo esplicitamente a save().
-            teacher_id = self.request.data.get('teacher')
-            if not teacher_id:
-                raise serializers.ValidationError({'teacher': 'Questo campo è richiesto per gli Admin.'})
-            try:
-                # Verifichiamo che l'ID corrisponda a un Docente valido
-                teacher = User.objects.get(pk=teacher_id, role=UserRole.TEACHER)
-            except User.DoesNotExist:
-                logger.warning(f"Admin {request.user.username} ha tentato di creare uno studente con ID docente non valido: {teacher_id}")
-                raise serializers.ValidationError({'teacher': 'Docente non valido specificato.'})
-            serializer.save(teacher=teacher) # Passiamo il docente esplicitamente
+        # La logica originale per perform_create assumeva che uno studente fosse legato
+        # DIRETTAMENTE a un docente. Ora l'associazione avviene tramite gruppi.
+        # La creazione di uno studente da parte di un docente/admin dovrebbe ora
+        # probabilmente avvenire in un contesto diverso (es. aggiunta a un gruppo specifico
+        # o registrazione tramite token).
+        # Rimuoviamo temporaneamente l'associazione automatica del 'teacher'.
+        # Il serializer StudentSerializer non dovrebbe più avere 'teacher' come campo scrivibile.
+        # NOTA: Questo potrebbe richiedere modifiche a StudentSerializer.
+        # if self.request.user.is_teacher:
+        #     # Non associamo più il teacher direttamente qui
+        #     # serializer.save(teacher=self.request.user)
+        #     serializer.save() # Salva senza teacher
+        # elif self.request.user.is_admin:
+        #      L'Admin non può più specificare un 'teacher' diretto qui.
+        #      La logica di assegnazione a un docente avverrà tramite gruppi.
+        #      teacher_id = self.request.data.get('teacher')
+        #      if not teacher_id:
+        #          raise serializers.ValidationError({'teacher': 'Questo campo è richiesto per gli Admin.'})
+        #      try:
+        #          teacher = User.objects.get(pk=teacher_id, role=UserRole.TEACHER)
+        #      except User.DoesNotExist:
+        #          logger.warning(f"Admin {request.user.username} ha tentato di creare uno studente con ID docente non valido: {teacher_id}")
+        #          raise serializers.ValidationError({'teacher': 'Docente non valido specificato.'})
+        #      serializer.save(teacher=teacher)
+        #      serializer.save() # Salva senza teacher
+        # else:
+        #      # Gestione errore se non è né docente né admin (improbabile con i permessi)
+        #      raise PermissionDenied("Azione non permessa.")
+
+        # Semplificato: salva lo studente senza associare un docente qui.
+        # L'associazione avverrà tramite l'aggiunta a un gruppo.
+        serializer.save()
+        # TODO: Rivedere StudentSerializer per rimuovere 'teacher' come campo modificabile/richiesto se presente.
+
+        # La logica originale per Admin è commentata sotto:
+        # elif self.request.user.is_admin:
+            # # L'Admin deve specificare il docente nel payload della richiesta.
+            # # Dato che 'teacher' è read_only nel serializer, lo recuperiamo dalla request.data
+            # # e lo passiamo esplicitamente a save().
+            # teacher_id = self.request.data.get('teacher')
+            # if not teacher_id:
+            #     raise serializers.ValidationError({'teacher': 'Questo campo è richiesto per gli Admin.'})
+            # try:
+            #     # Verifichiamo che l'ID corrisponda a un Docente valido
+            #     teacher = User.objects.get(pk=teacher_id, role=UserRole.TEACHER)
+            # except User.DoesNotExist:
+            #     logger.warning(f"Admin {request.user.username} ha tentato di creare uno studente con ID docente non valido: {teacher_id}")
+            #     raise serializers.ValidationError({'teacher': 'Docente non valido specificato.'})
+            # serializer.save(teacher=teacher) # Passiamo il docente esplicitamente
         # Non dovrebbe essere possibile arrivare qui per altri tipi di utente.
 
 
@@ -196,10 +244,19 @@ class TeacherStudentProgressSummaryView(generics.ListAPIView):
     def get_queryset(self):
         teacher = self.request.user
 
-        # Queryset base: studenti del docente
-        queryset = Student.objects.filter(teacher=teacher)
+        # Queryset base: studenti associati al docente tramite gruppi
+        # (Stessa logica di StudentViewSet.get_queryset)
+        owned_group_ids = StudentGroup.objects.filter(owner=teacher).values_list('id', flat=True)
+        approved_group_ids = GroupAccessRequest.objects.filter(
+            requesting_teacher=teacher,
+            status=GroupAccessRequest.AccessStatus.APPROVED
+        ).values_list('group_id', flat=True)
+        accessible_group_ids = set(owned_group_ids) | set(approved_group_ids)
+        queryset = Student.objects.filter(
+            group_memberships__group_id__in=accessible_group_ids
+        ).distinct()
 
-        # Annotazioni per i dati aggregati
+        # Annotazioni per i dati aggregati (restano valide)
         # Conteggio Quiz Completati (con successo, basato sulla soglia del quiz)
         # Nota: Questo richiede un modo per definire/ottenere la soglia per ogni quiz.
         # Per semplicità ora contiamo solo gli status COMPLETED.
@@ -282,9 +339,12 @@ class StudentRegistrationView(generics.CreateAPIView):
         """
         # La validazione del token e la creazione dello studente/wallet
         # avvengono nel metodo create del serializer.
-        student = serializer.save() # Il metodo save del serializer restituisce lo studente creato
-        logger.info(f"New student '{student.full_name}' (Code: {student.student_code}) registered successfully using token {serializer.validated_data['token']} for teacher {student.teacher.username}.")
-        return student # Restituisci l'oggetto studente creato
+        # Il serializer.save() ora non associa più il teacher direttamente.
+        # Il teacher viene recuperato dal token dentro il serializer.
+        student, teacher = serializer.save() # Il serializer ora restituisce anche il teacher associato tramite token
+        logger.info(f"New student '{student.full_name}' (Code: {student.student_code}) registered successfully using token {serializer.validated_data['token']} for teacher {teacher.username}.")
+        # Restituiamo solo lo studente, il teacher non serve qui
+        return student
 
     def create(self, request, *args, **kwargs):
         """

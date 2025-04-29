@@ -210,9 +210,12 @@ const loadQuizData = async (id: number) => {
     // Carica i metadati esistenti
     quizData.metadata.points_on_completion = fetchedQuiz.metadata?.points_on_completion ?? null;
     // Carica anche la soglia esistente, o usa il default 100 se non presente
-    // Converti da 0-1 a 0-100 se necessario (assumendo che l'API restituisca 0-1)
-    const threshold_api = fetchedQuiz.metadata?.completion_threshold;
-    quizData.metadata.completion_threshold_percent = threshold_api !== undefined && threshold_api !== null ? threshold_api * 100 : 100.0;
+    // Cerca direttamente la chiave corretta 'completion_threshold_percent' (0-100)
+    const threshold_percent_api = fetchedQuiz.metadata?.completion_threshold_percent;
+    // Usa il valore API se presente e valido, altrimenti default a 100.0
+    quizData.metadata.completion_threshold_percent = threshold_percent_api !== undefined && threshold_percent_api !== null && !isNaN(Number(threshold_percent_api))
+        ? Number(threshold_percent_api)
+        : 100.0;
 
   } catch (err: any) {
     console.error("Errore nel caricamento del quiz:", err);
@@ -242,9 +245,10 @@ const saveQuiz = async () => {
 
   // Prepara il payload assicurandosi che metadata sia un oggetto valido
   // e convertendo le date nel formato ISO atteso dall'API
-  // Converti la soglia da % (0-100) a decimale (0-1) per l'API
+  // Prendi il valore percentuale (0-100) direttamente dal form
   const threshold_percent = quizData.metadata.completion_threshold_percent;
-  const completion_threshold = threshold_percent === null || isNaN(Number(threshold_percent)) ? 1.0 : Number(threshold_percent) / 100; // Default a 1 (100%) se non valido
+  // Assicurati che sia un numero valido, altrimenti default a 100
+  const completion_threshold_percent_payload = threshold_percent === null || isNaN(Number(threshold_percent)) ? 100.0 : Number(threshold_percent);
 
   const payload: QuizPayload = {
       title: quizData.title,
@@ -253,7 +257,7 @@ const saveQuiz = async () => {
       available_until: quizData.available_until ? new Date(quizData.available_until).toISOString() : null,
       metadata: {
           points_on_completion: quizData.metadata.points_on_completion === null || isNaN(Number(quizData.metadata.points_on_completion)) ? 0 : Number(quizData.metadata.points_on_completion),
-          completion_threshold: completion_threshold, // Invia come decimale 0-1
+          completion_threshold_percent: completion_threshold_percent_payload, // Invia come percentuale 0-100 con la chiave corretta
           // Aggiungere altri metadati qui se necessario
       },
   };

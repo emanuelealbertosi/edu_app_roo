@@ -11,6 +11,7 @@ export interface SharedUser { // Aggiunto export
   last_name: string;
   email?: string; // Presente per Teacher/Admin
   role: 'STUDENT' | 'TEACHER' | 'ADMIN' | null; // Ruolo unificato
+  can_create_public_groups?: boolean; // Permesso specifico per Docenti/Admin
 }
 
 // Nome univoco per lo store condiviso

@@ -97,7 +97,7 @@ class PathwayAdmin(admin.ModelAdmin):
 @admin.register(QuizAttempt)
 class QuizAttemptAdmin(admin.ModelAdmin):
     list_display = ('student', 'quiz', 'status', 'score', 'started_at', 'completed_at')
-    list_filter = ('status', 'quiz', 'student__teacher') # Filtra per docente dello studente
+    list_filter = ('status', 'quiz') # Rimosso 'student__teacher'
     search_fields = ('student__first_name', 'student__last_name', 'quiz__title')
     autocomplete_fields = ['student', 'quiz']
     readonly_fields = ('started_at', 'completed_at', 'score') # Gestiti da logica
@@ -116,7 +116,7 @@ class StudentAnswerAdmin(admin.ModelAdmin):
 @admin.register(PathwayProgress)
 class PathwayProgressAdmin(admin.ModelAdmin):
     list_display = ('student', 'pathway', 'status', 'last_completed_quiz_order', 'started_at', 'completed_at')
-    list_filter = ('status', 'pathway', 'student__teacher')
+    list_filter = ('status', 'pathway') # Rimosso 'student__teacher'
     search_fields = ('student__first_name', 'student__last_name', 'pathway__title')
     autocomplete_fields = ['student', 'pathway']
     # Aggiunto completed_orders ai readonly se non si vuole modificarlo manualmente

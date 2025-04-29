@@ -15,6 +15,7 @@ interface TeacherUser {
   first_name: string;
   last_name: string;
   role: string; // 'TEACHER' or 'ADMIN'
+  can_create_public_groups?: boolean; // Aggiunto campo per permesso
 }
 
 // Define expected payload for teacher/admin login

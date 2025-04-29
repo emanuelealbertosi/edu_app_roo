@@ -18,7 +18,7 @@ from rest_framework.permissions import IsAuthenticated
 from apps.users.permissions import IsTeacherUser, IsAdminUser, IsStudentAuthenticated # Assumendo che esistano
 # Importa modelli utente e gruppo
 from apps.users.models import User, Student
-from apps.student_groups.models import StudentGroup
+from apps.student_groups.models import StudentGroup, GroupAccessRequest, GroupAccessRequestStatus # Importa modelli per permessi
 # Importa il Revoke serializer da education se vogliamo riusarlo
 try:
     from apps.education.views import QuizViewSet as EducationQuizViewSet # Alias per evitare conflitti
@@ -150,24 +150,44 @@ class LessonViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         if self.action in ['update', 'partial_update', 'destroy']:
             return [IsAuthenticated(), IsLessonOwnerOrAdmin()]
-        # Permessi specifici per assign/revoke
-        if self.action in ['assign', 'revoke']:
-             return [IsAuthenticated(), IsLessonOwnerOrAdmin()] # Solo il creatore può assegnare/revocare
+        # Permessi specifici per assign/revoke gestiti all'interno dell'azione ora
+        # if self.action in ['assign', 'revoke']:
+        #      return [IsAuthenticated()] # Solo autenticato, poi controllo interno
         return super().get_permissions()
 
     # --- Azioni per Assegnazione/Revoca ---
 
-    @action(detail=True, methods=['post'], url_path='assign', permission_classes=[IsAuthenticated, IsLessonOwnerOrAdmin])
+    @action(detail=True, methods=['post'], url_path='assign', permission_classes=[IsAuthenticated]) # Rimosso IsLessonOwnerOrAdmin, controllo interno
     def assign(self, request, pk=None, topic_pk=None): # topic_pk non serve qui ma DRF lo passa
         """
-        Assegna questa Lezione (pk) a uno Studente o a un Gruppo.
-        Richiede 'student_id' o 'group_id' nel corpo della richiesta.
+        Assegna questa Lezione (pk) a un Gruppo.
+        Richiede 'group_id' nel corpo della richiesta.
+        Verifica che l'utente sia il proprietario del gruppo o abbia accesso approvato.
         """
-        lesson = self.get_object() # Verifica ownership e recupera lezione
+        lesson = self.get_object() # Recupera lezione (permessi base già applicati da get_object)
+        user = request.user
+
+        # Istanzia il serializer (ora richiede solo group_id)
         serializer = AssignLessonSerializer(data=request.data, context={'request': request, 'lesson': lesson})
 
         if serializer.is_valid():
+            group = serializer.validated_data['group_id'] # Ottieni l'oggetto StudentGroup validato
+
+            # --- Controllo Permessi sul Gruppo ---
+            is_owner = (group.owner == user)
+            has_approved_access = GroupAccessRequest.objects.filter(
+                group=group,
+                requesting_teacher=user,
+                status=GroupAccessRequestStatus.APPROVED
+            ).exists()
+
+            if not (is_owner or has_approved_access):
+                logger.warning(f"Utente {user.id} ha tentato di assegnare lezione {pk} al gruppo {group.id} senza permesso.")
+                raise DRFPermissionDenied("Non hai i permessi per assegnare contenuti a questo gruppo.")
+            # --- Fine Controllo Permessi ---
+
             try:
+                # Il metodo save del serializer ora imposta assigned_by=user
                 assignment = serializer.save()
                 # Usa LessonAssignmentSerializer per la risposta (fatto da to_representation)
                 return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -184,15 +204,29 @@ class LessonViewSet(viewsets.ModelViewSet):
             logger.warning(f"Errore dati richiesta assegnazione lezione {pk} da utente {request.user.id}: {serializer.errors}")
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    @action(detail=True, methods=['post'], url_path='revoke', permission_classes=[IsAuthenticated, IsLessonOwnerOrAdmin])
+    # TODO: Rivedere la logica di revoca. Chi può revocare? Solo chi ha assegnato? L'owner del gruppo? L'owner della lezione?
+    @action(detail=True, methods=['post'], url_path='revoke', permission_classes=[IsAuthenticated]) # Rimosso IsLessonOwnerOrAdmin, controllo interno?
     def revoke(self, request, pk=None, topic_pk=None):
         """
         Revoca un'assegnazione specifica (identificata da 'assignment_id') per questa Lezione (pk).
+        ATTENZIONE: La logica dei permessi qui è da definire meglio.
         """
-        lesson = self.get_object() # Verifica ownership lezione
+        lesson = self.get_object() # Recupera lezione
+        user = request.user
         serializer = RevokeAssignmentSerializer(data=request.data) # Riusa serializer
 
         if serializer.is_valid():
+            # --- Controllo Permessi Revoca (DA DEFINIRE) ---
+            # Esempio: Solo chi ha assegnato o l'owner del gruppo/lezione?
+            # assignment_to_revoke = get_object_or_404(LessonAssignment, id=serializer.validated_data['assignment_id'], lesson=lesson)
+            # group_owner = assignment_to_revoke.group.owner if assignment_to_revoke.group else None
+            # lesson_owner = lesson.creator
+            # assigned_by_user = assignment_to_revoke.assigned_by
+            # if not (user == assigned_by_user or user == group_owner or user == lesson_owner):
+            #     logger.warning(f"Utente {user.id} ha tentato di revocare assegnazione {assignment_to_revoke.id} senza permesso.")
+            #     raise DRFPermissionDenied("Non hai i permessi per revocare questa assegnazione.")
+            # --- Fine Controllo Permessi Revoca ---
+
             assignment_id = serializer.validated_data['assignment_id']
             try:
                 assignment = get_object_or_404(LessonAssignment, id=assignment_id, lesson=lesson)

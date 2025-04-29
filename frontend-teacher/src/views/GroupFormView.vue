@@ -43,10 +43,25 @@
           rows="3"
         ></textarea>
          <p v-if="validationErrors.description" class="text-red-500 text-xs italic">{{ validationErrors.description }}</p>
+     </div>
+
+      <!-- Is Public Checkbox (Conditional) -->
+      <div v-if="userCanCreatePublicGroups" class="mb-6">
+        <label class="flex items-center text-gray-700 text-sm font-bold" for="group-is-public">
+          <input
+            v-model="groupData.is_public"
+            class="mr-2 leading-tight"
+            id="group-is-public"
+            type="checkbox"
+          />
+          <span class="text-sm">Rendi questo gruppo pubblico</span>
+        </label>
+        <p class="text-xs text-gray-600 mt-1">Se selezionato, altri docenti potranno trovare questo gruppo e richiedere l'accesso.</p>
+        <p v-if="validationErrors.is_public" class="text-red-500 text-xs italic">{{ validationErrors.is_public }}</p>
       </div>
 
-      <!-- Submit Button -->
-      <div class="flex items-center justify-between">
+     <!-- Submit Button -->
+     <div class="flex items-center justify-between">
         <BaseButton type="submit" :is-loading="isLoading" :disabled="isLoading" variant="primary">
           {{ isEditing ? 'Salva Modifiche' : 'Crea Gruppo' }}
         </BaseButton>
@@ -63,7 +78,8 @@ import { ref, onMounted, computed, reactive } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { storeToRefs } from 'pinia';
 import { useGroupStore } from '@/stores/groups';
-import type { StudentGroupData } from '@/types/groups';
+import { useAuthStore } from '@/stores/auth'; // Import auth store
+import type { StudentGroup, StudentGroupData } from '@/types/groups'; // Import StudentGroup too
 import BaseButton from '@/components/common/BaseButton.vue';
 // Import GlobalLoadingIndicator if needed for the whole view, or rely on button's loading state
 // import GlobalLoadingIndicator from '@/components/common/GlobalLoadingIndicator.vue';
@@ -71,8 +87,14 @@ import BaseButton from '@/components/common/BaseButton.vue';
 const router = useRouter();
 const route = useRoute();
 const groupStore = useGroupStore();
+const authStore = useAuthStore(); // Initialize auth store
 
-const { error, isLoadingDetail: isLoadingStore } = storeToRefs(groupStore); // Use isLoadingDetail for fetching/updating
+const { error, isLoadingDetail: isLoadingStore, currentGroup } = storeToRefs(groupStore); // Use isLoadingDetail for fetching/updating, get currentGroup
+const { user } = storeToRefs(authStore); // Get user data from auth store
+
+// Computed property to check if the user can create public groups
+// Assumes the user object from authStore has a 'can_create_public_groups' property
+const userCanCreatePublicGroups = computed(() => !!user.value?.can_create_public_groups);
 
 const groupId = computed(() => route.params.id ? Number(route.params.id) : null);
 const isEditing = computed(() => !!groupId.value);
@@ -81,9 +103,10 @@ const isLoading = ref(false); // Local loading state for form submission
 const groupData = reactive<StudentGroupData>({
   name: '',
   description: null,
+  is_public: false, // Initialize is_public
 });
 
-const validationErrors = reactive<{ name?: string; description?: string }>({});
+const validationErrors = reactive<{ name?: string; description?: string; is_public?: string }>({});
 
 // Fetch group data if editing
 onMounted(async () => {
@@ -91,21 +114,28 @@ onMounted(async () => {
   if (isEditing.value && groupId.value) {
     isLoading.value = true; // Use local loading state
     await groupStore.fetchGroupDetails(groupId.value);
-    if (groupStore.currentGroup) {
-      groupData.name = groupStore.currentGroup.name;
-      groupData.description = groupStore.currentGroup.description;
+    // Use the ref obtained from storeToRefs
+    if (currentGroup.value) {
+      groupData.name = currentGroup.value.name;
+      groupData.description = currentGroup.value.description;
+      // Populate is_public only if the user has permission to see/edit it
+      if (userCanCreatePublicGroups.value) {
+          groupData.is_public = currentGroup.value.is_public ?? false;
+      }
     }
     isLoading.value = false;
   } else {
       // Reset form for creation mode
       groupData.name = '';
       groupData.description = null;
+      groupData.is_public = false; // Default to false for new groups
   }
 });
 
 const validateForm = (): boolean => {
     validationErrors.name = '';
     validationErrors.description = '';
+    validationErrors.is_public = ''; // Reset is_public errors
     let isValid = true;
     if (!groupData.name || groupData.name.trim() === '') {
         validationErrors.name = 'Il nome del gruppo è obbligatorio.';
@@ -126,18 +156,28 @@ const handleSubmit = async () => {
   try {
     if (isEditing.value && groupId.value) {
       // Update existing group
-      await groupStore.updateGroup(groupId.value, {
+      // Prepare data, include is_public only if user has permission
+      const updateData: Partial<StudentGroupData> = {
           name: groupData.name,
-          description: groupData.description // Pass only fields being edited
-      });
+          description: groupData.description,
+      };
+      if (userCanCreatePublicGroups.value) {
+          updateData.is_public = groupData.is_public;
+      }
+      await groupStore.updateGroup(groupId.value, updateData);
       // Optionally show success message
       router.push({ name: 'GroupsList' }); // Redirect back to list after update
     } else {
       // Create new group
-      await groupStore.createGroup({
+      // Prepare data, include is_public only if user has permission
+      const createData: StudentGroupData = {
           name: groupData.name,
-          description: groupData.description
-      });
+          description: groupData.description,
+      };
+       if (userCanCreatePublicGroups.value) {
+          createData.is_public = groupData.is_public;
+      }
+      await groupStore.createGroup(createData);
       // Optionally show success message
       router.push({ name: 'GroupsList' }); // Redirect back to list after creation
     }
@@ -149,8 +189,9 @@ const handleSubmit = async () => {
          const backendErrors = err.response.data;
          if (backendErrors.name) validationErrors.name = backendErrors.name.join(', ');
          if (backendErrors.description) validationErrors.description = backendErrors.description.join(', ');
+         if (backendErrors.is_public) validationErrors.is_public = backendErrors.is_public.join(', '); // Handle is_public errors
          // Handle non_field_errors or detail if present
-         if (backendErrors.detail && !validationErrors.name && !validationErrors.description) {
+         if (backendErrors.detail && !validationErrors.name && !validationErrors.description && !validationErrors.is_public) {
              groupStore.error = backendErrors.detail; // Use store error for general messages
          }
      }

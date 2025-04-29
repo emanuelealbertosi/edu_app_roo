@@ -24,9 +24,9 @@ const hasInProgressAttempt = computed(() => {
 });
 
 onMounted(async () => {
-  // Verifichiamo che l'utente sia autenticato
-  const isAuthenticated = await authStore.checkAuth();
-  if (!isAuthenticated) {
+  // Verifichiamo che l'utente sia autenticato usando il getter
+  if (!authStore.isAuthenticated) {
+    console.warn('[QuizDetailsView] User not authenticated, redirecting to login.'); // Aggiunto log
     router.push('/login');
     return;
   }

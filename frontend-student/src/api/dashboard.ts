@@ -45,6 +45,7 @@ export interface Pathway {
     points_on_completion?: number;
     [key: string]: any;
   };
+  teacher_username: string; // NUOVO: Aggiunto username del docente che ha assegnato
   quiz_details: PathwayQuizDetail[]; // Aggiunto: dettagli dei quiz nel percorso
   latest_progress?: {
     id: number; // Aggiunto ID del progresso

@@ -229,7 +229,7 @@ const shouldShowStartButton = (attempt: QuizAttemptDashboardItem): boolean => {
 
         <p class="quiz-description text-neutral-dark text-sm mb-3 line-clamp-2">{{ attempt.description }}</p> <!-- Descrizione dal tentativo -->
 
-        <div class="quiz-metadata flex flex-wrap gap-2 text-xs mb-3">
+        <div class="quiz-metadata flex flex-wrap gap-x-4 gap-y-2 text-xs mb-3"> <!-- Modificato gap per migliore spaziatura -->
           <div v-if="attempt.metadata?.difficulty" class="quiz-difficulty bg-neutral text-neutral-darker px-2 py-1 rounded">
             Difficoltà: {{ attempt.metadata.difficulty }}
           </div>
@@ -240,6 +240,11 @@ const shouldShowStartButton = (attempt: QuizAttemptDashboardItem): boolean => {
 
           <div v-if="attempt.metadata?.points_on_completion" class="quiz-points bg-warning/10 text-warning-dark px-2 py-1 rounded">
             Punti: {{ attempt.metadata.points_on_completion }}
+          </div>
+
+          <!-- NUOVO: Assegnato da -->
+          <div class="quiz-assigned-by text-neutral-dark">
+             <span class="font-medium">Assegnato da:</span> {{ attempt.teacher_username }}
           </div>
         </div>
 

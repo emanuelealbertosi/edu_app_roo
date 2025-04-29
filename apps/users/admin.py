@@ -4,14 +4,15 @@ from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from .models import User, Student
 # Definiamo un admin personalizzato per il nostro User model
 class UserAdmin(BaseUserAdmin):
-    # Aggiungiamo 'role' ai campi visualizzati nella lista e nei form
-    list_display = ('username', 'email', 'first_name', 'last_name', 'is_staff', 'role', 'is_active')
-    list_filter = ('is_staff', 'is_superuser', 'is_active', 'groups', 'role')
+    # Aggiungiamo 'role' e 'can_create_public_groups' ai campi visualizzati nella lista e nei form
+    list_display = ('username', 'email', 'first_name', 'last_name', 'is_staff', 'role', 'can_create_public_groups', 'is_active')
+    list_filter = ('is_staff', 'is_superuser', 'is_active', 'groups', 'role', 'can_create_public_groups') # Aggiunto filtro
     fieldsets = BaseUserAdmin.fieldsets + (
-        ('Ruolo', {'fields': ('role',)}),
+        ('Permessi Personalizzati', {'fields': ('role', 'can_create_public_groups')}), # Aggiunto campo al fieldset
     )
+    # Non è necessario aggiungerlo ad add_fieldsets se non vogliamo impostarlo alla creazione utente da admin
     add_fieldsets = BaseUserAdmin.add_fieldsets + (
-        ('Ruolo', {'fields': ('role',)}),
+        ('Permessi Personalizzati', {'fields': ('role',)}), # Lasciamo solo role qui per ora
     )
     search_fields = ('username', 'first_name', 'last_name', 'email')
     ordering = ('username',)
@@ -35,8 +36,8 @@ class StudentAdminForm(forms.ModelForm):
         model = Student
         # Escludiamo pin_hash perché lo gestiamo tramite il campo 'pin'
         exclude = ('pin_hash',)
-        # Includiamo tutti gli altri campi desiderati nel form
-        fields = ('teacher', 'student_code', 'pin', 'first_name', 'last_name', 'is_active')
+        # Includiamo tutti gli altri campi desiderati nel form (rimosso 'teacher')
+        fields = ('student_code', 'pin', 'first_name', 'last_name', 'is_active')
 
     def clean_pin(self):
         """
@@ -63,9 +64,10 @@ class StudentAdminForm(forms.ModelForm):
 @admin.register(Student)
 class StudentAdmin(admin.ModelAdmin):
     form = StudentAdminForm # Usa il nostro form personalizzato
-    list_display = ('full_name', 'student_code', 'teacher', 'is_active', 'created_at')
-    list_filter = ('is_active', 'teacher')
-    search_fields = ('first_name', 'last_name', 'student_code', 'teacher__username')
+    # Rimosso 'teacher' da list_display, list_filter, search_fields
+    list_display = ('full_name', 'student_code', 'is_active', 'created_at')
+    list_filter = ('is_active',) # Rimosso 'teacher'
+    search_fields = ('first_name', 'last_name', 'student_code') # Rimosso 'teacher__username'
     ordering = ('last_name', 'first_name')
     # readonly_fields = ('created_at',) # Esempio
 

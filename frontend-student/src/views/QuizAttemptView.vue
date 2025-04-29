@@ -415,8 +415,8 @@ onUnmounted(() => {
 
         <!-- Mostra il contenuto del quiz solo se l'animazione iniziale è finita -->
         <div v-if="attempt && !isLoading && !showStartAnimation" class="">
-          <h2 class="text-2xl font-semibold text-gray-800 mb-2">{{ attempt.quiz.title }}</h2>
-          <p class="text-gray-600 mb-6">{{ attempt.quiz.description }}</p>
+          <h2 class="text-2xl font-semibold text-gray-800 mb-2">{{ attempt?.quiz?.title }}</h2>
+          <p class="text-gray-600 mb-6">{{ attempt?.quiz?.description }}</p>
 
           <div v-if="isLoading && currentQuestion === null" class="loading bg-gray-100 text-gray-600 px-4 py-3 rounded text-center mb-6 shadow-inner">
             <p>Caricamento domanda...</p>

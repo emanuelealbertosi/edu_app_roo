@@ -48,6 +48,12 @@ class User(AbstractUser):
         related_query_name="user",
     )
 
+    can_create_public_groups = models.BooleanField(
+        _("Can Create Public Groups"),
+        default=False,
+        help_text=_("Designates whether the teacher can create public groups that other teachers can request access to.")
+    )
+
     def __str__(self):
         return self.username
 
@@ -68,13 +74,8 @@ class Student(models.Model):
     Modello che rappresenta uno Studente.
     Collegato a un Docente (User con role=TEACHER).
     """
-    teacher = models.ForeignKey(
-        User,
-        on_delete=models.CASCADE, # Se il docente viene eliminato, elimina anche gli studenti associati? O SET_NULL? O PROTECT? Decidiamo CASCADE per ora.
-        related_name='students',
-        limit_choices_to={'role': UserRole.TEACHER}, # Assicura che si possa collegare solo a Docenti
-        verbose_name=_('Teacher')
-    )
+    # Il campo 'teacher' è stato rimosso. La relazione tra studenti e docenti
+    # avviene tramite l'appartenenza ai gruppi (StudentGroupMembership).
     student_code = models.CharField(
         _('Student Code'),
         max_length=50,

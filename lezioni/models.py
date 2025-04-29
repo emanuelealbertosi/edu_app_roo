@@ -3,8 +3,11 @@ from django.conf import settings
 # Assumendo che il modello Studente sia in apps.users.models
 # Se Student è definito altrove, questo import dovrà essere aggiornato.
 # Potrebbe essere necessario verificare la struttura effettiva di apps.users
+from django.utils.translation import gettext_lazy as _ # Import per traduzioni
+
 try:
-    from apps.users.models import Student
+    # Importa anche User e UserRole
+    from apps.users.models import Student, User, UserRole
 except ImportError:
     # Fallback o gestione alternativa se la struttura è diversa
     # Per ora, assumiamo che Student sia accessibile così o che
@@ -122,9 +125,18 @@ class LessonAssignment(models.Model):
         null=True, # Può essere nullo se assegnato a studente
         blank=True
     )
-    # Rimosso assigned_by per semplicità iniziale
-    assigned_at = models.DateTimeField(auto_now_add=True, verbose_name="Data Assegnazione")
-    viewed_at = models.DateTimeField(null=True, blank=True, help_text="Data e ora prima visualizzazione da parte dello studente")
+    # Campo per tracciare chi ha effettuato l'assegnazione
+    assigned_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL, # Mantiene l'assegnazione anche se il docente viene eliminato
+        null=True, # Permette assegnazioni 'sistema' o casi in cui il docente non è noto?
+        blank=True, # Rendiamo opzionale per ora
+        related_name='assigned_lessons',
+        limit_choices_to={'role': UserRole.TEACHER}, # Assicura che sia un docente
+        verbose_name=_("Assegnato Da")
+    )
+    assigned_at = models.DateTimeField(auto_now_add=True, verbose_name=_("Data Assegnazione"))
+    viewed_at = models.DateTimeField(null=True, blank=True, help_text=_("Data e ora prima visualizzazione da parte dello studente"))
 
     class Meta:
         verbose_name = "Assegnazione Lezione"

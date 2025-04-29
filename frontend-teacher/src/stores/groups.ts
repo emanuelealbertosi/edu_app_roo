@@ -1,16 +1,25 @@
 // frontend-teacher/src/stores/groups.ts
 import { defineStore } from 'pinia';
-import type { StudentGroup, GroupMember, StudentGroupData, AddStudentToGroupData } from '@/types/groups';
+// Importa tipi direttamente da types/groups
+import type { StudentGroup, GroupMember, StudentGroupData, AddStudentToGroupData, GroupAccessRequestData, GroupAccessRequest, RespondGroupAccessRequestData } from '@/types/groups'; // Aggiunto GroupAccessRequest, RespondGroupAccessRequestData
 // Import API functions
 import * as groupApi from '@/api/groups';
 
 interface GroupState {
-  groups: StudentGroup[];
+  groups: StudentGroup[]; // Gruppi del docente o a cui ha accesso
   currentGroup: StudentGroup | null;
   currentGroupMembers: GroupMember[];
+  accessRequests: GroupAccessRequest[]; // Richieste di accesso per il gruppo corrente
+  publicGroupsSearchResult: StudentGroup[]; // Risultati ricerca gruppi pubblici
   isLoadingList: boolean;
   isLoadingDetail: boolean; // For group details and members
+  isLoadingRequests: boolean; // Loading per le richieste di accesso
+  isLoadingSearch: boolean; // Loading per la ricerca
   error: string | null;
+  requestsError: string | null; // Errore specifico per le richieste
+  searchError: string | null; // Errore specifico per la ricerca
+  requestAccessError: string | null; // Errore specifico per richiesta accesso
+  requestAccessSuccess: boolean; // Flag per successo richiesta accesso
 }
 
 export const useGroupStore = defineStore('groups', {
@@ -18,9 +27,17 @@ export const useGroupStore = defineStore('groups', {
     groups: [],
     currentGroup: null,
     currentGroupMembers: [],
+    accessRequests: [], // Inizializza vuoto
+    publicGroupsSearchResult: [], // Inizializza vuoto
     isLoadingList: false,
     isLoadingDetail: false,
+    isLoadingRequests: false, // Inizializza loading richieste
+    isLoadingSearch: false, // Inizializza loading ricerca
     error: null,
+    requestsError: null, // Inizializza errore richieste
+    searchError: null, // Inizializza errore ricerca
+    requestAccessError: null, // Inizializza errore richiesta
+    requestAccessSuccess: false, // Inizializza flag successo
   }),
 
   actions: {
@@ -32,6 +49,9 @@ export const useGroupStore = defineStore('groups', {
         this.currentGroup = null;
         this.currentGroupMembers = [];
         this.isLoadingDetail = false; // Reset loading state as well
+        this.accessRequests = []; // Pulisci anche le richieste
+        this.isLoadingRequests = false;
+        this.requestsError = null;
         this.error = null; // Clear errors related to the specific group
     },
 
@@ -40,9 +60,13 @@ export const useGroupStore = defineStore('groups', {
       this.isLoadingList = true;
       this.error = null;
       try {
+        console.log('[Store Groups] Calling groupApi.getGroups()...'); // LOG
         const response = await groupApi.getGroups();
+        console.log('[Store Groups] API Response for getGroups:', JSON.stringify(response.data)); // LOG
         this.groups = response.data;
+        console.log('[Store Groups] State `groups` updated:', JSON.stringify(this.groups)); // LOG
       } catch (err: any) {
+        console.error('[Store Groups] Error fetching groups:', err); // LOG Errore
         this.error = err.response?.data?.detail || err.message || 'Errore nel caricamento dei gruppi.';
         this.groups = []; // Clear groups on error
       } finally {
@@ -248,6 +272,82 @@ export const useGroupStore = defineStore('groups', {
             this.error = err.response?.data?.detail || err.message || 'Errore nell\'eliminazione del token.';
         } finally {
             this.isLoadingDetail = false;
+        }
+    },
+
+    // --- Group Discovery & Access Requests ---
+    async searchPublicGroups(searchTerm: string) {
+        this.isLoadingSearch = true;
+        this.searchError = null;
+        this.publicGroupsSearchResult = []; // Clear previous results
+        try {
+            // Assicurati che GroupAccessRequestData sia importato se necessario
+            const response = await groupApi.searchPublicGroups(searchTerm);
+            this.publicGroupsSearchResult = response.data;
+        } catch (err: any) {
+            this.searchError = err.response?.data?.detail || err.message || 'Errore nella ricerca dei gruppi pubblici.';
+            this.publicGroupsSearchResult = [];
+        } finally {
+            this.isLoadingSearch = false;
+        }
+    },
+
+    async requestAccess(groupId: number) {
+        // Potremmo usare isLoadingDetail o un loading specifico per questa azione
+        this.isLoadingDetail = true; // Riutilizziamo isLoadingDetail per semplicità
+        this.requestAccessError = null;
+        this.requestAccessSuccess = false;
+        try {
+            // Usa il tipo importato direttamente
+            const requestData: GroupAccessRequestData = { group: groupId };
+            await groupApi.requestGroupAccess(requestData);
+            this.requestAccessSuccess = true; // Imposta flag successo
+            // Potremmo voler mostrare un messaggio all'utente
+        } catch (err: any) {
+            this.requestAccessError = err.response?.data?.detail || err.response?.data?.group?.[0] || err.message || 'Errore nell\'invio della richiesta di accesso.';
+             this.requestAccessSuccess = false;
+             // Rethrow per gestione nel componente se necessario
+             // throw err;
+        } finally {
+            this.isLoadingDetail = false;
+        }
+    },
+
+    // --- Access Request Management (Owner) ---
+    async fetchAccessRequests(groupId: number) {
+        this.isLoadingRequests = true;
+        this.requestsError = null;
+        this.accessRequests = [];
+        try {
+            const response = await groupApi.getGroupAccessRequests(groupId);
+            this.accessRequests = response.data;
+        } catch (err: any) {
+            this.requestsError = err.response?.data?.detail || err.message || 'Errore nel caricamento delle richieste di accesso.';
+            this.accessRequests = [];
+        } finally {
+            this.isLoadingRequests = false;
+        }
+    },
+
+    async respondToRequest(groupId: number, requestId: number, approve: boolean) { // Aggiunto groupId
+        this.isLoadingRequests = true; // Potrebbe essere un loading diverso?
+        this.requestsError = null;
+        try {
+            // Costruisci il payload corretto per la nuova API
+            const responseData = { status: approve ? 'APPROVED' : 'REJECTED' as 'APPROVED' | 'REJECTED' };
+            // Chiama la funzione API aggiornata con groupId, requestId e il nuovo payload
+            await groupApi.respondToGroupAccessRequest(groupId, requestId, responseData);
+            // Rimuovi la richiesta dallo stato locale dopo la risposta
+            this.accessRequests = this.accessRequests.filter(req => req.id !== requestId);
+            // Potrebbe essere necessario aggiornare l'elenco dei membri se la richiesta è stata approvata?
+            // O l'elenco dei gruppi accessibili per il richiedente?
+            // Per ora, gestiamo solo la rimozione dalla lista delle richieste pendenti.
+        } catch (err: any) {
+            this.requestsError = err.response?.data?.detail || err.message || 'Errore nella risposta alla richiesta di accesso.';
+            // Rethrow se necessario per UI
+            // throw err;
+        } finally {
+            this.isLoadingRequests = false;
         }
     },
 

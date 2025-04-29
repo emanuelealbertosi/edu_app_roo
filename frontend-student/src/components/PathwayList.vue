@@ -154,7 +154,7 @@ const getProgressBorderClass = (pathway: Pathway): string => {
               ></div>
           </div>
         </div>
-        <div class="pathway-metadata flex flex-wrap gap-2 text-xs">
+        <div class="pathway-metadata flex flex-wrap gap-x-4 gap-y-2 text-xs"> <!-- Modificato gap per migliore spaziatura -->
           <div v-if="pathway.metadata.points_on_completion" class="pathway-points bg-warning/10 text-warning-dark px-2 py-1 rounded">
             Punti: {{ pathway.metadata.points_on_completion }}
           </div>
@@ -165,6 +165,11 @@ const getProgressBorderClass = (pathway: Pathway): string => {
 
           <div v-if="pathway.latest_progress && pathway.latest_progress.points_earned" class="pathway-points-earned bg-success/10 text-success-dark px-2 py-1 rounded">
             Guadagnati: {{ pathway.latest_progress.points_earned }}
+          </div>
+
+          <!-- NUOVO: Assegnato da -->
+          <div class="pathway-assigned-by text-neutral-dark">
+             <span class="font-medium">Assegnato da:</span> {{ pathway.teacher_username }}
           </div>
         </div>
 

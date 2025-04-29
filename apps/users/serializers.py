@@ -27,10 +27,11 @@ class UserSerializer(serializers.ModelSerializer):
             'role_display', # Versione leggibile
             'is_active',
             'date_joined',
+            'can_create_public_groups', # Aggiunto per frontend
             # Escludiamo password e altri campi sensibili/gestionali
             # 'password', 'is_staff', 'is_superuser', 'groups', 'user_permissions', 'last_login'
         ]
-        read_only_fields = ['date_joined', 'role_display'] # Campi non modificabili tramite questo serializer base
+        read_only_fields = ['date_joined', 'role_display', 'can_create_public_groups'] # Aggiunto ai read_only
 
     # Potremmo aggiungere validazione specifica qui se necessario
 
@@ -68,28 +69,26 @@ class StudentSerializer(serializers.ModelSerializer):
     Serializer per il modello Student.
     Usato principalmente dai Docenti per gestire i propri studenti.
     """
-    # Mostriamo il nome completo del docente associato (sola lettura)
-    teacher_username = serializers.CharField(source='teacher.username', read_only=True)
+    # Il campo 'teacher' è stato rimosso dal modello Student.
+    # La relazione avviene tramite gruppi.
 
     class Meta:
         model = Student
         fields = [
             'id',
-            'teacher', # ID del docente (scrivibile per creare/associare)
-            'teacher_username', # Nome utente del docente (sola lettura)
+            # 'teacher' rimosso
+            # 'teacher_username' rimosso
             'first_name',
             'last_name',
-            'student_code', # Aggiunto campo mancante
+            'student_code', # Assicurati che questo campo esista nel modello Student
             'is_active',
             'created_at',
             'full_name', # Proprietà del modello (sola lettura)
         ]
-        # Teacher è impostato automaticamente nella view per i docenti, quindi read_only qui.
-        # Per gli admin che creano studenti, dovranno usare un serializer diverso o un endpoint specifico?
-        # Per ora, lo rendiamo read_only e la view gestisce l'impostazione.
-        read_only_fields = ['teacher', 'created_at', 'teacher_username', 'full_name']
+        # Rimuovi 'teacher' e 'teacher_username' dai read_only_fields
+        read_only_fields = ['created_at', 'full_name']
 
-    # La validazione del teacher non è più necessaria qui se il campo è read_only
+    # La validazione del teacher non è più necessaria
     # def validate_teacher(self, value):
     #     """
     #     Assicura che l'utente fornito come 'teacher' sia effettivamente un Docente.

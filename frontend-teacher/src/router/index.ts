@@ -77,6 +77,14 @@ const router = createRouter({
       props: true, // Passa :id come prop
       meta: { requiresAuth: true }
     },
+    // --- Rotta per Sfogliare Gruppi Pubblici ---
+    {
+      path: '/groups/browse',
+      name: 'BrowseGroups',
+      component: () => import('../views/BrowseGroupsView.vue'),
+      meta: { requiresAuth: true }
+    },
+    // --- Rotte Quiz Template ---
     {
       path: '/quiz-templates', // Aggiornato path
       name: 'quiz-templates', // Aggiornato nome rotta

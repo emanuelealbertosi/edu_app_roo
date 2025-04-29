@@ -1077,7 +1077,17 @@ class QuizAssignment(models.Model):
         null=True, # Può essere nullo se assegnato a studente
         blank=True
     )
-    # Rimosso assigned_by per semplicità iniziale, può essere aggiunto se necessario
+    # Campo per tracciare chi ha effettuato l'assegnazione
+    assigned_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL, # Mantiene l'assegnazione anche se il docente viene eliminato
+        null=True, # Permette assegnazioni 'sistema' o casi in cui il docente non è noto?
+        blank=True, # Rendiamo opzionale per ora
+        related_name='assigned_quizzes',
+        limit_choices_to={'role': UserRole.TEACHER}, # Assicura che sia un docente
+        verbose_name=_("Assegnato Da")
+    )
+    # Rimosso assigned_by per semplicità iniziale, può essere aggiunto se necessario -> Rimosso commento obsoleto
     # Manteniamo due_date se era già presente
     due_date = models.DateTimeField(_('Due Date'), null=True, blank=True)
     assigned_at = models.DateTimeField(_('Data Assegnazione'), auto_now_add=True)
