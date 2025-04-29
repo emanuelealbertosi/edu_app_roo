@@ -78,20 +78,19 @@
 
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'; // Importa onMounted
-import { useSharedAuthStore } from '@/stores/sharedAuth'; // Importa lo store condiviso
-import { useAuthStore as useAuthTeacherStore } from '@/stores/auth'; // Importa lo store specifico del teacher per l'azione logout
+import { useSharedAuthStore } from '@/stores/sharedAuth'; // Importa solo lo store condiviso
 
 const sharedAuth = useSharedAuthStore();
-const authTeacherStore = useAuthTeacherStore(); // Usato solo per l'azione logout specifica
+// Rimosso: const authTeacherStore = useAuthTeacherStore();
 
 const user = computed(() => sharedAuth.user);
 const userRole = computed(() => sharedAuth.userRole);
 const loading = computed(() => sharedAuth.loading);
 
-const handleLogout = async () => {
-  // Chiama l'azione logout dello store specifico del teacher,
-  // che a sua volta pulirà lo store condiviso e gestirà il redirect.
-  await authTeacherStore.logout();
+const handleLogout = () => {
+  // Chiama direttamente l'azione dello store condiviso e gestisce il redirect
+  sharedAuth.clearAuthData();
+  window.location.href = '/'; // Reindirizza alla root del dominio
 };
 
 // Potrebbe essere necessaria logica aggiuntiva qui se l'utente arriva

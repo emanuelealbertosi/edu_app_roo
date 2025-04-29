@@ -17,8 +17,8 @@ export interface SharedUser { // Aggiunto export
 export const useSharedAuthStore = defineStore('sharedAuth', () => {
   // --- State ---
   const user = ref<SharedUser | null>(null)
-  const accessToken = ref<string | null>(localStorage.getItem('shared_access_token')) // Chiave unica
-  const refreshToken = ref<string | null>(localStorage.getItem('shared_refresh_token')) // Chiave unica
+  const accessToken = ref<string | null>(null) // Lascia che pinia-plugin-persistedstate gestisca l'inizializzazione
+  const refreshToken = ref<string | null>(null) // Lascia che pinia-plugin-persistedstate gestisca l'inizializzazione
   const loading = ref(false) // Stato di caricamento generico
   const error = ref<string | null>(null) // Errore generico
 
@@ -41,15 +41,7 @@ export const useSharedAuthStore = defineStore('sharedAuth', () => {
     refreshToken.value = refresh
     user.value = userData
 
-    localStorage.setItem('shared_access_token', access)
-    if (refresh) {
-      localStorage.setItem('shared_refresh_token', refresh)
-    } else {
-      localStorage.removeItem('shared_refresh_token') // Rimuovi se non fornito
-    }
-    // Non salviamo l'intero oggetto user in localStorage per sicurezza/semplicità,
-    // ma potremmo salvare il ruolo se utile all'avvio.
-    // localStorage.setItem('shared_user_role', userData.role || '');
+    // Rimosso accesso manuale a localStorage - gestito da pinia-plugin-persistedstate
 
     error.value = null // Resetta errori precedenti
   }
@@ -63,9 +55,7 @@ export const useSharedAuthStore = defineStore('sharedAuth', () => {
     refreshToken.value = null
     user.value = null
 
-    localStorage.removeItem('shared_access_token')
-    localStorage.removeItem('shared_refresh_token')
-    // localStorage.removeItem('shared_user_role');
+    // Rimosso accesso manuale a localStorage - gestito da pinia-plugin-persistedstate
   }
 
   /**

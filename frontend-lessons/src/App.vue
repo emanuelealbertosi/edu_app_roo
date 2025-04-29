@@ -54,8 +54,6 @@ const goToTeacherLessons = async () => {
 
 // URL per le altre app frontend
 const studentAppUrl = computed(() => (import.meta.env.VITE_STUDENT_APP_URL as string | undefined) || '/studenti/');
-const teacherAppUrl = computed(() => (import.meta.env.VITE_TEACHER_APP_URL as string | undefined) || '/docenti/');
-
 const handleLogout = () => {
   sharedAuth.clearAuthData(); // Pulisci lo store condiviso
   window.location.href = '/'; // Reindirizza manually alla root del dominio
@@ -126,7 +124,7 @@ const handleLogout = () => {
             </li>
              <!-- Link Gestione Quiz TEACHER/Admin -->
              <li v-if="sharedAuth.userRole === 'TEACHER' || sharedAuth.userRole === 'ADMIN'" class="mb-3">
-               <a :href="teacherAppUrl" class="flex items-center p-2 rounded hover:bg-indigo-700">
+               <a :href="'/dashboard'" class="flex items-center p-2 rounded hover:bg-indigo-700">
                  <QuestionMarkCircleIcon class="h-6 w-6 flex-shrink-0" />
                  <span class="ml-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Gestione Quiz</span>
                </a>
@@ -207,7 +205,7 @@ const handleLogout = () => {
               </li>
                <!-- Link Gestione Quiz TEACHER/Admin -->
                <li v-if="sharedAuth.userRole === 'TEACHER' || sharedAuth.userRole === 'ADMIN'" class="mb-3">
-                 <a :href="teacherAppUrl" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-indigo-700">
+                 <a :href="'/dashboard'" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-indigo-700">
                    <QuestionMarkCircleIcon class="h-6 w-6 flex-shrink-0" />
                    <span class="ml-3">Gestione Quiz</span>
                  </a>

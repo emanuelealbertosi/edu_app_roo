@@ -337,7 +337,8 @@ const goToProfile = () => {
 
         <!-- Area Contenuto -->
         <!-- Aggiunto padding-top solo se header è visibile (autenticato e non su landing) -->
-        <main class="flex-grow p-4 md:p-8 overflow-auto" :class="{ 'pt-20': sharedAuth.isAuthenticated && route.name !== 'landing' }">
+        <!-- Applica padding-top sempre se autenticato, per evitare che il contenuto vada sotto eventuali barre fisse -->
+        <main class="flex-grow p-4 md:p-8 overflow-auto" :class="{ 'pt-20': sharedAuth.isAuthenticated }">
           <RouterView />
         </main>
     </div>
