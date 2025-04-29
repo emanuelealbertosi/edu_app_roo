@@ -122,12 +122,24 @@ export const assignLesson = async (lessonId: number, studentIds: number[], group
 export const fetchGroups = async () => {
   console.log(`[api.ts] Fetching groups...`);
   try {
-    const response = await apiClient.get('/groups/'); // Assumendo endpoint standard
-    console.log(`[api.ts] Groups fetched successfully:`, response.data);
-    return response.data; // Assumendo che l'API restituisca direttamente l'array
-  } catch (error) {
+    // Modificato URL per puntare all'endpoint specifico della lista gruppi
+    const response = await apiClient.get('/groups/groups/');
+    console.log(`[api.ts] Groups fetched successfully from /groups/groups/:`, response.data);
+    // Assumiamo che la risposta contenga un array (potrebbe essere paginata, es. response.data.results)
+    // Adattare se la struttura della risposta è diversa (es. paginazione DRF)
+    return Array.isArray(response.data) ? response.data : response.data.results || [];
+  } catch (error: any) { // Aggiunto : any per accedere a error.response
     console.error(`[api.ts] Error fetching groups:`, error);
-    throw error;
+    // Logga dettagli specifici dell'errore se disponibili
+    if (error.response) {
+      console.error('[api.ts] Fetch Groups Error - Status:', error.response.status);
+      console.error('[api.ts] Fetch Groups Error - Data:', error.response.data);
+    } else if (error.request) {
+      console.error('[api.ts] Fetch Groups Error - No response received:', error.request);
+    } else {
+      console.error('[api.ts] Fetch Groups Error - Setup error:', error.message);
+    }
+    throw error; // Rilancia l'errore per essere gestito dallo store
   }
 };
 

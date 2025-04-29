@@ -2,6 +2,7 @@ import { defineStore } from 'pinia';
 import apiClient, { fetchGroups, assignLesson } from '@/services/api'; // Importa l'istanza Axios e le funzioni API specifiche
 import type { Lesson, LessonContent, LessonAssignment, Student, AssignmentResult } from '@/types/lezioni'; // Importa i tipi definiti
 import type { StudentGroup } from '@/types/groups'; // Importa il tipo per i gruppi
+import { useSharedAuthStore } from './sharedAuth'; // Importa lo store condiviso per ottenere l'ID utente
 
 // Le interfacce locali sono state rimosse, usiamo quelle importate da @/types/lezioni.ts
 
@@ -346,9 +347,10 @@ export const useLessonStore = defineStore('lessons', {
       this.isLoadingGroups = true;
       this.error = null;
       try {
-        const fetchedGroups = await fetchGroups(); // Chiama la funzione API
+        const fetchedGroups: StudentGroup[] = await fetchGroups(); // Chiama la funzione API
+        // Rimosso filtro frontend - this.groups conterrà tutti i gruppi accessibili (propri e condivisi)
         this.groups = fetchedGroups;
-        console.log("[lessons.ts] Groups loaded:", this.groups);
+        console.log("[lessons.ts] Groups loaded (propri e condivisi):", this.groups);
       } catch (err: any) {
         console.error("Errore nel caricamento dei gruppi:", err);
         this.error = err.response?.data?.detail || err.message || 'Errore sconosciuto durante caricamento gruppi';

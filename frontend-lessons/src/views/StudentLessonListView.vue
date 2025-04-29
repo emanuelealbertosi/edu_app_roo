@@ -18,8 +18,17 @@
        <div v-for="assignment in assignedLessons" :key="assignment.id" class="lesson-card bg-white rounded-lg shadow-md overflow-hidden flex flex-col">
            <div class="p-5 flex-grow">
                <h3 class="text-lg font-semibold text-gray-800 mb-2">{{ assignment.lesson.title || 'Lezione (ID: ' + assignment.lesson.id + ')' }}</h3>
+               <!-- Aggiunta informazioni Docente, Materia, Argomento -->
+               <div class="text-sm text-gray-600 mb-2">
+                   <p v-if="assignment.lesson.subject_name"><strong>Materia:</strong> {{ assignment.lesson.subject_name }}</p>
+                   <p v-if="assignment.lesson.topic_name"><strong>Argomento:</strong> {{ assignment.lesson.topic_name }}</p>
+                   <p v-if="assignment.lesson.creator">
+                       <strong>Docente:</strong>
+                       {{ assignment.lesson.creator.first_name || '' }} {{ assignment.lesson.creator.last_name || '' }}
+                       <span v-if="!assignment.lesson.creator.first_name && !assignment.lesson.creator.last_name">{{ assignment.lesson.creator.username }}</span>
+                   </p>
+               </div>
                <p class="text-xs text-gray-500 mb-3">
-                   <!-- Rimosso 'Assegnata da:' perché il campo non è più disponibile -->
                    Assegnata il: {{ formatDate(assignment.assigned_at) }} <br>
                    <span v-if="assignment.viewed_at" class="text-green-600">Vista il: {{ formatDate(assignment.viewed_at) }}</span>
                    <span v-else class="text-yellow-600 italic">Non ancora vista</span>

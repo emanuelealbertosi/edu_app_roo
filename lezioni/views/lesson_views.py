@@ -19,11 +19,13 @@ from ..permissions import (
 # Import necessario per l'assegnazione
 from ..models import LessonAssignment
 try:
+    from django.db.models import Q # Import Q
     from apps.users.models import Student
-    from apps.student_groups.models import StudentGroup # Aggiunto import StudentGroup
+    from apps.student_groups.models import StudentGroup, GroupAccessRequest # Aggiunto import StudentGroup e GroupAccessRequest
 except ImportError:
     Student = None
     StudentGroup = None # Gestiremo il caso in cui non siano importabili
+    GroupAccessRequest = None # Gestiremo il caso in cui non siano importabili
 
 class LessonViewSet(viewsets.ModelViewSet):
     """
@@ -156,7 +158,20 @@ class LessonViewSet(viewsets.ModelViewSet):
         valid_groups = []
         invalid_group_ids = []
         if StudentGroup and group_ids:
-            groups = StudentGroup.objects.filter(id__in=group_ids, teacher=request.user) # Solo gruppi del docente
+            # Trova gli ID dei gruppi per cui l'utente ha accesso approvato
+            approved_group_ids = []
+            if GroupAccessRequest: # Verifica che il modello sia stato importato
+                approved_group_ids = GroupAccessRequest.objects.filter(
+                    requesting_teacher=request.user,
+                    status=GroupAccessRequest.AccessStatus.APPROVED,
+                    group_id__in=group_ids # Considera solo i gruppi selezionati
+                ).values_list('group_id', flat=True)
+
+            # Filtra i gruppi selezionati: devono essere o di proprietà dell'utente O accessibili tramite richiesta approvata
+            groups = StudentGroup.objects.filter(
+                Q(id__in=group_ids) & # Deve essere uno dei gruppi selezionati
+                (Q(owner=request.user) | Q(id__in=approved_group_ids)) # O è proprietario O ha accesso approvato
+            )
             valid_groups = list(groups)
             valid_group_ids = {g.id for g in valid_groups}
             invalid_group_ids = [gid for gid in group_ids if gid not in valid_group_ids]

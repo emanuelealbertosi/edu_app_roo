@@ -79,6 +79,7 @@
           @click="assignLessonToTargets"
           :disabled="(selectedStudentIds.length === 0 && selectedGroupIds.length === 0) || assigning"
           class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          title="Assegna la lezione ai target selezionati"
         >
           <span v-if="assigning">Assegnazione in corso...</span>
           <span v-else>Assegna Selezionati</span>
@@ -154,6 +155,7 @@
 import { ref, onMounted, computed } from 'vue';
 import { useRoute } from 'vue-router';
 import { useLessonStore } from '@/stores/lessons';
+// Rimosso import non necessario di sharedAuthStore qui
 import type { Lesson, Student, AssignmentResult } from '@/types/lezioni';
 import type { StudentGroup } from '@/types/groups';
 import StudentSelectionModal from '@/components/common/StudentSelectionModal.vue';
@@ -162,6 +164,7 @@ import StudentSelectionModal from '@/components/common/StudentSelectionModal.vue
 const route = useRoute()
 // const router = useRouter() // Rimosso - non utilizzato
 const lessonStore = useLessonStore()
+// Rimosso sharedAuthStore
 // const authStore = useAuthStore() // Rimosso - non utilizzato
 
 const lesson = ref<Lesson | null>(null)
@@ -185,6 +188,7 @@ const errorStudents = ref<string | null>(null);
 const errorGroups = ref<string | null>(null); // Stato di errore per i gruppi
 
 const lessonId = computed(() => Number(route.params.lessonId))
+// Rimosso currentUserId
 
 // Funzione per caricare gli studenti del docente (da adattare allo store effettivo)
 const fetchStudents = async () => {
@@ -341,6 +345,8 @@ const assignLessonToTargets = async () => {
 const updateSelectedStudents = (newSelectedIds: number[]) => {
     selectedStudentIds.value = newSelectedIds;
 };
+
+// Rimosso computed isAssignmentPossible
 
 // Proprietà calcolata per il riepilogo della selezione
 const selectionSummary = computed(() => {

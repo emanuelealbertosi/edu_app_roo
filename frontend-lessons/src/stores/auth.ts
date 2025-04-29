@@ -4,62 +4,61 @@ import apiClient from '@/services/api'; // Importa l'istanza Axios centralizzata
 // Definiremo un tipo per l'utente più avanti
 // import type { User } from '@/types/user';
 import router from '@/router'; // Importa l'istanza del router
+import { useSharedAuthStore, type SharedUser } from './sharedAuth'; // Importa lo store condiviso e il tipo
 
 // Rimosse definizione locale di apiClient e interceptor, ora sono in services/api.ts
 
 // Definizione dello store di autenticazione
 export const useAuthStore = defineStore('auth', {
   state: () => ({
-    accessToken: localStorage.getItem('accessToken') || null as string | null,
-    refreshToken: localStorage.getItem('refreshToken') || null as string | null,
-    // Definire un tipo User appropriato (es. { id: number, username: string, role: string })
-    user: JSON.parse(localStorage.getItem('user') || 'null') as any | null,
+    // Lo stato (accessToken, refreshToken, user) è ora gestito da sharedAuthStore
+    // Manteniamo solo errori/loading specifici di questo store di azioni
     loginError: null as string | null,
     isLoading: false,
   }),
 
   getters: {
-    isAuthenticated: (state): boolean => !!state.accessToken && !!state.user,
-    // Aggiungere altri getters se necessario (es. isAdmin, isTeacher, isStudent)
-    userRole: (state): string | null => state.user?.role || null,
+    // Delega i getter allo store condiviso
+    isAuthenticated(): boolean {
+      const sharedAuthStore = useSharedAuthStore();
+      return sharedAuthStore.isAuthenticated;
+    },
+    userRole(): string | null {
+      const sharedAuthStore = useSharedAuthStore();
+      return sharedAuthStore.userRole;
+    },
+    // Getter per accedere direttamente allo stato condiviso se necessario
+    sharedUser(): SharedUser | null {
+        const sharedAuthStore = useSharedAuthStore();
+        return sharedAuthStore.user;
+    },
+    sharedAccessToken(): string | null {
+        const sharedAuthStore = useSharedAuthStore();
+        return sharedAuthStore.accessToken;
+    },
+    sharedRefreshToken(): string | null {
+        const sharedAuthStore = useSharedAuthStore();
+        return sharedAuthStore.refreshToken;
+    }
   },
 
   actions: {
-    setTokens(access: string, refresh: string) {
-      this.accessToken = access;
-      this.refreshToken = refresh;
-      localStorage.setItem('accessToken', access);
-      localStorage.setItem('refreshToken', refresh);
-      // Aggiorna l'header di default per le chiamate future con questo apiClient
-      // apiClient.defaults.headers.common['Authorization'] = `Bearer ${access}`;
-    },
-
-    setUser(userData: any) {
-      this.user = userData;
-      localStorage.setItem('user', JSON.stringify(userData));
-    },
-
-    clearAuth() {
-      this.accessToken = null;
-      this.refreshToken = null;
-      this.user = null;
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
-      localStorage.removeItem('user');
-      // Rimuovi l'header di default
-      // delete apiClient.defaults.headers.common['Authorization'];
-    },
-
+    // Rimosse azioni setTokens, setUser, clearAuth - ora si usa sharedAuthStore.setAuthData/clearAuthData
     // Modifica la firma per accettare il tipo di login esplicitamente
     async login(credentials: { identifier: string; password?: string; pin?: string }, loginType: 'student' | 'teacher-admin') {
       this.isLoading = true;
       this.loginError = null;
-      this.clearAuth(); // Pulisce stato precedente prima del tentativo
+      const sharedAuthStore = useSharedAuthStore();
+      sharedAuthStore.clearAuthData(); // Pulisce lo stato condiviso
 
       console.log(`Attempting login. Type: ${loginType}, Identifier: ${credentials.identifier}`); // Debug
 
       try {
         let response;
+        let userData: SharedUser | null = null;
+        let access: string | null = null;
+        let refresh: string | null = null;
+
         // Usa loginType invece di indovinare dal formato dell'identifier
         if (loginType === 'student') {
             // --- Login Studente ---
@@ -74,13 +73,21 @@ export const useAuthStore = defineStore('auth', {
             });
             console.log("Student login response:", response.data); // Debug
             // La risposta contiene già i token e i dati dello studente
-            const { access, refresh, student } = response.data;
-            if (!access || !refresh || !student) {
+            const studentData = response.data.student;
+            access = response.data.access;
+            refresh = response.data.refresh;
+
+            if (!access || !refresh || !studentData) {
                  throw new Error("Risposta non valida dal server di login studente.");
             }
-            this.setTokens(access, refresh);
-            // Imposta l'utente con i dati dello studente e aggiungi il ruolo manualmente
-            this.setUser({ ...student, role: 'Studente' }); // Assumiamo che 'Studente' sia il ruolo corretto
+            // Mappa i dati dello studente all'interfaccia SharedUser
+            userData = {
+                id: studentData.id,
+                student_code: studentData.student_code, // Usa student_code come identificativo
+                first_name: studentData.first_name,
+                last_name: studentData.last_name,
+                role: 'STUDENT' // Ruolo standardizzato
+            };
 
         } else if (loginType === 'teacher-admin') {
             // --- Login Docente/Admin ---
@@ -93,29 +100,36 @@ export const useAuthStore = defineStore('auth', {
                 password: credentials.password
              });
              console.log("Standard login response:", response.data); // Debug
-             const { access, refresh } = response.data;
+             access = response.data.access;
+             refresh = response.data.refresh;
              if (!access || !refresh) {
                  throw new Error("Risposta non valida dal server token.");
-            }
-             this.setTokens(access, refresh);
+             }
 
              // Dopo aver ottenuto il token, recupera le informazioni dell'utente (Admin/Docente)
-             await this.fetchUser(); // fetchUser ora è solo per Admin/Docenti
+             // Salva temporaneamente i token per permettere a fetchUser di funzionare
+             sharedAuthStore.setAuthData(access, refresh, {} as SharedUser); // Dati utente temporanei
+             userData = await this.fetchUser(); // fetchUser ora ritorna SharedUser o null
+             if (!userData) {
+                 // fetchUser ha fallito e ha già gestito il logout/clear
+                 throw new Error("Impossibile recuperare i dati utente dopo il login.");
+             }
         }
 
         // Se fetchUser fallisce per Admin/Docente, l'errore viene gestito lì e fa logout.
         // Se siamo qui, il login (e fetchUser se applicabile) è andato a buon fine.
-        if (this.user) { // Controlla se l'utente è stato impostato correttamente
-             console.log('Login successful, user:', this.user); // Debug
+        if (userData && access) { // Controlla se abbiamo dati utente e token
+             // Salva i dati definitivi nello store condiviso
+             sharedAuthStore.setAuthData(access, refresh, userData);
+             console.log('Login successful, user data saved in shared store:', sharedAuthStore.user); // Debug
              // Reindirizza alla dashboard dopo login successo
              router.push({ name: 'dashboard' });
              return true; // Indica successo
         } else {
-             // Questo non dovrebbe accadere se fetchUser non fallisce, ma per sicurezza
-             // Potrebbe accadere se fetchUser fallisce silenziosamente?
-             console.error("Login logic completed but user data is still missing.");
-             this.clearAuth(); // Pulisce per sicurezza
-             throw new Error("Dati utente non caricati dopo il login.");
+             // Questo non dovrebbe accadere se la logica sopra è corretta
+             console.error("Login logic completed but user data or token is missing.");
+             sharedAuthStore.clearAuthData(); // Pulisce per sicurezza
+             throw new Error("Dati utente o token mancanti dopo il tentativo di login.");
         }
 
       } catch (error: any) {
@@ -136,7 +150,7 @@ export const useAuthStore = defineStore('auth', {
           this.loginError = `Errore nell'invio della richiesta: ${error.message}`;
         }
 
-        this.clearAuth(); // Pulisce lo stato in caso di errore
+        sharedAuthStore.clearAuthData(); // Pulisce lo stato condiviso in caso di errore
         /* Rimosso blocco if precedente, ora gestito sopra
         if (error.response && error.response.data) {
           // Prova a estrarre un messaggio di errore specifico (già gestito sopra)
@@ -151,94 +165,121 @@ export const useAuthStore = defineStore('auth', {
       }
     },
 
-    async fetchUser() { // Questa funzione ora è solo per Admin/Docenti
-       if (!this.accessToken) {
-            console.warn("Fetch user skipped: no access token (Admin/Teacher)"); // Log aggiornato
-            return; // Non fare nulla se non c'è token
+    // Modificato per ritornare SharedUser | null e usare sharedAuthStore
+    async fetchUser(): Promise<SharedUser | null> { // Questa funzione ora è solo per Admin/Docenti
+        const sharedAuthStore = useSharedAuthStore();
+        if (!sharedAuthStore.accessToken) {
+             console.warn("Fetch user skipped: no access token in shared store (Admin/Teacher)"); // Log aggiornato
+             return null; // Non fare nulla se non c'è token
+        }
+        console.log("Fetching Admin/Teacher user data using shared token..."); // Log aggiornato
+        this.isLoading = true; // Potrebbe essere utile indicare caricamento
+        this.loginError = null; // Resetta errore precedente
+       try {
+         // L'endpoint corretto per ottenere i dati dell'utente Admin/Docente loggato è relativo al baseURL
+         // Assumendo che il baseURL sia http://localhost:8000/api, il percorso relativo corretto è /admin/users/me/
+         // Se il baseURL fosse solo http://localhost:8000, il percorso sarebbe /api/admin/users/me/
+         // Dato che baseURL è /api, il percorso relativo è /admin/users/me/
+         const response = await apiClient.get('/admin/users/me/'); // Usa apiClient importato
+         const fetchedUserData = response.data;
+         // Assicurati che la risposta contenga i dati attesi (incluso il ruolo)
+         if (!fetchedUserData || !fetchedUserData.role) {
+              throw new Error("Dati utente Admin/Docente incompleti ricevuti dal server.");
+         }
+         // Mappa i dati recuperati all'interfaccia SharedUser
+         const userData: SharedUser = {
+             id: fetchedUserData.id,
+             username: fetchedUserData.username,
+             first_name: fetchedUserData.first_name,
+             last_name: fetchedUserData.last_name,
+             email: fetchedUserData.email,
+             // Assicurati che il ruolo backend corrisponda a 'TEACHER' o 'ADMIN'
+             role: fetchedUserData.role.toUpperCase() as 'TEACHER' | 'ADMIN'
+         };
+         // Salva nello store condiviso (sovrascrive i dati temporanei se chiamato da login)
+         sharedAuthStore.setAuthData(sharedAuthStore.accessToken!, sharedAuthStore.refreshToken, userData);
+         console.log("Admin/Teacher user data fetched and saved in shared store:", userData); // Debug
+         return userData; // Ritorna i dati utente recuperati
+       } catch (error: any) { // Aggiunto tipo any per accedere a response
+         console.error("Failed to fetch Admin/Teacher user data:", error);
+         // Se riceviamo 401 qui, il token potrebbe essere scaduto o invalido
+         if (error.response?.status === 401) {
+              console.log("Token might be expired or invalid, attempting refresh...");
+              const refreshed = await this.refreshTokenAction();
+              if (refreshed) {
+                  // Riprova fetchUser con il nuovo token
+                  console.log("Retrying fetchUser after token refresh...");
+                  return await this.fetchUser(); // Chiamata ricorsiva, ritorna il risultato
+              }
+         }
+         // Se non è 401 o il refresh fallisce, fai logout
+         this.logout(); // Logout chiama clearAuthData di sharedAuthStore
+         return null; // Ritorna null in caso di fallimento
        }
-       console.log("Fetching Admin/Teacher user data..."); // Log aggiornato
-      try {
-        // L'endpoint corretto per ottenere i dati dell'utente Admin/Docente loggato è relativo al baseURL
-        // Assumendo che il baseURL sia http://localhost:8000/api, il percorso relativo corretto è /admin/users/me/
-        // Se il baseURL fosse solo http://localhost:8000, il percorso sarebbe /api/admin/users/me/
-        // Dato che baseURL è /api, il percorso relativo è /admin/users/me/
-        const response = await apiClient.get('/admin/users/me/'); // Usa apiClient importato
-        // Assicurati che la risposta contenga i dati attesi (incluso il ruolo)
-        if (!response.data || !response.data.role) {
-             throw new Error("Dati utente Admin/Docente incompleti ricevuti dal server.");
-        }
-        this.setUser(response.data);
-        console.log("Admin/Teacher user data fetched:", response.data); // Debug
-      } catch (error: any) { // Aggiunto tipo any per accedere a response
-        console.error("Failed to fetch Admin/Teacher user data:", error);
-        // Se riceviamo 401 qui, il token potrebbe essere scaduto o invalido
-        if (error.response?.status === 401) {
-             console.log("Token might be expired or invalid, attempting refresh...");
-             const refreshed = await this.refreshTokenAction();
-             if (refreshed) {
-                 // Riprova fetchUser con il nuovo token
-                 console.log("Retrying fetchUser after token refresh...");
-                 await this.fetchUser(); // Chiamata ricorsiva (attenzione ai loop infiniti)
-                 // Se anche questo fallisce, l'errore verrà catturato di nuovo e farà logout
-                 return; // Esce per evitare il logout immediato sotto
-             }
-        }
-        // Se non è 401 o il refresh fallisce, fai logout
-        this.logout();
-      }
-    },
+         finally {
+             this.isLoading = false;
+         }
+     },
 
-    async refreshTokenAction() {
-      if (!this.refreshToken) {
-        return false; // Non si può fare refresh senza refresh token
-      }
+     async refreshTokenAction() {
+       const sharedAuthStore = useSharedAuthStore();
+       if (!sharedAuthStore.refreshToken) {
+         console.warn("Refresh token action skipped: no refresh token in shared store.");
+         return false; // Non si può fare refresh senza refresh token
+       }
 
-      // Determina l'endpoint corretto in base al ruolo (se disponibile)
-      // Se il ruolo non è noto, proviamo prima quello studente se il token contiene 'is_student'?
-      // O assumiamo che se c'è un refresh token, l'utente DOVREBBE essere nello stato?
-      // Approccio più sicuro: basarsi sul ruolo nello stato.
-      const isStudent = this.userRole === 'Studente';
-      const refreshEndpoint = isStudent ? '/auth/student/token/refresh/' : '/auth/token/refresh/';
-      console.log(`Attempting token refresh using endpoint: ${refreshEndpoint} for role: ${this.userRole}`); // Debug
+       // Determina l'endpoint corretto in base al ruolo (se disponibile)
+       // Se il ruolo non è noto, proviamo prima quello studente se il token contiene 'is_student'?
+       // O assumiamo che se c'è un refresh token, l'utente DOVREBBE essere nello stato?
+       // Approccio più sicuro: basarsi sul ruolo nello stato.
+       const isStudent = sharedAuthStore.userRole === 'STUDENT'; // Usa ruolo standardizzato
+       const refreshEndpoint = isStudent ? '/auth/student/token/refresh/' : '/auth/token/refresh/';
+       console.log(`Attempting token refresh using endpoint: ${refreshEndpoint} for role: ${sharedAuthStore.userRole}`); // Debug
 
-      try {
-        // Usa apiClient importato
-        const response = await apiClient.post(refreshEndpoint, {
-          refresh: this.refreshToken,
-        });
-        const { access } = response.data;
-        // Il refresh token potrebbe essere ruotato, ma per ora assumiamo di no
-        this.setTokens(access, this.refreshToken);
-        return true;
-      } catch (error) {
-        console.error("Failed to refresh token:", error);
-        this.logout(); // Logout se il refresh fallisce
-        return false;
-      }
-    },
+       try {
+         // Usa apiClient importato
+         const response = await apiClient.post(refreshEndpoint, {
+           refresh: sharedAuthStore.refreshToken,
+         });
+         const { access } = response.data;
+         // Il refresh token potrebbe essere ruotato, ma per ora assumiamo di no
+         // Aggiorna solo l'access token nello store condiviso, mantenendo l'utente e il refresh token
+         sharedAuthStore.setAuthData(access, sharedAuthStore.refreshToken, sharedAuthStore.user!);
+         console.log("Token refreshed successfully.");
+         return true;
+       } catch (error) {
+         console.error("Failed to refresh token:", error);
+         this.logout(); // Logout se il refresh fallisce
+         return false;
+       }
+     },
 
-    logout() {
-      console.log("Logging out..."); // Debug
-      // Idealmente, dovremmo invalidare il token sul backend se usiamo blacklist
-      // Ma con Simple JWT senza blacklist, basta rimuovere i token dal frontend
-      this.clearAuth();
-      // Reindirizza alla root del dominio, non alla root dell'app Vue
-      window.location.href = '/';
-    },
+     logout() {
+       console.log("Logging out..."); // Debug
+       const sharedAuthStore = useSharedAuthStore();
+       // Idealmente, dovremmo invalidare il token sul backend se usiamo blacklist
+       // Ma con Simple JWT senza blacklist, basta rimuovere i token dal frontend
+       sharedAuthStore.clearAuthData(); // Usa l'azione dello store condiviso
+       // Reindirizza alla root del dominio, non alla root dell'app Vue
+       window.location.href = '/';
+     },
 
-    // Azione per controllare lo stato iniziale (es. all'avvio dell'app)
-    async checkInitialAuth() {
-        console.log("Checking initial auth state..."); // Debug
-        if (this.accessToken && !this.user) {
-            // Se abbiamo un token ma non i dati utente, prova a recuperarli
-            await this.fetchUser();
-        } else if (this.accessToken && this.user) {
-            console.log("User already loaded from localStorage:", this.user); // Debug
-            // Potremmo voler verificare la validità del token qui con /api/auth/token/verify/
-            // o semplicemente lasciare che le chiamate API falliscano e gestiscano il refresh/logout
-        } else {
-            console.log("No initial token found."); // Debug
-        }
-    }
-  },
-})
+     // Azione per controllare lo stato iniziale (es. all'avvio dell'app)
+     async checkInitialAuth() {
+         const sharedAuthStore = useSharedAuthStore();
+         console.log("Checking initial auth state..."); // Debug
+         if (sharedAuthStore.accessToken && !sharedAuthStore.user) {
+             // Se abbiamo un token ma non i dati utente, prova a recuperarli
+             // Questo implica che l'utente è un Admin/Docente, altrimenti i dati studente
+             // sarebbero stati salvati insieme al token durante il login studente.
+             await this.fetchUser();
+         } else if (sharedAuthStore.accessToken && sharedAuthStore.user) {
+             console.log("User already loaded from shared store:", sharedAuthStore.user); // Debug
+             // Potremmo voler verificare la validità del token qui con /api/auth/token/verify/
+             // o semplicemente lasciare che le chiamate API falliscano e gestiscano il refresh/logout
+         } else {
+             console.log("No initial token found."); // Debug
+         }
+     }
+   },
+ }); // Rimosso { persist: true } - la persistenza è gestita da sharedAuthStore

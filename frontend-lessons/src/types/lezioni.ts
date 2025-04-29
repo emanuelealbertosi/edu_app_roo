@@ -45,8 +45,11 @@ export interface LessonAssignment {
   // Modificato: lesson è un oggetto annidato dal serializer, non solo l'ID
   lesson: {
       id: number;
-      title?: string; // Aggiungiamo almeno il titolo se presente nel serializer annidato
-      // Aggiungere altri campi se il LessonSerializer annidato li include
+      title?: string; // Titolo della lezione
+      // Aggiunti campi per mostrare info aggiuntive nella card studente
+      subject_name?: string; // Nome materia (dal LessonSerializer annidato)
+      topic_name?: string;   // Nome argomento (dal LessonSerializer annidato)
+      creator?: UserSummary; // Docente che ha creato la lezione (dal LessonSerializer annidato)
   };
   // lesson_details?: Lesson; // Rimosso, usiamo l'oggetto lesson annidato
   student: Student | null; // Modificato per usare l'oggetto Student o null
