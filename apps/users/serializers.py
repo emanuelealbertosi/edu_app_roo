@@ -1,7 +1,8 @@
 from rest_framework import serializers
-from .models import User, Student, UserRole, RegistrationToken # Aggiungi RegistrationToken
+from .models import User, Student, UserRole, RegistrationToken # Rimosso GroupRegistrationToken
 from django.utils import timezone # Aggiungi timezone
 from apps.rewards.models import Wallet # Importa Wallet
+from apps.student_groups.models import StudentGroup, StudentGroupMembership # Importa modelli gruppi
 from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 from rest_framework_simplejwt.exceptions import InvalidToken
 
@@ -288,3 +289,89 @@ class StudentTokenRefreshSerializer(TokenRefreshSerializer):
         # Se tutto ok, restituisci i dati validati (che includono il nuovo access token generato da super().validate)
         # Non è necessario aggiungere lo studente qui, serve solo per la validazione.
         return data
+# --- Serializer per Registrazione Studente tramite Token Gruppo ---
+
+class GroupTokenRegistrationSerializer(serializers.Serializer):
+    """
+    Serializer per validare i dati inviati durante la registrazione
+    di uno studente tramite un token di gruppo.
+    """
+    token = serializers.CharField(required=True) # Il token del gruppo è una stringa
+    first_name = serializers.CharField(max_length=150, required=True)
+    last_name = serializers.CharField(max_length=150, required=True)
+    pin = serializers.CharField(
+        write_only=True,
+        required=True,
+        style={'input_type': 'password'},
+        min_length=4,
+        validators=[lambda value: value.isdigit() or serializers.ValidationError("Il PIN deve essere numerico.")]
+    )
+
+    def validate_token(self, value):
+        """
+        Verifica che il token del gruppo esista, sia associato a un gruppo attivo
+        e a un docente attivo.
+        """
+        try:
+            # Usiamo select_related per ottimizzare l'accesso al docente
+            group = StudentGroup.objects.select_related('owner').get(registration_token=value)
+        except StudentGroup.DoesNotExist:
+            raise serializers.ValidationError("Token di registrazione del gruppo non valido o inesistente.")
+
+        if not group.is_active:
+             raise serializers.ValidationError("Il gruppo associato a questo token non è più attivo.")
+
+        if not group.owner.is_active:
+             raise serializers.ValidationError("Il docente associato a questo gruppo non è più attivo.")
+
+        # Passa l'istanza del gruppo al contesto per usarla nel metodo create
+        self.context['group_instance'] = group
+        return value
+
+    def create(self, validated_data):
+        """
+        Crea il nuovo studente, lo associa al docente del gruppo,
+        imposta il PIN, crea il Wallet (tramite segnale) e crea la membership nel gruppo.
+        """
+        group_instance = self.context['group_instance']
+        teacher = group_instance.owner
+
+        # Genera un codice studente univoco
+        base_code = f"{validated_data['first_name'][:2]}{validated_data['last_name'][:2]}".lower()
+        unique_code = base_code
+        counter = 1
+        while Student.objects.filter(student_code=unique_code).exists():
+            unique_code = f"{base_code}{counter}"
+            counter += 1
+
+        # Crea lo studente
+        student = Student(
+            # Nota: Lo studente non ha più un FK diretta al docente.
+            # L'associazione avviene tramite i gruppi.
+            first_name=validated_data['first_name'],
+            last_name=validated_data['last_name'],
+            student_code=unique_code,
+            is_active=True # Attivo di default
+        )
+        student.set_pin(validated_data['pin']) # Imposta l'hash del PIN
+        student.save()
+
+        # Il Wallet viene creato automaticamente dal segnale post_save di Student
+
+        # Crea la membership nel gruppo
+        try:
+            StudentGroupMembership.objects.create(group=group_instance, student=student)
+        except Exception as e:
+            # Logga l'errore ma non interrompere la registrazione.
+            # Potrebbe fallire se c'è un vincolo UNIQUE violato (improbabile qui)
+            # o altri problemi. Considerare get_or_create se necessario.
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Errore durante la creazione della membership per studente {student.id} nel gruppo {group_instance.id} (token: {group_instance.registration_token}): {e}", exc_info=True)
+            # Potremmo voler sollevare un'eccezione qui se l'aggiunta al gruppo è critica
+            # raise serializers.ValidationError("Impossibile aggiungere lo studente al gruppo.")
+
+        # Non c'è un token da marcare come "usato" come nel caso del RegistrationToken individuale.
+        # Il token del gruppo rimane valido per altre registrazioni.
+
+        return student # Restituisce l'istanza dello studente creato

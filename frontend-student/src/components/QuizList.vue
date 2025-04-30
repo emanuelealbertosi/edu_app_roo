@@ -119,7 +119,7 @@ const getAttemptStatusLabel = (attempt: QuizAttemptDashboardItem): string => {
       return 'In attesa di valutazione';
     case 'COMPLETED': // Usa valori maiuscoli
       // Mostra il punteggio se disponibile
-      return `Completato (${attempt.score !== null ? Math.round(attempt.score * 100) : '?'}%)`;
+      return `Completato (${attempt.score !== null ? Math.round(attempt.score) : '?'}%)`;
     case 'FAILED': // Aggiunto stato FAILED
        return 'Fallito';
     case 'PENDING': // Stato iniziale prima di 'IN_PROGRESS'

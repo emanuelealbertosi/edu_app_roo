@@ -28,8 +28,8 @@ export const useAuthStore = defineStore('authTeacher', () => { // Cambiato nome 
 
       // 2. Ottieni il profilo utente usando il nuovo access token
       try {
-        // Passa entrambi i token a fetchUserProfile per salvare nello store condiviso
-        await fetchUserProfile(tokenResponse.access, tokenResponse.refresh);
+        // Passa entrambi i token a _fetchUserProfile per salvare nello store condiviso
+        await _fetchUserProfile(tokenResponse.access, tokenResponse.refresh);
       } catch (fetchError) {
         console.error("Login succeeded but fetching profile failed:", fetchError);
         sharedAuth.clearAuthData(); // Pulisci lo store condiviso
@@ -62,20 +62,34 @@ export const useAuthStore = defineStore('authTeacher', () => { // Cambiato nome 
     window.location.href = '/';
   }
 
-  // Action to fetch user profile (ora usa e aggiorna lo store condiviso)
-  async function fetchUserProfile(newAccessToken: string, newRefreshToken: string | null) {
-    // Non serve più controllare il token qui, lo fa chi chiama (login o inizializzazione)
-    sharedAuth.setLoading(true);
+  // Action INTERNA to fetch user profile (ora usa e aggiorna lo store condiviso)
+  // Non esportata direttamente, usata da login e checkAuthAndFetchProfile
+  async function _fetchUserProfile(tokenToUse: string, existingRefreshToken: string | null) {
+    sharedAuth.setLoading(true); // Usa setLoading dello store condiviso
     sharedAuth.setError(null);
     console.log("[fetchUserProfile Teacher] Attempting to fetch profile...");
 
     // Salva temporaneamente i token nello store condiviso per usarli nella chiamata API
-    // L'interceptor userà sharedAuth.accessToken
-    const oldAccessToken = sharedAuth.accessToken;
-    sharedAuth.accessToken = newAccessToken; // Imposta per la chiamata API
+    // L'interceptor userà il token passato o quello nello store.
+    // Per sicurezza, impostiamo temporaneamente il token nello store condiviso
+    // se stiamo usando un token specifico per questa chiamata.
+    // NOTA: L'interceptor dovrebbe idealmente usare il token dallo store,
+    // quindi assicuriamoci che sia impostato correttamente prima della chiamata.
+    // Se tokenToUse è diverso da quello nello store, potrebbe essere un refresh.
+    // Se è uguale, è una verifica/fetch iniziale.
+    const originalAccessToken = sharedAuth.accessToken;
+    if (tokenToUse !== originalAccessToken) {
+        sharedAuth.accessToken = tokenToUse; // Imposta temporaneamente per la chiamata API
+    }
+    // Se non c'è un refresh token esistente, non possiamo aggiornarlo
+    const currentRefreshToken = existingRefreshToken ?? sharedAuth.refreshToken;
+
 
     try {
-      const fetchedUser = await authService.getTeacherProfile(); // Chiamata API
+      // La chiamata API userà il token impostato nello store (sharedAuth.accessToken)
+      // grazie all'interceptor
+      const fetchedUser = await authService.getTeacherProfile();
+      console.log("[fetchUserProfile Teacher] Raw data received from API:", fetchedUser); // Log dei dati grezzi
 
       // Mappa i dati TeacherUser a SharedUser
       const sharedUserData: SharedUser = {
@@ -90,23 +104,58 @@ export const useAuthStore = defineStore('authTeacher', () => { // Cambiato nome 
           can_create_public_groups: fetchedUser.can_create_public_groups ?? false,
       };
 
-      // Salva tutto nello store condiviso
-      sharedAuth.setAuthData(newAccessToken, newRefreshToken, sharedUserData);
-      console.log("[fetchUserProfile Teacher] Profile fetched and shared auth data set:", sharedUserData);
+      // Salva tutto nello store condiviso usando il token usato per la chiamata
+      // e il refresh token esistente (o quello appena ricevuto se fosse un login)
+      sharedAuth.setAuthData(tokenToUse, currentRefreshToken, sharedUserData);
+      console.log("[_fetchUserProfile Teacher] Profile fetched and shared auth data set:", sharedUserData);
 
     } catch (fetchError: any) {
-      console.error("[fetchUserProfile Teacher] Failed to fetch user profile:", fetchError);
+      console.error("[_fetchUserProfile Teacher] Failed to fetch user profile:", fetchError);
       sharedAuth.setError(fetchError.message || 'Recupero profilo fallito');
-      sharedAuth.clearAuthData(); // Pulisci store condiviso in caso di errore
-      // Ripristina il token precedente se necessario? No, clearAuthData lo fa.
-      // sharedAuth.accessToken = oldAccessToken;
-      throw fetchError; // Rilancia l'errore per chi ha chiamato (es. login)
+      // Pulisci store condiviso SOLO se l'errore indica token invalido (es. 401)
+      // Altri errori (es. rete) non dovrebbero causare logout immediato.
+      // L'interceptor potrebbe già gestire il 401 tentando un refresh.
+      // Se anche il refresh fallisce o non è possibile, l'interceptor o refreshTokenAction
+      // chiameranno clearAuthData. Qui ci limitiamo a loggare e propagare l'errore.
+      // sharedAuth.clearAuthData(); // Rimosso clearAuthData da qui
+      throw fetchError; // Rilancia l'errore per chi ha chiamato
     } finally {
-      // Ripristina il token precedente se la chiamata è fallita? No, clearAuthData lo fa.
-      // if (sharedAuth.accessToken !== oldAccessToken) { // Se fallito, accessToken sarà null
-      //    sharedAuth.accessToken = oldAccessToken;
-      // }
-      sharedAuth.setLoading(false);
+       // Ripristina il token originale se lo avevamo cambiato temporaneamente
+       // e la chiamata non ha aggiornato lo store (cioè ha fallito)
+       if (tokenToUse !== originalAccessToken && sharedAuth.accessToken !== tokenToUse) {
+           sharedAuth.accessToken = originalAccessToken;
+       }
+      sharedAuth.setLoading(false); // Usa setLoading dello store condiviso
+    }
+  }
+
+
+  // NUOVA AZIONE: Verifica token e recupera profilo se necessario
+  async function checkAuthAndFetchProfile() {
+    console.log("[checkAuthAndFetchProfile Teacher] Checking authentication status...");
+    const currentAccessToken = sharedAuth.accessToken;
+    const currentRefreshToken = sharedAuth.refreshToken; // Prendi anche il refresh token
+
+    if (currentAccessToken) {
+      console.log("[checkAuthAndFetchProfile Teacher] Access token found. Attempting to fetch profile...");
+      try {
+        // Usa il token esistente per recuperare il profilo
+        await _fetchUserProfile(currentAccessToken, currentRefreshToken);
+        console.log("[checkAuthAndFetchProfile Teacher] Profile fetch successful or already up-to-date.");
+      } catch (error: any) {
+        console.error("[checkAuthAndFetchProfile Teacher] Error fetching profile with existing token:", error);
+        // Se il fetch fallisce (es. token scaduto e refresh fallito nell'interceptor),
+        // lo store dovrebbe essere già stato pulito dall'interceptor o da refreshTokenAction.
+        // Non è necessario chiamare clearAuthData qui di nuovo.
+        // Potremmo reindirizzare al login se necessario, ma la guardia di navigazione dovrebbe gestirlo.
+      }
+    } else {
+      console.log("[checkAuthAndFetchProfile Teacher] No access token found. User is not authenticated.");
+      // Assicurati che lo store sia pulito se non c'è token
+      if (sharedAuth.user || sharedAuth.refreshToken) {
+          console.warn("[checkAuthAndFetchProfile Teacher] Inconsistency found: Access token missing but other auth data present. Clearing.");
+          sharedAuth.clearAuthData();
+      }
     }
   }
 
@@ -162,7 +211,8 @@ export const useAuthStore = defineStore('authTeacher', () => { // Cambiato nome 
     // Mantieni le azioni specifiche di questo store (login/logout/refresh specifici per teacher)
     login,
     logout,
-    // fetchUserProfile non serve più esporlo, è un helper interno per login
-    refreshTokenAction
+    // fetchUserProfile non è esposto, è un helper interno
+    refreshTokenAction,
+    checkAuthAndFetchProfile // Esponi la nuova azione
   }
 })

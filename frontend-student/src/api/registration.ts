@@ -25,7 +25,7 @@ export interface StudentRegistrationResponse {
 // --- Registrazione specifica con Token di Gruppo ---
 
 export interface GroupTokenRegistrationPayload {
-  group_token: string; // Token specifico del gruppo
+  token: string; // Token specifico del gruppo (chiave corretta)
   first_name: string;
   last_name: string;
   pin: string; // O password, a seconda del backend

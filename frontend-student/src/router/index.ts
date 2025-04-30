@@ -118,6 +118,7 @@ const router = createRouter({
       path: '/register/student', // Il token sarà nella query string ?token=...
       name: 'StudentRegistration',
       component: () => import('../views/StudentRegistrationView.vue'),
+      meta: { requiresGuest: true }, // Aggiunto meta tag
       beforeEnter: (to, from, next) => {
         // Ottieni lo store all'interno della guardia
         const sharedAuth = useSharedAuthStore();

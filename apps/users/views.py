@@ -8,8 +8,8 @@ from .models import User, Student, UserRole, RegistrationToken # Aggiungi Regist
 # Importa tutti i serializer necessari
 from .serializers import (
     UserSerializer, StudentSerializer, UserCreateSerializer,
-    StudentProgressSummarySerializer, RegistrationTokenSerializer, # Aggiungi RegistrationTokenSerializer
-    StudentRegistrationSerializer # Aggiungi StudentRegistrationSerializer
+    StudentProgressSummarySerializer, RegistrationTokenSerializer,
+    StudentRegistrationSerializer, GroupTokenRegistrationSerializer # Aggiungi GroupTokenRegistrationSerializer
 )
 # Importa modelli da altre app per le annotazioni
 from apps.education.models import QuizAttempt, PathwayProgress
@@ -159,6 +159,7 @@ from rest_framework import status, permissions, serializers # Import serializers
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenRefreshView
 from .serializers import StudentTokenRefreshSerializer # Importa il nuovo serializer
+from rest_framework_simplejwt.tokens import RefreshToken # Assicurati che sia importato
 
 class StudentLoginView(APIView):
     """
@@ -372,3 +373,62 @@ class StudentTokenRefreshView(TokenRefreshView):
     Utilizza StudentTokenRefreshSerializer per la validazione.
     """
     serializer_class = StudentTokenRefreshSerializer
+
+# --- Group Token Registration View ---
+
+class GroupTokenRegistrationView(generics.CreateAPIView):
+    """
+    API endpoint pubblico per la registrazione di un nuovo studente
+    utilizzando un token di registrazione di gruppo valido.
+    """
+    serializer_class = GroupTokenRegistrationSerializer
+    permission_classes = [permissions.AllowAny] # Accesso pubblico
+
+    def perform_create(self, serializer):
+        """
+        Esegue la creazione dello studente e l'aggiunta al gruppo (la logica è nel serializer).
+        Logga l'evento.
+        """
+        # La validazione del token, la creazione dello studente/wallet e della membership
+        # avvengono nel metodo create del serializer.
+        student = serializer.save() # Il serializer restituisce lo studente creato
+        group = serializer.context['group_instance'] # Recupera il gruppo dal contesto
+        logger.info(f"New student '{student.full_name}' (Code: {student.student_code}) registered successfully using group token {serializer.validated_data['token']} for group '{group.name}' (ID: {group.id}).")
+        return student
+
+    def create(self, request, *args, **kwargs):
+        """
+        Sovrascrive il metodo create per restituire i dati dello studente creato
+        utilizzando StudentSerializer invece dei dati del serializer di input.
+        """
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        student = self.perform_create(serializer) # perform_create restituisce lo studente
+
+        # --- Generazione Token JWT ---
+        # Aggiungiamo claim custom per identificare che è uno studente e il suo ID
+        refresh = RefreshToken()
+        refresh['student_id'] = student.pk
+        refresh['student_code'] = student.student_code
+        refresh['is_student'] = True # Claim custom per identificarlo facilmente
+
+        # Genera l'access token dal refresh token e aggiungi i claim custom anche qui
+        access = refresh.access_token
+        access['student_id'] = student.pk
+        access['student_code'] = student.student_code
+        access['is_student'] = True
+        # --- Fine Generazione Token JWT ---
+
+        # Serializza lo studente creato per la risposta usando StudentSerializer
+        student_data = StudentSerializer(student, context=self.get_serializer_context()).data
+        logger.debug(f"Serialized student data being returned after group token registration: {student_data}")
+
+        # Costruisci la risposta nel formato atteso dal frontend
+        response_data = {
+            'refresh': str(refresh),
+            'access': str(access),
+            'student': student_data
+        }
+
+        headers = self.get_success_headers(response_data) # Usa response_data per gli header
+        return Response(response_data, status=status.HTTP_201_CREATED, headers=headers)

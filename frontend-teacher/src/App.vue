@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'; // Importa watch
-import { useAuthStore } from '@/stores/auth'; // Store specifico Teacher (per logout)
+import { ref, computed, watch, onMounted } from 'vue'; // Importa watch e onMounted
+import { useAuthStore } from '@/stores/auth'; // Store specifico Teacher (per logout e checkAuth)
 import { useSharedAuthStore } from '@/stores/sharedAuth'; // Importa store condiviso
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router';
 import GlobalLoadingIndicator from '@/components/common/GlobalLoadingIndicator.vue';
@@ -52,6 +52,15 @@ const goToProfile = () => {
 watch(route, (to) => {
   console.log(`[App.vue Watch Route] Navigated to: ${to.path}, Route Name: ${String(to.name)}, IsAuthenticated: ${sharedAuth.isAuthenticated}`);
 }, { immediate: true, deep: true }); // immediate per log iniziale, deep non strettamente necessario ma sicuro
+
+// Hook onMounted per controllare l'autenticazione all'avvio
+onMounted(async () => {
+  console.log('[App.vue onMounted] Component mounted. Checking authentication status...');
+  // Chiama l'azione dallo store authTeacher per verificare e recuperare il profilo
+  // se è presente un token valido nello store condiviso (caricato da localStorage).
+  await authStore.checkAuthAndFetchProfile();
+  console.log('[App.vue onMounted] Authentication check complete.');
+});
 
 </script>
 

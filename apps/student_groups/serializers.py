@@ -4,6 +4,9 @@ from apps.users.models import Student, UserRole # Importa UserRole
 from .models import StudentGroup, StudentGroupMembership, GroupAccessRequest # Importa GroupAccessRequest
 from django.utils.translation import gettext_lazy as _ # Import per traduzioni
 import secrets # Per generare il token
+import qrcode # Importa la libreria qrcode
+import io # Per gestire l'immagine in memoria
+import base64 # Per codificare l'immagine
 
 User = get_user_model()
 
@@ -38,6 +41,9 @@ class StudentGroupSerializer(serializers.ModelSerializer):
     # Sostituiamo registration_token con registration_link
     registration_link = serializers.URLField(read_only=True, help_text="Link completo per l'auto-registrazione (sola lettura)", allow_null=True)
 
+    # Cambiato da CharField a SerializerMethodField
+    qr_code_base64 = serializers.SerializerMethodField(help_text="QR code del link di registrazione (generato dinamicamente se il link esiste).") # CAMPO MODIFICATO
+
     class Meta:
         model = StudentGroup
         fields = [
@@ -48,6 +54,7 @@ class StudentGroupSerializer(serializers.ModelSerializer):
             'description',
             'is_public', # Aggiunto
             'registration_link', # Campo aggiornato
+            'qr_code_base64', # NUOVO CAMPO
             'created_at',
             'is_active',
             'members', # Mostra i membri attuali
@@ -55,8 +62,37 @@ class StudentGroupSerializer(serializers.ModelSerializer):
             'pending_requests_count', # Aggiunto campo
         ]
         # Aggiunto is_public ai campi modificabili (con logica permessi nella view)
+        # Rimosso qr_code_base64 da read_only_fields perché è un SerializerMethodField
         read_only_fields = ['id', 'owner', 'created_at', 'registration_link'] # Aggiornato
         # Rimosso UniqueTogetherValidator, la logica è spostata nel metodo validate
+
+    def get_qr_code_base64(self, obj):
+        """
+        Genera dinamicamente il QR code in base64 se esiste un link di registrazione.
+        """
+        link = obj.registration_link # Accede al link direttamente dall'oggetto
+        if not link:
+            return None
+
+        try:
+            qr = qrcode.QRCode(
+                version=1,
+                error_correction=qrcode.constants.ERROR_CORRECT_L,
+                box_size=10,
+                border=4,
+            )
+            qr.add_data(link)
+            qr.make(fit=True)
+            img = qr.make_image(fill_color="black", back_color="white")
+
+            buffer = io.BytesIO()
+            img.save(buffer, format="PNG")
+            qr_code_base64_raw = base64.b64encode(buffer.getvalue()).decode('utf-8')
+            return f"data:image/png;base64,{qr_code_base64_raw}"
+        except Exception as e:
+            # Logga l'errore se necessario
+            print(f"Errore durante la generazione del QR code per il gruppo {obj.id}: {e}")
+            return None # Restituisce None in caso di errore
 
     def get_student_count(self, obj):
         """Restituisce il numero di studenti nel gruppo."""
@@ -129,8 +165,9 @@ class StudentGroupDetailSerializer(StudentGroupSerializer):
 
 
 class GenerateTokenSerializer(serializers.Serializer):
-    """Serializer per restituire il link di registrazione generato."""
+    """Serializer per restituire il link di registrazione generato e il QR code."""
     registration_link = serializers.URLField(read_only=True)
+    qr_code_base64 = serializers.CharField(read_only=True, help_text="Immagine QR code codificata in Base64.")
 
 class AddStudentSerializer(serializers.Serializer):
     """Serializer per aggiungere uno studente a un gruppo."""

@@ -405,7 +405,8 @@ DEBUG_TOOLBAR_CONFIG = {
 
 # Base URL for the student frontend application (including protocol and base path)
 # Used for generating links (e.g., registration links)
-FRONTEND_STUDENT_BASE_URL = os.getenv('FRONTEND_STUDENT_BASE_URL', 'http://localhost:5173/studenti/')
+# Default changed to port 5175 for local development without .env
+FRONTEND_STUDENT_BASE_URL = os.getenv('FRONTEND_STUDENT_BASE_URL', 'http://localhost:5175/')
 # Ensure the base URL ends with a slash
 if not FRONTEND_STUDENT_BASE_URL.endswith('/'):
     FRONTEND_STUDENT_BASE_URL += '/'

@@ -127,7 +127,7 @@ class StudentGroupMembership(models.Model):
         ordering = ['group', 'student']
 
     def __str__(self):
-        return f"Studente {self.student.unique_identifier} nel gruppo {self.group.name}"
+        return f"Studente {self.student.student_code} nel gruppo {self.group.name}"
 
 # Add the ManyToMany field to StudentGroup using 'through'
 # This needs to be done after StudentGroupMembership is defined if not using string references throughout

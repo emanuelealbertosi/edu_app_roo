@@ -1,7 +1,7 @@
 from django import forms # Aggiunto import
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from .models import User, Student
+from .models import User, Student, RegistrationToken # Importa RegistrationToken
 # Definiamo un admin personalizzato per il nostro User model
 class UserAdmin(BaseUserAdmin):
     # Aggiungiamo 'role' e 'can_create_public_groups' ai campi visualizzati nella lista e nei form
@@ -101,3 +101,27 @@ class StudentAdmin(admin.ModelAdmin):
 
         # Salva l'oggetto studente (con o senza il PIN aggiornato)
         super().save_model(request, obj, form, change)
+
+
+# Registriamo il modello RegistrationToken
+@admin.register(RegistrationToken)
+class RegistrationTokenAdmin(admin.ModelAdmin):
+    list_display = ('token', 'teacher', 'student', 'created_at', 'expires_at', 'used_at', 'is_valid', 'source_group')
+    list_filter = ('teacher', 'used_at', 'source_group')
+    search_fields = ('token', 'teacher__username', 'student__student_code', 'student__first_name', 'student__last_name')
+    readonly_fields = ('token', 'created_at', 'used_at', 'student', 'registration_link') # Rende il link visibile e non modificabile
+    ordering = ('-created_at',)
+
+    # Campo personalizzato per mostrare il link di registrazione
+    def registration_link(self, obj):
+        from django.utils.html import format_html
+        if obj and obj.pk:
+            return format_html('<a href="{0}" target="_blank">{0}</a>', obj.registration_link)
+        return "N/A"
+    registration_link.short_description = "Link Registrazione"
+
+    # Rendi il campo is_valid booleano nell'admin
+    def is_valid(self, obj):
+        return obj.is_valid
+    is_valid.boolean = True
+    is_valid.short_description = 'Valido?'

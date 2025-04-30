@@ -53,17 +53,22 @@
                     <ClipboardDocumentIcon class="h-5 w-5"/>
                  </button>
                </div>
+               <!-- Visualizza QR Code se presente -->
+               <div v-if="currentGroup.qr_code_base64" class="mt-4">
+                   <p class="text-sm text-gray-500 mb-1">QR Code per registrazione:</p>
+                   <img :src="currentGroup.qr_code_base64" alt="QR Code Registrazione Gruppo" class="border border-gray-300 rounded-md p-1 bg-white max-w-[150px] h-auto">
+               </div>
                <BaseButton @click="handleDeleteToken" :is-loading="isLoadingAction" :disabled="isLoadingAction" variant="danger" size="sm" class="mt-4">
-                 Elimina Link/Token
+                 Elimina Link/Token e QR Code
                </BaseButton>
              </div>
              <div v-else class="text-gray-500 mb-4">
                Nessun link di registrazione attivo.
              </div>
              <BaseButton v-if="!currentGroup.registration_link" @click="handleGenerateToken" :is-loading="isLoadingAction" :disabled="isLoadingAction" variant="primary" size="sm">
-               Genera Nuovo Link/Token
+               Genera Nuovo Link e QR Code
              </BaseButton>
-              <p v-if="copySuccess" class="text-green-600 text-xs mt-2">Token copiato!</p>
+              <p v-if="copySuccess" class="text-green-600 text-xs mt-2">Link copiato!</p> <!-- Messaggio aggiornato -->
               <p v-if="copyError" class="text-red-600 text-xs mt-2">Errore nella copia.</p>
             </div>
  
@@ -305,9 +310,10 @@ const handleGenerateToken = async () => {
   groupStore.clearError(); // Pulisce errori precedenti
   try {
     await groupStore.generateRegistrationToken(groupId.value);
-    // Dopo la generazione, ricarica SOLO i dati del gruppo per visualizzare il nuovo token/link
-    // Questo è più mirato rispetto a loadGroupData che ricarica anche i membri
-    await groupStore.fetchGroupDetails(groupId.value);
+    // Lo stato currentGroup viene aggiornato reattivamente dallo store,
+    // ma per sicurezza e per forzare il refresh completo, ricarichiamo i dettagli.
+    await groupStore.fetchGroupDetails(groupId.value); // Ripristinato fetch per forzare refresh
+    // Rimosso console.log di debug
   } catch (err) {
       // L'errore dovrebbe essere gestito dallo store e mostrato nel template
       console.error("Errore durante la generazione del token:", err);
@@ -323,7 +329,7 @@ const handleDeleteToken = async () => {
         isLoadingAction.value = true;
         await groupStore.deleteRegistrationToken(groupId.value);
         isLoadingAction.value = false;
-        // Token in currentGroup should update reactively
+        // Link e QR code in currentGroup si aggiornano reattivamente dallo store
    }
 };
 

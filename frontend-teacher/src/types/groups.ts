@@ -29,6 +29,7 @@ export interface StudentGroup {
   owner: number; // ID del docente proprietario (restituito dal backend)
   owner_name?: string; // Nome del docente proprietario (opzionale, per UI)
   pending_requests_count?: number | null; // Numero di richieste pendenti (solo per owner)
+  qr_code_base64?: string | null; // QR code del link di registrazione (se generato)
   // teacher_id non è necessario se l'API è già filtrata per il docente loggato
   // students: GroupMember[]; // Potrebbe essere caricato separatamente nella vista dettaglio
 }
@@ -84,4 +85,12 @@ export interface GroupAccessRequestData {
  */
 export interface RespondGroupAccessRequestData {
     approve: boolean; // true per approvare, false per rifiutare
+}
+
+/**
+ * Rappresenta la risposta dell'API per la generazione del token.
+ */
+export interface GenerateTokenResponse {
+  registration_link: string;
+  qr_code_base64: string; // Immagine QR code codificata in Base64
 }

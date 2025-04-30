@@ -28,6 +28,8 @@ from rest_framework_simplejwt.views import ( # Add these imports
     TokenRefreshView,
     TokenVerifyView,
 )
+# Importa la nuova vista per la registrazione tramite token di gruppo
+from apps.users.views import GroupTokenRegistrationView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -35,6 +37,8 @@ urlpatterns = [
     path('api/auth/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/auth/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('api/auth/token/verify/', TokenVerifyView.as_view(), name='token_verify'),
+    # Nuova URL per la registrazione studente tramite token di gruppo
+    path('api/auth/register-by-token/', GroupTokenRegistrationView.as_view(), name='group_token_register'),
     # App APIs
     # API Studente (raggruppate sotto /api/student/)
     path('api/student/', include([

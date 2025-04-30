@@ -8,6 +8,9 @@ import secrets
 from django.conf import settings
 from urllib.parse import urljoin, urlencode
 from django.db.models import Q # Import Q for complex lookups
+import qrcode # Importa la libreria qrcode
+import io # Per gestire l'immagine in memoria
+import base64 # Per codificare l'immagine
 
 from .models import StudentGroup, StudentGroupMembership, GroupAccessRequest # Importa nuovi modelli
 from apps.users.models import Student, UserRole # Importa UserRole
@@ -213,9 +216,30 @@ class StudentGroupViewSet(mixins.CreateModelMixin,
         registration_link = group.registration_link
 
         if registration_link:
-            # Istanzia GenerateTokenSerializer con il link completo
-            serializer = GenerateTokenSerializer(data={'registration_link': registration_link})
-            serializer.is_valid(raise_exception=True) # Valida i dati (URLField)
+            # Genera il QR code
+            qr = qrcode.QRCode(
+                version=1,
+                error_correction=qrcode.constants.ERROR_CORRECT_L,
+                box_size=10,
+                border=4,
+            )
+            qr.add_data(registration_link)
+            qr.make(fit=True)
+
+            img = qr.make_image(fill_color="black", back_color="white")
+
+            # Salva l'immagine in un buffer di memoria
+            buffer = io.BytesIO()
+            img.save(buffer, format="PNG")
+            qr_code_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
+
+            # Istanzia GenerateTokenSerializer con il link e il QR code
+            serializer_data = {
+                'registration_link': registration_link,
+                'qr_code_base64': f"data:image/png;base64,{qr_code_base64}" # Aggiunge il prefisso per l'uso diretto in HTML/JS
+            }
+            serializer = GenerateTokenSerializer(data=serializer_data)
+            serializer.is_valid(raise_exception=True) # Valida i dati (URLField, CharField)
             return Response(serializer.validated_data, status=status.HTTP_200_OK)
         else:
             # Caso di errore imprevisto (il token non è stato creato/associato correttamente)

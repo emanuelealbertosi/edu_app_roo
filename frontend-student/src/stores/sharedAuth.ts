@@ -119,4 +119,9 @@ export const useSharedAuthStore = defineStore('sharedAuth', () => {
     setLoading,
     setError
   }
-}, { persist: true }) // Abilita la persistenza per questo store
+}, {
+  persist: {
+    // @ts-ignore - Ignora l'errore di tipo, la sintassi è corretta per il plugin
+    paths: ['accessToken', 'refreshToken'] // Specifica quali campi persistere
+  }
+})

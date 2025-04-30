@@ -8,47 +8,6 @@
       <p class="opacity-90">Elenco degli studenti associati al tuo account.</p> <!-- Rimosso stile individuale, aggiunta opacità -->
     </div>
 
-    <!-- Sezione Generazione Link Registrazione -->
-    <!-- Stili sezione aggiornati -->
-    <div class="mb-6 p-4 border border-neutral-DEFAULT rounded-lg bg-neutral-lightest">
-      <!-- Stile titolo aggiornato -->
-      <h2 class="text-lg font-medium mb-2 text-neutral-darkest">Link Registrazione Studenti</h2>
-      <!-- Stile paragrafo aggiornato -->
-      <p class="text-sm text-neutral-dark mb-3">Genera un link univoco da condividere con i nuovi studenti per permettere loro di registrarsi e associarsi automaticamente a te.</p>
-      <!-- Usa BaseButton -->
-      <BaseButton
-        variant="primary"
-        @click="generateRegistrationLink"
-        :disabled="isGeneratingLink"
-      >
-        <span v-if="isGeneratingLink">Generazione in corso...</span>
-        <span v-else>Genera Nuovo Link</span>
-      </BaseButton>
-      <!-- Stile errore aggiornato -->
-      <div v-if="generationError" class="mt-3 text-error text-sm">
-        Errore nella generazione del link: {{ generationError }}
-      </div>
-      <div v-if="generatedLink" class="mt-4">
-        <!-- Stile label aggiornato -->
-        <label for="registration-link" class="block text-sm font-medium text-neutral-darker mb-1">Link Generato (valido per 7 giorni):</label>
-        <div class="flex items-center space-x-2">
-          <input
-            id="registration-link"
-            type="text"
-            :value="generatedLink"
-            readonly
-            class="flex-grow p-2 border border-neutral-DEFAULT rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm bg-neutral-light"
-          />
-          <!-- Usa BaseButton -->
-          <BaseButton variant="secondary" size="sm" @click="copyLinkToClipboard">
-            Copia
-          </BaseButton>
-        </div>
-         <!-- Stile successo aggiornato -->
-         <p v-if="copySuccessMessage" class="mt-2 text-sm text-success-dark">{{ copySuccessMessage }}</p>
-      </div>
-    </div>
-
     <!-- Elenco Studenti Esistenti -->
     <!-- Stile titolo aggiornato -->
     <h2 class="text-xl font-semibold mb-4 mt-8 text-neutral-darkest">Studenti Esistenti</h2>
@@ -104,18 +63,14 @@
 import { ref, onMounted, nextTick } from 'vue'; // Aggiungi nextTick
 import { getMyStudents } from '@/api/students'; // Usa il nome corretto della funzione
 import type { Student } from '@/types/users'; // Importa il tipo dalla sua fonte originale
-import { createRegistrationToken, type RegistrationTokenResponse } from '@/api/registrationTokens'; // Importa API per token
+// Rimosso import per createRegistrationToken
 import BaseButton from '@/components/common/BaseButton.vue'; // Importa BaseButton
 
 const students = ref<Student[]>([]); // Conterrà l'elenco degli studenti
 const isLoading = ref(false); // Stato di caricamento
 const error = ref<string | null>(null); // Messaggio di errore caricamento studenti
 
-// Stato per generazione link
-const generatedLink = ref<string | null>(null);
-const isGeneratingLink = ref(false);
-const generationError = ref<string | null>(null);
-const copySuccessMessage = ref<string | null>(null);
+// Rimosso stato per generazione link
 
 onMounted(async () => {
   isLoading.value = true;
@@ -133,42 +88,7 @@ onMounted(async () => {
   }
 });
 
-async function generateRegistrationLink() {
-  isGeneratingLink.value = true;
-  generationError.value = null;
-  generatedLink.value = null; // Resetta link precedente
-  copySuccessMessage.value = null; // Resetta messaggio copia
-
-  try {
-    const response: RegistrationTokenResponse = await createRegistrationToken();
-    generatedLink.value = response.registration_link; // Usa il link completo dalla risposta
-  } catch (err: any) {
-    console.error("Errore nella generazione del link:", err);
-    generationError.value = err.response?.data?.detail || err.message || 'Si è verificato un errore sconosciuto.';
-  } finally {
-    isGeneratingLink.value = false;
-  }
-}
-
-async function copyLinkToClipboard() {
-  if (!generatedLink.value) return;
-
-  try {
-    await navigator.clipboard.writeText(generatedLink.value);
-    copySuccessMessage.value = 'Link copiato negli appunti!';
-    // Nasconde il messaggio dopo qualche secondo
-    setTimeout(() => {
-      copySuccessMessage.value = null;
-    }, 3000);
-  } catch (err) {
-    console.error('Errore nella copia del link:', err);
-    // Potresti mostrare un messaggio di errore all'utente qui
-    copySuccessMessage.value = 'Errore durante la copia.';
-     setTimeout(() => {
-      copySuccessMessage.value = null;
-    }, 3000);
-  }
-}
+// Rimosse funzioni generateRegistrationLink e copyLinkToClipboard
 </script>
 
 <style scoped>

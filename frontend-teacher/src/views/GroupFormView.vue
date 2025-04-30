@@ -111,6 +111,9 @@ const validationErrors = reactive<{ name?: string; description?: string; is_publ
 // Fetch group data if editing
 onMounted(async () => {
   groupStore.clearError(); // Clear previous errors
+  // Log user data and permission check on mount
+  console.log('[GroupFormView Mounted] User Data:', user.value);
+  console.log('[GroupFormView Mounted] Computed userCanCreatePublicGroups:', userCanCreatePublicGroups.value);
   if (isEditing.value && groupId.value) {
     isLoading.value = true; // Use local loading state
     await groupStore.fetchGroupDetails(groupId.value);

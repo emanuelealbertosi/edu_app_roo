@@ -240,9 +240,13 @@ class RegistrationToken(models.Model):
         if not base_url.endswith('/'):
              base_url += '/'
 
-        # Il path relativo per la registrazione (senza slash iniziale se base_url finisce con slash)
-        # Usa il path corretto definito nel router frontend
-        registration_path = f"register/student?token={self.token}"
+        # Determina il path relativo in base alla presenza di source_group
+        if self.source_group:
+            # Usa il path per la registrazione di gruppo con il token come parte dell'URL
+            registration_path = f"register/group/{self.token}"
+        else:
+            # Usa il path per la registrazione studente generica con il token come query parameter
+            registration_path = f"register/student?token={self.token}"
 
         # Unisci la base URL e il path relativo
         return urljoin(base_url, registration_path)

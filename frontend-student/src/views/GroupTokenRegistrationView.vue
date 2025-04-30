@@ -69,7 +69,7 @@
           </button>
         </div>
          <div class="text-center text-sm">
-            <router-link :to="{ name: 'Login' }" class="font-medium text-indigo-600 hover:text-indigo-500">
+            <router-link :to="{ name: 'login' }" class="font-medium text-indigo-600 hover:text-indigo-500"> <!-- Corretto nome rotta: 'login' minuscolo -->
               Hai già un account? Accedi
             </router-link>
           </div>
@@ -99,12 +99,13 @@ const isLoading = ref(false);
 const errorMessage = ref<string | null>(null);
 
 onMounted(() => {
-  // Prendi il token dalla route (assumendo che sia un parametro chiamato 'token')
-  if (typeof route.params.token === 'string') {
-    groupToken.value = route.params.token;
+  // Prendi il token dalla route in modo più sicuro
+  const tokenParam = route.params?.token; // Accesso sicuro
+  if (typeof tokenParam === 'string' && tokenParam) { // Controlla tipo e che non sia vuoto
+    groupToken.value = tokenParam;
   } else {
       errorMessage.value = "Token di registrazione mancante o non valido nell'URL.";
-      console.error("Token non trovato o non è una stringa:", route.params.token);
+      console.error("Token non trovato, non è una stringa, o è vuoto:", tokenParam);
   }
 });
 
@@ -125,7 +126,7 @@ const handleSubmit = async () => {
 
   try {
     const payload = {
-      group_token: groupToken.value,
+      token: groupToken.value, // Chiave corretta
       first_name: firstName.value,
       last_name: lastName.value,
       pin: pin.value,
@@ -149,8 +150,8 @@ const handleSubmit = async () => {
     // Salva nello store condiviso
     sharedAuth.setAuthData(response.access, response.refresh || null, sharedUserData);
 
-    // Reindirizza alla landing page usando il redirect a livello browser
-    window.location.href = '/landing';
+    // Reindirizza alla dashboard usando Vue Router
+    router.push({ name: 'dashboard' }); // Usa il nome della rotta dashboard
 
   } catch (error) {
     console.error('Errore durante la registrazione con token di gruppo:', error);

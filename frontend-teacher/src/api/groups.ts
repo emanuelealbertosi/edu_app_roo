@@ -1,6 +1,6 @@
 // frontend-teacher/src/api/groups.ts
 import apiClient from './apiClient';
-import type { StudentGroup, GroupMember, StudentGroupData, AddStudentToGroupData, GroupAccessRequest, GroupAccessRequestData, RespondGroupAccessRequestData } from '@/types/groups'; // Importa i nuovi tipi
+import type { StudentGroup, GroupMember, StudentGroupData, AddStudentToGroupData, GroupAccessRequest, GroupAccessRequestData, RespondGroupAccessRequestData, GenerateTokenResponse } from '@/types/groups'; // Importa i nuovi tipi + GenerateTokenResponse
 
 // --- Group CRUD ---
 
@@ -26,7 +26,8 @@ export const getGroup = (groupId: number): Promise<{ data: StudentGroup }> => {
  * @param groupData I dati per il nuovo gruppo.
  */
 export const createGroup = (groupData: StudentGroupData): Promise<{ data: StudentGroup }> => {
-  return apiClient.post('/groups/', groupData);
+  // Corretto: Aggiunto /groups/ dal router
+  return apiClient.post('/groups/groups/', groupData);
 };
 
 /**
@@ -36,7 +37,8 @@ export const createGroup = (groupData: StudentGroupData): Promise<{ data: Studen
  */
 export const updateGroup = (groupId: number, groupData: Partial<StudentGroupData>): Promise<{ data: StudentGroup }> => {
   // Usiamo PATCH per aggiornamenti parziali, PUT richiederebbe tutti i campi.
-  return apiClient.patch(`/groups/${groupId}/`, groupData);
+  // Corretto: Aggiunto /groups/ dal router
+  return apiClient.patch(`/groups/groups/${groupId}/`, groupData);
 };
 
 /**
@@ -44,7 +46,8 @@ export const updateGroup = (groupId: number, groupData: Partial<StudentGroupData
  * @param groupId L'ID del gruppo da eliminare.
  */
 export const deleteGroup = (groupId: number): Promise<void> => {
-  return apiClient.delete(`/groups/${groupId}/`);
+  // Corretto: Aggiunto /groups/ dal router
+  return apiClient.delete(`/groups/groups/${groupId}/`);
 };
 
 // --- Group Members ---
@@ -64,7 +67,8 @@ export const getGroupMembers = (groupId: number): Promise<{ data: GroupMember[] 
  */
 export const addStudentToGroup = (groupId: number, studentData: AddStudentToGroupData): Promise<void> => {
   // L'endpoint corretto definito nel backend è /add-student/
-  return apiClient.post(`/groups/${groupId}/add-student/`, studentData);
+  // Corretto: Aggiunto /groups/ dal router
+  return apiClient.post(`/groups/groups/${groupId}/add-student/`, studentData);
 };
 
 /**
@@ -74,7 +78,8 @@ export const addStudentToGroup = (groupId: number, studentData: AddStudentToGrou
  */
 export const removeStudentFromGroup = (groupId: number, studentId: number): Promise<void> => {
   // L'endpoint corretto nel backend usa POST e il path 'remove-student'
-  return apiClient.post(`/groups/${groupId}/remove-student/${studentId}/`);
+  // Corretto: Aggiunto /groups/ dal router
+  return apiClient.post(`/groups/groups/${groupId}/remove-student/${studentId}/`);
 };
 
 
@@ -84,9 +89,10 @@ export const removeStudentFromGroup = (groupId: number, studentId: number): Prom
  * Genera (o rigenera) un token di registrazione per un gruppo.
  * @param groupId L'ID del gruppo.
  */
-export const generateRegistrationToken = (groupId: number): Promise<{ data: { registration_link: string } }> => { // Aggiornato tipo di ritorno
+export const generateRegistrationToken = (groupId: number): Promise<{ data: GenerateTokenResponse }> => { // Usa il nuovo tipo di ritorno
     // Assumiamo un endpoint specifico con POST, come da piano backend
-    return apiClient.post(`/groups/${groupId}/generate-token/`);
+    // Corretto: Aggiunto /groups/ dal router principale e /groups/ dal router dell'app
+    return apiClient.post(`/groups/groups/${groupId}/generate-token/`);
 };
 
 /**
@@ -95,7 +101,8 @@ export const generateRegistrationToken = (groupId: number): Promise<{ data: { re
  */
 export const deleteRegistrationToken = (groupId: number): Promise<void> => {
     // Assumiamo un endpoint specifico con DELETE o POST
-    return apiClient.delete(`/groups/${groupId}/delete-token/`); // O POST se l'API lo richiede
+    // Corretto: Aggiunto /groups/ dal router principale e /groups/ dal router dell'app
+    return apiClient.delete(`/groups/groups/${groupId}/delete-token/`);
 };
 // --- Group Discovery & Access Requests ---
 

@@ -2,7 +2,6 @@ import { defineStore } from 'pinia';
 import apiClient, { fetchGroups, assignLesson } from '@/services/api'; // Importa l'istanza Axios e le funzioni API specifiche
 import type { Lesson, LessonContent, LessonAssignment, Student, AssignmentResult } from '@/types/lezioni'; // Importa i tipi definiti
 import type { StudentGroup } from '@/types/groups'; // Importa il tipo per i gruppi
-import { useSharedAuthStore } from './sharedAuth'; // Importa lo store condiviso per ottenere l'ID utente
 
 // Le interfacce locali sono state rimosse, usiamo quelle importate da @/types/lezioni.ts
 

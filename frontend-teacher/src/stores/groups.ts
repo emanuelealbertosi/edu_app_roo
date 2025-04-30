@@ -226,24 +226,21 @@ export const useGroupStore = defineStore('groups', {
         this.error = null;
         try {
             const response = await groupApi.generateRegistrationToken(groupId);
-            // L'API ora restituisce registration_link
-            const newLink = response.data.registration_link;
+            // L'API ora restituisce registration_link e qr_code_base64
+            const { registration_link: newLink, qr_code_base64: newQrCode } = response.data;
 
             // Update local state
             if (this.currentGroup?.id === groupId) {
-                // Aggiorna il link nello stato corrente
+                // Aggiorna il link e il QR code nello stato corrente
                 this.currentGroup.registration_link = newLink;
-                // Potrebbe essere necessario anche aggiornare il token grezzo se serve altrove,
-                // ma l'API dei dettagli ora restituisce solo il link.
-                // Se il token grezzo è ancora nel modello StudentGroup, aggiorniamo anche quello?
-                // Assumiamo che il modello StudentGroup ora abbia solo registration_link.
-                // this.currentGroup.registration_token = extractTokenFromLink(newLink); // Funzione helper ipotetica
+                this.currentGroup.qr_code_base64 = newQrCode; // Salva il QR code
             }
+            // Aggiorna anche la lista generale se necessario (anche se il QR code non è solitamente mostrato lì)
             const index = this.groups.findIndex(g => g.id === groupId);
             if (index !== -1) {
-                // Aggiorna il link nella lista generale
                 this.groups[index].registration_link = newLink;
-                // this.groups[index].registration_token = extractTokenFromLink(newLink); // Se necessario
+                // Potremmo aggiungere qr_code_base64 anche qui se servisse nella lista
+                // this.groups[index].qr_code_base64 = newQrCode;
             }
         } catch (err: any) {
             this.error = err.response?.data?.detail || err.message || 'Errore nella generazione del token.';
@@ -261,12 +258,12 @@ export const useGroupStore = defineStore('groups', {
             // Update local state
             if (this.currentGroup?.id === groupId) {
                 this.currentGroup.registration_link = null;
-                // this.currentGroup.registration_token = null; // Se necessario
+                this.currentGroup.qr_code_base64 = null; // Resetta anche il QR code
             }
             const index = this.groups.findIndex(g => g.id === groupId);
             if (index !== -1) {
                 this.groups[index].registration_link = null;
-                // this.groups[index].registration_token = null; // Se necessario
+                // this.groups[index].qr_code_base64 = null; // Resetta anche qui se presente
             }
         } catch (err: any) {
             this.error = err.response?.data?.detail || err.message || 'Errore nell\'eliminazione del token.';
