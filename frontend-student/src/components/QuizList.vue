@@ -244,7 +244,7 @@ const shouldShowStartButton = (attempt: QuizAttemptDashboardItem): boolean => {
 
           <!-- NUOVO: Assegnato da -->
           <div class="quiz-assigned-by text-neutral-dark">
-             <span class="font-medium">Assegnato da:</span> {{ attempt.teacher_username }}
+             <span class="font-medium">Assegnato da:</span> {{ attempt.teacher_first_name }} {{ attempt.teacher_last_name }}
           </div>
         </div>
 

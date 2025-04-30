@@ -1874,7 +1874,9 @@ class StudentAssignedQuizzesView(generics.ListAPIView):
                     "available_from": available_from,
                     "available_until": available_until,
                     "metadata": quiz.metadata,
-                    "teacher_username": f"{quiz.teacher.first_name} {quiz.teacher.last_name}".strip() if quiz.teacher else "N/D", # Sovrascritto con nome completo
+                    "teacher_username": quiz.teacher.username if quiz.teacher else None, # CORRETTO: Username
+                    "teacher_first_name": quiz.teacher.first_name if quiz.teacher else None, # NUOVO/CORRETTO
+                    "teacher_last_name": quiz.teacher.last_name if quiz.teacher else None,   # NUOVO/CORRETTO
                     "started_at": attempt.started_at,
                     "completed_at": attempt.completed_at,
                     "assignment_type": assignment_type,
@@ -1895,7 +1897,9 @@ class StudentAssignedQuizzesView(generics.ListAPIView):
                     "available_from": available_from,
                     "available_until": available_until,
                     "metadata": quiz.metadata,
-                    "teacher_username": f"{quiz.teacher.first_name} {quiz.teacher.last_name}".strip() if quiz.teacher else "N/D", # Sovrascritto con nome completo
+                    "teacher_username": quiz.teacher.username if quiz.teacher else None, # CORRETTO: Username
+                    "teacher_first_name": quiz.teacher.first_name if quiz.teacher else None, # NUOVO/CORRETTO
+                    "teacher_last_name": quiz.teacher.last_name if quiz.teacher else None,   # NUOVO/CORRETTO
                     "started_at": None,
                     "completed_at": None,
                     "assignment_type": assignment_type,

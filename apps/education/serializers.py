@@ -1113,6 +1113,8 @@ class StudentQuizAttemptDashboardSerializer(serializers.ModelSerializer):
     available_until = serializers.DateTimeField(read_only=True, allow_null=True) # Allow null
     metadata = serializers.JSONField(read_only=True)
     teacher_username = serializers.CharField(read_only=True, allow_null=True) # Allow null
+    teacher_first_name = serializers.CharField(read_only=True, allow_null=True) # NUOVO
+    teacher_last_name = serializers.CharField(read_only=True, allow_null=True)  # NUOVO
 
     # Campi specifici del tentativo
     attempt_id = serializers.IntegerField(read_only=True, allow_null=True) # ID del tentativo (può essere null per PENDING)
@@ -1129,7 +1131,7 @@ class StudentQuizAttemptDashboardSerializer(serializers.ModelSerializer):
         model = QuizAttempt
         fields = [
             'attempt_id', 'quiz_id', 'title', 'description', 'status', 'score',
-            'available_from', 'available_until', 'metadata', 'teacher_username',
+            'available_from', 'available_until', 'metadata', 'teacher_username', 'teacher_first_name', 'teacher_last_name',
             'started_at', 'completed_at', 'assignment_type'
         ]
         read_only_fields = fields # Tutti i campi sono derivati o di sola lettura in questo contesto

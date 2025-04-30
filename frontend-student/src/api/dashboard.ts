@@ -25,6 +25,8 @@ export interface QuizAttemptDashboardItem {
     [key: string]: any;
   };
   teacher_username: string;
+  teacher_first_name: string; // NUOVO
+  teacher_last_name: string;  // NUOVO
 }
 
 
