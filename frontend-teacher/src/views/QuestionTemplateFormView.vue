@@ -1,7 +1,7 @@
 <template>
   <div class="question-template-form-view">
     <div class="flex justify-between items-center mb-2">
-      <h1 class="text-2xl font-semibold">{{ isEditing ? 'Modifica Domanda Template' : 'Crea Nuova Domanda Template' }}</h1>
+      <h1 class="text-2xl font-semibold mb-4">{{ isEditing ? 'Modifica Domanda Template' : 'Crea Nuova Domanda Template' }}</h1>
       <!-- Indicatore Autosave -->
       <span v-if="isEditing" class="text-sm italic" :class="{
         'text-gray-500': autoSaveStatus === 'idle',
@@ -22,13 +22,13 @@
 
     <form v-else @submit.prevent="saveQuestionTemplate" class="space-y-4">
       <div class="form-group">
-        <label for="text">Testo Domanda:</label>
-        <textarea id="text" v-model="questionData.text" required rows="4"></textarea>
+        <label for="text" class="block text-sm font-medium text-gray-700 mb-1">Testo Domanda:</label>
+        <textarea id="text" v-model="questionData.text" required rows="4" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"></textarea>
       </div>
 
       <div class="form-group">
-        <label for="question_type">Tipo Domanda:</label>
-        <select id="question_type" v-model="questionData.question_type" required>
+        <label for="question_type" class="block text-sm font-medium text-gray-700 mb-1">Tipo Domanda:</label>
+        <select id="question_type" v-model="questionData.question_type" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
           <option value="MC_SINGLE">Scelta Multipla (Risposta Singola)</option>
           <option value="MC_MULTI">Scelta Multipla (Risposte Multiple)</option>
           <option value="TF">Vero/Falso</option>
@@ -97,7 +97,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, reactive, watch } from 'vue';
+import { ref, onMounted, computed, reactive, watch, defineProps, defineEmits } from 'vue'; // Aggiunto defineProps, defineEmits
 import { useRoute, useRouter } from 'vue-router';
 import debounce from 'lodash-es/debounce'; // Importa debounce
 import {
@@ -107,12 +107,31 @@ import {
 } from '@/api/templateQuestions';
 import TemplateAnswerOptionsEditor from '@/components/TemplateAnswerOptionsEditor.vue';
 
+// Props & Emits per la modalità modale
+const props = defineProps({
+  templateIdProp: { // Rinominato per chiarezza
+    type: Number,
+    default: null
+  },
+  questionIdProp: { // Prop per l'ID della domanda da modificare in modale
+    type: Number,
+    default: null
+  },
+  isInModal: {
+    type: Boolean,
+    default: false
+  }
+});
+
+const emit = defineEmits(['close-modal', 'question-created', 'question-updated']); // Aggiunto 'question-updated'
+
 const route = useRoute();
 const router = useRouter();
 
-const quizTemplateId = ref<number | null>(null);
-const questionId = ref<number | null>(null); // ID della domanda template, se in modifica
-const isEditing = computed(() => !!questionId.value);
+// Usa la prop se disponibile (modal mode), altrimenti leggi dalla rotta
+const quizTemplateId = computed(() => props.isInModal ? props.templateIdProp : (route.params.templateId ? Number(route.params.templateId) : null));
+const questionId = ref<number | null>(null); // ID della domanda template (riportato a ref)
+const isEditing = computed(() => !!questionId.value); // Determina se stiamo modificando (in modale o no)
 const isLoading = ref(false);
 const isSaving = ref(false);
 const error = ref<string | null>(null);
@@ -236,43 +255,44 @@ const fetchAllQuestionIds = async (qtId: number) => {
 
 
 onMounted(async () => {
-  const qtIdParam = route.params.templateId; // Assumendo che la rotta passi templateId
-  const qIdParam = route.params.questionId; // Assumendo che la rotta passi questionId (se modifica)
+  // Determina l'ID del template (usa computed property quizTemplateId)
+  if (!quizTemplateId.value || isNaN(quizTemplateId.value)) {
+      error.value = "ID Template Quiz mancante o non valido.";
+      return;
+  }
+  const currentTemplateId = quizTemplateId.value; // Usa il valore dal computed
 
-  if (qtIdParam) {
-      quizTemplateId.value = Number(qtIdParam);
-      if (isNaN(quizTemplateId.value)) {
-          error.value = "ID Template Quiz non valido nella URL.";
-          quizTemplateId.value = null;
-          return;
+  // Determina l'ID della domanda (se presente) e imposta il ref
+  const currentQuestionIdParam = props.isInModal ? props.questionIdProp : route.params.questionId;
+  const currentQuestionId = currentQuestionIdParam ? Number(currentQuestionIdParam) : null;
+
+  if (currentQuestionId && !isNaN(currentQuestionId)) {
+      // Modalità Modifica (in modale o no)
+      questionId.value = currentQuestionId; // Imposta il ref
+      await loadQuestionTemplateData(currentTemplateId, currentQuestionId);
+      if (!props.isInModal) {
+          // Carica ID per navigazione solo se non siamo in modale
+          await fetchAllQuestionIds(currentTemplateId);
+      } else {
+          allQuestionIds.value = []; // No navigazione in modale
       }
   } else {
-      error.value = "ID Template Quiz mancante nella URL.";
-      return; // Non possiamo procedere senza templateId
+      // Modalità Creazione (in modale o no)
+      questionId.value = null; // Assicura che sia null
+      resetFormData();
+      allQuestionIds.value = []; // No navigazione in creazione
   }
 
-  if (qIdParam) {
-    questionId.value = Number(qIdParam);
-    if (!isNaN(questionId.value)) {
-      await loadQuestionTemplateData(quizTemplateId.value, questionId.value);
-      // Dopo aver caricato i dati, recupera gli ID per la navigazione
-      await fetchAllQuestionIds(quizTemplateId.value);
-    } else {
-      console.error("ID Domanda Template non valido:", qIdParam);
-      error.value = "ID Domanda Template fornito non valido.";
-      questionId.value = null;
-    }
-  } else {
-      // Modalità creazione
-      questionData.text = '';
-      questionData.question_type = 'MC_SINGLE';
-      questionData.metadata = {};
-      // In modalità creazione, non ha senso caricare gli ID per la navigazione
-      allQuestionIds.value = [];
-  }
-  // Segnala che il caricamento iniziale è completo per abilitare l'autosave
-  isInitialLoadDone.value = true;
+  // Segnala che il caricamento iniziale è completo per abilitare l'autosave (solo in edit mode)
+  isInitialLoadDone.value = isEditing.value; // isEditing ora usa il ref questionId
 });
+
+// Funzione helper per resettare i dati del form
+const resetFormData = () => {
+    questionData.text = '';
+    questionData.question_type = 'MC_SINGLE';
+    questionData.metadata = {};
+};
 
 const loadQuestionTemplateData = async (qtId: number, qId: number) => {
   isLoading.value = true;
@@ -312,20 +332,29 @@ const saveQuestionTemplate = async () => {
   };
 
   try {
-    if (isEditing.value && questionId.value) {
+    // Usa quizTemplateId.value e questionId.value (che ora è un ref)
+    if (isEditing.value && questionId.value && quizTemplateId.value) {
+      // --- MODIFICA ---
       await updateTeacherQuestionTemplate(quizTemplateId.value, questionId.value, payload);
-    } else {
-      await createTeacherQuestionTemplate(quizTemplateId.value, payload);
-    }
-    // Non navigare via dopo il salvataggio manuale se siamo in modifica,
-    // l'utente potrebbe voler usare i bottoni di navigazione.
-    // Naviga solo se stiamo creando una nuova domanda.
-    if (!isEditing.value) {
-        router.push({ name: 'quiz-template-edit', params: { id: quizTemplateId.value.toString() } });
-    } else {
-        // Mostra feedback salvataggio manuale riuscito
+      if (props.isInModal) {
+        emit('question-updated'); // Emetti evento specifico per update in modale
+      } else {
+        // Mostra feedback salvataggio manuale riuscito (fuori modale)
         autoSaveStatus.value = 'saved';
         setTimeout(() => { autoSaveStatus.value = 'idle'; }, 2000);
+      }
+    } else if (!isEditing.value && quizTemplateId.value) {
+      // --- CREAZIONE ---
+      await createTeacherQuestionTemplate(quizTemplateId.value, payload);
+      if (props.isInModal) {
+        emit('question-created'); // Emetti evento specifico per create in modale
+      } else {
+        // Naviga solo se stiamo creando FUORI dalla modale
+        router.push({ name: 'quiz-template-edit', params: { id: quizTemplateId.value.toString() } });
+      }
+    } else {
+        // Caso imprevisto (es. manca quizTemplateId o questionId in modifica)
+        throw new Error("Stato non valido per il salvataggio.");
     }
   } catch (err: any) {
     console.error("Errore salvataggio domanda template:", err);
@@ -343,10 +372,15 @@ const saveQuestionTemplate = async () => {
 };
 
 const cancel = () => {
-  if (quizTemplateId.value) {
-    router.push({ name: 'quiz-template-edit', params: { id: quizTemplateId.value.toString() } });
+  if (props.isInModal) {
+    emit('close-modal'); // Emetti evento per chiudere la modale
   } else {
-    router.push({ name: 'quiz-templates' }); // Fallback se manca ID
+    // Comportamento precedente: torna alla lista o al template
+    if (quizTemplateId.value) {
+      router.push({ name: 'quiz-template-edit', params: { id: quizTemplateId.value.toString() } });
+    } else {
+      router.push({ name: 'quiz-templates' }); // Fallback
+    }
   }
 };
 

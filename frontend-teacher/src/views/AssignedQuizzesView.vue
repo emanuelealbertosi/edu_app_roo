@@ -12,7 +12,7 @@
       <span class="block sm:inline"> Errore nel caricamento dei quiz assegnati: {{ error }}</span>
     </div>
     <!-- Responsive Table Container -->
-    <div v-else-if="assignedQuizzes.length > 0" class="overflow-x-auto shadow-md rounded-lg mt-6">
+    <div v-else-if="assignedQuizzes.length > 0" class="shadow-md rounded-lg mt-6"> <!-- Rimosso overflow-x-auto -->
       <table class="min-w-full divide-y divide-neutral-DEFAULT bg-white"> <!-- Stile tabella aggiornato -->
         <thead class="bg-neutral-lightest"> <!-- Stile thead aggiornato -->
           <tr>

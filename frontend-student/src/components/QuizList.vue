@@ -40,7 +40,7 @@ const isDetailsModalOpen = ref(false);
 // Stato per la modale di tentativo
 const quizIdForAttempt = ref<number | null>(null);
 const isAttemptModalOpen = ref(false);
-const attemptIdToContinue = ref<number | null>(null); // Nuovo: ID del tentativo da continuare
+const attemptIdToContinue = ref<number | null>(null); // Ripristinato: ID del tentativo da continuare
 
 // Stato per la modale dei risultati
 const attemptIdForResult = ref<number | null>(null);
@@ -67,10 +67,10 @@ const closeDetailsModal = () => {
 };
 
 // Funzioni per modale tentativo (riceve già quizId, corretto)
-// Modificato: Accetta anche attemptId opzionale
+// Ripristinato: Accetta anche attemptId opzionale
 const openAttemptModal = (quizId: number, attemptId: number | null = null) => {
   quizIdForAttempt.value = quizId;
-  attemptIdToContinue.value = attemptId; // Salva l'ID del tentativo se fornito
+  attemptIdToContinue.value = attemptId; // Ripristinato: Salva l'ID del tentativo se fornito
   isAttemptModalOpen.value = true;
 };
 const closeAttemptModal = () => {
@@ -78,7 +78,7 @@ const closeAttemptModal = () => {
   // Potremmo voler ricaricare i dati della dashboard qui se l'utente chiude a metà
   setTimeout(() => {
     quizIdForAttempt.value = null;
-    attemptIdToContinue.value = null; // Resetta anche l'ID del tentativo
+    attemptIdToContinue.value = null; // Ripristinato: Resetta anche l'ID del tentativo
   }, 300);
 };
 
@@ -88,7 +88,7 @@ const handleStartAttemptFromDetails = (quizId: number) => {
   openAttemptModal(quizId); // Apri la modale di tentativo
 };
 
-// Gestisce l'avvio DAL PULSANTE NELLA LISTA (riceve già quizId, corretto)
+// Ripristinato: Gestisce l'avvio DAL PULSANTE NELLA LISTA
 const startQuizAttempt = (quizId: number) => {
   openAttemptModal(quizId); // Apri la modale di tentativo
 };
@@ -168,7 +168,7 @@ const getStatusBorderClass = (attempt: QuizAttemptDashboardItem): string => {
   }
 };
 
-// Determina se il pulsante "Inizia Quiz" debba essere mostrato per questo tentativo
+// Ripristinato: Determina se il pulsante "Inizia Quiz" debba essere mostrato per questo tentativo
 const shouldShowStartButton = (attempt: QuizAttemptDashboardItem): boolean => {
   const now = new Date();
 
@@ -259,7 +259,7 @@ const shouldShowStartButton = (attempt: QuizAttemptDashboardItem): boolean => {
           </div>
         </div>
 
-        <!-- Pulsante Inizia Quiz (visibile solo se appropriato per lo stato del TENTATIVO) -->
+        <!-- Ripristinato: Pulsante Inizia Quiz (visibile solo se appropriato per lo stato del TENTATIVO) -->
         <button
           v-if="shouldShowStartButton(attempt)"
           @click.stop="startQuizAttempt(attempt.quiz_id)"
@@ -269,7 +269,7 @@ const shouldShowStartButton = (attempt: QuizAttemptDashboardItem): boolean => {
           {{ attempt.status === 'FAILED' ? 'Ritenta Quiz ▶' : 'Inizia Quiz ▶' }}
         </button>
         
-        <!-- Pulsante Continua Quiz (visibile solo se IN_PROGRESS) -->
+        <!-- Ripristinato: Pulsante Continua Quiz (visibile solo se IN_PROGRESS) -->
         <button
           v-if="attempt.status === 'IN_PROGRESS'"
           @click.stop="openAttemptModal(attempt.quiz_id, attempt.attempt_id)"
@@ -292,14 +292,7 @@ const shouldShowStartButton = (attempt: QuizAttemptDashboardItem): boolean => {
       />
        <template #footer>
          <BaseButton variant="secondary" @click="closeDetailsModal">Chiudi</BaseButton>
-         <!-- Mostra il pulsante Inizia/Ritenta se appropriato per il *primo* tentativo trovato con quel quiz_id -->
-         <BaseButton
-            v-if="selectedAttemptForDetails && shouldShowStartButton(selectedAttemptForDetails)"
-            variant="success"
-            @click="handleStartAttemptFromDetails(selectedAttemptForDetails.quiz_id)"
-          >
-            {{ selectedAttemptForDetails.status === 'FAILED' ? 'Ritenta Quiz' : 'Inizia Quiz' }}
-          </BaseButton>
+         <!-- Rimosso pulsante Inizia/Ritenta dal footer della modale dettagli -->
        </template>
     </BaseModal>
 
@@ -314,7 +307,7 @@ const shouldShowStartButton = (attempt: QuizAttemptDashboardItem): boolean => {
       <div v-if="quizIdForAttempt">
         <QuizAttemptView
           :quiz-id="quizIdForAttempt"
-          :attempt-id="attemptIdToContinue"
+          :attempt-id="attemptIdToContinue"  # Ripristinato prop
           @close="closeAttemptModal"
           @completed="handleAttemptCompleted"
         />

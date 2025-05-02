@@ -7,11 +7,11 @@
     </div>
     <form @submit.prevent="saveQuizTemplate"> <!-- Handler ok -->
       <div class="form-group mb-4"> <!-- Margin bottom -->
-        <label for="title" class="block text-sm font-medium text-neutral-darker mb-1">Titolo:</label> <!-- Stile label aggiornato -->
+        <label for="title" class="block text-sm font-medium text-neutral-darker mb-1">Titolo (Obbligatorio):</label> <!-- Stile label aggiornato -->
         <input type="text" id="title" v-model="templateData.title" required class="shadow-sm focus:ring-primary focus:border-primary block w-full sm:text-sm border-neutral-DEFAULT rounded-md p-2" /> <!-- Stili input aggiornati -->
       </div>
       <div class="form-group mb-4"> <!-- Margin bottom -->
-        <label for="description" class="block text-sm font-medium text-neutral-darker mb-1">Descrizione (Opzionale):</label> <!-- Stile label aggiornato -->
+        <label for="description" class="block text-sm font-medium text-neutral-darker mb-1">Descrizione (Obbligatorio):</label> <!-- Stile label aggiornato -->
         <textarea id="description" v-model="templateData.description" class="shadow-sm focus:ring-primary focus:border-primary block w-full sm:text-sm border-neutral-DEFAULT rounded-md p-2 min-h-[80px]"></textarea> <!-- Stili textarea aggiornati -->
       </div>
       <!-- Rimossi available_from / available_until -->
@@ -68,12 +68,58 @@
         <BaseButton type="button" variant="primary" @click="addQuestion" class="mt-6">Aggiungi Domanda Template</BaseButton> <!-- Usa BaseButton, stile aggiornato -->
     </div>
 
+    <!-- Modale per Aggiungere Domanda -->
+    <div v-if="isAddQuestionModalOpen" class="fixed inset-0 z-50 overflow-y-auto bg-black bg-opacity-50 flex items-center justify-center p-4">
+      <div class="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+        <!-- Header Modale -->
+        <div class="flex justify-between items-center p-4 border-b">
+          <h2 class="text-xl font-semibold">Aggiungi Nuova Domanda al Template</h2>
+          <button @click="closeAddQuestionModal" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+        </div>
+        <!-- Contenuto Modale (Form) -->
+        <div class="p-6">
+          <!-- Passiamo templateId e gestiamo l'evento 'created' -->
+          <!-- NOTA: QuestionTemplateFormView potrebbe non funzionare perfettamente qui senza adattamenti
+               perché è pensato come vista completa con routing interno.
+               Un componente dedicato sarebbe meglio. -->
+          <!-- Converti null in undefined per la prop template-id-prop -->
+          <QuestionTemplateFormView
+            :template-id-prop="templateId ?? undefined"
+            :is-in-modal="true"
+            @close-modal="closeAddQuestionModal"
+            @question-created="handleQuestionCreatedInModal" />
+        </div>
+      </div>
+    </div>
+
+    <!-- Modale per Modificare Domanda -->
+    <div v-if="isEditQuestionModalOpen && questionToEditId" class="fixed inset-0 z-50 overflow-y-auto bg-black bg-opacity-50 flex items-center justify-center p-4">
+      <div class="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+        <!-- Header Modale -->
+        <div class="flex justify-between items-center p-4 border-b">
+          <h2 class="text-xl font-semibold">Modifica Domanda Template (ID: {{ questionToEditId }})</h2>
+          <button @click="closeEditQuestionModal" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+        </div>
+        <!-- Contenuto Modale (Form) -->
+        <div class="p-6">
+          <!-- Commento per question-id-prop -->
+          <QuestionTemplateFormView
+            :template-id-prop="templateId ?? undefined"
+            :question-id-prop="questionToEditId"
+            :is-in-modal="true"
+            @close-modal="closeEditQuestionModal"
+            @question-updated="handleQuestionUpdatedInModal" /> <!-- Auto-chiuso -->
+        </div>
+      </div>
+    </div>
+
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, computed, reactive } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import QuestionTemplateFormView from './QuestionTemplateFormView.vue'; // Importa il form
 // Importa API per Teacher Quiz Templates
 import {
     createTeacherQuizTemplate, fetchTeacherQuizTemplateDetails, updateTeacherQuizTemplate,
@@ -113,6 +159,9 @@ const successMessage = ref<string | null>(null);
 const questions = ref<QuestionTemplate[]>([]); // Usa il tipo importato QuestionTemplate
 const isLoadingQuestions = ref(false);
 const questionsError = ref<string | null>(null);
+const isAddQuestionModalOpen = ref(false); // Stato per la modale di aggiunta
+const isEditQuestionModalOpen = ref(false); // Stato per la modale di modifica
+const questionToEditId = ref<number | null>(null); // ID domanda da modificare nella modale
 
 // Oggetto reattivo per i dati del form
 const templateData = reactive<QuizTemplateFormData>({ // Rinominato
@@ -234,22 +283,56 @@ const cancel = () => {
   router.push({ name: 'quiz-templates' }); // Naviga alla lista template
 };
 
-// Naviga alla vista per aggiungere una nuova domanda template
+// Mostra la modale per aggiungere una nuova domanda template
 const addQuestion = () => {
     if (!templateId.value) return;
-    router.push({
-        name: 'quiz-template-question-new', // Usa il nome della rotta definita
-        params: { templateId: templateId.value.toString() },
-    });
+    isAddQuestionModalOpen.value = true;
+    // Non naviga più, apre la modale
+    // router.push({
+    //     name: 'quiz-template-question-new', // Usa il nome della rotta definita
+    //     params: { templateId: templateId.value.toString() },
+    // });
 };
 
-const handleEditQuestion = (questionId: number) => {
+const closeAddQuestionModal = () => {
+    isAddQuestionModalOpen.value = false;
+};
+
+// Funzione chiamata quando una domanda viene creata con successo nella modale
+const handleQuestionCreatedInModal = async () => {
+    closeAddQuestionModal();
+    if (templateId.value) {
+        await loadTemplateQuestions(templateId.value); // Ricarica la lista
+        successMessage.value = "Nuova domanda aggiunta con successo!"; // Mostra messaggio
+        setTimeout(() => { successMessage.value = null; }, 3000);
+    }
+};
+
+// Apre la modale per modificare una domanda esistente
+const handleEditQuestion = (qId: number) => {
     if (!templateId.value) return;
-    // Naviga alla vista per modificare la domanda template specifica
-    router.push({
-        name: 'quiz-template-question-edit', // Usa il nome della rotta definita
-        params: { templateId: templateId.value.toString(), questionId: questionId.toString() }
-    });
+    questionToEditId.value = qId; // Imposta l'ID della domanda da modificare
+    isEditQuestionModalOpen.value = true; // Apri la modale di modifica
+    // Non naviga più
+    // router.push({
+    //     name: 'quiz-template-question-edit',
+    //     params: { templateId: templateId.value.toString(), questionId: qId.toString() }
+    // });
+};
+
+const closeEditQuestionModal = () => {
+    isEditQuestionModalOpen.value = false;
+    questionToEditId.value = null; // Resetta l'ID
+};
+
+// Funzione chiamata quando una domanda viene aggiornata con successo nella modale
+const handleQuestionUpdatedInModal = async () => {
+    closeEditQuestionModal();
+    if (templateId.value) {
+        await loadTemplateQuestions(templateId.value); // Ricarica la lista
+        successMessage.value = "Domanda aggiornata con successo!"; // Mostra messaggio
+        setTimeout(() => { successMessage.value = null; }, 3000);
+    }
 };
 
 const handleDeleteQuestion = async (questionId: number) => {

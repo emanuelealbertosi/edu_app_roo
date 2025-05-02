@@ -15,12 +15,12 @@ const router = useRouter();
 const quizId = computed(() => parseInt(props.id));
 const isLoading = ref(true);
 const error = ref('');
-const showStartConfirmation = ref(false);
 
 // Verifica se c'è un tentativo esistente non completato
 const hasInProgressAttempt = computed(() => {
   if (!quizStore.attemptDetails) return false;
-  return quizStore.attemptDetails.status === 'in_progress';
+  // Corretto lo stato da 'in_progress' a 'IN_PROGRESS'
+  return quizStore.attemptDetails.status === 'IN_PROGRESS';
 });
 
 onMounted(async () => {
@@ -44,28 +44,6 @@ onMounted(async () => {
     isLoading.value = false;
   }
 });
-
-// Inizia un nuovo tentativo per il quiz
-const startAttempt = async () => {
-  isLoading.value = true;
-  error.value = '';
-  
-  try {
-    // Iniziamo un nuovo tentativo
-    await quizStore.startAttempt(quizId.value);
-    
-    // Navighiamo alla pagina del tentativo
-    if (quizStore.currentAttempt) {
-      router.push(`/quiz/${quizId.value}/attempt/${quizStore.currentAttempt.id}`);
-    } else {
-      throw new Error('Impossibile creare il tentativo');
-    }
-  } catch (err) {
-    console.error('Errore nell\'avvio del tentativo:', err);
-    error.value = 'Si è verificato un errore nell\'avvio del tentativo. Riprova più tardi.';
-    isLoading.value = false;
-  }
-};
 
 // Funzione per tornare alla dashboard
 const goToDashboard = () => {
@@ -142,28 +120,6 @@ const formatDate = (dateString: string | null): string => {
           <p>{{ quizStore.currentQuiz.description }}</p>
         </div>
         
-        <div class="quiz-actions">
-          <button 
-            v-if="!showStartConfirmation" 
-            @click="showStartConfirmation = true" 
-            class="start-button"
-          >
-            Inizia Quiz
-          </button>
-          
-          <div v-if="showStartConfirmation" class="confirmation-dialog">
-            <p>Sei sicuro di voler iniziare questo quiz?</p>
-            <p>Una volta iniziato, dovrai completarlo in un'unica sessione.</p>
-            <div class="confirmation-actions">
-              <button @click="startAttempt" class="confirm-button" :disabled="isLoading">
-                {{ isLoading ? 'Avvio in corso...' : 'Inizia ora' }}
-              </button>
-              <button @click="showStartConfirmation = false" class="cancel-button">
-                Annulla
-              </button>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   </div>

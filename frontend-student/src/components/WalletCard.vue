@@ -56,7 +56,7 @@ const formatPointsChange = (pointsChange: number): string => {
         </div>
         
         <div v-else class="transactions-list space-y-3">
-          <div v-for="transaction in wallet.recent_transactions" :key="transaction.id" class="transaction-item flex justify-between items-center bg-neutral-lightest p-3 rounded-md border-l-4" :class="transaction.points_change >= 0 ? 'border-success' : 'border-error'"> <!-- Sfondo neutro chiaro, bordi success/error -->
+          <div v-for="transaction in wallet.recent_transactions.slice(0, 3)" :key="transaction.id" class="transaction-item flex justify-between items-center bg-neutral-lightest p-3 rounded-md border-l-4" :class="transaction.points_change >= 0 ? 'border-success' : 'border-error'"> <!-- Sfondo neutro chiaro, bordi success/error -->
             <div class="transaction-info flex-1 mr-2">
               <div class="transaction-reason text-sm font-medium text-neutral-darkest mb-0.5">{{ transaction.reason }}</div> <!-- Testo neutro scuro -->
               <div class="transaction-date text-xs text-neutral-dark">{{ formatDate(transaction.timestamp) }}</div> <!-- Testo neutro scuro -->
