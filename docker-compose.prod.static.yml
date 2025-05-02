@@ -69,9 +69,14 @@ services:
     image: nginx:alpine
     ports:
       - "80:80" # Espone la porta 80 dell'host
+      - "443:443" # Espone la porta 443 dell'host per HTTPS
     volumes:
       # Monta la configurazione Nginx creata separatamente
       - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      # Monta i certificati SSL dall'host (assicurati che i percorsi host siano corretti)
+      - /etc/ssl/certs/eduapp.it_ssl_certificate.cer:/etc/ssl/certs/eduapp.it_ssl_certificate.cer:ro
+      - /etc/ssl/certs/fullchain.pem:/etc/ssl/certs/fullchain.pem:ro
+      - /etc/ssl/private/_.eduapp.it_private_key.key:/etc/ssl/private/_.eduapp.it_private_key.key:ro
       # Monta i media per servirli direttamente da Nginx
       - media_data:/usr/share/nginx/media:ro
       # Monta gli statici raccolti per servirli direttamente da Nginx
