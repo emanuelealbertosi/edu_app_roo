@@ -1,6 +1,6 @@
 # Piano di Progettazione: Applicazione Educativa
 
-**Versione:** 1.0 (27 Marzo 2025)
+**Versione:** 1.1 (Aggiornamento del 2 Maggio 2025 - Integrazione Gruppi)
 
 ## 1. Obiettivi Principali
 
@@ -34,6 +34,7 @@ edu_app_roo/
 │   ├── users/          # Gestione utenti (Admin, Docente, Studente), profili, autenticazione
 │   ├── education/      # Core educativo: Quiz, Domande, Percorsi, Risposte Studenti
 │   ├── rewards/        # Gestione Ricompense (Template, Specifiche), Shop, Transazioni Punti
+│   ├── student_groups/ # Gestione Gruppi Studenti, Membership, Token Registrazione
 │   └── ... (eventuali altre app future, es. analytics)
 ├── static/             # File statici globali (se necessari)
 ├── templates/          # Template globali (es. email, pagine base se non SPA pura)
@@ -51,21 +52,25 @@ erDiagram
     USER ||--o{ QUIZ_TEMPLATE : "creato_da (Admin)"
     USER ||--o{ QUIZ : "creato_da (Docente)"
     USER ||--o{ PATHWAY : "creato_da (Docente)"
+    USER ||--o{ LESSON : "creato_da (Docente)" # NUOVA RELAZIONE (se modello Lesson esiste)
     USER ||--o{ REWARD_TEMPLATE : "creato_da (Admin/Docente)"
     USER ||--o{ REWARD : "creato_da (Docente)"
     USER ||--o{ REWARD_PURCHASE : "consegnato_da"
+    USER ||--o{ STUDENT_GROUP : "creato_da (Docente)" # NUOVA RELAZIONE
 
     STUDENT ||--o{ QUIZ_ATTEMPT : "svolge"
     STUDENT ||--o{ PATHWAY_PROGRESS : "progredisce_in"
     STUDENT ||--o{ WALLET : "possiede"
     STUDENT ||--o{ REWARD_PURCHASE : "acquista"
-    STUDENT }|..|{ REWARD : "disponibile_per (specifico)"
+    STUDENT }|..|{ REWARD : "disponibile_per (specifico)" # OBSOLETO, vedi REWARD_AVAILABILITY
+    STUDENT ||--|{ STUDENT_GROUP_MEMBERSHIP : "appartiene_a" # NUOVA RELAZIONE
 
     WALLET ||--o{ POINT_TRANSACTION : "ha_transazioni"
 
     QUIZ_TEMPLATE ||--o{ QUESTION_TEMPLATE : "contiene"
     QUIZ ||--o{ QUESTION : "contiene"
     QUIZ ||--o{ QUIZ_ATTEMPT : "ha_tentativi"
+    QUIZ ||--|{ QUIZ_ASSIGNMENT : "è_assegnato_via" # NUOVA TABELLA/RELAZIONE
 
     QUESTION_TEMPLATE ||--o{ ANSWER_OPTION_TEMPLATE : "ha_opzioni"
     QUESTION ||--o{ ANSWER_OPTION : "ha_opzioni"
@@ -75,11 +80,25 @@ erDiagram
 
     PATHWAY ||--o{ PATHWAY_QUIZ : "contiene"
     PATHWAY ||--o{ PATHWAY_PROGRESS : "ha_progressi"
+    PATHWAY ||--|{ PATHWAY_ASSIGNMENT : "è_assegnato_via" # NUOVA TABELLA/RELAZIONE
     QUIZ ||--|{ PATHWAY_QUIZ : "fa_parte_di"
+
+    LESSON ||--|{ LESSON_ASSIGNMENT : "è_assegnato_via" # NUOVA TABELLA/RELAZIONE
 
     REWARD_TEMPLATE ||--o{ REWARD : "è_template_per"
     REWARD ||--o{ REWARD_PURCHASE : "è_acquistata_in"
-    REWARD }|..|{ REWARD_STUDENT_SPECIFIC_AVAILABILITY : "ha_disponibilità_specifica"
+    REWARD }|..|{ REWARD_AVAILABILITY : "ha_disponibilità" # NUOVA TABELLA/RELAZIONE
+
+    STUDENT_GROUP ||--|{ STUDENT_GROUP_MEMBERSHIP : "ha_membri" # NUOVA RELAZIONE
+    STUDENT_GROUP ||--|{ QUIZ_ASSIGNMENT : "assegnato_a_gruppo" # NUOVA RELAZIONE
+    STUDENT_GROUP ||--|{ PATHWAY_ASSIGNMENT : "assegnato_a_gruppo" # NUOVA RELAZIONE
+    STUDENT_GROUP ||--|{ LESSON_ASSIGNMENT : "assegnato_a_gruppo" # NUOVA RELAZIONE
+    STUDENT_GROUP ||--|{ REWARD_AVAILABILITY : "disponibile_per_gruppo" # NUOVA RELAZIONE
+
+    STUDENT ||--|{ QUIZ_ASSIGNMENT : "assegnato_a_studente" # NUOVA RELAZIONE
+    STUDENT ||--|{ PATHWAY_ASSIGNMENT : "assegnato_a_studente" # NUOVA RELAZIONE
+    STUDENT ||--|{ LESSON_ASSIGNMENT : "assegnato_a_studente" # NUOVA RELAZIONE
+    STUDENT ||--|{ REWARD_AVAILABILITY : "disponibile_per_studente" # NUOVA RELAZIONE
 
 
     USER {
@@ -102,6 +121,24 @@ erDiagram
         string unique_identifier "Codice o username studente"
         datetime created_at
         bool is_active
+    }
+
+    STUDENT_GROUP { # NUOVA TABELLA
+        int id PK
+        int teacher_id FK "Docente proprietario"
+        string name
+        string description NULL
+        string registration_token UK NULL "Token univoco per auto-registrazione"
+        datetime created_at
+        bool is_active DEFAULT true
+    }
+
+    STUDENT_GROUP_MEMBERSHIP { # NUOVA TABELLA
+        int id PK
+        int group_id FK
+        int student_id FK
+        datetime joined_at
+        UNIQUE (group_id, student_id)
     }
 
     WALLET {
@@ -189,6 +226,40 @@ erDiagram
         int order "Ordine del quiz nel percorso"
     }
 
+    LESSON { # NUOVA TABELLA (o esistente)
+        int id PK
+        int teacher_id FK
+        string title
+        # ... altri campi della lezione ...
+    }
+
+    QUIZ_ASSIGNMENT { # NUOVA TABELLA
+        int id PK
+        int quiz_id FK
+        int student_id FK NULL
+        int group_id FK NULL
+        datetime assigned_at
+        CHECK (student_id IS NOT NULL OR group_id IS NOT NULL)
+    }
+
+    PATHWAY_ASSIGNMENT { # NUOVA TABELLA
+        int id PK
+        int pathway_id FK
+        int student_id FK NULL
+        int group_id FK NULL
+        datetime assigned_at
+        CHECK (student_id IS NOT NULL OR group_id IS NOT NULL)
+    }
+
+    LESSON_ASSIGNMENT { # NUOVA TABELLA
+        int id PK
+        int lesson_id FK
+        int student_id FK NULL
+        int group_id FK NULL
+        datetime assigned_at
+        CHECK (student_id IS NOT NULL OR group_id IS NOT NULL)
+    }
+
     QUIZ_ATTEMPT {
         int id PK
         int student_id FK
@@ -241,16 +312,19 @@ erDiagram
         string description
         string type
         int cost_points
-        string availability_type "all_students, specific_students"
+        # string availability_type "all_students, specific_students" # Rimpiazzato da REWARD_AVAILABILITY
         jsonb metadata
         bool is_active DEFAULT true
         datetime created_at
     }
 
-    REWARD_STUDENT_SPECIFIC_AVAILABILITY {
-         int reward_id FK
-         int student_id FK
-         PRIMARY KEY (reward_id, student_id)
+    REWARD_AVAILABILITY { # NUOVA TABELLA
+        int id PK
+        int reward_id FK
+        int student_id FK NULL
+        int group_id FK NULL
+        datetime made_available_at
+        CHECK (student_id IS NOT NULL OR group_id IS NOT NULL)
     }
 
     REWARD_PURCHASE {
@@ -307,8 +381,7 @@ erDiagram
     *   Hanno un `type` (`digital`, `real_world_tracked`) e `cost_points`.
 *   **Disponibilità per Studenti:**
     *   Definita da `Reward.availability_type`:
-        *   `'all_students'`: Disponibile a tutti gli studenti del Docente creatore.
-        *   `'specific_students'`: Disponibile solo agli studenti elencati nella tabella M2M `RewardStudentSpecificAvailability`.
+        *   La disponibilità è ora gestita tramite la tabella `RewardAvailability`. Una ricompensa è disponibile per uno studente se esiste un record in `RewardAvailability` che collega la ricompensa allo studente direttamente (`student_id`) o a un gruppo a cui lo studente appartiene (`group_id`).
 *   **Shop Studente:** Mostra solo le ricompense attive (`is_active=true`) e disponibili per quello specifico studente in base alle regole di disponibilità.
 *   **Acquisto (`RewardPurchase`):**
     *   Registra l'acquisto, scala i punti dal `Wallet`.
@@ -317,7 +390,15 @@ erDiagram
     *   Il Docente può visualizzare gli acquisti `real_world_tracked` con stato `purchased`.
     *   Il Docente può marcare un acquisto come `delivered`, registrando chi (`delivered_by_id`), quando (`delivered_at`) e note (`delivery_notes`).
 
-## 8. Design API REST (Endpoint Principali - DRF)
+## 8. Gestione Gruppi Studenti
+
+*   **Creazione/Gestione:** I Docenti possono creare `StudentGroup`, assegnare un nome, una descrizione e gestire i membri tramite `StudentGroupMembership`.
+*   **Token Registrazione:** Ogni gruppo può avere un `registration_token` univoco (opzionale) che permette agli studenti di auto-registrarsi e venire automaticamente aggiunti al gruppo e associati al docente proprietario del gruppo.
+*   **Assegnazioni/Disponibilità:** Quiz, Percorsi, Lezioni e Ricompense possono essere assegnati/resi disponibili a interi gruppi tramite le tabelle ponte (`QuizAssignment`, `PathwayAssignment`, `LessonAssignment`, `RewardAvailability`) specificando il `group_id`.
+*   **Revoca:** La revoca di un'assegnazione/disponibilità per un gruppo avviene eliminando il record corrispondente dalla tabella ponte.
+*   **Visibilità Studente:** Gli studenti vedono tutti i contenuti (Quiz, Percorsi, Lezioni, Ricompense) a loro assegnati direttamente o tramite i gruppi a cui appartengono.
+
+## 9. Design API REST (Endpoint Principali - DRF)
 
 *   **Autenticazione:**
     *   `POST /api/auth/login/` (JWT Token)
@@ -341,16 +422,20 @@ erDiagram
     *   `GET, POST /api/quizzes/`
     *   `POST /api/quizzes/create-from-template/`
     *   `GET, PUT, PATCH, DELETE /api/quizzes/{quiz_id}/` (+ sub-routes domande/opzioni)
-    *   `POST /api/quizzes/{quiz_id}/assign/{student_id}/` (o gestione assegnazioni separata)
+    *   `POST /api/quizzes/{quiz_id}/assign/` (Body: `{"student_id": X}` o `{"group_id": Y}`)
+    *   `POST /api/quizzes/{quiz_id}/revoke/` (Body: `{"student_id": X}` o `{"group_id": Y}`)
     *   `GET, POST /api/pathways/`
     *   `GET, PUT, PATCH, DELETE /api/pathways/{pathway_id}/`
     *   `POST /api/pathways/{pathway_id}/add-quiz/`
-    *   `POST /api/pathways/{pathway_id}/assign/{student_id}/` (o gestione assegnazioni separata)
+    *   `POST /api/pathways/{pathway_id}/assign/` (Body: `{"student_id": X}` o `{"group_id": Y}`)
+    *   `POST /api/pathways/{pathway_id}/revoke/` (Body: `{"student_id": X}` o `{"group_id": Y}`)
 *   **Docente - Gestione Ricompense:**
     *   `GET, POST /api/reward-templates/` (Locali + Globali)
     *   `PUT, PATCH, DELETE /api/reward-templates/{template_id}/` (Solo locali propri)
     *   `GET, POST /api/rewards/` (Include gestione disponibilità)
     *   `GET, PUT, PATCH, DELETE /api/rewards/{reward_id}/`
+    *   `POST /api/rewards/{reward_id}/make-available/` (Body: `{"student_id": X}` o `{"group_id": Y}`)
+    *   `POST /api/rewards/{reward_id}/revoke-availability/` (Body: `{"student_id": X}` o `{"group_id": Y}`)
     *   `GET /api/reward-purchases/pending-delivery/`
     *   `POST /api/reward-purchases/{purchase_id}/mark-delivered/`
 *   **Studente - Svolgimento & Profilo:**
@@ -364,8 +449,22 @@ erDiagram
     *   `GET /api/student/shop/`
     *   `POST /api/student/shop/purchase/{reward_id}/`
     *   `GET /api/student/purchases/`
+*   **Docente - Gestione Gruppi:**
+    *   `GET, POST /api/groups/`
+    *   `GET, PUT, PATCH, DELETE /api/groups/{group_id}/`
+    *   `GET, POST /api/groups/{group_id}/students/` (Aggiungere membro)
+    *   `DELETE /api/groups/{group_id}/students/{student_id}/` (Rimuovere membro)
+    *   `POST /api/groups/{group_id}/generate-token/`
+    *   `DELETE /api/groups/{group_id}/delete-token/`
+*   **Pubblico - Registrazione:**
+    *   `POST /api/auth/register-by-token/` (Body: `{"token": "...", "user_data": {...}}`)
+*   **Docente - Gestione Lezioni (Esempio):**
+    *   `GET, POST /api/lessons/`
+    *   `GET, PUT, PATCH, DELETE /api/lessons/{lesson_id}/`
+    *   `POST /api/lessons/{lesson_id}/assign/` (Body: `{"student_id": X}` o `{"group_id": Y}`)
+    *   `POST /api/lessons/{lesson_id}/revoke/` (Body: `{"student_id": X}` o `{"group_id": Y}`)
 
-## 9. Sicurezza (Security by Design)
+## 10. Sicurezza (Security by Design)
 
 *   **Autenticazione:** JWT obbligatorio per tutte le API protette.
 *   **Autorizzazione:** Permessi DRF custom basati su ruolo (`IsAdminUser`, `IsTeacherUser`, `IsStudentUser`) e ownership (es. Docente modifica solo i *propri* quiz/studenti).
@@ -373,7 +472,7 @@ erDiagram
 *   **Protezioni Generali:** HTTPS obbligatorio, Rate Limiting, protezione contro SQL Injection (ORM), XSS (template escaping), CSRF (se applicabile), gestione sicura password (hashing Django).
 *   **Esposizione Dati:** Evitare ID sequenziali nelle API se possibile (preferire UUID/slug), logging attento.
 
-## 10. Approccio Sviluppo (Test Driven Development - TDD)
+## 11. Approccio Sviluppo (Test Driven Development - TDD)
 
 *   **Flusso:** Scrivere test fallimentare -> Scrivere codice minimo -> Refactoring.
 *   **Copertura:** Test unitari (modelli, logica business), Test di integrazione (API views, flussi completi).
