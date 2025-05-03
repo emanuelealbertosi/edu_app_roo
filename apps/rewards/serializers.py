@@ -248,3 +248,49 @@ class SimpleBadgeSerializer(serializers.ModelSerializer):
     class Meta:
         model = Badge
         fields = ['id', 'name', 'description', 'image_url'] # Mostra solo URL immagine
+# --- Serializers Specifici per Esportazione GDPR ---
+
+class GDPRPointTransactionSerializer(serializers.ModelSerializer):
+    """ Serializer per esportare le transazioni di punti per GDPR. """
+    class Meta:
+        model = PointTransaction
+        fields = ['id', 'points_change', 'reason', 'timestamp'] # Escludiamo 'wallet' per evitare ridondanza
+        read_only_fields = fields
+
+
+class GDPRWalletSerializer(serializers.ModelSerializer):
+    """ Serializer per esportare i dati del Wallet per GDPR, incluse tutte le transazioni. """
+    transactions = GDPRPointTransactionSerializer(many=True, read_only=True, source='pointtransaction_set') # Usa related_name implicito o esplicito
+
+    class Meta:
+        model = Wallet
+        fields = ['current_points', 'transactions']
+        read_only_fields = fields
+
+
+class GDPRRewardPurchaseSerializer(serializers.ModelSerializer):
+    """ Serializer per esportare gli acquisti di ricompense per GDPR. """
+    # Semplifichiamo le info sulla ricompensa per l'export
+    reward_name = serializers.CharField(source='reward.name', read_only=True)
+    reward_type = serializers.CharField(source='reward.get_type_display', read_only=True)
+    delivered_by_username = serializers.CharField(source='delivered_by.username', read_only=True, allow_null=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+
+
+    class Meta:
+        model = RewardPurchase
+        fields = [
+            'id',
+            'reward', # Manteniamo l'ID per riferimento
+            'reward_name',
+            'reward_type',
+            'points_spent',
+            'purchased_at',
+            'status',
+            'status_display',
+            'delivered_by', # Manteniamo l'ID per riferimento
+            'delivered_by_username',
+            'delivered_at',
+            'delivery_notes'
+        ]
+        read_only_fields = fields

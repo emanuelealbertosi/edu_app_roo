@@ -5,6 +5,20 @@ Applicazione educativa per la gestione di studenti, quiz, percorsi e ricompense.
 Backend sviluppato in Django e Django REST Framework.
 Frontend sviluppati in Vue.js 3 (Composition API, TypeScript, Pinia, Tailwind CSS).
 
+## Conformità GDPR
+
+Questa applicazione è progettata tenendo conto dei principi del Regolamento Generale sulla Protezione dei Dati (GDPR - Regolamento UE 2016/679).
+
+Le principali misure adottate includono:
+
+*   **Trasparenza:** Fornitura di informative chiare tramite la [Privacy Policy](privacy_policy.md) (DA CREARE) e la [Cookie Policy](cookie_policy.md) (DA CREARE), che descriverà l'uso esclusivo di cookie tecnici.
+*   **Gestione Consensi:** Raccolta e registrazione del consenso esplicito per la Privacy Policy e i Termini di Servizio durante la registrazione. Sono previsti meccanismi specifici per la gestione del consenso dei minori (in fase di implementazione).
+*   **Diritti degli Interessati:** Gli utenti possono esercitare i loro diritti (accesso, rettifica, cancellazione, portabilità) tramite funzionalità self-service disponibili nel loro profilo utente (API Backend dedicate).
+*   **Sicurezza e Minimizzazione:** Implementazione dell'anonimizzazione degli indirizzi IP a livello di web server (Nginx) prima di qualsiasi logging, per minimizzare la raccolta di dati personali. Revisione continua per assicurare la raccolta dei soli dati necessari.
+*   **Data Retention:** Definizione di policy specifiche per la conservazione dei dati (in fase di implementazione).
+
+Per un dettaglio completo delle misure tecniche e organizzative adottate e pianificate, si prega di consultare il [Piano di Conformità GDPR](GDPR_COMPLIANCE_PLAN.md).
+
 ## Setup e Avvio
 
 ### 1. Esecuzione Locale (Sviluppo)

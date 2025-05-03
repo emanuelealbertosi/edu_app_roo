@@ -47,6 +47,12 @@ echo "Starting Gunicorn with optimizations for low memory server..."
 # - max-requests per riavviare i worker periodicamente ed evitare memory leak
 # - worker-class gevent per gestire meglio le connessioni concorrenti con meno memoria
 # - log-level warning per ridurre la verbosità dei log
+# Avvia il demone cron in background
+echo "Starting cron daemon..."
+cron &
+
+# Avvia Gunicorn (questo rimane il processo principale)
+echo "Starting Gunicorn..."
 exec gunicorn config.wsgi:application \
     --bind 0.0.0.0:8000 \
     --workers 1 \

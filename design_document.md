@@ -111,6 +111,9 @@ erDiagram
         string role FK ("Admin", "Docente")
         datetime date_joined
         bool is_active
+        # GDPR: Campi aggiunti per tracciare accettazione policy
+        datetime privacy_policy_accepted_at NULL
+        datetime terms_of_service_accepted_at NULL
     }
 
     STUDENT {
@@ -121,6 +124,9 @@ erDiagram
         string unique_identifier "Codice o username studente"
         datetime created_at
         bool is_active
+        # GDPR: Campi aggiunti per tracciare accettazione policy
+        datetime privacy_policy_accepted_at NULL
+        datetime terms_of_service_accepted_at NULL
     }
 
     STUDENT_GROUP { # NUOVA TABELLA
@@ -457,20 +463,55 @@ erDiagram
     *   `POST /api/groups/{group_id}/generate-token/`
     *   `DELETE /api/groups/{group_id}/delete-token/`
 *   **Pubblico - Registrazione:**
-    *   `POST /api/auth/register-by-token/` (Body: `{"token": "...", "user_data": {...}}`)
+    *   `POST /api/auth/register-by-token/` (Body: `{"token": "...", "first_name": "...", "last_name": "...", "pin": "...", "privacy_policy_accepted": true, "terms_of_service_accepted": true}`) # GDPR fields added
+*   **GDPR / Profilo Utente (Studente):**
+    *   `GET /api/profile/my-data/` (Esportazione dati personali)
+    *   `PATCH /api/profile/me/` (Rettifica dati - es. nome/cognome)
+    *   `POST /api/profile/request-deletion/` (Richiesta cancellazione account)
 *   **Docente - Gestione Lezioni (Esempio):**
     *   `GET, POST /api/lessons/`
     *   `GET, PUT, PATCH, DELETE /api/lessons/{lesson_id}/`
     *   `POST /api/lessons/{lesson_id}/assign/` (Body: `{"student_id": X}` o `{"group_id": Y}`)
     *   `POST /api/lessons/{lesson_id}/revoke/` (Body: `{"student_id": X}` o `{"group_id": Y}`)
 
-## 10. Sicurezza (Security by Design)
+## 10. Sicurezza e Conformità GDPR (Security & Privacy by Design)
 
+*   **Conformità GDPR:** L'applicazione è progettata per aderire ai principi del GDPR. Vedere [Piano di Conformità GDPR](GDPR_COMPLIANCE_PLAN.md) per dettagli.
 *   **Autenticazione:** JWT obbligatorio per tutte le API protette.
 *   **Autorizzazione:** Permessi DRF custom basati su ruolo (`IsAdminUser`, `IsTeacherUser`, `IsStudentUser`) e ownership (es. Docente modifica solo i *propri* quiz/studenti).
 *   **Input Validation:** Uso rigoroso dei Serializers DRF per validare tutti i dati in ingresso.
 *   **Protezioni Generali:** HTTPS obbligatorio, Rate Limiting, protezione contro SQL Injection (ORM), XSS (template escaping), CSRF (se applicabile), gestione sicura password (hashing Django).
-*   **Esposizione Dati:** Evitare ID sequenziali nelle API se possibile (preferire UUID/slug), logging attento.
+*   **Minimizzazione Dati & Esposizione:**
+    *   Raccolta dei soli dati strettamente necessari per le finalità dichiarate.
+    *   Evitare ID sequenziali nelle API pubbliche se possibile (preferire UUID/slug).
+    *   Logging attento, evitando dati personali non necessari.
+*   **Anonimizzazione IP:** Gli indirizzi IP dei client vengono anonimizzati a livello di reverse proxy (Nginx) *prima* di essere loggati o passati al backend, in linea con i principi GDPR.
+*   **Consenso:** Raccolta esplicita del consenso per Privacy Policy e Termini di Servizio durante la registrazione, con registrazione timestamp. Meccanismi per consenso minori in fase di sviluppo.
+*   **Diritti Interessati:** API dedicate per permettere agli utenti l'esercizio dei diritti di accesso, rettifica, cancellazione e portabilità.
+
+### 10.1 Procedura di Gestione Data Breach (Sintesi)
+
+Questa procedura definisce i passi da seguire in caso di sospetta o confermata violazione dei dati personali (Data Breach) ai sensi del GDPR.
+
+1.  **Identificazione e Valutazione Iniziale:**
+    *   Qualsiasi dipendente/collaboratore che sospetti un Data Breach deve segnalarlo immediatamente al Responsabile Tecnico/DPO (se designato).
+    *   Il Responsabile valuta rapidamente la natura dell'incidente per confermare se si tratta di un Data Breach e stimarne la potenziale gravità (tipologia di dati coinvolti, numero di interessati, possibili conseguenze).
+
+2.  **Contenimento e Recupero:**
+    *   Attivare il team tecnico per isolare i sistemi compromessi, bloccare accessi non autorizzati e limitare la diffusione della violazione.
+    *   Avviare le procedure di recupero dei dati (se necessario e possibile) e ripristino della sicurezza dei sistemi.
+
+3.  **Valutazione del Rischio e Notifica:**
+    *   Valutare il rischio per i diritti e le libertà degli interessati.
+    *   **Notifica all'Autorità Garante:** Se la violazione presenta un rischio, notificarla all'Autorità Garante per la Protezione dei Dati Personali competente (es. Garante Privacy italiano) **entro 72 ore** dalla scoperta, fornendo tutte le informazioni richieste (natura della violazione, categorie di dati e interessati, conseguenze probabili, misure adottate).
+    *   **Comunicazione agli Interessati:** Se la violazione presenta un **rischio elevato** per i diritti e le libertà degli interessati, comunicare loro la violazione **senza ingiustificato ritardo**, descrivendo la natura della violazione, le probabili conseguenze e le misure adottate, a meno che non si applichino eccezioni (es. dati già crittografati, misure successive che hanno neutralizzato il rischio elevato).
+
+4.  **Documentazione Interna:**
+    *   Mantenere un registro interno dettagliato di tutte le violazioni dei dati, incluse quelle non notificate all'Autorità Garante. Il registro deve contenere i fatti relativi alla violazione, i suoi effetti e le misure adottate per porvi rimedio.
+
+5.  **Revisione Post-Incidente:**
+    *   Analizzare le cause della violazione e l'efficacia della risposta.
+    *   Aggiornare le misure di sicurezza tecniche e organizzative e le procedure interne per prevenire incidenti futuri.
 
 ## 11. Approccio Sviluppo (Test Driven Development - TDD)
 

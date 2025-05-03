@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Verifica Consenso Parentale</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 40px auto; padding: 30px; border: 1px solid #ddd; border-radius: 8px; background-color: #f9f9f9; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        h1 { color: #0056b3; text-align: center; margin-bottom: 25px; }
+        .message { padding: 15px 20px; border-radius: 5px; margin-bottom: 20px; text-align: center; font-size: 1.1em; }
+        .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        p { margin-bottom: 15px; text-align: center; }
+        a { color: #0056b3; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Verifica Consenso Parentale</h1>
+        {% if success %}
+            <div class="message success">
+                {{ message }}
+            </div>
+            <p>Lo studente può ora accedere alla piattaforma utilizzando il suo codice studente e PIN.</p>
+            {# Potresti aggiungere un link alla pagina di login o al sito principale #}
+            {# <p><a href="[URL_LOGIN_STUDENTE]">Accedi ora</a></p> #}
+        {% else %}
+            <div class="message error">
+                {{ message }}
+            </div>
+            <p>Se ritieni che si tratti di un errore o hai bisogno di assistenza, per favore contatta il supporto della piattaforma.</p>
+            {# Potresti aggiungere un link a una pagina di supporto o un indirizzo email #}
+            {# <p>Contatta il <a href="mailto:[EMAIL_SUPPORTO]">supporto</a>.</p> #}
+        {% endif %}
+    </div>
+</body>
+</html>

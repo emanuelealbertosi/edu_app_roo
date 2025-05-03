@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ subject }}</title> {# Usa la variabile subject passata dal contesto #}
+</head>
+<body>
+    <p>Gentile Genitore/Tutore,</p>
+    <p>
+        Suo figlio/a, <strong>{{ student_name }}</strong>, ha richiesto di registrarsi alla piattaforma educativa {{ site_name }}.
+        Poiché ha meno di 14 anni, è richiesto il Suo consenso per completare la registrazione e attivare l'account.
+    </p>
+    <p>
+        La invitiamo a consultare la nostra <a href="{{ privacy_policy_url }}">Informativa sulla Privacy</a> per comprendere come trattiamo i dati di suo figlio/a.
+        Per favore, clicchi sul link sottostante per rivedere la richiesta e fornire il Suo consenso.
+        Questo link scadrà tra {{ consent_expiry_days }} giorni.
+    </p>
+    <p>
+        <a href="{{ verification_url }}">Verifica Richiesta di Consenso</a>
+    </p>
+    <p>
+        Se non ha avviato Lei questa richiesta o non riconosce questa attività, può ignorare questa email in tutta sicurezza.
+    </p>
+    <p>
+        Grazie,<br>
+        Il Team di {{ site_name }}
+    </p>
+</body>
+</html>

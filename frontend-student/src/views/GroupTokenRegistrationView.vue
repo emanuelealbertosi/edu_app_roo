@@ -54,6 +54,69 @@
            <p class="text-xs text-gray-500 mt-1">Inserisci il PIN numerico che userai per accedere.</p>
         </div>
 
+        <!-- Inizio Campi GDPR Età -->
+        <div>
+          <label for="birthDate" class="block text-sm font-medium text-gray-700">Data di Nascita</label>
+          <input
+            id="birthDate"
+            v-model="birthDate"
+            type="date"
+            required
+            autocomplete="bday"
+            class="block w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+          />
+          <p v-if="age === -1" class="text-xs text-red-600 mt-1">La data di nascita non può essere nel futuro.</p>
+          <p v-else-if="age !== null && age < 0 && age !== -1" class="text-xs text-red-600 mt-1">Data di nascita non valida.</p>
+        </div>
+
+        <div v-if="requiresParentalConsent">
+           <p class="text-sm text-yellow-700 bg-yellow-100 p-3 rounded-md mb-4">
+              Poiché hai meno di {{ MIN_CONSENT_AGE }} anni, è necessario il consenso di un genitore o tutore.
+              Inserisci l'indirizzo email del genitore a cui invieremo una richiesta di verifica. L'account sarà utilizzabile solo dopo la conferma del genitore.
+           </p>
+          <label for="parentEmail" class="block text-sm font-medium text-gray-700">Email del Genitore/Tutore</label>
+          <input
+            id="parentEmail"
+            v-model="parentEmail"
+            type="email"
+            :required="requiresParentalConsent"
+            autocomplete="email"
+            class="block w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+          />
+        </div>
+        <!-- Fine Campi GDPR Età -->
+
+        <!-- Checkbox GDPR -->
+        <div class="space-y-2">
+           <div class="flex items-start">
+                <input
+                  id="acceptPrivacyPolicy"
+                  v-model="acceptPrivacyPolicy"
+                  type="checkbox"
+                  required
+                  class="w-4 h-4 mt-1 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                />
+                <label for="acceptPrivacyPolicy" class="ml-2 block text-sm text-gray-900">
+                  Dichiaro di aver letto e accettato l'
+                  <router-link :to="{ name: 'privacy-policy' }" target="_blank" class="font-medium text-indigo-600 hover:text-indigo-500">Informativa sulla Privacy</router-link>.
+                </label>
+            </div>
+             <div class="flex items-start">
+                <input
+                  id="acceptTermsOfService"
+                  v-model="acceptTermsOfService"
+                  type="checkbox"
+                  required
+                  class="w-4 h-4 mt-1 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                />
+                <label for="acceptTermsOfService" class="ml-2 block text-sm text-gray-900">
+                  Dichiaro di aver letto e accettato i
+                  <router-link :to="{ name: 'terms-of-service' }" target="_blank" class="font-medium text-indigo-600 hover:text-indigo-500">Termini di Servizio</router-link>.
+                </label>
+            </div>
+        </div>
+        <!-- Fine Checkbox GDPR -->
+
         <div v-if="errorMessage" class="p-3 text-sm text-red-700 bg-red-100 rounded-md">
           {{ errorMessage }}
         </div>
@@ -79,7 +142,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { registerStudentWithGroupToken } from '@/api/registration';
 // Rimuovi import dello store auth specifico studente
@@ -95,8 +158,41 @@ const groupToken = ref<string>('');
 const firstName = ref('');
 const lastName = ref('');
 const pin = ref('');
+const birthDate = ref(''); // Aggiunto per GDPR età
+const parentEmail = ref(''); // Aggiunto per GDPR consenso parentale
+const acceptPrivacyPolicy = ref(false); // Aggiunto per GDPR
+const acceptTermsOfService = ref(false); // Aggiunto per GDPR
 const isLoading = ref(false);
 const errorMessage = ref<string | null>(null);
+
+// --- Inizio Modifiche GDPR Età ---
+const MIN_CONSENT_AGE = 14; // O l'età definita dalla normativa locale/policy
+
+const age = computed(() => {
+  if (!birthDate.value) return null;
+  try {
+    const birth = new Date(birthDate.value);
+    const today = new Date();
+    // Controllo data futura semplice
+    if (birth > today) return -1; // Usa un valore negativo per indicare data futura
+
+    let calculatedAge = today.getFullYear() - birth.getFullYear();
+    const m = today.getMonth() - birth.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
+      calculatedAge--;
+    }
+    return calculatedAge;
+  } catch (e) {
+    console.error("Errore nel calcolo dell'età:", e);
+    return null; // Gestisce date non valide o formati inattesi
+  }
+});
+
+const requiresParentalConsent = computed(() => {
+  // Richiede consenso se l'età è calcolata, valida (non negativa) e sotto il limite
+  return age.value !== null && age.value >= 0 && age.value < MIN_CONSENT_AGE;
+});
+// --- Fine Modifiche GDPR Età ---
 
 onMounted(() => {
   // Prendi il token dalla route in modo più sicuro
@@ -110,6 +206,8 @@ onMounted(() => {
 });
 
 const handleSubmit = async () => {
+  errorMessage.value = null; // Resetta errore all'inizio
+
   if (!groupToken.value) {
       errorMessage.value = "Impossibile procedere senza un token valido.";
       return;
@@ -119,10 +217,41 @@ const handleSubmit = async () => {
       errorMessage.value = "Il PIN deve contenere solo cifre numeriche.";
       return;
   }
+  // Validazione accettazione policy GDPR
+  if (!acceptPrivacyPolicy.value || !acceptTermsOfService.value) {
+      errorMessage.value = "È necessario accettare l'Informativa sulla Privacy e i Termini di Servizio per registrarsi.";
+      return;
+  }
+
+  // --- Inizio Validazioni GDPR Età ---
+  if (!birthDate.value) {
+      errorMessage.value = "È necessario inserire la data di nascita.";
+      return;
+  }
+  // Verifica data valida (non futura o palesemente errata)
+  if (age.value === -1) { // Codice specifico per data futura
+       errorMessage.value = "La data di nascita non può essere nel futuro.";
+       return;
+  }
+  if (age.value !== null && age.value < 0) { // Altri errori di calcolo/validità
+       errorMessage.value = "La data di nascita inserita non è valida.";
+       return;
+  }
+
+  if (requiresParentalConsent.value && !parentEmail.value) {
+      errorMessage.value = "È necessario inserire l'email di un genitore o tutore per i minori di " + MIN_CONSENT_AGE + " anni.";
+      return;
+  }
+  // Semplice validazione formato email
+  if (requiresParentalConsent.value && parentEmail.value && !/.+@.+\..+/.test(parentEmail.value)) {
+       errorMessage.value = "L'indirizzo email del genitore non sembra valido.";
+       return;
+  }
+  // --- Fine Validazioni GDPR Età ---
 
 
   isLoading.value = true;
-  errorMessage.value = null;
+  // errorMessage.value = null; // Spostato all'inizio
 
   try {
     const payload = {
@@ -130,7 +259,17 @@ const handleSubmit = async () => {
       first_name: firstName.value,
       last_name: lastName.value,
       pin: pin.value,
+      privacy_policy_accepted: acceptPrivacyPolicy.value, // Aggiunto per GDPR
+      terms_of_service_accepted: acceptTermsOfService.value, // Aggiunto per GDPR
+      birth_date: birthDate.value, // Aggiunto per GDPR Età
     };
+
+     // Aggiungi l'email del genitore solo se necessario
+    if (requiresParentalConsent.value) {
+       // Assicurati che il tipo di payload permetta questa aggiunta o usa 'any'
+       (payload as any).parent_email = parentEmail.value;
+    }
+
 
     const response = await registerStudentWithGroupToken(payload);
 
@@ -151,6 +290,16 @@ const handleSubmit = async () => {
     sharedAuth.setAuthData(response.access, response.refresh || null, sharedUserData);
 
     // Reindirizza alla dashboard usando Vue Router
+    // Mostra un messaggio se è richiesta la verifica parentale (opzionale, dipende dal flusso desiderato)
+    if (requiresParentalConsent.value) {
+        console.log("Registrazione completata. In attesa di verifica parentale.");
+        // Qui potresti mostrare un messaggio all'utente invece del redirect immediato
+        // Ad esempio, potresti reindirizzare a una pagina specifica "Verifica Email Genitore Inviata"
+        // o mostrare un popup/toast. Per ora, manteniamo il redirect alla dashboard
+        // ma informiamo che l'account non sarà pienamente attivo fino alla verifica.
+        // TODO: Considerare un flusso UI migliore per l'attesa della verifica parentale.
+    }
+
     router.push({ name: 'dashboard' }); // Usa il nome della rotta dashboard
 
   } catch (error) {

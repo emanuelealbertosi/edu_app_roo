@@ -325,6 +325,11 @@ CORS_ALLOW_HEADERS = [
     "x-requested-with",
 ]
 
+# Security settings for HTTPS
+CSRF_COOKIE_SECURE = True
+SESSION_COOKIE_SECURE = True
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https') # Trust X-Forwarded-Proto from Nginx
+
 # Ottimizzazioni per server con risorse limitate
 # Queste impostazioni aiutano a ridurre l'utilizzo di memoria e migliorare le prestazioni
 

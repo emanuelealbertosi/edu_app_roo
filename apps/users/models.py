@@ -54,6 +54,32 @@ class User(AbstractUser):
         help_text=_("Designates whether the teacher can create public groups that other teachers can request access to.")
     )
 
+    # Campi per conformità GDPR
+    privacy_policy_accepted_at = models.DateTimeField(
+        _("Privacy Policy Accepted At"),
+        null=True,
+        blank=True,
+        help_text=_("Timestamp of when the user accepted the Privacy Policy.")
+    )
+    terms_of_service_accepted_at = models.DateTimeField(
+        _("Terms of Service Accepted At"),
+        null=True,
+        blank=True,
+        help_text=_("Timestamp of when the user accepted the Terms of Service.")
+    )
+    # Campi per richiesta cancellazione GDPR
+    is_deletion_requested = models.BooleanField(
+        _("Deletion Requested"),
+        default=False,
+        help_text=_("Indicates if the user has requested account deletion.")
+    )
+    deletion_requested_at = models.DateTimeField(
+        _("Deletion Requested At"),
+        null=True,
+        blank=True,
+        help_text=_("Timestamp of when the deletion request was made.")
+    )
+
     def __str__(self):
         return self.username
 
@@ -96,6 +122,88 @@ class Student(models.Model):
         help_text=_('Designates whether this student should be treated as active. Unselect this instead of deleting accounts.')
     )
     created_at = models.DateTimeField(_('Created At'), auto_now_add=True)
+
+    # Campi per conformità GDPR
+    privacy_policy_accepted_at = models.DateTimeField(
+        _("Privacy Policy Accepted At"),
+        null=True,
+        blank=True,
+        help_text=_("Timestamp of when the student accepted the Privacy Policy.")
+    )
+    terms_of_service_accepted_at = models.DateTimeField(
+        _("Terms of Service Accepted At"),
+        null=True,
+        blank=True,
+        help_text=_("Timestamp of when the student accepted the Terms of Service.")
+    )
+    # Campi per richiesta cancellazione GDPR
+    is_deletion_requested = models.BooleanField(
+        _("Deletion Requested"),
+        default=False,
+        help_text=_("Indicates if the student has requested account deletion.")
+    )
+    deletion_requested_at = models.DateTimeField(
+        _("Deletion Requested At"),
+        null=True,
+        blank=True,
+        help_text=_("Timestamp of when the deletion request was made.")
+    )
+
+    # Campi per gestione età e consenso parentale (GDPR Minori)
+    date_of_birth = models.DateField(
+        _("Date of Birth"),
+        null=True, # Necessario null=True inizialmente, finché non viene fornito
+        blank=True, # Permette di crearlo vuoto, ma la logica di registrazione richiederà il valore
+        help_text=_("Student's date of birth, required for age verification.")
+    )
+    parental_consent_status = models.CharField(
+        _("Parental Consent Status"),
+        max_length=20,
+        choices=[
+            ('NOT_REQUIRED', _('Not Required (Age >= 14)')),
+            ('PENDING', _('Pending Verification')),
+            ('GRANTED', _('Granted')),
+            ('DENIED', _('Denied')),
+        ],
+        default='NOT_REQUIRED', # Default, verrà aggiornato dalla logica
+        help_text=_("Status of parental consent for underage students.")
+    )
+    parent_email = models.EmailField(
+        _("Parent/Guardian Email"),
+        blank=True, # Richiesto solo se parental_consent_status è PENDING
+        help_text=_("Email address of the parent or guardian for consent verification.")
+    )
+    parental_consent_verification_token = models.UUIDField(
+        _("Parental Consent Verification Token"),
+        null=True,
+        blank=True,
+        unique=True, # Assicura che ogni token sia unico
+        help_text=_("Unique token sent to the parent/guardian for verification.")
+    )
+    parental_consent_token_expires_at = models.DateTimeField(
+        _("Parental Consent Token Expires At"),
+        null=True,
+        blank=True,
+        help_text=_("Expiration timestamp for the verification token.")
+    )
+    parental_consent_requested_at = models.DateTimeField(
+        _("Parental Consent Requested At"),
+        null=True,
+        blank=True,
+        help_text=_("Timestamp when parental consent was requested.")
+    )
+    parental_consent_granted_at = models.DateTimeField(
+        _("Parental Consent Granted At"),
+        null=True,
+        blank=True,
+        help_text=_("Timestamp when parental consent was granted.")
+    )
+    parental_consent_denial_reason = models.TextField(
+        _("Parental Consent Denial Reason"),
+        blank=True,
+        help_text=_("Reason provided if parental consent was denied (optional).")
+    )
+
 
     class Meta:
         verbose_name = _('Student')

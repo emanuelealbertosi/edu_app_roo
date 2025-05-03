@@ -1,10 +1,20 @@
+import uuid
+from datetime import date, timedelta
+from django.conf import settings
+from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
 from rest_framework import serializers
-from .models import User, Student, UserRole, RegistrationToken # Rimosso GroupRegistrationToken
-from django.utils import timezone # Aggiungi timezone
+
 from apps.rewards.models import Wallet # Importa Wallet
 from apps.student_groups.models import StudentGroup, StudentGroupMembership # Importa modelli gruppi
+from rest_framework_simplejwt.exceptions import InvalidToken
+from rest_framework_simplejwt.serializers import TokenRefreshSerializer
+
+from .models import User, Student, UserRole, RegistrationToken
+from .emails import send_parental_consent_email # Importa la funzione email
 from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 from rest_framework_simplejwt.exceptions import InvalidToken
+from django.utils.translation import gettext_lazy as _
 
 class UserSerializer(serializers.ModelSerializer):
     """
@@ -42,6 +52,16 @@ class UserCreateSerializer(serializers.ModelSerializer):
     # Rende la password scrivibile solo durante la creazione
     password = serializers.CharField(write_only=True, required=True, style={'input_type': 'password'})
     role = serializers.ChoiceField(choices=UserRole.choices, required=True) # Rende il ruolo obbligatorio alla creazione
+    accept_privacy_policy = serializers.BooleanField(
+        write_only=True,
+        required=True,
+        help_text=_("Indicates whether the user accepts the Privacy Policy.")
+    )
+    accept_terms_of_service = serializers.BooleanField(
+        write_only=True,
+        required=True,
+        help_text=_("Indicates whether the user accepts the Terms of Service.")
+    )
 
     class Meta:
         model = User
@@ -58,10 +78,36 @@ class UserCreateSerializer(serializers.ModelSerializer):
         # Non ci sono campi read_only specifici per la creazione qui,
         # 'id' è gestito automaticamente.
 
+    def validate(self, attrs):
+        """ Validate that both policy and terms are accepted. """
+        if not attrs.get('accept_privacy_policy'):
+            raise serializers.ValidationError({"accept_privacy_policy": _("You must accept the Privacy Policy to register.")})
+        if not attrs.get('accept_terms_of_service'):
+            raise serializers.ValidationError({"accept_terms_of_service": _("You must accept the Terms of Service to register.")})
+        return attrs
+
     def create(self, validated_data):
-        """ Crea l'utente e imposta la password hashata. """
+        """ Crea l'utente, imposta la password hashata e registra l'accettazione delle policy. """
+        # Rimuovi i campi booleani prima di passarli a create_user
+        accept_privacy = validated_data.pop('accept_privacy_policy', False)
+        accept_terms = validated_data.pop('accept_terms_of_service', False)
+
         user = User.objects.create_user(**validated_data)
         # create_user gestisce automaticamente l'hashing della password
+
+        # Imposta i timestamp di accettazione delle policy
+        now = timezone.now()
+        update_fields = []
+        if accept_privacy:
+            user.privacy_policy_accepted_at = now
+            update_fields.append('privacy_policy_accepted_at')
+        if accept_terms:
+            user.terms_of_service_accepted_at = now
+            update_fields.append('terms_of_service_accepted_at')
+
+        if update_fields:
+            user.save(update_fields=update_fields)
+
         return user
 
 
@@ -162,19 +208,72 @@ class RegistrationTokenSerializer(serializers.ModelSerializer):
 class StudentRegistrationSerializer(serializers.Serializer):
     """
     Serializer per validare i dati inviati durante la registrazione
-    di uno studente tramite un token.
+    di uno studente tramite un token, includendo la verifica dell'età.
     """
     token = serializers.UUIDField(required=True)
     first_name = serializers.CharField(max_length=150, required=True)
     last_name = serializers.CharField(max_length=150, required=True)
-    # Il codice studente verrà generato automaticamente
+    date_of_birth = serializers.DateField(
+        required=True,
+        help_text=_("Student's date of birth for age verification.")
+    )
+    parent_email = serializers.EmailField(
+        required=False, # Obbligatorio solo se minorenne, validato in validate()
+        allow_blank=True,
+        help_text=_("Parent/Guardian email, required if student is under 14.")
+    )
     pin = serializers.CharField(
         write_only=True,
         required=True,
         style={'input_type': 'password'},
         min_length=4, # Assicura una lunghezza minima per il PIN
-        validators=[lambda value: value.isdigit() or serializers.ValidationError("Il PIN deve essere numerico.")]
+        validators=[lambda value: value.isdigit() or serializers.ValidationError(_("PIN must be numeric."))]
     )
+    accept_privacy_policy = serializers.BooleanField(
+        write_only=True,
+        required=True,
+        help_text=_("Indicates whether the student accepts the Privacy Policy.")
+    )
+    accept_terms_of_service = serializers.BooleanField(
+        write_only=True,
+        required=True,
+        help_text=_("Indicates whether the student accepts the Terms of Service.")
+    )
+
+    # Età minima per il consenso (potrebbe venire da settings)
+    MIN_CONSENT_AGE = 14
+
+    def _calculate_age(self, born):
+        """Helper function to calculate age."""
+        today = date.today()
+        return today.year - born.year - ((today.month, today.day) < (born.month, born.day))
+
+    def validate(self, attrs):
+        """ Validate policies, terms, and age/parent email requirements. """
+        if not attrs.get('accept_privacy_policy'):
+            raise serializers.ValidationError({"accept_privacy_policy": _("You must accept the Privacy Policy to register.")})
+        if not attrs.get('accept_terms_of_service'):
+            raise serializers.ValidationError({"accept_terms_of_service": _("You must accept the Terms of Service to register.")})
+
+        # Verifica età e email genitore
+        dob = attrs.get('date_of_birth')
+        if not dob:
+            # Questo non dovrebbe accadere se required=True, ma per sicurezza
+            raise serializers.ValidationError({"date_of_birth": _("Date of birth is required.")})
+
+        age = self._calculate_age(dob)
+        if age < self.MIN_CONSENT_AGE:
+            parent_email = attrs.get('parent_email')
+            if not parent_email:
+                raise serializers.ValidationError({"parent_email": _("Parent/Guardian email is required for users under {age}.").format(age=self.MIN_CONSENT_AGE)})
+        elif 'parent_email' in attrs and not attrs.get('parent_email'):
+            # Se l'utente ha >= 14 anni, ma il campo parent_email è stato inviato vuoto, rimuovilo
+            # per evitare di salvarlo involontariamente nel DB se il campo non è blank=True nel modello.
+            # (Nel nostro caso è blank=True, ma è buona pratica).
+            del attrs['parent_email']
+
+
+        return attrs
 
     def validate_token(self, value):
         """
@@ -206,10 +305,12 @@ class StudentRegistrationSerializer(serializers.Serializer):
         Crea il nuovo studente, lo associa al docente del token,
         imposta il PIN, crea il Wallet, marca il token come usato
         e aggiunge lo studente al gruppo di origine del token (se presente).
+        Gestisce la verifica dell'età e il flusso di consenso parentale.
         """
         token_instance = self.context['token_instance']
         teacher = token_instance.teacher
         source_group = token_instance.source_group # Ottieni il gruppo di origine (può essere None)
+        now = timezone.now()
 
         # Genera un codice studente univoco (esempio semplice, potrebbe essere migliorato)
         base_code = f"{validated_data['first_name'][:2]}{validated_data['last_name'][:2]}".lower()
@@ -219,19 +320,44 @@ class StudentRegistrationSerializer(serializers.Serializer):
             unique_code = f"{base_code}{counter}"
             counter += 1
 
+        # Dati base studente
+        student_data = {
+            # 'teacher': teacher, # Rimosso dal modello Student
+            'first_name': validated_data['first_name'],
+            'last_name': validated_data['last_name'],
+            'student_code': unique_code,
+            'date_of_birth': validated_data['date_of_birth'],
+            'privacy_policy_accepted_at': now if validated_data.get('accept_privacy_policy') else None,
+            'terms_of_service_accepted_at': now if validated_data.get('accept_terms_of_service') else None,
+        }
+
+        # Verifica età e imposta stato iniziale
+        age = self._calculate_age(validated_data['date_of_birth'])
+        if age < self.MIN_CONSENT_AGE:
+            student_data['is_active'] = False # Account inattivo finché non c'è consenso
+            student_data['parental_consent_status'] = 'PENDING'
+            student_data['parent_email'] = validated_data.get('parent_email') # Già validato che ci sia
+            student_data['parental_consent_verification_token'] = uuid.uuid4()
+            # Imposta scadenza token (es. 7 giorni, potrebbe venire da settings)
+            expiry_days = getattr(settings, 'PARENTAL_CONSENT_TOKEN_EXPIRY_DAYS', 7)
+            student_data['parental_consent_token_expires_at'] = now + timedelta(days=expiry_days)
+            student_data['parental_consent_requested_at'] = now
+        else:
+            student_data['is_active'] = True # Attivo di default
+            student_data['parental_consent_status'] = 'NOT_REQUIRED'
+            # Non impostare altri campi relativi al consenso parentale
+
         # Crea lo studente
-        student = Student(
-            teacher=teacher,
-            first_name=validated_data['first_name'],
-            last_name=validated_data['last_name'],
-            student_code=unique_code,
-            is_active=True # Attivo di default
-        )
+        student = Student(**student_data)
         student.set_pin(validated_data['pin']) # Imposta l'hash del PIN
         student.save()
 
-        # Non creare il Wallet qui, viene creato automaticamente dal segnale post_save
-        # Wallet.objects.create(student=student)
+        # Innesca l'invio dell'email di verifica al genitore se necessario
+        if student.parental_consent_status == 'PENDING':
+            send_parental_consent_email(student)
+
+
+        # Il Wallet viene creato automaticamente dal segnale post_save di Student
 
         # Aggiungi lo studente al gruppo di origine, se specificato nel token
         if source_group:
@@ -294,18 +420,67 @@ class StudentTokenRefreshSerializer(TokenRefreshSerializer):
 class GroupTokenRegistrationSerializer(serializers.Serializer):
     """
     Serializer per validare i dati inviati durante la registrazione
-    di uno studente tramite un token di gruppo.
+    di uno studente tramite un token di gruppo, includendo la verifica dell'età.
     """
     token = serializers.CharField(required=True) # Il token del gruppo è una stringa
     first_name = serializers.CharField(max_length=150, required=True)
     last_name = serializers.CharField(max_length=150, required=True)
+    date_of_birth = serializers.DateField(
+        required=True,
+        help_text=_("Student's date of birth for age verification.")
+    )
+    parent_email = serializers.EmailField(
+        required=False, # Obbligatorio solo se minorenne, validato in validate()
+        allow_blank=True,
+        help_text=_("Parent/Guardian email, required if student is under 14.")
+    )
     pin = serializers.CharField(
         write_only=True,
         required=True,
         style={'input_type': 'password'},
         min_length=4,
-        validators=[lambda value: value.isdigit() or serializers.ValidationError("Il PIN deve essere numerico.")]
+        validators=[lambda value: value.isdigit() or serializers.ValidationError(_("PIN must be numeric."))]
     )
+    accept_privacy_policy = serializers.BooleanField(
+        write_only=True,
+        required=True,
+        help_text=_("Indicates whether the student accepts the Privacy Policy.")
+    )
+    accept_terms_of_service = serializers.BooleanField(
+        write_only=True,
+        required=True,
+        help_text=_("Indicates whether the student accepts the Terms of Service.")
+    )
+
+    # Età minima per il consenso (potrebbe venire da settings)
+    MIN_CONSENT_AGE = 14
+
+    def _calculate_age(self, born):
+        """Helper function to calculate age."""
+        today = date.today()
+        return today.year - born.year - ((today.month, today.day) < (born.month, born.day))
+
+    def validate(self, attrs):
+        """ Validate policies, terms, and age/parent email requirements. """
+        if not attrs.get('accept_privacy_policy'):
+            raise serializers.ValidationError({"accept_privacy_policy": _("You must accept the Privacy Policy to register.")})
+        if not attrs.get('accept_terms_of_service'):
+            raise serializers.ValidationError({"accept_terms_of_service": _("You must accept the Terms of Service to register.")})
+
+        # Verifica età e email genitore
+        dob = attrs.get('date_of_birth')
+        if not dob:
+            raise serializers.ValidationError({"date_of_birth": _("Date of birth is required.")})
+
+        age = self._calculate_age(dob)
+        if age < self.MIN_CONSENT_AGE:
+            parent_email = attrs.get('parent_email')
+            if not parent_email:
+                raise serializers.ValidationError({"parent_email": _("Parent/Guardian email is required for users under {age}.").format(age=self.MIN_CONSENT_AGE)})
+        elif 'parent_email' in attrs and not attrs.get('parent_email'):
+             del attrs['parent_email']
+
+        return attrs
 
     def validate_token(self, value):
         """
@@ -332,9 +507,11 @@ class GroupTokenRegistrationSerializer(serializers.Serializer):
         """
         Crea il nuovo studente, lo associa al docente del gruppo,
         imposta il PIN, crea il Wallet (tramite segnale) e crea la membership nel gruppo.
+        Gestisce la verifica dell'età e il flusso di consenso parentale.
         """
         group_instance = self.context['group_instance']
-        teacher = group_instance.owner
+        teacher = group_instance.owner # Docente proprietario del gruppo
+        now = timezone.now()
 
         # Genera un codice studente univoco
         base_code = f"{validated_data['first_name'][:2]}{validated_data['last_name'][:2]}".lower()
@@ -344,17 +521,38 @@ class GroupTokenRegistrationSerializer(serializers.Serializer):
             unique_code = f"{base_code}{counter}"
             counter += 1
 
+        # Dati base studente
+        student_data = {
+            'first_name': validated_data['first_name'],
+            'last_name': validated_data['last_name'],
+            'student_code': unique_code,
+            'date_of_birth': validated_data['date_of_birth'],
+            'privacy_policy_accepted_at': now if validated_data.get('accept_privacy_policy') else None,
+            'terms_of_service_accepted_at': now if validated_data.get('accept_terms_of_service') else None,
+        }
+
+        # Verifica età e imposta stato iniziale
+        age = self._calculate_age(validated_data['date_of_birth'])
+        if age < self.MIN_CONSENT_AGE:
+            student_data['is_active'] = False # Account inattivo finché non c'è consenso
+            student_data['parental_consent_status'] = 'PENDING'
+            student_data['parent_email'] = validated_data.get('parent_email') # Già validato che ci sia
+            student_data['parental_consent_verification_token'] = uuid.uuid4()
+            expiry_days = getattr(settings, 'PARENTAL_CONSENT_TOKEN_EXPIRY_DAYS', 7)
+            student_data['parental_consent_token_expires_at'] = now + timedelta(days=expiry_days)
+            student_data['parental_consent_requested_at'] = now
+        else:
+            student_data['is_active'] = True # Attivo di default
+            student_data['parental_consent_status'] = 'NOT_REQUIRED'
+
         # Crea lo studente
-        student = Student(
-            # Nota: Lo studente non ha più un FK diretta al docente.
-            # L'associazione avviene tramite i gruppi.
-            first_name=validated_data['first_name'],
-            last_name=validated_data['last_name'],
-            student_code=unique_code,
-            is_active=True # Attivo di default
-        )
+        student = Student(**student_data)
         student.set_pin(validated_data['pin']) # Imposta l'hash del PIN
         student.save()
+
+        # Innesca l'invio dell'email di verifica al genitore se necessario
+        if student.parental_consent_status == 'PENDING':
+            send_parental_consent_email(student)
 
         # Il Wallet viene creato automaticamente dal segnale post_save di Student
 
@@ -375,3 +573,31 @@ class GroupTokenRegistrationSerializer(serializers.Serializer):
         # Il token del gruppo rimane valido per altre registrazioni.
 
         return student # Restituisce l'istanza dello studente creato
+# --- Serializer per Rettifica Profilo Studente (GDPR) ---
+
+class StudentProfileUpdateSerializer(serializers.ModelSerializer):
+    """
+    Serializer specifico per permettere allo studente di aggiornare
+    i propri dati personali consentiti (nome, cognome).
+    Usato per la rettifica GDPR.
+    """
+    class Meta:
+        model = Student
+        fields = [
+            'first_name',
+            'last_name',
+        ]
+        # Non ci sono campi read_only qui, questi sono i soli campi modificabili.
+
+    # Aggiungere validazione se necessario (es. lunghezza minima/massima)
+    def validate_first_name(self, value):
+        if not value:
+            raise serializers.ValidationError("Il nome non può essere vuoto.")
+        # Aggiungere altre validazioni se serve
+        return value
+
+    def validate_last_name(self, value):
+        if not value:
+            raise serializers.ValidationError("Il cognome non può essere vuoto.")
+        # Aggiungere altre validazioni se serve
+        return value

@@ -4,7 +4,11 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     UserViewSet, StudentViewSet, StudentLoginView, StudentProtectedTestView,
     TeacherStudentProgressSummaryView, RegistrationTokenViewSet, StudentRegistrationView, # Aggiunte nuove viste
-    StudentTokenRefreshView # Aggiunta view refresh studente
+    StudentTokenRefreshView, # Aggiunta view refresh studente
+    UserDataExportView, # Aggiunta view per export dati GDPR
+    StudentProfileUpdateView, # Aggiunta view per aggiornamento profilo studente GDPR
+    UserDataDeletionRequestView, # Aggiunta view per richiesta cancellazione dati GDPR
+    ParentalConsentVerificationView # Aggiunta view per verifica consenso parentale
 )
 
 # Crea un router e registra le nostre viewset
@@ -29,4 +33,12 @@ urlpatterns = [
     path('register/student/', StudentRegistrationView.as_view(), name='student-register-token'),
     # URL specifico per il refresh del token studente
     path('auth/student/token/refresh/', StudentTokenRefreshView.as_view(), name='student-token-refresh'),
+    # URL per GDPR - Diritto di Accesso
+    path('profile/my-data/', UserDataExportView.as_view(), name='user-data-export'),
+    # URL per GDPR - Diritto di Rettifica (Profilo Studente)
+    path('profile/me/', StudentProfileUpdateView.as_view(), name='student-profile-update'),
+    # URL per GDPR - Diritto alla Cancellazione (Richiesta)
+    path('profile/request-deletion/', UserDataDeletionRequestView.as_view(), name='user-data-deletion-request'),
+    # URL pubblico per la verifica del consenso parentale tramite token
+    path('verify/parental-consent/<uuid:token>/', ParentalConsentVerificationView.as_view(), name='parental_consent_verify'),
 ]

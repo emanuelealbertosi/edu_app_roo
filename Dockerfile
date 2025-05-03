@@ -13,6 +13,9 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends gcc libpq-dev \
     # Pulisci apt cache
     && apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
+    && apt-get install -y --no-install-recommends cron nano \
+    # Pulisci apt cache
+    && apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
     && rm -rf /var/lib/apt/lists/*
 
 # Copia il file dei requisiti nella directory di lavoro
@@ -28,6 +31,15 @@ RUN chmod +x /app/entrypoint.prod.sh
 
 # Copia il resto del codice dell'applicazione nella directory di lavoro
 COPY . /app/
+
+# Configura Cron
+COPY crontab.txt /etc/cron.d/django-cron
+RUN chmod 0644 /etc/cron.d/django-cron \
+    && crontab /etc/cron.d/django-cron \
+    # Crea directory e file di log per cron
+    && mkdir -p /app/logs \
+    && touch /app/logs/cron.log \
+    && chmod 666 /app/logs/cron.log
 
 # Crea la directory per i file temporanei di upload (non nel volume) e imposta permessi ampi per debug
 RUN mkdir -p /app/tmp_uploads_non_volume && chmod -R 777 /app/tmp_uploads_non_volume
