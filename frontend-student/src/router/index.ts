@@ -146,6 +146,26 @@ const router = createRouter({
         }
       }
     },
+    // Rotte per le policy GDPR
+    {
+      path: '/privacy-policy',
+      name: 'privacy-policy', // Nome usato nei link
+      component: () => import('../views/PrivacyPolicyView.vue'),
+      meta: { requiresGuest: false } // Accessibile a tutti
+    },
+    {
+      path: '/cookie-policy',
+      name: 'cookie-policy', // Nome usato nei link
+      component: () => import('../views/CookiePolicyView.vue'),
+      meta: { requiresGuest: false } // Accessibile a tutti
+    },
+    {
+      path: '/terms-of-service', // Aggiungo anche questa per coerenza con i link
+      name: 'terms-of-service', // Nome usato nei link
+      // TODO: Creare un componente TermsOfServiceView.vue o usare PrivacyPolicyView come placeholder
+      component: () => import('../views/PrivacyPolicyView.vue'), // Placeholder, usare un componente dedicato
+      meta: { requiresGuest: false } // Accessibile a tutti
+    },
     // Rotta 404 per pagine non trovate
     {
       path: '/:pathMatch(.*)*',

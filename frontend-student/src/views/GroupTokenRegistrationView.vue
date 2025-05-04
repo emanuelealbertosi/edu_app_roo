@@ -144,7 +144,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { registerStudentWithGroupToken } from '@/api/registration';
+import { registerStudentWithGroupToken, type GroupTokenRegistrationPayload } from '@/api/registration'; // Importa anche il tipo
 // Rimuovi import dello store auth specifico studente
 // import { useAuthStore } from '@/stores/auth';
 import { useSharedAuthStore, type SharedUser } from '@/stores/sharedAuth'; // Importa store condiviso
@@ -254,14 +254,16 @@ const handleSubmit = async () => {
   // errorMessage.value = null; // Spostato all'inizio
 
   try {
-    const payload = {
-      token: groupToken.value, // Chiave corretta
+    // Usa l'interfaccia importata per garantire la corrispondenza dei tipi
+    const payload: GroupTokenRegistrationPayload = {
+      token: groupToken.value,
       first_name: firstName.value,
       last_name: lastName.value,
       pin: pin.value,
-      privacy_policy_accepted: acceptPrivacyPolicy.value, // Aggiunto per GDPR
-      terms_of_service_accepted: acceptTermsOfService.value, // Aggiunto per GDPR
-      birth_date: birthDate.value, // Aggiunto per GDPR Età
+      // Usa i nomi corretti attesi dal backend/interfaccia API
+      accept_privacy_policy: acceptPrivacyPolicy.value,
+      accept_terms_of_service: acceptTermsOfService.value,
+      date_of_birth: birthDate.value,
     };
 
      // Aggiungi l'email del genitore solo se necessario

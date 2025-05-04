@@ -1,16 +1,20 @@
 <template>
   <div class="container mx-auto px-4 py-8">
-    <h1 class="text-3xl font-bold mb-6">Informativa sulla Privacy</h1>
-    <!-- Utilizza v-html per renderizzare l'HTML generato da marked -->
-    <div class="prose max-w-none" v-html="privacyPolicyHtml"></div>
+    <div class="prose max-w-none bg-white p-6 rounded shadow-md" v-html="privacyPolicyHtml"></div>
+    <div class="mt-6 text-center">
+      <router-link :to="{ name: 'root' }" class="text-indigo-600 hover:text-indigo-800">
+        Torna alla Home
+      </router-link>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import { marked } from 'marked'; // Importa la libreria marked
+import { marked } from 'marked';
 
-// Contenuto del file privacy_policy.md (incollato per semplicità)
+// Contenuto Markdown della Privacy Policy (copiato da App.vue per semplicità)
+// Idealmente, questo potrebbe essere caricato da un file .md o da un API
 const privacyPolicyMarkdown = `
 # Informativa sulla Privacy
 
@@ -131,31 +135,39 @@ Non utilizziamo processi decisionali interamente automatizzati, inclusa la profi
 Ci riserviamo il diritto di aggiornare la presente Informativa sulla Privacy. Qualsiasi modifica sarà pubblicata sull'Applicazione e, se sostanziale, ti sarà notificata. Ti invitiamo a consultare regolarmente questa pagina per rimanere informato sulle nostre pratiche di privacy.
 `;
 
-// Ref per contenere l'HTML convertito
 const privacyPolicyHtml = ref('');
 
 onMounted(async () => {
-  // Converte il Markdown in HTML quando il componente è montato
-  // Usiamo Promise.resolve() per gestire il risultato di marked che può essere una Promise
+  // Usa Promise.resolve per simulare un caricamento asincrono se necessario in futuro
   privacyPolicyHtml.value = await Promise.resolve(marked(privacyPolicyMarkdown));
 });
 </script>
 
 <style scoped>
-/* Stili per migliorare la leggibilità del contenuto Markdown convertito */
-.prose :deep(h1),
-.prose :deep(h2),
-.prose :deep(h3) {
-  margin-bottom: 0.5em; /* Aggiunge spazio sotto i titoli */
-  margin-top: 1em; /* Aggiunge spazio sopra i titoli */
+/* Stili per Tailwind Typography plugin (prose) */
+.prose :where(h1):not(:where([class~="not-prose"] *)) {
+  @apply text-3xl font-bold mb-4 text-gray-800;
 }
-
-.prose :deep(ul) {
-  list-style-type: disc; /* Usa pallini per le liste non ordinate */
-  margin-left: 1.5em; /* Indenta le liste */
+.prose :where(h2):not(:where([class~="not-prose"] *)) {
+  @apply text-2xl font-semibold mt-6 mb-3 text-gray-700 border-b pb-1;
 }
-
-.prose :deep(p) {
-    margin-bottom: 0.75em; /* Aggiunge spazio tra i paragrafi */
+.prose :where(h3):not(:where([class~="not-prose"] *)) {
+  @apply text-xl font-semibold mt-5 mb-2 text-gray-700;
 }
+.prose :where(p):not(:where([class~="not-prose"] *)) {
+  @apply mb-4 leading-relaxed;
+}
+.prose :where(ul):not(:where([class~="not-prose"] *)) {
+  @apply list-disc pl-5 mb-4;
+}
+.prose :where(li):not(:where([class~="not-prose"] *)) {
+  @apply mb-2;
+}
+.prose :where(strong):not(:where([class~="not-prose"] *)) {
+  @apply font-semibold;
+}
+.prose :where(a):not(:where([class~="not-prose"] *)) {
+  @apply text-indigo-600 hover:text-indigo-800;
+}
+/* Aggiungi altri stili prose se necessario */
 </style>

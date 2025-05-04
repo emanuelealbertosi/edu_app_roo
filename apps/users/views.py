@@ -555,7 +555,7 @@ class UserDataExportView(APIView):
 
         # 5. Badge Guadagnati
         earned_badges = EarnedBadge.objects.filter(student=student).order_by('-earned_at')
-        earned_badges_data = GDPREarnedBadgeSerializer(earned_badges, many=True).data
+        earned_badges_data = EarnedBadgeSerializer(earned_badges, many=True).data
 
         # 6. Tentativi Quiz (include risposte tramite serializer nidificato)
         quiz_attempts = QuizAttempt.objects.filter(student=student).select_related('quiz').prefetch_related('student_answers', 'student_answers__question').order_by('-started_at')

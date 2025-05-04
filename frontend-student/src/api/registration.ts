@@ -25,10 +25,15 @@ export interface StudentRegistrationResponse {
 // --- Registrazione specifica con Token di Gruppo ---
 
 export interface GroupTokenRegistrationPayload {
-  token: string; // Token specifico del gruppo (chiave corretta)
+  token: string; // Token specifico del gruppo
   first_name: string;
   last_name: string;
-  pin: string; // O password, a seconda del backend
+  pin: string;
+  // Campi GDPR aggiunti (basati sull'errore del backend e sul payload del FE)
+  date_of_birth: string; // Nome atteso dal backend
+  accept_privacy_policy: boolean; // Nome atteso dal backend
+  accept_terms_of_service: boolean; // Nome atteso dal backend
+  parent_email?: string; // Opzionale, aggiunto solo se necessario
 }
 
 export interface GroupRegistrationResponse {

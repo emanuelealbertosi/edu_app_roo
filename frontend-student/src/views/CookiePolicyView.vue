@@ -1,16 +1,20 @@
 <template>
   <div class="container mx-auto px-4 py-8">
-    <h1 class="text-3xl font-bold mb-6">Informativa sui Cookie</h1>
-    <!-- Utilizza v-html per renderizzare l'HTML generato da marked -->
-    <div class="prose max-w-none" v-html="cookiePolicyHtml"></div>
+    <div class="prose max-w-none bg-white p-6 rounded shadow-md" v-html="cookiePolicyHtml"></div>
+    <div class="mt-6 text-center">
+      <router-link :to="{ name: 'root' }" class="text-indigo-600 hover:text-indigo-800">
+        Torna alla Home
+      </router-link>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import { marked } from 'marked'; // Importa la libreria marked
+import { marked } from 'marked';
 
-// Contenuto del file cookie_policy.md
+// Contenuto Markdown della Cookie Policy (copiato da App.vue per semplicità)
+// Idealmente, questo potrebbe essere caricato da un file .md o da un API
 const cookiePolicyMarkdown = `
 # Informativa sui Cookie
 
@@ -55,39 +59,39 @@ Per maggiori informazioni sui cookie e su come gestirli, puoi anche visitare il 
 Ci riserviamo il diritto di aggiornare la presente Informativa sui Cookie. Qualsiasi modifica sarà pubblicata sull'Applicazione.
 `;
 
-// Ref per contenere l'HTML convertito
 const cookiePolicyHtml = ref('');
 
 onMounted(async () => {
-  // Converte il Markdown in HTML quando il componente è montato
+  // Usa Promise.resolve per simulare un caricamento asincrono se necessario in futuro
   cookiePolicyHtml.value = await Promise.resolve(marked(cookiePolicyMarkdown));
 });
 </script>
 
 <style scoped>
-/* Stili per migliorare la leggibilità del contenuto Markdown convertito */
-.prose :deep(h1),
-.prose :deep(h2),
-.prose :deep(h3) {
-  margin-bottom: 0.5em;
-  margin-top: 1em;
+/* Stili per Tailwind Typography plugin (prose) - Copiati da PrivacyPolicyView */
+.prose :where(h1):not(:where([class~="not-prose"] *)) {
+  @apply text-3xl font-bold mb-4 text-gray-800;
 }
-
-.prose :deep(ul) {
-  list-style-type: disc;
-  margin-left: 1.5em;
+.prose :where(h2):not(:where([class~="not-prose"] *)) {
+  @apply text-2xl font-semibold mt-6 mb-3 text-gray-700 border-b pb-1;
 }
-
-.prose :deep(p) {
-    margin-bottom: 0.75em;
+.prose :where(h3):not(:where([class~="not-prose"] *)) {
+  @apply text-xl font-semibold mt-5 mb-2 text-gray-700;
 }
-
-.prose :deep(a) {
-    color: #2563eb; /* Blu Tailwind */
-    text-decoration: underline;
+.prose :where(p):not(:where([class~="not-prose"] *)) {
+  @apply mb-4 leading-relaxed;
 }
-
-.prose :deep(a:hover) {
-    color: #1d4ed8; /* Blu Tailwind più scuro */
+.prose :where(ul):not(:where([class~="not-prose"] *)) {
+  @apply list-disc pl-5 mb-4;
 }
+.prose :where(li):not(:where([class~="not-prose"] *)) {
+  @apply mb-2;
+}
+.prose :where(strong):not(:where([class~="not-prose"] *)) {
+  @apply font-semibold;
+}
+.prose :where(a):not(:where([class~="not-prose"] *)) {
+  @apply text-indigo-600 hover:text-indigo-800;
+}
+/* Aggiungi altri stili prose se necessario */
 </style>
