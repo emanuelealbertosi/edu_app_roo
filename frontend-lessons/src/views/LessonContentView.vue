@@ -51,6 +51,7 @@
                 <option value="pdf">Documento PDF</option>
                 <option value="ppt">Presentazione PPT/PPTX</option>
                 <option value="url">Link Esterno</option>
+                <option value="file">File Scaricabile</option> <!-- Aggiunta opzione File -->
              </select>
            </div>
 
@@ -73,8 +74,10 @@
               ></textarea>
               <small class="text-xs text-gray-500 mt-1">Attenzione: Il codice inserito verrà visualizzato senza sanitizzazione.</small>
            </div>
-           <div v-if="newContent.content_type === 'pdf' || newContent.content_type === 'ppt'" class="form-group">
+           <!-- Modificato: Mostra input file per PDF, PPT e FILE -->
+           <div v-if="newContent.content_type === 'pdf' || newContent.content_type === 'ppt' || newContent.content_type === 'file'" class="form-group">
                <label for="content-file">Seleziona File ({{ newContent.content_type.toUpperCase() }}):</label>
+               <!-- Modificato: accept ora usa fileAcceptType anche qui -->
                <input type="file" id="content-file" @change="handleFileChange" :accept="fileAcceptType" required>
                <div v-if="newContent.file" class="file-preview">Selezionato: {{ newContent.file.name }}</div>
            </div>
@@ -126,9 +129,9 @@ const lessonId = ref<number>(0); // Inizializza a 0 o gestisci null
 const addError = ref<string | null>(null); // Dichiarato una sola volta
 const contentToEdit = ref<LessonContent | null>(null);
 
-// Stato per il nuovo contenuto
+// Stato per il nuovo contenuto (aggiunto 'file' al tipo)
 const newContent = ref({
-    content_type: 'html' as 'html' | 'pdf' | 'ppt' | 'url',
+    content_type: 'html' as 'html' | 'pdf' | 'ppt' | 'url' | 'file',
     title: '',
     html_content: '',
     file: null as File | null,
@@ -169,6 +172,7 @@ const sortedContents = computed(() => {
 const fileAcceptType = computed(() => {
     if (newContent.value.content_type === 'pdf') return '.pdf,application/pdf';
     if (newContent.value.content_type === 'ppt') return '.ppt,.pptx,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation';
+    if (newContent.value.content_type === 'file') return '*/*'; // Accetta qualsiasi file per 'file'
     return '*/*'; // Default
 });
 
@@ -233,7 +237,8 @@ const handleAddContent = async () => {
             };
             addedContent = await lessonStore.addLessonContent(lessonId.value, apiData);
 
-        } else if (newContent.value.content_type === 'pdf' || newContent.value.content_type === 'ppt') {
+        // Modificato: Gestisce anche il tipo 'file' qui
+        } else if (newContent.value.content_type === 'pdf' || newContent.value.content_type === 'ppt' || newContent.value.content_type === 'file') {
             if (!newContent.value.file) { throw new Error("Selezionare un file è obbligatorio."); }
             if (!(newContent.value.file instanceof File)) { throw new Error("Errore interno: file non valido."); }
 
@@ -314,6 +319,7 @@ const getContentTypeTitle = (content: LessonContent): string => {
         case 'pdf': return 'Documento PDF';
         case 'ppt': return 'Presentazione PPT';
         case 'url': return 'Link Esterno';
+        case 'file': return 'File Allegato'; // Aggiunto titolo per 'file'
         default: return 'Contenuto Sconosciuto';
     }
 };

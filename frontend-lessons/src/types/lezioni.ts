@@ -80,7 +80,7 @@ export interface Lesson {
 export interface LessonContent {
   id: number;
   lesson: number; // ID della lezione
-  content_type: 'html' | 'pdf' | 'ppt' | 'url'; // Aggiungere altri tipi se necessario
+  content_type: 'html' | 'pdf' | 'ppt' | 'url' | 'file'; // Aggiunto 'file' ai tipi possibili
   html_content?: string;
   file?: string; // URL del file
   url?: string;

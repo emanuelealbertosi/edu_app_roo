@@ -5,6 +5,7 @@ import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router';
 import GlobalLoadingIndicator from '@/components/common/GlobalLoadingIndicator.vue';
 import NotificationContainer from '@/components/common/NotificationContainer.vue';
 import ModalDialog from '@/components/common/ModalDialog.vue'; // Importa la modale
+import AppFooter from '@/components/layout/AppFooter.vue'; // Importa il nuovo footer
 import { marked } from 'marked'; // Importa marked
 import {
   HomeIcon, ShoppingCartIcon, UserCircleIcon, CreditCardIcon, TrophyIcon,
@@ -236,7 +237,7 @@ const goToProfile = () => {
     @close="closeModal"
   />
 
-  <div class="flex h-screen bg-neutral-lightest font-sans text-neutral-darkest">
+  <div class="flex min-h-screen bg-neutral-lightest font-sans text-neutral-darkest"> <!-- Changed h-screen to min-h-screen -->
     <!-- Sidebar Desktop (visibile da md in su) -->
     <aside
       v-if="authStore.isAuthenticated"
@@ -402,15 +403,10 @@ const goToProfile = () => {
         <!-- Aggiunto padding-top se header è visibile -->
         <main class="flex-grow p-4 md:p-8 overflow-auto" :class="{ 'pt-20': authStore.isAuthenticated }">
           <RouterView />
+        </main> <!-- Moved footer outside main -->
 
-          <!-- Footer con bottoni per Policy -->
-          <footer class="text-center text-xs text-neutral-dark py-4 mt-auto">
-            <button @click="openPrivacyModal" class="hover:underline mx-2 text-primary hover:text-primary-dark">Informativa Privacy</button> |
-            <button @click="openCookieModal" class="hover:underline mx-2 text-primary hover:text-primary-dark">Cookie Policy</button>
-            <p class="mt-1">&copy; {{ new Date().getFullYear() }} eduapp.it</p>
-          </footer>
-
-        </main>
+        <!-- Footer Component -->
+        <AppFooter @openPrivacy="openPrivacyModal" @openCookie="openCookieModal" />
     </div>
 
   </div>
@@ -433,13 +429,5 @@ div > button.hover\:bg-red-700:hover { /* Selettore più specifico per override 
 header button {
   @apply text-neutral-dark hover:text-neutral-darker hover:bg-neutral-light focus:outline-none focus:bg-neutral-light focus:ring-2 focus:ring-offset-2 focus:ring-primary;
 }
-
-/* Stili aggiuntivi per il footer */
-footer button { /* Cambiato da 'footer a' a 'footer button' */
-  @apply text-primary hover:text-primary-dark;
-  background: none; /* Rimuove sfondo di default dei bottoni */
-  border: none; /* Rimuove bordo di default */
-  padding: 0; /* Rimuove padding di default */
-  cursor: pointer; /* Mostra cursore mano */
-}
+/* Stili del footer rimossi perché ora sono in AppFooter.vue */
 </style>

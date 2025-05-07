@@ -76,6 +76,7 @@ class LessonContent(models.Model):
         ('pdf', 'Documento PDF'),
         ('ppt', 'Presentazione PPT/PPTX'),
         ('url', 'Link Esterno'),
+        ('file', 'File Scaricabile'), # Aggiunto nuovo tipo per file generici
         # ('video', 'File Video'), # Esempio futuro
         # ('image', 'File Immagine'), # Esempio futuro
     ]

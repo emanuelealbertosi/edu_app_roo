@@ -26,9 +26,11 @@
            ></textarea>
            <small class="text-xs text-gray-500 mt-1">Attenzione: Il codice inserito verrà visualizzato senza sanitizzazione.</small>
         </div>
-        <!-- Mantieni input file per PDF/PPT -->
-        <div v-if="editableContent.content_type === 'pdf' || editableContent.content_type === 'ppt'">
-            <label for="edit-content-file" class="block text-sm font-medium text-gray-600 mb-1">Sostituisci File (opzionale):</label>
+        <!-- Modificato: Mostra input file per PDF, PPT e il nuovo tipo 'file' -->
+        <div v-if="editableContent.content_type === 'pdf' || editableContent.content_type === 'ppt' || editableContent.content_type === 'file'">
+            <label for="edit-content-file" class="block text-sm font-medium text-gray-600 mb-1">
+                {{ editableContent.content_type === 'file' ? 'File Allegato:' : 'Sostituisci File (opzionale):' }}
+            </label>
             <input type="file" id="edit-content-file" @change="handleFileChange" :accept="fileAcceptType" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
             <div v-if="currentFileName" class="mt-2 text-sm text-gray-500 italic">Attuale: {{ currentFileName }}</div>
             <div v-if="selectedFile" class="mt-1 text-sm text-indigo-600 italic">Nuovo: {{ selectedFile.name }}</div>
@@ -100,10 +102,11 @@ watch(() => props.content, (newContent) => {
 
 
 const fileAcceptType = computed(() => {
-    if (!editableContent.value) return '*/*';
+    if (!editableContent.value) return '*/*'; // Default generico
     if (editableContent.value.content_type === 'pdf') return '.pdf,application/pdf';
     if (editableContent.value.content_type === 'ppt') return '.ppt,.pptx,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation';
-    return '*/*';
+    if (editableContent.value.content_type === 'file') return '*/*'; // Accetta qualsiasi file per il tipo 'file'
+    return '*/*'; // Fallback generico
 });
 
 const handleFileChange = (event: Event) => {
@@ -164,8 +167,10 @@ const submitForm = () => {
       dataToSend = {
           title: editableContent.value.title || undefined,
           order: editableContent.value.order,
+          // Assicurati che i campi non rilevanti per il tipo 'file' non vengano inviati se non necessari
           html_content: editableContent.value.content_type === 'html' ? editableContent.value.html_content : undefined,
           url: editableContent.value.content_type === 'url' ? editableContent.value.url : undefined,
+          // Non inviamo 'file' qui, viene gestito da FormData se presente
       };
   }
 

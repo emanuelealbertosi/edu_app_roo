@@ -1,15 +1,28 @@
 <template>
   <div class="border border-gray-300 rounded-md p-2">
-    <editor-content :editor="editor" />
+    <!-- Sostituiamo l'editor Tiptap con una semplice textarea -->
+    <textarea
+      :value="modelValue"
+      @input="updateValue($event)"
+      class="w-full h-64 p-2 border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+      placeholder="Inserisci qui il codice HTML della lezione..."
+    ></textarea>
   </div>
 </template>
 
 <script setup lang="ts">
-import { useEditor, EditorContent } from '@tiptap/vue-3'
-import StarterKit from '@tiptap/starter-kit'
-import { watch } from 'vue'
-
+// Rimuoviamo tutte le dipendenze e la logica di Tiptap
+// Rimuoviamo anche 'props' perché 'modelValue' è usato direttamente nel template
+/*
 const props = defineProps({
+  modelValue: {
+    type: String,
+    default: '',
+  },
+})
+*/
+// Definiamo 'modelValue' direttamente come prop per usarlo nel template
+defineProps({
   modelValue: {
     type: String,
     default: '',
@@ -18,38 +31,22 @@ const props = defineProps({
 
 const emit = defineEmits(['update:modelValue'])
 
-const editor = useEditor({
-  content: props.modelValue,
-  extensions: [
-    StarterKit,
-  ],
-  onUpdate: ({ editor }) => {
-    emit('update:modelValue', editor.getHTML())
-  },
-})
-
-watch(() => props.modelValue, (newValue) => {
-  if (editor.value && editor.value.getHTML() !== newValue) {
-    editor.value.commands.setContent(newValue, false) // false per non emettere l'evento onUpdate
+// Funzione per emettere l'aggiornamento del valore quando l'input della textarea cambia
+const updateValue = (event: Event) => {
+  const target = event.target as HTMLTextAreaElement;
+  if (target) {
+    emit('update:modelValue', target.value)
   }
-})
+}
 
-import { onBeforeUnmount } from 'vue'
-onBeforeUnmount(() => {
-  if (editor.value) {
-    editor.value.destroy()
-  }
-})
+// Non è più necessario il watch o onBeforeUnmount per Tiptap
 </script>
 
 <style>
-.ProseMirror {
-  min-height: 150px;
-  padding: 0.5rem;
-  outline: none; /* Rimuove il bordo di focus di default */
+/* Rimuoviamo gli stili specifici di ProseMirror */
+/* Possiamo aggiungere stili specifici per la textarea se necessario */
+textarea {
+  min-height: 200px; /* Manteniamo un'altezza minima */
+  resize: vertical; /* Permettiamo il ridimensionamento verticale */
 }
-
-.ProseMirror:focus {
-}
-
 </style>

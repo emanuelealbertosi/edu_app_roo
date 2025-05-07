@@ -42,6 +42,17 @@
        <p class="text-xs text-gray-500 mt-1">{{ content.url }}</p>
     </div>
 
+    <!-- Aggiunto blocco per tipo 'file' -->
+    <div v-else-if="content.content_type === 'file' && content.file" class="file-placeholder border border-dashed border-gray-300 rounded-md p-6 text-center bg-gray-50 space-y-2">
+       <span class="text-4xl">📎</span> <!-- Icona generica per file -->
+       <p class="font-medium text-gray-700">{{ content.title || 'File Allegato' }}</p>
+        <a :href="content.file" target="_blank" rel="noopener noreferrer" download class="inline-block px-3 py-1 bg-green-100 hover:bg-green-200 text-green-700 text-sm font-medium rounded-md border border-green-200 transition duration-150 ease-in-out">
+           Scarica File
+       </a>
+       <!-- Mostra nome file se disponibile -->
+       <p v-if="typeof content.file === 'string'" class="text-xs text-gray-500 mt-1">({{ content.file.split('/').pop() }})</p>
+   </div>
+
     <div v-else class="unknown-content bg-gray-50 text-gray-500 italic p-4 rounded-md border border-gray-200">
         Contenuto non visualizzabile (Tipo: {{ content.content_type }})
     </div>

@@ -48,29 +48,39 @@ edu_app_roo/
 
 ```mermaid
 erDiagram
+    USER ||--o{ SUBJECT : "crea_materia"
+    USER ||--o{ TOPIC : "crea_argomento"
+    SUBJECT ||--o{ TOPIC : "ha_argomenti"
+
+    QUIZ }o--|| SUBJECT : "materia_del_quiz (opz.)"
+    QUIZ }o--|| TOPIC : "argomento_del_quiz (opz.)"
+
+    LESSON }o--|| SUBJECT : "materia_della_lezione (opz.)"
+    LESSON }o--|| TOPIC : "argomento_della_lezione (opz.)"
+
     USER ||--o{ STUDENT : "è_docente_di"
     USER ||--o{ QUIZ_TEMPLATE : "creato_da (Admin)"
     USER ||--o{ QUIZ : "creato_da (Docente)"
     USER ||--o{ PATHWAY : "creato_da (Docente)"
-    USER ||--o{ LESSON : "creato_da (Docente)" # NUOVA RELAZIONE (se modello Lesson esiste)
+    USER ||--o{ LESSON : "creato_da (Docente)"
     USER ||--o{ REWARD_TEMPLATE : "creato_da (Admin/Docente)"
     USER ||--o{ REWARD : "creato_da (Docente)"
     USER ||--o{ REWARD_PURCHASE : "consegnato_da"
-    USER ||--o{ STUDENT_GROUP : "creato_da (Docente)" # NUOVA RELAZIONE
+    USER ||--o{ STUDENT_GROUP : "creato_da (Docente)"
 
     STUDENT ||--o{ QUIZ_ATTEMPT : "svolge"
     STUDENT ||--o{ PATHWAY_PROGRESS : "progredisce_in"
     STUDENT ||--o{ WALLET : "possiede"
     STUDENT ||--o{ REWARD_PURCHASE : "acquista"
-    STUDENT }|..|{ REWARD : "disponibile_per (specifico)" # OBSOLETO, vedi REWARD_AVAILABILITY
-    STUDENT ||--|{ STUDENT_GROUP_MEMBERSHIP : "appartiene_a" # NUOVA RELAZIONE
+    STUDENT }|..|{ REWARD : "disponibile_per (specifico)" // OBSOLETO, vedi REWARD_AVAILABILITY
+    STUDENT ||--|{ STUDENT_GROUP_MEMBERSHIP : "appartiene_a"
 
     WALLET ||--o{ POINT_TRANSACTION : "ha_transazioni"
 
     QUIZ_TEMPLATE ||--o{ QUESTION_TEMPLATE : "contiene"
     QUIZ ||--o{ QUESTION : "contiene"
     QUIZ ||--o{ QUIZ_ATTEMPT : "ha_tentativi"
-    QUIZ ||--|{ QUIZ_ASSIGNMENT : "è_assegnato_via" # NUOVA TABELLA/RELAZIONE
+    QUIZ ||--|{ QUIZ_ASSIGNMENT : "è_assegnato_via"
 
     QUESTION_TEMPLATE ||--o{ ANSWER_OPTION_TEMPLATE : "ha_opzioni"
     QUESTION ||--o{ ANSWER_OPTION : "ha_opzioni"
@@ -80,26 +90,44 @@ erDiagram
 
     PATHWAY ||--o{ PATHWAY_QUIZ : "contiene"
     PATHWAY ||--o{ PATHWAY_PROGRESS : "ha_progressi"
-    PATHWAY ||--|{ PATHWAY_ASSIGNMENT : "è_assegnato_via" # NUOVA TABELLA/RELAZIONE
+    PATHWAY ||--|{ PATHWAY_ASSIGNMENT : "è_assegnato_via"
     QUIZ ||--|{ PATHWAY_QUIZ : "fa_parte_di"
 
-    LESSON ||--|{ LESSON_ASSIGNMENT : "è_assegnato_via" # NUOVA TABELLA/RELAZIONE
+    LESSON ||--|{ LESSON_ASSIGNMENT : "è_assegnato_via"
 
     REWARD_TEMPLATE ||--o{ REWARD : "è_template_per"
     REWARD ||--o{ REWARD_PURCHASE : "è_acquistata_in"
-    REWARD }|..|{ REWARD_AVAILABILITY : "ha_disponibilità" # NUOVA TABELLA/RELAZIONE
+    REWARD }|..|{ REWARD_AVAILABILITY : "ha_disponibilità"
 
-    STUDENT_GROUP ||--|{ STUDENT_GROUP_MEMBERSHIP : "ha_membri" # NUOVA RELAZIONE
-    STUDENT_GROUP ||--|{ QUIZ_ASSIGNMENT : "assegnato_a_gruppo" # NUOVA RELAZIONE
-    STUDENT_GROUP ||--|{ PATHWAY_ASSIGNMENT : "assegnato_a_gruppo" # NUOVA RELAZIONE
-    STUDENT_GROUP ||--|{ LESSON_ASSIGNMENT : "assegnato_a_gruppo" # NUOVA RELAZIONE
-    STUDENT_GROUP ||--|{ REWARD_AVAILABILITY : "disponibile_per_gruppo" # NUOVA RELAZIONE
+    STUDENT_GROUP ||--|{ STUDENT_GROUP_MEMBERSHIP : "ha_membri"
+    STUDENT_GROUP ||--|{ QUIZ_ASSIGNMENT : "assegnato_a_gruppo"
+    STUDENT_GROUP ||--|{ PATHWAY_ASSIGNMENT : "assegnato_a_gruppo"
+    STUDENT_GROUP ||--|{ LESSON_ASSIGNMENT : "assegnato_a_gruppo"
+    STUDENT_GROUP ||--|{ REWARD_AVAILABILITY : "disponibile_per_gruppo"
 
-    STUDENT ||--|{ QUIZ_ASSIGNMENT : "assegnato_a_studente" # NUOVA RELAZIONE
-    STUDENT ||--|{ PATHWAY_ASSIGNMENT : "assegnato_a_studente" # NUOVA RELAZIONE
-    STUDENT ||--|{ LESSON_ASSIGNMENT : "assegnato_a_studente" # NUOVA RELAZIONE
-    STUDENT ||--|{ REWARD_AVAILABILITY : "disponibile_per_studente" # NUOVA RELAZIONE
+    STUDENT ||--|{ QUIZ_ASSIGNMENT : "assegnato_a_studente"
+    STUDENT ||--|{ PATHWAY_ASSIGNMENT : "assegnato_a_studente"
+    STUDENT ||--|{ LESSON_ASSIGNMENT : "assegnato_a_studente"
+    STUDENT ||--|{ REWARD_AVAILABILITY : "disponibile_per_studente"
 
+
+    SUBJECT {
+        int id PK
+        int teacher_id FK "USER(id) - Docente creatore"
+        string name UK "Nome materia (univoco per docente)"
+        string color_placeholder "Colore esadecimale per placeholder SVG quiz (es. #FF5733)"
+        datetime created_at
+        datetime updated_at
+    }
+
+    TOPIC {
+        int id PK
+        int subject_id FK "SUBJECT(id) - Materia di appartenenza (NOT NULL)"
+        int teacher_id FK "USER(id) - Docente creatore"
+        string name UK "Nome argomento (univoco per materia e docente)"
+        datetime created_at
+        datetime updated_at
+    }
 
     USER {
         int id PK
@@ -193,7 +221,10 @@ erDiagram
         int source_template_id FK NULL "Template originale (opzionale)"
         string title
         string description
-        jsonb metadata "Es: difficoltà, materia, completion_threshold (0-1), points_on_completion"
+        int subject_id FK NULL "SUBJECT(id) - Materia associata (opzionale)"
+        int topic_id FK NULL "TOPIC(id) - Argomento associato (opzionale)"
+        string image_url NULL "URL immagine di copertina del quiz (opzionale)"
+        jsonb metadata "Es: difficoltà, completion_threshold (0-1), points_on_completion"
         datetime created_at
         datetime available_from NULL
         datetime available_until NULL
@@ -232,11 +263,13 @@ erDiagram
         int order "Ordine del quiz nel percorso"
     }
 
-    LESSON { # NUOVA TABELLA (o esistente)
+    LESSON { // NUOVA TABELLA (o esistente)
         int id PK
         int teacher_id FK
         string title
-        # ... altri campi della lezione ...
+        int subject_id FK NULL "SUBJECT(id) - Materia associata (opzionale)"
+        int topic_id FK NULL "TOPIC(id) - Argomento associato (opzionale)"
+        // ... altri campi della lezione ...
     }
 
     QUIZ_ASSIGNMENT { # NUOVA TABELLA
@@ -306,7 +339,8 @@ erDiagram
         string name
         string description
         string type "digital, real_world_tracked"
-        jsonb metadata "Es: immagine, link"
+        string image_url NULL "URL immagine per il template ricompensa (opzionale)"
+        jsonb metadata "Es: link (se immagine non in image_url), dettagli specifici del tipo"
         datetime created_at
     }
 
@@ -318,7 +352,8 @@ erDiagram
         string description
         string type
         int cost_points
-        # string availability_type "all_students, specific_students" # Rimpiazzato da REWARD_AVAILABILITY
+        string image_url NULL "URL immagine specifica per la ricompensa (opzionale)"
+        // string availability_type "all_students, specific_students" # Rimpiazzato da REWARD_AVAILABILITY
         jsonb metadata
         bool is_active DEFAULT true
         datetime created_at
@@ -421,13 +456,19 @@ erDiagram
 *   **Admin - Impostazioni (Opzionale):**
     *   `GET /api/admin/settings/`
     *   `GET, PUT /api/admin/settings/{setting_key}/`
+*   **Docente - Gestione Materie:**
+        *   `GET, POST /api/subjects/` (Lista e crea materie per il docente loggato)
+        *   `GET, PUT, PATCH, DELETE /api/subjects/{subject_id}/` (CRUD su una materia specifica del docente)
+    *   **Docente - Gestione Argomenti:**
+        *   `GET, POST /api/subjects/{subject_id}/topics/` (Lista e crea argomenti per una data materia del docente)
+        *   `GET, PUT, PATCH, DELETE /api/topics/{topic_id}/` (CRUD su un argomento specifico del docente; richiede subject_id nel payload se non parte dell'URL o per validazione)
 *   **Docente - Gestione Studenti:**
     *   `GET, POST /api/students/`
     *   `GET, PUT, PATCH, DELETE /api/students/{student_id}/`
 *   **Docente - Gestione Contenuti:**
-    *   `GET, POST /api/quizzes/`
+    *   `GET, POST /api/quizzes/` (Payload POST e risposta GET includono `subject_id`, `topic_id`, `image_url`. GET lista include `subject_name`, `subject_color_placeholder`)
     *   `POST /api/quizzes/create-from-template/`
-    *   `GET, PUT, PATCH, DELETE /api/quizzes/{quiz_id}/` (+ sub-routes domande/opzioni)
+    *   `GET, PUT, PATCH, DELETE /api/quizzes/{quiz_id}/` (+ sub-routes domande/opzioni; Payload e risposta includono `subject_id`, `topic_id`, `image_url`. GET include `subject_name`, `subject_color_placeholder`)
     *   `POST /api/quizzes/{quiz_id}/assign/` (Body: `{"student_id": X}` o `{"group_id": Y}`)
     *   `POST /api/quizzes/{quiz_id}/revoke/` (Body: `{"student_id": X}` o `{"group_id": Y}`)
     *   `GET, POST /api/pathways/`
@@ -436,23 +477,23 @@ erDiagram
     *   `POST /api/pathways/{pathway_id}/assign/` (Body: `{"student_id": X}` o `{"group_id": Y}`)
     *   `POST /api/pathways/{pathway_id}/revoke/` (Body: `{"student_id": X}` o `{"group_id": Y}`)
 *   **Docente - Gestione Ricompense:**
-    *   `GET, POST /api/reward-templates/` (Locali + Globali)
-    *   `PUT, PATCH, DELETE /api/reward-templates/{template_id}/` (Solo locali propri)
-    *   `GET, POST /api/rewards/` (Include gestione disponibilità)
-    *   `GET, PUT, PATCH, DELETE /api/rewards/{reward_id}/`
+    *   `GET, POST /api/reward-templates/` (Locali + Globali; Payload POST e risposta GET includono `image_url`)
+    *   `PUT, PATCH, DELETE /api/reward-templates/{template_id}/` (Solo locali propri; Payload e risposta includono `image_url`)
+    *   `GET, POST /api/rewards/` (Include gestione disponibilità; Payload POST e risposta GET includono `image_url`)
+    *   `GET, PUT, PATCH, DELETE /api/rewards/{reward_id}/` (Payload e risposta includono `image_url`)
     *   `POST /api/rewards/{reward_id}/make-available/` (Body: `{"student_id": X}` o `{"group_id": Y}`)
     *   `POST /api/rewards/{reward_id}/revoke-availability/` (Body: `{"student_id": X}` o `{"group_id": Y}`)
     *   `GET /api/reward-purchases/pending-delivery/`
     *   `POST /api/reward-purchases/{purchase_id}/mark-delivered/`
 *   **Studente - Svolgimento & Profilo:**
-    *   `GET /api/student/dashboard/` (Quiz/Percorsi assegnati)
+    *   `GET /api/student/dashboard/` (Quiz/Percorsi assegnati; Quiz includono `subject_id`, `topic_id`, `image_url`, `subject_name`, `subject_color_placeholder`)
     *   `POST /api/quizzes/{quiz_id}/start-attempt/`
     *   `GET /api/attempts/{attempt_id}/`
     *   `POST /api/attempts/{attempt_id}/submit-answer/`
     *   `POST /api/attempts/{attempt_id}/complete/`
     *   `GET /api/student/pathways/{pathway_id}/progress/`
     *   `GET /api/student/wallet/`
-    *   `GET /api/student/shop/`
+    *   `GET /api/student/shop/` (Ricompense includono `image_url`)
     *   `POST /api/student/shop/purchase/{reward_id}/`
     *   `GET /api/student/purchases/`
 *   **Docente - Gestione Gruppi:**
@@ -469,8 +510,8 @@ erDiagram
     *   `PATCH /api/profile/me/` (Rettifica dati - es. nome/cognome)
     *   `POST /api/profile/request-deletion/` (Richiesta cancellazione account)
 *   **Docente - Gestione Lezioni (Esempio):**
-    *   `GET, POST /api/lessons/`
-    *   `GET, PUT, PATCH, DELETE /api/lessons/{lesson_id}/`
+    *   `GET, POST /api/lessons/` (Payload POST e risposta GET includono `subject_id`, `topic_id`)
+    *   `GET, PUT, PATCH, DELETE /api/lessons/{lesson_id}/` (Payload e risposta includono `subject_id`, `topic_id`)
     *   `POST /api/lessons/{lesson_id}/assign/` (Body: `{"student_id": X}` o `{"group_id": Y}`)
     *   `POST /api/lessons/{lesson_id}/revoke/` (Body: `{"student_id": X}` o `{"group_id": Y}`)
 
