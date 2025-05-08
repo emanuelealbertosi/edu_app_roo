@@ -1785,7 +1785,7 @@ class StudentAssignedQuizzesView(generics.ListAPIView):
                 # Opzionale: Filtro per non mostrare assegnazioni future?
                 # Q(assigned_at__lte=now) # O basarsi su quiz.available_from?
             ).select_related(
-                'quiz', 'quiz__teacher' # Precarica dati correlati per efficienza
+                'quiz', 'quiz__teacher', 'quiz__source_template' # Precarica dati correlati per efficienza
             ).order_by('-assigned_at') # Ordina per le più recenti prima (o altro criterio?)
 
             # Estrai gli ID delle istanze Quiz da tutte le assegnazioni attive
@@ -1823,7 +1823,7 @@ class StudentAssignedQuizzesView(generics.ListAPIView):
                 # Recupera gli oggetti QuizAttempt completi per questi ID
                 latest_attempts_queryset = QuizAttempt.objects.filter(
                     id__in=valid_latest_attempt_ids
-                ).select_related('quiz', 'quiz__teacher') # Prendi i dati necessari
+                ).select_related('quiz', 'quiz__teacher', 'quiz__source_template') # Prendi i dati necessari
 
                 # Crea la mappa quiz_id -> ultimo tentativo per un accesso rapido
                 latest_attempts_map = {attempt.quiz_id: attempt for attempt in latest_attempts_queryset}
@@ -1884,6 +1884,9 @@ class StudentAssignedQuizzesView(generics.ListAPIView):
                     "status_display": attempt.get_status_display(), # Usa il metodo del modello
                     "quiz_title": quiz.title,
                     "quiz_description": quiz.description,
+"subject_name": quiz.source_template.subject if quiz.source_template else quiz.subject,
+                    "topic_name": quiz.source_template.topic if quiz.source_template else quiz.topic,
+                    # "subject_color_placeholder": quiz.source_template.subject_color_placeholder if quiz.source_template else (getattr(quiz, 'subject_color_placeholder', None)),
                 }
             else:
                 # Se non esiste NESSUN tentativo per questa istanza quiz, è "PENDING"
@@ -1907,6 +1910,9 @@ class StudentAssignedQuizzesView(generics.ListAPIView):
                     "status_display": "Da Iniziare",
                     "quiz_title": quiz.title,
                     "quiz_description": quiz.description,
+"subject_name": quiz.source_template.subject if quiz.source_template else quiz.subject,
+"topic_name": quiz.source_template.topic if quiz.source_template else quiz.topic,
+                    # "subject_color_placeholder": quiz.source_template.subject_color_placeholder if quiz.source_template else (getattr(quiz, 'subject_color_placeholder', None)),
                 }
             final_data_list.append(item_data)
 

@@ -17,9 +17,14 @@ export interface QuizAttemptDashboardItem {
   description: string;
   available_from: string | null;
   available_until: string | null;
-  metadata: {
+  image_url?: string | null; // Aggiunto come da design doc
+  subject_id?: number | null; // Aggiunto
+  subject_name?: string | null; // Sostituisce metadata.subject
+  subject_color_placeholder?: string | null; // Aggiunto
+  topic_id?: number | null; // Aggiunto
+  topic_name?: string | null; // Aggiunto
+  metadata: { // Metadata ora non contiene più subject, ma può avere altro
     difficulty?: string;
-    subject?: string;
     points_on_completion?: number;
     completion_threshold?: number;
     [key: string]: any;

@@ -6,7 +6,7 @@
 
 *   Creare una piattaforma web per Admin, Docenti e Studenti.
 *   **Admin:** Gestione Docenti, creazione Template Quiz (globali), creazione Template Ricompense (globali), gestione Impostazioni Globali (opzionale).
-*   **Docente:** Gestione Studenti, creazione/assegnazione Quiz (da template Admin o da zero), creazione/assegnazione Percorsi, creazione Template Ricompense (locali), creazione Ricompense specifiche (da template globali/locali o da zero), gestione disponibilità Ricompense (tutti/specifici), conferma consegna Ricompense reali.
+*   **Docente:** Gestione Studenti, creazione/assegnazione Quiz (da template Admin o da zero, con possibilità di associare Materia e Argomento opzionali), creazione/assegnazione Percorsi, creazione Template Ricompense (locali), creazione Ricompense specifiche (da template globali/locali o da zero), gestione disponibilità Ricompense (tutti/specifici), conferma consegna Ricompense reali.
 *   **Studente:** Svolgimento Quiz/Percorsi (la modale di svolgimento quiz deve occupare almeno l'89% della larghezza del browser su desktop), guadagno punti, visualizzazione/acquisto Ricompense disponibili.
 *   Garantire sicurezza (Security by Design) e testabilità (Test Driven Development - TDD).
 
@@ -51,6 +51,9 @@ erDiagram
     USER ||--o{ SUBJECT : "crea_materia"
     USER ||--o{ TOPIC : "crea_argomento"
     SUBJECT ||--o{ TOPIC : "ha_argomenti"
+
+    QUIZ_TEMPLATE }o--|| SUBJECT : "materia_del_template_quiz (opz.)"
+    QUIZ_TEMPLATE }o--|| TOPIC : "argomento_del_template_quiz (opz.)"
 
     QUIZ }o--|| SUBJECT : "materia_del_quiz (opz.)"
     QUIZ }o--|| TOPIC : "argomento_del_quiz (opz.)"
@@ -194,7 +197,9 @@ erDiagram
         int admin_id FK
         string title
         string description
-        jsonb metadata "Es: difficoltà, materia"
+        int subject_id FK NULL "SUBJECT(id) - Materia associata (opzionale)"
+        int topic_id FK NULL "TOPIC(id) - Argomento associato (opzionale, coerente con subject_id)"
+        jsonb metadata "Es: difficoltà"
         datetime created_at
     }
 
@@ -449,8 +454,8 @@ erDiagram
     *   `GET, POST /api/admin/teachers/`
     *   `GET, PUT, PATCH, DELETE /api/admin/teachers/{user_id}/`
 *   **Admin - Gestione Template:**
-    *   `GET, POST /api/admin/quiz-templates/` (+ sub-routes per domande/opzioni)
-    *   `GET, PUT, PATCH, DELETE /api/admin/quiz-templates/{template_id}/`
+    *   `GET, POST /api/admin/quiz-templates/` (+ sub-routes per domande/opzioni; Payload POST e risposta GET includono `subject_id` (opz.), `topic_id` (opz.))
+    *   `GET, PUT, PATCH, DELETE /api/admin/quiz-templates/{template_id}/` (Payload e risposta includono `subject_id` (opz.), `topic_id` (opz.))
     *   `GET, POST /api/admin/reward-templates/` (Solo globali)
     *   `GET, PUT, PATCH, DELETE /api/admin/reward-templates/{template_id}/` (Solo globali)
 *   **Admin - Impostazioni (Opzionale):**
@@ -466,10 +471,11 @@ erDiagram
     *   `GET, POST /api/students/`
     *   `GET, PUT, PATCH, DELETE /api/students/{student_id}/`
 *   **Docente - Gestione Contenuti:**
-    *   `GET, POST /api/quizzes/` (Payload POST e risposta GET includono `subject_id`, `topic_id`, `image_url`. GET lista include `subject_name`, `subject_color_placeholder`)
-    *   `POST /api/quizzes/create-from-template/`
-    *   `GET, PUT, PATCH, DELETE /api/quizzes/{quiz_id}/` (+ sub-routes domande/opzioni; Payload e risposta includono `subject_id`, `topic_id`, `image_url`. GET include `subject_name`, `subject_color_placeholder`)
-    *   `POST /api/quizzes/{quiz_id}/assign/` (Body: `{"student_id": X}` o `{"group_id": Y}`)
+   *   **Nota UI:** Durante la creazione/modifica di un Quiz o Quiz Template (se il docente può creare template), l'interfaccia (`fe-teacher`) permetterà di selezionare opzionalmente una Materia (dall'elenco delle materie del docente definite in `fe-lessons`) e, successivamente, un Argomento (filtrato in base alla materia scelta, anch'esso da `fe-lessons`). La selezione avverrà tramite menu a tendina.
+   *   `GET, POST /api/quizzes/` (Payload POST e risposta GET includono `subject_id`, `topic_id`, `image_url`. GET lista include `subject_name`, `subject_color_placeholder`)
+   *   `POST /api/quizzes/create-from-template/` (Il payload potrebbe includere `subject_id` e `topic_id` per sovrascrivere quelli del template, se presenti, o per aggiungerli se il template non li ha)
+   *   `GET, PUT, PATCH, DELETE /api/quizzes/{quiz_id}/` (+ sub-routes domande/opzioni; Payload e risposta includono `subject_id`, `topic_id`, `image_url`. GET include `subject_name`, `subject_color_placeholder`)
+   *   `POST /api/quizzes/{quiz_id}/assign/` (Body: `{"student_id": X}` o `{"group_id": Y}`)
     *   `POST /api/quizzes/{quiz_id}/revoke/` (Body: `{"student_id": X}` o `{"group_id": Y}`)
     *   `GET, POST /api/pathways/`
     *   `GET, PUT, PATCH, DELETE /api/pathways/{pathway_id}/`

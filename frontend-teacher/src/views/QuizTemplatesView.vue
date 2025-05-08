@@ -153,6 +153,8 @@ const submitUploadForm = async () => {
           <tr>
             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider">Titolo</th> <!-- Stile th aggiornato -->
             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider">Descrizione</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider">Materia</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider">Argomento</th>
             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider">Creato il</th>
             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider">Azioni</th>
           </tr>
@@ -161,6 +163,8 @@ const submitUploadForm = async () => {
           <tr v-for="template in templates" :key="template.id" class="hover:bg-neutral-lightest transition-colors duration-150"> <!-- Usa variabile 'template', stile tr aggiornato -->
             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-neutral-darkest">{{ template.title }}</td> <!-- Stile td aggiornato -->
             <td class="px-6 py-4 whitespace-nowrap text-sm text-neutral-darker">{{ template.description || '-' }}</td> <!-- Stile td aggiornato -->
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-neutral-darker">{{ template.subject || '-' }}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-neutral-darker">{{ template.topic || '-' }}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-neutral-darker">{{ new Date(template.created_at).toLocaleDateString() }}</td> <!-- Stile td aggiornato -->
             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2"> <!-- Spazio ok -->
               <BaseButton variant="warning" size="sm" @click="editQuizTemplate(template.id)">Modifica</BaseButton> <!-- Usa BaseButton -->

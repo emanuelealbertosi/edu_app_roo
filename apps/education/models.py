@@ -52,11 +52,13 @@ class QuizTemplate(models.Model):
     )
     title = models.CharField(_('Title'), max_length=255)
     description = models.TextField(_('Description'), blank=True)
+    subject = models.CharField(_('Subject'), max_length=100, null=True, blank=True, help_text=_('E.g., Mathematics, History')) # Ripristinato CharField
+    topic = models.CharField(_('Topic'), max_length=100, null=True, blank=True, help_text=_('E.g., Algebra, World War II')) # Ripristinato CharField
     metadata = models.JSONField(
         _('Metadata'),
         default=dict,
         blank=True,
-        help_text=_('Extra data like difficulty ("easy", "medium", "hard"), subject ("Math", "History"), etc. Example: {"difficulty": "medium", "subject": "Physics"}')
+        help_text=_('Extra data like difficulty ("easy", "medium", "hard"). Example: {"difficulty": "medium"}')
     )
     created_at = models.DateTimeField(_('Created At'), auto_now_add=True)
 
@@ -232,11 +234,13 @@ class Quiz(models.Model):
     )
     title = models.CharField(_('Title'), max_length=255)
     description = models.TextField(_('Description'), blank=True, null=True) # Aggiunto null=True
+    subject = models.CharField(_('Subject'), max_length=100, null=True, blank=True, help_text=_('E.g., Mathematics, History')) # Ripristinato CharField
+    topic = models.CharField(_('Topic'), max_length=100, null=True, blank=True, help_text=_('E.g., Algebra, World War II')) # Ripristinato CharField
     metadata = models.JSONField(
         _('Metadata'),
         default=dict,
         blank=True,
-        help_text=_('E.g., difficulty, subject, completion_threshold_percent (0-100), points_on_completion. Example: {"difficulty": "hard", "completion_threshold_percent": 75.0, "points_on_completion": 10}')
+        help_text=_('E.g., difficulty, completion_threshold_percent (0-100), points_on_completion. Example: {"difficulty": "hard", "completion_threshold_percent": 75.0, "points_on_completion": 10}')
     )
     created_at = models.DateTimeField(_('Created At'), auto_now_add=True)
     available_from = models.DateTimeField(_('Available From'), null=True, blank=True)

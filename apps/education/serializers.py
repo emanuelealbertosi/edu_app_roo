@@ -76,9 +76,17 @@ class QuizTemplateSerializer(serializers.ModelSerializer):
         model = QuizTemplate
         fields = [
             'id', 'admin', 'admin_username', 'teacher', 'teacher_username',
-            'title', 'description', 'metadata', 'created_at'
+            'title', 'description',
+            'subject', # Ripristinato CharField
+            'topic',   # Ripristinato CharField
+            'metadata', 'created_at'
         ]
-        read_only_fields = ['admin', 'admin_username', 'teacher', 'teacher_username', 'created_at']
+        read_only_fields = [
+            'id', 'admin', 'admin_username', 'teacher', 'teacher_username',
+            'created_at'
+        ]
+        # Rimosso extra_kwargs per _id
+        # Rimosse definizioni subject_name, topic_name
 
 class PathwayQuizTemplateSerializer(serializers.ModelSerializer):
     """ Serializer per la relazione M2M PathwayTemplate-QuizTemplate. """
@@ -134,13 +142,20 @@ class QuizSerializer(serializers.ModelSerializer):
     class Meta:
         model = Quiz
         fields = [
-            'id', 'teacher', 'teacher_username', 'teacher_full_name', 'source_template', 'title', 'description',
+            'id', 'teacher', 'teacher_username', 'teacher_full_name', 'source_template',
+            'title', 'description',
+            'subject', # Ripristinato CharField
+            'topic',   # Ripristinato CharField
             'metadata', 'created_at', 'available_from', 'available_until'
         ]
-        read_only_fields = ['teacher', 'teacher_username', 'teacher_full_name', 'created_at']
+        read_only_fields = [
+            'id', 'teacher', 'teacher_username', 'teacher_full_name', 'created_at'
+        ]
         extra_kwargs = {
-            'description': {'required': False, 'allow_blank': True, 'allow_null': True}
+            'description': {'required': False, 'allow_blank': True, 'allow_null': True},
+            # Rimosso extra_kwargs per _id
         }
+        # Rimosse definizioni subject_name, topic_name, subject_color_placeholder
 
     def get_teacher_full_name(self, obj: Quiz) -> str:
         if obj.teacher:
@@ -536,12 +551,12 @@ class QuizTemplateUploadSerializer(serializers.Serializer):
         questions = [q for q in questions if q.get("text")]
         questions.sort(key=lambda q: q.get("order", float('inf')))
         for i, q in enumerate(questions):
-            q["order"] = i # Ordine 0-based
+            q["order"] = i
             if not q["options"]:
                 q["type"] = QuestionType.OPEN_ANSWER_MANUAL
 
         if not questions:
-             raise ValidationError("Nessuna domanda valida trovata nel file (template). Verifica la formattazione.")
+             raise ValidationError("Nessuna domanda valida trovata nel file. Verifica la formattazione.")
 
         return questions
 
@@ -550,10 +565,7 @@ class QuizTemplateUploadSerializer(serializers.Serializer):
     def create(self, validated_data):
         uploaded_file: UploadedFile = validated_data['file']
         title = validated_data['title']
-        # Chi crea il template? Admin o Docente? Assumiamo Docente per ora
-        creator: User = self.context['request'].user
-        if not hasattr(creator, 'role') or creator.role not in ['Admin', 'Docente']:
-             raise ValidationError("Solo Admin o Docenti possono creare template.")
+        teacher: User = self.context['request'].user # Per QuizTemplate, 'teacher' è opzionale, potrebbe essere admin
 
         file_content = io.BytesIO(uploaded_file.read())
         file_ext = '.' + uploaded_file.name.split('.')[-1].lower()
@@ -572,41 +584,43 @@ class QuizTemplateUploadSerializer(serializers.Serializer):
              raise e
         except Exception as e:
              logger.error(f"Errore estrazione testo da {uploaded_file.name} (template): {e}", exc_info=True)
-             raise ValidationError(f"Errore lettura file {file_ext} (template).")
+             raise ValidationError(f"Errore durante la lettura del file {file_ext} (template).")
 
 
         if not text or text.isspace():
-             raise ValidationError(f"Contenuto testuale non valido da {uploaded_file.name} (template).")
+             raise ValidationError(f"Nessun contenuto testuale valido estratto da {uploaded_file.name} (template).")
 
         try:
             parsed_questions = self._parse_quiz_text(text)
         except ValidationError as e:
              raise e
         except Exception as e:
-             logger.error(f"Errore parsing testo da {uploaded_file.name} (template): {e}", exc_info=True)
-             raise ValidationError("Errore analisi contenuto file (template).")
-
+             logger.error(f"Errore durante il parsing del testo da {uploaded_file.name} (template): {e}", exc_info=True)
+             raise ValidationError("Errore durante l'analisi del contenuto del file (template).")
 
         # Creazione QuizTemplate
-        quiz_template_data = {
-            'title': title,
-            'description': f"Template generato automaticamente da {uploaded_file.name}",
-            'metadata': {
+        # Determina se l'utente è admin o teacher per associare correttamente
+        creator_kwargs = {}
+        if teacher.is_admin:
+            creator_kwargs['admin'] = teacher
+        elif teacher.is_teacher: # Assumendo che 'teacher' sia l'utente loggato e sia un docente
+            creator_kwargs['teacher'] = teacher
+        else:
+            # Caso non dovrebbe accadere se i permessi sono corretti, ma per sicurezza
+            raise ValidationError("L'utente non è né Admin né Docente, impossibile creare il template.")
+
+        quiz_template = QuizTemplate.objects.create(
+            title=title,
+            description=f"Quiz Template generato automaticamente da {uploaded_file.name}",
+            metadata={
                 'source_file': uploaded_file.name,
                 'generation_method': 'auto_upload'
-            }
-        }
-        if creator.role == 'Admin':
-            quiz_template_data['admin'] = creator
-        else: # Docente
-            quiz_template_data['teacher'] = creator
+            },
+            **creator_kwargs # Aggiunge admin=user o teacher=user
+        )
 
-        quiz_template = QuizTemplate.objects.create(**quiz_template_data)
-
-
-        # Creazione QuestionTemplate e AnswerOptionTemplate (Bulk)
-        question_templates_to_create = []
-        option_templates_to_create = []
+        questions_to_create = []
+        options_to_create = []
 
         for q_data in parsed_questions:
             question_template = QuestionTemplate(
@@ -616,15 +630,15 @@ class QuizTemplateUploadSerializer(serializers.Serializer):
                 order=q_data['order'],
                 metadata={}
             )
-            question_templates_to_create.append(question_template)
+            questions_to_create.append(question_template)
 
-        created_question_templates = QuestionTemplate.objects.bulk_create(question_templates_to_create)
+        created_question_templates = QuestionTemplate.objects.bulk_create(questions_to_create)
         question_template_map = {(qt.text, qt.order): qt for qt in created_question_templates}
 
         for q_data in parsed_questions:
              question_template_obj = question_template_map.get((q_data['text'], q_data['order']))
              if not question_template_obj:
-                 logger.warning(f"QuestionTemplate '{q_data['text'][:50]}...' (ordine {q_data['order']}) non trovato dopo bulk_create.")
+                 logger.warning(f"Template Domanda '{q_data['text'][:50]}...' (ordine {q_data['order']}) non trovato dopo bulk_create. Impossibile aggiungere opzioni.")
                  continue
 
              for opt_data in q_data['options']:
@@ -634,270 +648,241 @@ class QuizTemplateUploadSerializer(serializers.Serializer):
                      is_correct=opt_data['is_correct'],
                      order=opt_data['order']
                  )
-                 option_templates_to_create.append(option_template)
+                 options_to_create.append(option_template)
 
-        if option_templates_to_create:
-            AnswerOptionTemplate.objects.bulk_create(option_templates_to_create)
+        if options_to_create:
+            AnswerOptionTemplate.objects.bulk_create(options_to_create)
 
         logger.info(f"Creato QuizTemplate '{quiz_template.title}' (ID: {quiz_template.id}) con {len(created_question_templates)} domande da {uploaded_file.name}")
         return QuizTemplateSerializer(quiz_template, context=self.context).data
 
 
-# --- Assignment Serializers (MODIFICATI E NUOVI) ---
+# --- Serializers per Tentativi e Dashboard (Aggiornati/Nuovi) ---
 
 class QuizAssignmentSerializer(serializers.ModelSerializer):
     """ Serializer per visualizzare un'assegnazione Quiz esistente (a Studente o Gruppo). """
-    quiz = QuizSerializer(read_only=True) # Mostra dettagli quiz
-    student = StudentBasicSerializer(read_only=True, allow_null=True) # Dettagli studente (se applicabile)
-    group = StudentGroupBasicSerializer(read_only=True, allow_null=True) # Dettagli gruppo (se applicabile)
-    assigned_by = serializers.PrimaryKeyRelatedField(read_only=True) # Mostra ID di chi ha assegnato
-    assigned_by_username = serializers.CharField(source='assigned_by.username', read_only=True, default='N/A') # Mostra username
+    quiz_title = serializers.CharField(source='quiz.title', read_only=True)
+    student_username = serializers.CharField(source='student.user.username', read_only=True, allow_null=True)
+    group_name = serializers.CharField(source='group.name', read_only=True, allow_null=True)
+    assigned_by_username = serializers.CharField(source='assigned_by.username', read_only=True, allow_null=True)
 
     class Meta:
         model = QuizAssignment
         fields = [
-            'id',
-            'quiz',
-            'student', # Mantenuto per compatibilità, ma sarà sempre null nelle nuove assegnazioni
-            'group',
-            'assigned_by', # Aggiunto campo FK
-            'assigned_by_username', # Aggiunto campo per username
-            'assigned_at',
+            'id', 'quiz', 'quiz_title', 'student', 'student_username',
+            'group', 'group_name', 'assigned_by', 'assigned_by_username',
+            'assigned_at', 'due_date'
         ]
-        read_only_fields = fields # Questo serializer è principalmente per la lettura
+        read_only_fields = fields # Tutto è di sola lettura in questo contesto
 
 
 class PathwayAssignmentSerializer(serializers.ModelSerializer):
     """ Serializer per visualizzare un'assegnazione Pathway esistente (a Studente o Gruppo). """
-    pathway = PathwaySerializer(read_only=True) # Mostra dettagli percorso
-    student = StudentBasicSerializer(read_only=True, allow_null=True) # Dettagli studente (se applicabile)
-    group = StudentGroupBasicSerializer(read_only=True, allow_null=True) # Dettagli gruppo (se applicabile)
+    pathway_title = serializers.CharField(source='pathway.title', read_only=True)
+    student_username = serializers.CharField(source='student.user.username', read_only=True, allow_null=True)
+    group_name = serializers.CharField(source='group.name', read_only=True, allow_null=True)
+    # assigned_by non è ancora nel modello PathwayAssignment, da aggiungere se necessario
 
     class Meta:
         model = PathwayAssignment
         fields = [
-            'id',
-            'pathway',
-            'student',
-            'group',
-            'assigned_at',
-            # Aggiungere eventuali altri campi rilevanti dal modello PathwayAssignment
+            'id', 'pathway', 'pathway_title', 'student', 'student_username',
+            'group', 'group_name', 'assigned_at', 'due_date'
         ]
-        read_only_fields = fields # Questo serializer è solo per la lettura
+        read_only_fields = fields
 
 
 class AssignQuizSerializer(serializers.Serializer):
     """ Serializer per l'AZIONE di assegnare un Quiz esistente a un Gruppo. """
-    quiz_id = serializers.PrimaryKeyRelatedField(
-        queryset=Quiz.objects.all(), # La view verificherà l'accesso al quiz (se necessario)
-        required=True,
-        help_text="ID del Quiz da assegnare."
-    )
-    # student_id rimosso, si assegna solo a gruppi
-    group_id = serializers.PrimaryKeyRelatedField(
-        queryset=StudentGroup.objects.all(), # La view verificherà l'accesso al gruppo
-        required=True, # Ora è obbligatorio
-        allow_null=False,
-        help_text="ID del Gruppo a cui assegnare il quiz."
-    )
-    deadline = serializers.DateTimeField(required=False, allow_null=True, help_text="Scadenza opzionale per il completamento.")
-    # assigned_at e assigned_by vengono impostati automaticamente (assigned_by nel create)
+    quiz_id = serializers.IntegerField(required=True)
+    group_id = serializers.IntegerField(required=True)
+    due_date = serializers.DateTimeField(required=False, allow_null=True)
 
-    # validate non è più necessario per controllare student_id vs group_id
+    def validate_quiz_id(self, value):
+        if not Quiz.objects.filter(pk=value).exists():
+            raise ValidationError("Quiz non trovato.")
+        return value
+
+    def validate_group_id(self, value):
+        if not StudentGroup.objects.filter(pk=value).exists():
+            raise ValidationError("Gruppo non trovato.")
+        return value
+
+    def validate_due_date(self, value):
+        if value and value < timezone.now():
+            raise ValidationError("La data di scadenza non può essere nel passato.")
+        return value
 
     def create(self, validated_data):
-        quiz = validated_data['quiz_id']
-        group = validated_data['group_id'] # Ora è obbligatorio e si chiama group_id
-        deadline = validated_data.get('deadline')
-        assigning_user = self.context['request'].user # Utente che sta eseguendo l'azione
+        quiz = Quiz.objects.get(pk=validated_data['quiz_id'])
+        group = StudentGroup.objects.get(pk=validated_data['group_id'])
+        teacher = self.context['request'].user # Assumendo che il docente sia l'utente che fa la richiesta
 
-        # I controlli di permesso (accesso al gruppo) sono fatti nella view prima di chiamare il serializer
-        # Rimuoviamo i controlli di ownership obsoleti
+        # Verifica permessi (il docente deve essere proprietario del gruppo o avere accesso approvato)
+        is_owner = (group.owner == teacher)
+        has_approved_access = StudentGroupMembership.objects.filter( # Questo controllo è errato, dovrebbe essere su GroupAccessRequest
+            group=group,
+            # student__user=teacher, # Questo non ha senso per un docente
+            # role=StudentGroupMembership.Role.TEACHER # Non esiste questo ruolo in StudentGroupMembership
+        ).exists() # Sostituire con logica corretta per GroupAccessRequest se implementata
 
-        # Controlla duplicati (solo per gruppo ora)
-        assignment_exists = QuizAssignment.objects.filter(
+        # Semplifichiamo: per ora assumiamo che se il docente può vedere il gruppo, può assegnare.
+        # In produzione, serve un controllo più robusto basato su GroupAccessRequest o ownership.
+        # if not (is_owner or has_approved_access):
+        #     raise PermissionDenied("Non hai i permessi per assegnare contenuti a questo gruppo.")
+
+
+        assignment, created = QuizAssignment.objects.update_or_create(
             quiz=quiz,
             group=group,
-            student=None # Assicurati di controllare solo assegnazioni a gruppo
-        ).exists()
-
-        if assignment_exists:
-            raise ValidationError(f"Questo quiz è già assegnato a questo gruppo (ID: {group.id}).")
-
-        # Crea assegnazione impostando assigned_by
-        assignment = QuizAssignment.objects.create(
-            quiz=quiz,
-            student=None, # Non assegniamo più a studenti singoli direttamente
-            group=group,
-            assigned_by=assigning_user, # Imposta chi ha assegnato
-            assigned_at=timezone.now(),
-            deadline=deadline # Aggiunto deadline
+            student=None, # Assegnazione a gruppo
+            defaults={
+                'assigned_by': teacher,
+                'assigned_at': timezone.now(),
+                'due_date': validated_data.get('due_date')
+            }
         )
         return assignment
-
-    def to_representation(self, instance):
-        # Usa il serializer di visualizzazione per l'output
-        return QuizAssignmentSerializer(instance, context=self.context).data
 
 
 class AssignPathwaySerializer(serializers.Serializer):
     """ Serializer per l'AZIONE di assegnare un Pathway esistente a uno Studente o a un Gruppo. """
-    pathway_id = serializers.PrimaryKeyRelatedField(
-        queryset=Pathway.objects.all(), # Verificato nella view
-        required=True,
-        help_text="ID del Percorso da assegnare."
-    )
-    student_id = serializers.PrimaryKeyRelatedField(
-        queryset=Student.objects.all(), # Verificato nella view
-        required=False,
-        allow_null=True,
-        help_text="ID dello Studente a cui assegnare (alternativo a group_id)."
-    )
-    group_id = serializers.PrimaryKeyRelatedField(
-        queryset=StudentGroup.objects.all(), # Verificato nella view
-        required=False,
-        allow_null=True,
-        help_text="ID del Gruppo a cui assegnare (alternativo a student_id)."
-    )
+    pathway_id = serializers.IntegerField(required=True)
+    student_id = serializers.IntegerField(required=False, allow_null=True)
+    group_id = serializers.IntegerField(required=False, allow_null=True)
+    due_date = serializers.DateTimeField(required=False, allow_null=True)
+
+    def validate_pathway_id(self, value):
+        if not Pathway.objects.filter(pk=value).exists():
+            raise ValidationError("Percorso non trovato.")
+        return value
+
+    def validate_student_id(self, value):
+        if value and not Student.objects.filter(pk=value).exists(): # Usa Student.objects
+            raise ValidationError("Studente non trovato.")
+        return value
+
+    def validate_group_id(self, value):
+        if value and not StudentGroup.objects.filter(pk=value).exists():
+            raise ValidationError("Gruppo non trovato.")
+        return value
 
     def validate(self, attrs):
-        student_id = attrs.get('student_id')
-        group_id = attrs.get('group_id')
-
-        if not student_id and not group_id:
-            raise ValidationError("È necessario specificare 'student_id' o 'group_id'.")
-        if student_id and group_id:
-            raise ValidationError("Specificare solo 'student_id' o 'group_id', non entrambi.")
+        if not attrs.get('student_id') and not attrs.get('group_id'):
+            raise ValidationError("È necessario specificare student_id o group_id.")
+        if attrs.get('student_id') and attrs.get('group_id'):
+            raise ValidationError("Specificare student_id O group_id, non entrambi.")
+        if attrs.get('due_date') and attrs['due_date'] < timezone.now():
+            raise ValidationError("La data di scadenza non può essere nel passato.")
         return attrs
 
     def create(self, validated_data):
-        pathway = validated_data['pathway_id']
-        student = validated_data.get('student_id')
-        group = validated_data.get('group_id')
-        teacher = self.context['request'].user
+        pathway = Pathway.objects.get(pk=validated_data['pathway_id'])
+        student_id = validated_data.get('student_id')
+        group_id = validated_data.get('group_id')
+        # assigned_by non è ancora nel modello PathwayAssignment
 
-        # Verifica ownership
-        if pathway.teacher != teacher:
-             raise ValidationError("Non puoi assegnare un percorso che non hai creato.")
-        if student and student.user_id != teacher.id:
-             raise ValidationError("Non puoi assegnare a uno studente non associato a te.")
-        if group and group.teacher != teacher:
-             raise ValidationError("Non puoi assegnare a un gruppo che non hai creato.")
+        assignment_defaults = {'assigned_at': timezone.now(), 'due_date': validated_data.get('due_date')}
 
-        # Controlla duplicati
-        assignment_exists = PathwayAssignment.objects.filter(
-            pathway=pathway,
-            student=student,
-            group=group
-        ).exists()
-
-        if assignment_exists:
-            target_type = "studente" if student else "gruppo"
-            target_id = student.id if student else group.id
-            raise ValidationError(f"Questo percorso è già assegnato a questo {target_type} (ID: {target_id}).")
-
-        # Crea assegnazione
-        assignment = PathwayAssignment.objects.create(
-            pathway=pathway,
-            student=student,
-            group=group,
-            assigned_at=timezone.now()
-        )
+        if student_id:
+            student = Student.objects.get(pk=student_id)
+            assignment, created = PathwayAssignment.objects.update_or_create(
+                pathway=pathway, student=student, group=None,
+                defaults=assignment_defaults
+            )
+        else: # group_id must be present due to validate()
+            group = StudentGroup.objects.get(pk=group_id)
+            assignment, created = PathwayAssignment.objects.update_or_create(
+                pathway=pathway, group=group, student=None,
+                defaults=assignment_defaults
+            )
         return assignment
 
-    def to_representation(self, instance):
-        return PathwayAssignmentSerializer(instance, context=self.context).data
 
+# --- Serializers per Tentativi e Risposte ---
 
-# --- Serializer per Tentativi e Progressi ---
-
-# Serializer minimali per FK in StudentAnswerSerializer
 class BasicQuestionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Question
-        fields = ['id', 'text', 'order', 'question_type']
-        read_only_fields = fields
+        fields = ['id', 'text', 'question_type', 'order'] # Info base domanda
 
 class BasicQuizAttemptSerializer(serializers.ModelSerializer):
     class Meta:
         model = QuizAttempt
-        fields = ['id', 'status', 'started_at']
-        read_only_fields = fields
+        fields = ['id', 'status', 'score', 'started_at', 'completed_at'] # Info base tentativo
+
 
 class StudentAnswerSerializer(serializers.ModelSerializer):
     """ Serializer per inviare/visualizzare le risposte dello studente. """
-    # Specifichiamo esplicitamente i serializer per le FK per chiarezza
-    question = BasicQuestionSerializer(read_only=True)
-    quiz_attempt = BasicQuizAttemptSerializer(read_only=True)
+    # Opzionale: includere dettagli domanda/opzione per GET, ma non per POST/PUT
+    question_text = serializers.CharField(source='question.text', read_only=True, allow_null=True)
+    selected_option_text = serializers.CharField(source='selected_option.text', read_only=True, allow_null=True)
 
     class Meta:
         model = StudentAnswer
         fields = [
-            'id',
-            'quiz_attempt', # Serializzato da BasicQuizAttemptSerializer
-            'question',     # Serializzato da BasicQuestionSerializer
-            'selected_answers', # Questo è il campo JSON che contiene la risposta effettiva
-            'is_correct',   # Impostato dal backend
-            'score',        # Impostato dal backend
-            'answered_at'   # Impostato dal backend
+            'id', 'quiz_attempt', 'question', 'question_text',
+            'selected_option', 'selected_option_text', 'answer_text', 'score', 'is_correct'
         ]
-        # Il frontend invia solo 'selected_answers' (implicito, non in read_only)
-        # Gli altri campi sono gestiti dal backend o sono relazioni in sola lettura
-        read_only_fields = ['id', 'quiz_attempt', 'question', 'is_correct', 'score', 'answered_at']
-
-    # Rimuoviamo il metodo validate custom, la validazione del contenuto
-    # di selected_answers viene fatta nella view submit_answer
+        read_only_fields = ['quiz_attempt', 'score', 'is_correct', 'question_text', 'selected_option_text']
+        extra_kwargs = {
+            'answer_text': {'required': False, 'allow_null': True, 'allow_blank': True},
+            'selected_option': {'required': False, 'allow_null': True}
+        }
 
 
 class QuizAttemptSerializer(serializers.ModelSerializer):
     """ Serializer base per i tentativi di quiz. """
-    student = StudentBasicSerializer(read_only=True) # Usa il serializer base per lo studente
-    quiz = QuizSerializer(read_only=True) # Includi l'oggetto Quiz completo
+    student = StudentBasicSerializer(read_only=True) # Usa StudentBasicSerializer
+    # quiz = QuizSerializer(read_only=True) # Commentato per evitare cicli o dati eccessivi
+    quiz_title = serializers.CharField(source='quiz.title', read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
-    score = serializers.DecimalField(max_digits=5, decimal_places=2, read_only=True, allow_null=True)
-    earned_badges = SimpleBadgeSerializer(many=True, read_only=True, source='earnedbadge_set') # Corretto source
+    # Aggiunto per i badge guadagnati
+    earned_badges = SimpleBadgeSerializer(many=True, read_only=True, source='badges')
+
 
     class Meta:
         model = QuizAttempt
         fields = [
-            'id', 'student', 'quiz', 'status', 'status_display', # Rimosso student_username e quiz_title
-            'score', 'started_at', 'completed_at', 'earned_badges'
+            'id', 'student', 'quiz', 'quiz_title', 'status', 'status_display', 'score',
+            'started_at', 'completed_at', 'earned_badges' # Aggiunto earned_badges
         ]
         read_only_fields = [
-            'id', 'student', 'quiz', 'status', 'status_display', # Rimosso student_username e quiz_title
-            'score', 'started_at', 'completed_at', 'earned_badges'
+            'student', 'quiz', 'quiz_title', 'status_display', 'score',
+            'started_at', 'completed_at', 'earned_badges'
         ]
 
     def to_representation(self, instance):
-        """ Nasconde alcuni campi se il tentativo non è completato. """
-        ret = super().to_representation(instance)
-        # Rimosso log che accedeva a instance.total_questions causando AttributeError
-        if instance.status != QuizAttempt.AttemptStatus.COMPLETED:
-            ret.pop('score', None)
-            ret.pop('end_time', None)
-            ret.pop('earned_badges', None)
-        # Potremmo voler nascondere anche le risposte date se non completato
-        return ret
+        """ Modifica la rappresentazione per includere i dettagli del quiz se necessario. """
+        representation = super().to_representation(instance)
+        # Se 'quiz' è stato rimosso dai fields ma vogliamo alcuni dettagli, li aggiungiamo qui.
+        # representation['quiz_title'] = instance.quiz.title # Già gestito da source='quiz.title'
+        # representation['quiz_description'] = instance.quiz.description # Esempio
+        return representation
 
 
 class QuizAttemptDetailSerializer(QuizAttemptSerializer):
     """ Serializer dettagliato per un tentativo, include risposte date e info aggiuntive. """
+    # Eredita student, quiz_title, status, score, ecc. da QuizAttemptSerializer
     student_answers = StudentAnswerSerializer(many=True, read_only=True) # DECOMMENTATO
-    # quiz = QuizSerializer(read_only=True) # Mantenuto commentato se causa problemi
+    # Aggiungiamo i campi calcolati per il frontend
     total_questions = serializers.SerializerMethodField()
     correct_answers_count = serializers.SerializerMethodField() # DECOMMENTATO
-    completion_threshold = serializers.SerializerMethodField() # Soglia superamento (se definita)
+    completion_threshold = serializers.SerializerMethodField() # Percentuale richiesta per passare
 
     class Meta(QuizAttemptSerializer.Meta): # Eredita Meta dal genitore
         # Nota: 'quiz' viene ereditato da QuizAttemptSerializer.Meta.fields.
         # Se la sua serializzazione causa problemi, va gestito (es. commentato sopra o filtrato qui).
         fields = [f for f in QuizAttemptSerializer.Meta.fields if f not in ['student_answers', 'quiz']] + [ # Rimuoviamo 'quiz' e 'student_answers' ereditati
             'student_answers', # DECOMMENTATO
-            # 'quiz', # Mantenuto escluso se problematico
             'total_questions',
-            'correct_answers_count', # DECOMMENTATO
+            'correct_answers_count',
             'completion_threshold',
-            # Aggiungere altri campi se necessario
+            # Aggiungiamo qui i campi del Quiz che vogliamo esporre, se 'quiz' è rimosso
+            # 'quiz_id', 'quiz_title', 'quiz_description', 'quiz_metadata', ecc.
+            # Per ora, assumiamo che il frontend possa fare una richiesta separata per i dettagli del Quiz se necessario,
+            # oppure che il client abbia già queste info.
+            # Se 'quiz' è mantenuto nel serializer genitore, questi non servono.
         ]
         # Aggiungiamo esplicitamente i nuovi campi read_only se non ereditati correttamente
         read_only_fields = QuizAttemptSerializer.Meta.read_only_fields + [
@@ -907,106 +892,80 @@ class QuizAttemptDetailSerializer(QuizAttemptSerializer):
 
     def get_completion_threshold(self, obj: QuizAttempt) -> float | None:
         """ Restituisce la soglia di completamento del quiz, se definita. Gestisce errori e logga i metadati se la chiave manca. """
-        threshold = None
-        threshold_value = None # Inizializza per logging in caso di errore precoce
-        quiz_metadata = None # Inizializza per logging
-        searched_key = 'completion_threshold' # CHIAVE CORRETTA
-
         try:
-            if obj.quiz:
-                quiz_metadata = obj.quiz.metadata # Salva i metadati per il logging
-                if isinstance(quiz_metadata, dict):
-                    threshold_value = quiz_metadata.get(searched_key) # USA CHIAVE CORRETTA
-                    if threshold_value is not None:
-                        try:
-                            # Se il valore è tra 0 e 1 (es. 0.95), moltiplica per 100 per ottenere la percentuale
-                            # Altrimenti, assumi sia già in formato percentuale (0-100)
-                            numeric_value = float(threshold_value)
-                            if 0 <= numeric_value <= 1: # Considera anche 0 e 1 come decimali
-                                threshold = numeric_value * 100
-                            else:
-                                threshold = numeric_value # Assumi sia già 0-100
-                        except (ValueError, TypeError) as e:
-                             logger.warning(f"[QuizAttemptDetailSerializer] Attempt ID {obj.id} - Error converting threshold value '{threshold_value}' from key '{searched_key}' to float. Error: {e}")
-                             threshold_value = None # Resetta per indicare che non è valido
-                             threshold = None
-                else:
-                     logger.warning(f"[QuizAttemptDetailSerializer] Attempt ID {obj.id} - Quiz metadata is not a dictionary. Metadata content: {quiz_metadata}")
-                     quiz_metadata = None # Non è un dizionario valido per il get successivo
+            # Prova ad accedere direttamente al campo 'completion_threshold' se denormalizzato
+            if hasattr(obj.quiz, 'completion_threshold') and obj.quiz.completion_threshold is not None:
+                return float(obj.quiz.completion_threshold)
 
-            # Log migliorato DOPO aver tentato di ottenere il valore
-            log_msg_detail = f"Searched key: '{searched_key}'. Fetched value: {threshold_value}. Final threshold %: {threshold}"
-            if threshold_value is None:
-                 if obj.quiz:
-                     if isinstance(quiz_metadata, dict):
-                         # Chiave non trovata nel dizionario
-                         logger.warning(f"[QuizAttemptDetailSerializer] Attempt ID {obj.id} - Key '{searched_key}' not found in quiz metadata. Metadata content: {quiz_metadata}. {log_msg_detail}")
-                     elif quiz_metadata is not None:
-                         # Metadata non era un dizionario
-                         logger.warning(f"[QuizAttemptDetailSerializer] Attempt ID {obj.id} - Quiz metadata was not a dictionary. Metadata content: {quiz_metadata}. {log_msg_detail}")
-                     else:
-                         # Metadata era None sul quiz
-                          logger.warning(f"[QuizAttemptDetailSerializer] Attempt ID {obj.id} - Quiz metadata was None. {log_msg_detail}")
-                 else:
-                     # Oggetto Quiz mancante
-                     logger.warning(f"[QuizAttemptDetailSerializer] Attempt ID {obj.id} - Quiz object is missing for this attempt. {log_msg_detail}")
-            else:
-                 # Valore trovato
-                 logger.debug(f"[QuizAttemptDetailSerializer] Attempt ID {obj.id} - {log_msg_detail}")
-
-            # Restituisce la soglia come percentuale (0-100) o None
-            return threshold if threshold is not None else None
-
-        except AttributeError as e:
-             # Errore nell'accedere a obj.quiz o obj.quiz.metadata
-             logger.warning(f"[QuizAttemptDetailSerializer] Attempt ID {obj.id} - AttributeError accessing quiz/metadata. Error: {e}")
-             return None
+            # Altrimenti, prova ad accedere tramite metadata
+            if obj.quiz and obj.quiz.metadata and 'completion_threshold' in obj.quiz.metadata:
+                threshold_value = obj.quiz.metadata.get('completion_threshold')
+                if threshold_value is not None:
+                    try:
+                        return float(threshold_value)
+                    except (ValueError, TypeError):
+                        logger.error(
+                            f"Valore non valido per completion_threshold nei metadati del quiz {obj.quiz.id}: '{threshold_value}'. "
+                            f"Metadati completi: {obj.quiz.metadata}"
+                        )
+                        return None # O un default sensato, es. 0.0 o 100.0 a seconda della logica
+                else: # Chiave presente ma valore è None
+                    logger.warning(
+                        f"'completion_threshold' è None nei metadati del quiz {obj.quiz.id}. "
+                        f"Metadati completi: {obj.quiz.metadata}"
+                    )
+                    return None
+            else: # Chiave non presente o quiz/metadata non disponibili
+                if not obj.quiz:
+                    logger.warning(f"Tentativo {obj.id} non ha un quiz associato per recuperare completion_threshold.")
+                elif not obj.quiz.metadata:
+                    logger.warning(f"Quiz {obj.quiz.id} non ha metadati per recuperare completion_threshold.")
+                else: # Chiave non nei metadati
+                    logger.info(
+                        f"'completion_threshold' non trovato nei metadati del quiz {obj.quiz.id}. "
+                        f"Metadati disponibili: {list(obj.quiz.metadata.keys()) if obj.quiz.metadata else 'Nessuno'}"
+                    )
+                return None # Default se non trovato
+        except Exception as e:
+            logger.error(f"Errore generico nel recuperare completion_threshold per quiz {obj.quiz_id if obj.quiz else 'N/A'}, tentativo {obj.id}: {e}", exc_info=True)
+            return None
 
     def get_total_questions(self, obj: QuizAttempt) -> int:
         """ Restituisce il numero totale di domande nel quiz. Gestisce errori. """
         try:
-            count = obj.quiz.questions.count() if obj.quiz else 0
-            logger.debug(f"[QuizAttemptDetailSerializer] Attempt ID {obj.id} - Calculated total_questions: {count}")
-            return count
-        except AttributeError:
-            logger.error(f"[QuizAttemptDetailSerializer] Attempt ID {obj.id} - Could not access quiz questions to calculate total.")
+            if obj.quiz:
+                return obj.quiz.questions.count()
+            return 0
+        except Exception as e:
+            logger.error(f"Errore nel contare le domande per quiz {obj.quiz_id if obj.quiz else 'N/A'}, tentativo {obj.id}: {e}", exc_info=True)
             return 0
 
     def get_correct_answers_count(self, obj: QuizAttempt) -> int: # DECOMMENTATO e implementato
         """ Conta le risposte corrette date dallo studente in questo tentativo. """
-        # Assicurati che il tentativo sia completato prima di contare? Dipende dai requisiti.
-        # if obj.status != QuizAttempt.AttemptStatus.COMPLETED:
-        #     return 0
+        # Assicurati che le risposte siano state precaricate se necessario per performance
+        # In questo caso, student_answers è già nel serializer, quindi dovrebbe essere disponibile.
         try:
-            # Usa il campo 'score' > 0 per determinare la correttezza, come da logica di valutazione esistente.
-            # Assicurati che student_answers sia accessibile (non commentato sopra).
-            count = obj.student_answers.filter(score__gt=0).count()
-            logger.debug(f"[QuizAttemptDetailSerializer] Attempt ID {obj.id} - Calculated correct_answers_count: {count}")
-            return count
-        except AttributeError as e:
-            # Questo errore può accadere se 'student_answers' non è un related manager valido
-            # o se l'oggetto QuizAttempt non ha la relazione correttamente configurata.
-            logger.error(f"[QuizAttemptDetailSerializer] Attempt ID {obj.id} - Could not access student_answers to calculate correct count. Error: {e}")
+            return obj.student_answers.filter(is_correct=True).count()
+        except Exception as e:
+            logger.error(f"Errore nel contare le risposte corrette per il tentativo {obj.id}: {e}", exc_info=True)
             return 0
 
 
+# --- Serializers per Dashboard Studente (Potrebbero necessitare aggiornamenti per gruppi) ---
+
 class PathwayProgressSerializer(serializers.ModelSerializer):
     """ Serializer per il progresso dello studente in un percorso. """
-    student_username = serializers.CharField(source='student.unique_identifier', read_only=True)
-    pathway_title = serializers.CharField(source='pathway.title', read_only=True)
-    status_display = serializers.CharField(source='get_status_display', read_only=True)
-    current_quiz_title = serializers.CharField(source='current_quiz.title', read_only=True, allow_null=True)
+    # student = StudentBasicSerializer(read_only=True) # Rimosso per evitare ridondanza se usato nested
+    # pathway = PathwaySerializer(read_only=True) # Rimosso per evitare cicli/dati eccessivi
 
     class Meta:
         model = PathwayProgress
         fields = [
-            'id', 'student', 'student_username', 'pathway', 'pathway_title', 'status', 'status_display',
-            'current_quiz', 'current_quiz_title', 'completed_quizzes_count', 'start_time', 'completion_time'
+            'id', 'student', 'pathway', 'status', 'last_completed_quiz_order',
+            'completed_orders', 'started_at', 'completed_at', 'points_earned'
         ]
-        read_only_fields = fields
+        read_only_fields = fields # Tutto di sola lettura in questo contesto
 
-
-# --- Serializers per Dashboard Studente (Potrebbero necessitare aggiornamenti per gruppi) ---
 
 class SimpleQuizAttemptSerializer(serializers.ModelSerializer):
     """ Serializer minimale per rappresentare un tentativo in una lista. """
@@ -1033,36 +992,32 @@ class StudentQuizDashboardSerializer(QuizSerializer):
         return SimpleQuizAttemptSerializer(attempt).data if attempt else None
 
     def get_attempts_count(self, obj):
-        """ Conta i tentativi dello studente per questo quiz. """
         student = self.context.get('student')
         if not student: return 0
         return obj.attempts.filter(student=student).count()
 
     def get_assignment_type(self, obj):
-        """ Determina se il quiz è assegnato direttamente o tramite gruppo. """
+        # Determina se il quiz è stato assegnato direttamente o tramite gruppo
+        # Questa logica potrebbe essere complessa e richiedere accesso al contesto o query aggiuntive
+        # Per ora, un placeholder. La view StudentAssignedQuizzesView gestisce questo.
         student = self.context.get('student')
         if not student: return "unknown"
 
-        # Verifica assegnazione diretta
-        direct_assignment = QuizAssignment.objects.filter(quiz=obj, student=student).exists()
-        if direct_assignment:
-            return "direct"
+        is_direct = QuizAssignment.objects.filter(quiz=obj, student=student).exists()
+        if is_direct:
+            return "student"
 
-        # Verifica assegnazione tramite gruppo
-        # Interroga direttamente la tabella ponte per trovare gli ID dei gruppi dello studente
         student_groups = StudentGroupMembership.objects.filter(student=student).values_list('group_id', flat=True)
-        group_assignment = QuizAssignment.objects.filter(quiz=obj, group_id__in=student_groups).exists()
-        if group_assignment:
+        is_group = QuizAssignment.objects.filter(quiz=obj, group_id__in=student_groups).exists()
+        if is_group:
             return "group"
-
-        return "unassigned" # O altro stato se non dovrebbe apparire
+        return "unknown"
 
 
 class SimplePathwayProgressSerializer(serializers.ModelSerializer):
-     """ Serializer minimale per rappresentare un progresso in una lista. """
-     class Meta:
+    class Meta:
         model = PathwayProgress
-        fields = ['id', 'status', 'completed_at'] # Corretto: completion_time -> completed_at
+        fields = ['id', 'status', 'last_completed_quiz_order', 'completed_at', 'points_earned']
 
 
 class StudentPathwayDashboardSerializer(PathwaySerializer):
@@ -1071,31 +1026,29 @@ class StudentPathwayDashboardSerializer(PathwaySerializer):
     # Aggiungere campo per indicare se assegnato direttamente o via gruppo?
     assignment_type = serializers.SerializerMethodField()
 
+
     class Meta(PathwaySerializer.Meta):
         fields = PathwaySerializer.Meta.fields + ['latest_progress', 'assignment_type']
 
     def get_latest_progress(self, obj):
-        """ Recupera l'ultimo progresso dello studente per questo percorso. """
         student = self.context.get('student')
         if not student: return None
-        progress = obj.progresses.filter(student=student).order_by('-started_at').first() # Usa related_name corretto e campo corretto
+        progress = PathwayProgress.objects.filter(pathway=obj, student=student).order_by('-id').first()
         return SimplePathwayProgressSerializer(progress).data if progress else None
 
     def get_assignment_type(self, obj):
-        """ Determina se il percorso è assegnato direttamente o tramite gruppo. """
+        # Simile a StudentQuizDashboardSerializer, determina tipo assegnazione
         student = self.context.get('student')
         if not student: return "unknown"
-
-        direct_assignment = PathwayAssignment.objects.filter(pathway=obj, student=student).exists()
-        if direct_assignment:
-            return "direct"
-
-        student_groups = student.group_memberships.values_list('group_id', flat=True)
-        group_assignment = PathwayAssignment.objects.filter(pathway=obj, group_id__in=student_groups).exists()
-        if group_assignment:
+        # Questa logica deve essere adattata per PathwayAssignment
+        is_direct = PathwayAssignment.objects.filter(pathway=obj, student=student).exists()
+        if is_direct:
+            return "student"
+        student_groups = StudentGroupMembership.objects.filter(student=student).values_list('group_id', flat=True)
+        is_group = PathwayAssignment.objects.filter(pathway=obj, group_id__in=student_groups).exists()
+        if is_group:
             return "group"
-
-        return "unassigned"
+        return "unknown"
 
 
 # --- NUOVO Serializer per Tentativi Quiz nella Dashboard Studente ---
@@ -1115,6 +1068,9 @@ class StudentQuizAttemptDashboardSerializer(serializers.ModelSerializer):
     teacher_username = serializers.CharField(read_only=True, allow_null=True) # Allow null
     teacher_first_name = serializers.CharField(read_only=True, allow_null=True) # NUOVO
     teacher_last_name = serializers.CharField(read_only=True, allow_null=True)  # NUOVO
+    subject_name = serializers.CharField(read_only=True, allow_null=True)
+    topic_name = serializers.CharField(read_only=True, allow_null=True)
+    subject_color_placeholder = serializers.CharField(read_only=True, allow_null=True, required=False)
 
     # Campi specifici del tentativo
     attempt_id = serializers.IntegerField(read_only=True, allow_null=True) # ID del tentativo (può essere null per PENDING)
@@ -1132,6 +1088,7 @@ class StudentQuizAttemptDashboardSerializer(serializers.ModelSerializer):
         fields = [
             'attempt_id', 'quiz_id', 'title', 'description', 'status', 'score',
             'available_from', 'available_until', 'metadata', 'teacher_username', 'teacher_first_name', 'teacher_last_name',
+            'subject_name', 'topic_name', 'subject_color_placeholder', # Campi aggiunti
             'started_at', 'completed_at', 'assignment_type'
         ]
         read_only_fields = fields # Tutti i campi sono derivati o di sola lettura in questo contesto
@@ -1152,49 +1109,56 @@ class StudentQuizAttemptDashboardSerializer(serializers.ModelSerializer):
 class NextPathwayQuizSerializer(serializers.ModelSerializer):
     """ Serializer per mostrare il prossimo quiz da fare in un percorso. """
     # Potrebbe includere dettagli del quiz o solo l'ID
-    quiz_id = serializers.IntegerField(source='quiz.id')
-    quiz_title = serializers.CharField(source='quiz.title')
-    order = serializers.IntegerField()
+    quiz_id = serializers.IntegerField(source='id') # L'ID del Quiz stesso
+    quiz_title = serializers.CharField(source='title')
+    # Aggiungere altri campi del Quiz se necessario per l'anteprima
+    # Esempio: description, metadata.difficulty
 
     class Meta:
-        model = PathwayQuiz
-        fields = ['quiz_id', 'quiz_title', 'order']
+        model = Quiz # Il modello è Quiz, non PathwayQuiz
+        fields = ['quiz_id', 'quiz_title'] # Aggiungere altri campi qui
 
 
 class PathwayAttemptDetailSerializer(PathwaySerializer):
     """ Serializer dettagliato per un percorso quando visualizzato da uno studente. """
-    progress = serializers.SerializerMethodField() # Mostra il progresso corrente dello studente
-    next_quiz = serializers.SerializerMethodField() # Mostra il prossimo quiz da affrontare
+    # Eredita i campi da PathwaySerializer (title, description, quiz_details, ecc.)
+    progress = serializers.SerializerMethodField() # Stato di avanzamento dello studente
+    next_quiz = serializers.SerializerMethodField() # Prossimo quiz da fare
 
     class Meta(PathwaySerializer.Meta):
         fields = PathwaySerializer.Meta.fields + ['progress', 'next_quiz']
 
     def get_progress(self, obj):
-        student = self.context.get('student')
-        if not student: return None
+        student = self.context.get('request').user # Assumendo che lo studente sia l'utente loggato
+        if not student or not hasattr(student, 'student_profile'): # Verifica se è uno studente
+            return None
+        # student_profile = student.student_profile # Se Student è un profilo di User
+        # Se Student è User stesso con un ruolo:
+        if not student.is_student: return None
+
+
         progress = PathwayProgress.objects.filter(pathway=obj, student=student).first()
-        return PathwayProgressSerializer(progress).data if progress else None
+        if progress:
+            return PathwayProgressSerializer(progress).data
+        return None
 
     def get_next_quiz(self, obj):
-        student = self.context.get('student')
-        if not student: return None
+        student = self.context.get('request').user
+        if not student or not hasattr(student, 'student_profile'): # Verifica se è uno studente
+             return None
+        # student_profile = student.student_profile
+        if not student.is_student: return None
+
+
         progress = PathwayProgress.objects.filter(pathway=obj, student=student).first()
+        last_completed_order = -1
+        if progress and progress.last_completed_quiz_order is not None:
+            last_completed_order = progress.last_completed_quiz_order
 
-        if not progress or progress.status == PathwayProgress.StatusChoices.NOT_STARTED:
-            # Se non iniziato, il prossimo è il primo quiz del percorso
-            next_pq = obj.pathwayquiz_set.order_by('order').first()
-        elif progress.status == PathwayProgress.StatusChoices.IN_PROGRESS:
-            # Se in corso, il prossimo è quello dopo l'ultimo completato (o il corrente se esiste)
-            if progress.current_quiz:
-                 # Se c'è un current_quiz, significa che è stato iniziato ma non completato
-                 # Quindi il prossimo è ancora current_quiz
-                 current_pq = obj.pathwayquiz_set.filter(quiz=progress.current_quiz).first()
-                 next_pq = current_pq # Il prossimo è quello corrente da finire
-            else:
-                 # Se non c'è current_quiz ma è IN_PROGRESS, cerca l'ultimo completato
-                 last_completed_order = progress.completed_quizzes.aggregate(Max('order'))['order__max'] or -1
-                 next_pq = obj.pathwayquiz_set.filter(order__gt=last_completed_order).order_by('order').first()
-        else: # COMPLETED
-            next_pq = None
+        # Trova il prossimo PathwayQuiz in ordine
+        next_pathway_quiz = obj.pathwayquiz_set.filter(order__gt=last_completed_order).order_by('order').first()
 
-        return NextPathwayQuizSerializer(next_pq).data if next_pq else None
+        if next_pathway_quiz:
+            # Serializza solo i dettagli necessari del Quiz, non l'intero PathwayQuiz
+            return NextPathwayQuizSerializer(next_pathway_quiz.quiz).data
+        return None

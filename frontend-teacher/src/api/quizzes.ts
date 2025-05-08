@@ -9,6 +9,12 @@ export interface Quiz {
   source_template: number | null; // ID del template sorgente, se esiste
   title: string;
   description: string | null;
+  subject?: string | null; // Campo per il nome della materia (stringa)
+  topic?: string | null;   // Campo per il nome dell'argomento (stringa)
+  subject_id?: number | null; // ID per la selezione nel frontend (opzionale, se l'API lo invia ancora)
+  topic_id?: number | null;   // ID per la selezione nel frontend (opzionale, se l'API lo invia ancora)
+  subject_color_placeholder?: string | null; // Aggiunto per coerenza con design doc
+  image_url?: string | null; // Aggiunto per coerenza con design doc
   metadata: Record<string, any> | null; // Oggetto JSON generico
   created_at: string; // Formato ISO 8601
   available_from: string | null; // Formato ISO 8601
@@ -25,6 +31,10 @@ export interface QuizTemplate {
   teacher_username?: string; // Opzionale (da aggiungere al serializer backend se necessario)
   title: string;
   description: string | null;
+  subject?: string | null; // Campo per il nome della materia (stringa)
+  topic?: string | null;   // Campo per il nome dell'argomento (stringa)
+  subject_id?: number | null; // ID per la selezione nel frontend (opzionale)
+  topic_id?: number | null;   // ID per la selezione nel frontend (opzionale)
   metadata: Record<string, any> | null;
   created_at: string; // Formato ISO 8601
 }
@@ -34,6 +44,8 @@ export interface QuizTemplate {
 export interface QuizTemplatePayload {
     title: string;
     description?: string | null;
+    subject?: string | null; // Nome della materia
+    topic?: string | null;   // Nome dell'argomento
     metadata?: Record<string, any> | null;
     // admin/teacher vengono impostati automaticamente dal backend
 }
@@ -44,6 +56,9 @@ export interface QuizTemplatePayload {
 export interface QuizPayload {
     title: string;
     description?: string | null;
+    subject?: string | null; // Nome della materia
+    topic?: string | null;   // Nome dell'argomento
+    image_url?: string | null; // Aggiunto per coerenza con design doc
     source_template?: number | null;
     metadata?: Record<string, any> | null;
     available_from?: string | null; // Formato ISO 8601

@@ -14,6 +14,32 @@
         <label for="description" class="block text-sm font-medium text-neutral-darker mb-1">Descrizione (Obbligatorio):</label> <!-- Stile label aggiornato -->
         <textarea id="description" v-model="templateData.description" class="shadow-sm focus:ring-primary focus:border-primary block w-full sm:text-sm border-neutral-DEFAULT rounded-md p-2 min-h-[80px]"></textarea> <!-- Stili textarea aggiornati -->
       </div>
+
+      <!-- Campo Materia -->
+      <div class="form-group mb-4">
+        <label for="subject" class="block text-sm font-medium text-neutral-darker mb-1">Materia (Opzionale):</label>
+        <select id="subject" v-model="templateData.subject_id" @change="handleSubjectChange" class="shadow-sm focus:ring-primary focus:border-primary block w-full sm:text-sm border-neutral-DEFAULT rounded-md p-2">
+          <option :value="null">Nessuna materia selezionata</option>
+          <option v-for="subject_item in teacherSubjects" :key="subject_item.id" :value="subject_item.id">
+            {{ subject_item.name }}
+          </option>
+        </select>
+      </div>
+
+      <!-- Campo Argomento -->
+      <div class="form-group mb-4">
+        <label for="topic" class="block text-sm font-medium text-neutral-darker mb-1">Argomento (Opzionale, richiede una materia):</label>
+        <select id="topic" v-model="templateData.topic_id" :disabled="!templateData.subject_id || isLoadingTopics" class="shadow-sm focus:ring-primary focus:border-primary block w-full sm:text-sm border-neutral-DEFAULT rounded-md p-2">
+          <option :value="null">Nessun argomento selezionato</option>
+          <option v-if="isLoadingTopics" :value="null" disabled>Caricamento argomenti...</option>
+          <option v-for="topic_item in filteredTopics" :key="topic_item.id" :value="topic_item.id">
+            {{ topic_item.name }}
+          </option>
+        </select>
+        <p v-if="templateData.subject_id && !isLoadingTopics && filteredTopics.length === 0" class="form-help-text text-xs text-neutral-dark mt-1">
+            Nessun argomento disponibile per la materia selezionata. Puoi crearne di nuovi in 'Gestione Lezioni'.
+        </p>
+      </div>
       <!-- Rimossi available_from / available_until -->
       <div class="form-group mb-4"> <!-- Margin bottom -->
         <label for="points_on_completion" class="block text-sm font-medium text-neutral-darker mb-1">Punti al Completamento (Default):</label> <!-- Stile label aggiornato -->
@@ -133,11 +159,20 @@ import {
 } from '@/api/templateQuestions';
 import TemplateQuestionEditor from '@/components/TemplateQuestionEditor.vue'; // Importa il nuovo componente
 import BaseButton from '@/components/common/BaseButton.vue'; // Importa BaseButton
+// Importa le API reali e i tipi per materie e argomenti
+import {
+    fetchTeacherSubjects,
+    fetchTeacherTopicsForSubject,
+    type Subject,
+    type Topic
+} from '@/api/subjects'; // Percorso aggiornato
 
 // Interfaccia per i dati del form (basata su QuizTemplatePayload + struttura metadata)
 interface QuizTemplateFormData {
   title: string;
   description: string | null;
+  subject_id: number | null; // Ripristinato
+  topic_id: number | null;   // Ripristinato
   metadata: {
     points_on_completion: number | null;
     completion_threshold_percent: number | null; // Mantenuto per ora
@@ -163,10 +198,18 @@ const isAddQuestionModalOpen = ref(false); // Stato per la modale di aggiunta
 const isEditQuestionModalOpen = ref(false); // Stato per la modale di modifica
 const questionToEditId = ref<number | null>(null); // ID domanda da modificare nella modale
 
+// Dati per materie e argomenti
+const teacherSubjects = ref<Subject[]>([]);
+const filteredTopics = ref<Topic[]>([]);
+const isLoadingSubjects = ref(false);
+const isLoadingTopics = ref(false);
+
 // Oggetto reattivo per i dati del form
 const templateData = reactive<QuizTemplateFormData>({ // Rinominato
   title: '',
   description: null,
+  subject_id: null, // Ripristinato
+  topic_id: null,   // Ripristinato
   metadata: {
     points_on_completion: null,
     completion_threshold_percent: 100.0 // Default
@@ -174,6 +217,7 @@ const templateData = reactive<QuizTemplateFormData>({ // Rinominato
 });
 
 onMounted(async () => {
+  await loadSubjects(); // Ripristinato caricamento materie
   const idParam = route.params.id;
   if (idParam && idParam !== 'new') {
     templateId.value = Number(idParam); // Usa templateId
@@ -190,18 +234,88 @@ onMounted(async () => {
   }
 });
 
+const loadSubjects = async () => {
+  isLoadingSubjects.value = true;
+  try {
+    teacherSubjects.value = await fetchTeacherSubjects();
+  } catch (err) {
+    console.error("Errore caricamento materie:", err);
+    error.value = "Impossibile caricare l'elenco delle materie.";
+  } finally {
+    isLoadingSubjects.value = false;
+  }
+};
+
+const loadTopicsForSubject = async (subjectId: number | null) => { // Ripristinato
+  if (!subjectId) {
+    filteredTopics.value = [];
+    templateData.topic_id = null;
+    return;
+  }
+  isLoadingTopics.value = true;
+  try {
+    filteredTopics.value = await fetchTeacherTopicsForSubject(subjectId);
+  } catch (err) {
+    console.error(`Errore caricamento argomenti per materia ${subjectId}:`, err);
+    error.value = `Impossibile caricare gli argomenti per la materia selezionata.`;
+    filteredTopics.value = [];
+  } finally {
+    isLoadingTopics.value = false;
+  }
+};
+
+const handleSubjectChange = async () => { // Ripristinato
+  templateData.topic_id = null;
+  await loadTopicsForSubject(templateData.subject_id);
+};
+
 const loadQuizTemplateData = async (id: number) => { // Rinominata
   isLoading.value = true;
   error.value = null;
   try {
-    const fetchedTemplate = await fetchTeacherQuizTemplateDetails(id); // Usa API template
+    const fetchedTemplate: QuizTemplate = await fetchTeacherQuizTemplateDetails(id); // Usa API template
     templateData.title = fetchedTemplate.title;
     templateData.description = fetchedTemplate.description;
+    // Carica materia: cerca l'ID corrispondente al nome ricevuto dall'API
+    if (fetchedTemplate.subject && teacherSubjects.value.length > 0) {
+      const foundSubject = teacherSubjects.value.find(s => s.name === fetchedTemplate.subject);
+      if (foundSubject) {
+        templateData.subject_id = foundSubject.id;
+      } else {
+        console.warn(`Materia "${fetchedTemplate.subject}" (template) non trovata nell'elenco locale. L'ID non sarà impostato.`);
+        templateData.subject_id = null;
+      }
+    } else {
+      templateData.subject_id = null; // Nessun nome materia dall'API o nessun subject locale caricato
+    }
+
+    // Carica argomenti se la materia è stata identificata e popolata
+    if (templateData.subject_id) {
+      await loadTopicsForSubject(templateData.subject_id);
+      // Ora cerca l'ID dell'argomento corrispondente al nome ricevuto
+      if (fetchedTemplate.topic && filteredTopics.value.length > 0) {
+        const foundTopic = filteredTopics.value.find(t => t.name === fetchedTemplate.topic);
+        if (foundTopic) {
+          templateData.topic_id = foundTopic.id;
+        } else {
+          console.warn(`Argomento "${fetchedTemplate.topic}" (template) non trovato per la materia selezionata. L'ID non sarà impostato.`);
+          templateData.topic_id = null;
+        }
+      } else {
+        templateData.topic_id = null; // Nessun nome argomento dall'API o nessun topic locale caricato/corrispondente
+      }
+    } else {
+      // Se non c'è materia, non può esserci argomento preselezionato
+      templateData.topic_id = null;
+      filteredTopics.value = [];
+    }
+
     // Carica metadata con attenzione
     templateData.metadata.points_on_completion = fetchedTemplate.metadata?.points_on_completion ?? null;
     // Assumendo che la soglia sia salvata come 0-1 nel metadata del template
     const threshold_api = fetchedTemplate.metadata?.completion_threshold;
     templateData.metadata.completion_threshold_percent = threshold_api !== undefined && threshold_api !== null ? threshold_api * 100 : 100.0;
+
 
   } catch (err: any) {
     console.error("Errore nel caricamento del template quiz:", err);
@@ -236,14 +350,30 @@ const saveQuizTemplate = async () => { // Rinominata
   // Salva come decimale 0-1 nel backend
   const completion_threshold = threshold_percent === null || isNaN(Number(threshold_percent)) ? 1.0 : Number(threshold_percent) / 100;
 
+  // Trova i nomi di materia e argomento basati sugli ID selezionati
+  const selectedSubject = teacherSubjects.value.find(s => s.id === templateData.subject_id);
+  const subjectName = selectedSubject ? selectedSubject.name : null;
+
+  const selectedTopic = filteredTopics.value.find(t => t.id === templateData.topic_id);
+  const topicName = selectedTopic ? selectedTopic.name : null;
+
   const payload: QuizTemplatePayload = { // Usa QuizTemplatePayload
       title: templateData.title,
       description: templateData.description,
+      subject: subjectName, // Invia nome
+      topic: topicName,     // Invia nome
       metadata: {
           points_on_completion: templateData.metadata.points_on_completion === null || isNaN(Number(templateData.metadata.points_on_completion)) ? 0 : Number(templateData.metadata.points_on_completion),
           completion_threshold: completion_threshold,
       },
   };
+
+  // Validazione: topic (nome) richiede subject (nome)
+  if (payload.topic && !payload.subject) {
+      error.value = "Un argomento può essere selezionato solo se è stata selezionata anche una materia.";
+      isSaving.value = false;
+      return;
+  }
 
   try {
     let savedTemplate: QuizTemplate | null = null; // Usa tipo QuizTemplate

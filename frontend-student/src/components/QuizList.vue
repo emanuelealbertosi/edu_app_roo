@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'; // Aggiungere ref e computed
+import { ref, computed, onMounted } from 'vue'; // Aggiungere ref, computed, onMounted
 import { useRouter } from 'vue-router';
 // Importa la nuova interfaccia per i tentativi
 import type { QuizAttemptDashboardItem } from '@/api/dashboard';
@@ -197,6 +197,45 @@ const shouldShowStartButton = (attempt: QuizAttemptDashboardItem): boolean => {
   // Caso di default (stato sconosciuto o non gestito), non mostrare
   return false;
 };
+
+onMounted(() => {
+  // Logga i dati dei quiz quando il componente viene montato e ogni volta che le props cambiano (se la reattività lo permette)
+  // Questo ci aiuterà a vedere se subject_name, topic_name, etc., arrivano al componente.
+  console.log('[QuizList.vue] Props quizzes ricevute:', JSON.parse(JSON.stringify(props.quizzes)));
+});
+
+// Funzione helper per schiarire un colore esadecimale
+const lightenColor = (hex: string, percent: number): string => {
+  hex = hex.replace(/^#/, '');
+  const f = parseInt(hex, 16);
+  const t = percent < 0 ? 0 : 255;
+  const p = percent < 0 ? percent * -1 : percent;
+  const R = f >> 16;
+  const G = (f >> 8) & 0x00ff;
+  const B = f & 0x0000ff;
+  return (
+    '#' +
+    (
+      0x1000000 +
+      (Math.round((t - R) * (p / 100)) + R) * 0x10000 +
+      (Math.round((t - G) * (p / 100)) + G) * 0x100 +
+      (Math.round((t - B) * (p / 100)) + B)
+    )
+      .toString(16)
+      .slice(1)
+  );
+};
+
+// Funzione helper per determinare un colore di testo contrastante (bianco o nero)
+const getContrastingTextColor = (hexcolor: string): string => {
+  hexcolor = hexcolor.replace('#', '');
+  const r = parseInt(hexcolor.substring(0, 2), 16);
+  const g = parseInt(hexcolor.substring(2, 4), 16);
+  const b = parseInt(hexcolor.substring(4, 6), 16);
+  const yiq = (r * 299 + g * 587 + b * 114) / 1000;
+  return yiq >= 128 ? '#000000' : '#FFFFFF';
+};
+
 </script>
 
 <template>
@@ -234,8 +273,17 @@ const shouldShowStartButton = (attempt: QuizAttemptDashboardItem): boolean => {
             Difficoltà: {{ attempt.metadata.difficulty }}
           </div>
 
-          <div v-if="attempt.metadata?.subject" class="quiz-subject bg-neutral text-neutral-darker px-2 py-1 rounded">
-            Materia: {{ attempt.metadata.subject }}
+          <div v-if="attempt.subject_name"
+               class="quiz-subject-actual px-2 py-1 rounded text-white"
+               :style="{ backgroundColor: attempt.subject_color_placeholder || '#6B7280' }">
+            {{ attempt.subject_name }}
+          </div>
+
+
+          <div v-if="attempt.topic_name"
+               class="quiz-topic-actual px-2 py-1 rounded"
+               :style="{ backgroundColor: attempt.subject_color_placeholder ? lightenColor(attempt.subject_color_placeholder, 30) : '#9CA3AF', color: attempt.subject_color_placeholder ? getContrastingTextColor(lightenColor(attempt.subject_color_placeholder, 30)) : '#FFFFFF' }">
+            {{ attempt.topic_name }}
           </div>
 
           <div v-if="attempt.metadata?.points_on_completion" class="quiz-points bg-warning/10 text-warning-dark px-2 py-1 rounded">

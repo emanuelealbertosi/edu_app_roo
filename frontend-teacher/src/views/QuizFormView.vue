@@ -36,6 +36,34 @@
         <textarea id="description" v-model="quizData.description" rows="3"
                   class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"></textarea>
       </div>
+ 
+      <!-- Subject and Topic -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <label for="subject" class="block text-sm font-medium text-gray-700 mb-1">Materia (Opzionale):</label>
+          <select id="subject" v-model="quizData.subject_id" @change="handleSubjectChange"
+                  class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+            <option :value="null">Nessuna materia selezionata</option>
+            <option v-for="subject_item in teacherSubjects" :key="subject_item.id" :value="subject_item.id">
+              {{ subject_item.name }}
+            </option>
+          </select>
+        </div>
+        <div>
+          <label for="topic" class="block text-sm font-medium text-gray-700 mb-1">Argomento (Opzionale, richiede materia):</label>
+          <select id="topic" v-model="quizData.topic_id" :disabled="!quizData.subject_id || isLoadingTopics"
+                  class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+            <option :value="null">Nessun argomento selezionato</option>
+            <option v-if="isLoadingTopics" :value="null" disabled>Caricamento argomenti...</option>
+            <option v-for="topic_item in filteredTopics" :key="topic_item.id" :value="topic_item.id">
+              {{ topic_item.name }}
+            </option>
+          </select>
+           <p v-if="quizData.subject_id && !isLoadingTopics && filteredTopics.length === 0" class="mt-2 text-xs text-gray-500">
+              Nessun argomento disponibile per la materia selezionata.
+           </p>
+        </div>
+      </div>
 
       <!-- Availability Dates -->
       <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -136,11 +164,21 @@ import { useRoute, useRouter } from 'vue-router';
 import { createQuiz, fetchQuizDetails, updateQuiz, type QuizPayload, type Quiz } from '@/api/quizzes'; // Importa anche Quiz type
 import { fetchQuestions, deleteQuestionApi, type Question } from '@/api/questions'; // Importa anche deleteQuestionApi
 import QuestionEditor from '@/components/QuestionEditor.vue'; // Importa il nuovo componente
+// Importa API e tipi per materie/argomenti
+import {
+    fetchTeacherSubjects,
+    fetchTeacherTopicsForSubject,
+    type Subject,
+    type Topic
+} from '@/api/subjects';
 
 // Interfaccia temporanea per i dati del form
 interface QuizFormData {
   title: string;
   description: string | null;
+  subject_id: number | null; // Modificato in ID
+  topic_id: number | null;   // Modificato in ID
+  image_url: string | null; // Aggiunto per coerenza con QuizPayload
   available_from: string | null;
   available_until: string | null;
   metadata: { // Aggiunto metadata
@@ -165,10 +203,19 @@ const questions = ref<Question[]>([]);
 const isLoadingQuestions = ref(false);
 const questionsError = ref<string | null>(null);
 
+// Dati per materie e argomenti
+const teacherSubjects = ref<Subject[]>([]);
+const filteredTopics = ref<Topic[]>([]);
+const isLoadingSubjects = ref(false);
+const isLoadingTopics = ref(false);
+
 // Usiamo reactive per l'oggetto del form
 const quizData = reactive<QuizFormData>({
   title: '',
   description: null,
+  subject_id: null, // Modificato in ID
+  topic_id: null,   // Modificato in ID
+  image_url: null, // Aggiunto
   available_from: null,
   available_until: null,
   metadata: { // Inizializza metadata
@@ -178,6 +225,7 @@ const quizData = reactive<QuizFormData>({
 });
 
 onMounted(async () => {
+  await loadSubjects(); // Carica materie all'avvio
   const idParam = route.params.id;
   if (idParam && idParam !== 'new') { // Controlla che non sia 'new'
     quizId.value = Number(idParam);
@@ -197,6 +245,42 @@ onMounted(async () => {
   }
 });
 
+const loadSubjects = async () => { // Funzione aggiunta
+  isLoadingSubjects.value = true;
+  try {
+    teacherSubjects.value = await fetchTeacherSubjects();
+  } catch (err) {
+    console.error("Errore caricamento materie:", err);
+    // Non bloccare il form, ma segnala l'errore se necessario
+    // error.value = "Impossibile caricare l'elenco delle materie.";
+  } finally {
+    isLoadingSubjects.value = false;
+  }
+};
+
+const loadTopicsForSubject = async (subjectId: number | null) => { // Funzione aggiunta
+  if (!subjectId) {
+    filteredTopics.value = [];
+    quizData.topic_id = null;
+    return;
+  }
+  isLoadingTopics.value = true;
+  try {
+    filteredTopics.value = await fetchTeacherTopicsForSubject(subjectId);
+  } catch (err) {
+    console.error(`Errore caricamento argomenti per materia ${subjectId}:`, err);
+    filteredTopics.value = [];
+  } finally {
+    isLoadingTopics.value = false;
+  }
+};
+
+const handleSubjectChange = async () => { // Funzione aggiunta
+  quizData.topic_id = null;
+  await loadTopicsForSubject(quizData.subject_id);
+};
+
+
 const loadQuizData = async (id: number) => {
   isLoading.value = true;
   error.value = null;
@@ -204,6 +288,40 @@ const loadQuizData = async (id: number) => {
     const fetchedQuiz = await fetchQuizDetails(id); // Usa la funzione API reale
     quizData.title = fetchedQuiz.title;
     quizData.description = fetchedQuiz.description;
+    // Carica materia: cerca l'ID corrispondente al nome ricevuto dall'API
+    if (fetchedQuiz.subject && teacherSubjects.value.length > 0) {
+      const foundSubject = teacherSubjects.value.find(s => s.name === fetchedQuiz.subject);
+      if (foundSubject) {
+        quizData.subject_id = foundSubject.id;
+      } else {
+        console.warn(`Materia "${fetchedQuiz.subject}" non trovata nell'elenco locale. L'ID non sarà impostato.`);
+        quizData.subject_id = null;
+      }
+    } else {
+      quizData.subject_id = null;
+    }
+
+    // Carica argomenti se la materia è stata identificata e popolata
+    if (quizData.subject_id) {
+      await loadTopicsForSubject(quizData.subject_id);
+      // Ora cerca l'ID dell'argomento corrispondente al nome ricevuto
+      if (fetchedQuiz.topic && filteredTopics.value.length > 0) {
+        const foundTopic = filteredTopics.value.find(t => t.name === fetchedQuiz.topic);
+        if (foundTopic) {
+          quizData.topic_id = foundTopic.id;
+        } else {
+          console.warn(`Argomento "${fetchedQuiz.topic}" non trovato per la materia selezionata. L'ID non sarà impostato.`);
+          quizData.topic_id = null;
+        }
+      } else {
+        quizData.topic_id = null;
+      }
+    } else {
+      // Se non c'è materia, non può esserci argomento preselezionato
+      quizData.topic_id = null;
+      filteredTopics.value = [];
+    }
+    quizData.image_url = fetchedQuiz.image_url || null;   // Carica image_url
     // Assicurati che i campi metadata, source_template etc. siano gestiti se necessario
     quizData.available_from = formatDateTimeForInput(fetchedQuiz.available_from);
     quizData.available_until = formatDateTimeForInput(fetchedQuiz.available_until);
@@ -216,6 +334,7 @@ const loadQuizData = async (id: number) => {
     quizData.metadata.completion_threshold_percent = threshold_percent_api !== undefined && threshold_percent_api !== null && !isNaN(Number(threshold_percent_api))
         ? Number(threshold_percent_api)
         : 100.0;
+
 
   } catch (err: any) {
     console.error("Errore nel caricamento del quiz:", err);
@@ -250,9 +369,19 @@ const saveQuiz = async () => {
   // Assicurati che sia un numero valido, altrimenti default a 100
   const completion_threshold_percent_payload = threshold_percent === null || isNaN(Number(threshold_percent)) ? 100.0 : Number(threshold_percent);
 
+  // Trova i nomi di materia e argomento basati sugli ID selezionati
+  const selectedSubject = teacherSubjects.value.find(s => s.id === quizData.subject_id);
+  const subjectName = selectedSubject ? selectedSubject.name : null;
+
+  const selectedTopic = filteredTopics.value.find(t => t.id === quizData.topic_id);
+  const topicName = selectedTopic ? selectedTopic.name : null;
+
   const payload: QuizPayload = {
       title: quizData.title,
       description: quizData.description,
+      subject: subjectName, // Invia nome
+      topic: topicName,     // Invia nome
+      image_url: quizData.image_url,
       available_from: quizData.available_from ? new Date(quizData.available_from).toISOString() : null,
       available_until: quizData.available_until ? new Date(quizData.available_until).toISOString() : null,
       metadata: {
@@ -261,6 +390,13 @@ const saveQuiz = async () => {
           // Aggiungere altri metadati qui se necessario
       },
   };
+
+  // Validazione: topic (nome) richiede subject (nome)
+  if (payload.topic && !payload.subject) {
+      error.value = "Un argomento può essere selezionato solo se è stata selezionata anche una materia.";
+      isSaving.value = false;
+      return;
+  }
 
   try {
     let savedQuiz: Quiz | null = null;
