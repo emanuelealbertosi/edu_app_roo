@@ -60,6 +60,13 @@ class QuizTemplate(models.Model):
         blank=True,
         help_text=_('Extra data like difficulty ("easy", "medium", "hard"). Example: {"difficulty": "medium"}')
     )
+    card_background_color = models.CharField(
+        _('Card Background Color'),
+        max_length=7,  # For #RRGGBB
+        null=True,
+        blank=True,
+        help_text=_('Hex color code for the quiz card background (e.g., #FFFFFF).')
+    )
     created_at = models.DateTimeField(_('Created At'), auto_now_add=True)
 
     class Meta:

@@ -1715,7 +1715,7 @@ class StudentAssignedQuizzesView(generics.ListAPIView):
             quiz_id__in=all_assigned_quiz_ids, # Assicura che il tentativo sia per un quiz assegnato
             student=student, # Assicura che il tentativo sia dello studente corrente
             id__in=Subquery(latest_attempt_subquery) # Seleziona solo l'ID più recente per ogni quiz
-        ).select_related('quiz', 'quiz__teacher')
+        ).select_related('quiz', 'quiz__teacher', 'quiz__source_template') # Aggiunto quiz__source_template
 
         return latest_attempts.order_by('-started_at') # Ordina i tentativi più recenti
 
@@ -1887,6 +1887,7 @@ class StudentAssignedQuizzesView(generics.ListAPIView):
 "subject_name": quiz.source_template.subject if quiz.source_template else quiz.subject,
                     "topic_name": quiz.source_template.topic if quiz.source_template else quiz.topic,
                     # "subject_color_placeholder": quiz.source_template.subject_color_placeholder if quiz.source_template else (getattr(quiz, 'subject_color_placeholder', None)),
+                    "card_background_color": quiz.source_template.card_background_color if quiz.source_template else None,
                 }
             else:
                 # Se non esiste NESSUN tentativo per questa istanza quiz, è "PENDING"
@@ -1913,6 +1914,7 @@ class StudentAssignedQuizzesView(generics.ListAPIView):
 "subject_name": quiz.source_template.subject if quiz.source_template else quiz.subject,
 "topic_name": quiz.source_template.topic if quiz.source_template else quiz.topic,
                     # "subject_color_placeholder": quiz.source_template.subject_color_placeholder if quiz.source_template else (getattr(quiz, 'subject_color_placeholder', None)),
+                    "card_background_color": quiz.source_template.card_background_color if quiz.source_template else None,
                 }
             final_data_list.append(item_data)
 

@@ -79,7 +79,7 @@ class QuizTemplateSerializer(serializers.ModelSerializer):
             'title', 'description',
             'subject', # Ripristinato CharField
             'topic',   # Ripristinato CharField
-            'metadata', 'created_at'
+            'metadata', 'created_at', 'card_background_color'
         ]
         read_only_fields = [
             'id', 'admin', 'admin_username', 'teacher', 'teacher_username',
@@ -980,9 +980,15 @@ class StudentQuizDashboardSerializer(QuizSerializer):
     attempts_count = serializers.SerializerMethodField()
     # Aggiungere campo per indicare se assegnato direttamente o via gruppo?
     assignment_type = serializers.SerializerMethodField()
+    card_background_color = serializers.SerializerMethodField() # Nuovo campo
 
     class Meta(QuizSerializer.Meta):
-        fields = QuizSerializer.Meta.fields + ['latest_attempt', 'attempts_count', 'assignment_type']
+        fields = QuizSerializer.Meta.fields + ['latest_attempt', 'attempts_count', 'assignment_type', 'card_background_color'] # Aggiunto ai fields
+
+    def get_card_background_color(self, obj: Quiz) -> str | None:
+        if obj.source_template and obj.source_template.card_background_color:
+            return obj.source_template.card_background_color
+        return None
 
     def get_latest_attempt(self, obj):
         """ Recupera l'ultimo tentativo dello studente per questo quiz. """
@@ -1081,6 +1087,7 @@ class StudentQuizAttemptDashboardSerializer(serializers.ModelSerializer):
 
     # Legge direttamente dal dizionario fornito dalla view
     assignment_type = serializers.CharField(read_only=True)
+    card_background_color = serializers.CharField(read_only=True, allow_null=True, required=False) # Legge dal dict
 
     class Meta:
         # Ripristinato Meta.model, necessario per DRF anche se lavoriamo su dict
@@ -1089,7 +1096,7 @@ class StudentQuizAttemptDashboardSerializer(serializers.ModelSerializer):
             'attempt_id', 'quiz_id', 'title', 'description', 'status', 'score',
             'available_from', 'available_until', 'metadata', 'teacher_username', 'teacher_first_name', 'teacher_last_name',
             'subject_name', 'topic_name', 'subject_color_placeholder', # Campi aggiunti
-            'started_at', 'completed_at', 'assignment_type'
+            'started_at', 'completed_at', 'assignment_type', 'card_background_color' # Assicurato che sia nei fields
         ]
         read_only_fields = fields # Tutti i campi sono derivati o di sola lettura in questo contesto
 

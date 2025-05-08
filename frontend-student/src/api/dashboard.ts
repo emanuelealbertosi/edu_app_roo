@@ -32,6 +32,7 @@ export interface QuizAttemptDashboardItem {
   teacher_username: string;
   teacher_first_name: string; // NUOVO
   teacher_last_name: string;  // NUOVO
+  card_background_color?: string | null; // NUOVO: Colore sfondo card
 }
 
 

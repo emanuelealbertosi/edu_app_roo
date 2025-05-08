@@ -51,6 +51,13 @@
         <p class="form-help-text text-xs text-neutral-dark mt-1">Percentuale minima (0-100) per considerare superato un quiz creato da questo template. Default: 100%.</p> <!-- Stile help text aggiornato -->
       </div>
 
+      <!-- Campo Colore Sfondo Card -->
+      <div class="form-group mb-4">
+        <label for="card_background_color" class="block text-sm font-medium text-neutral-darker mb-1">Colore Sfondo Card (Studente):</label>
+        <input type="color" id="card_background_color" v-model="templateData.card_background_color" class="form-input shadow-sm focus:ring-primary focus:border-primary block w-full sm:text-sm border-neutral-DEFAULT rounded-md p-1 h-10" /> <!-- Stili input colore aggiornati -->
+        <p class="form-help-text text-xs text-neutral-dark mt-1">Scegli un colore per lo sfondo della card del quiz come apparirà allo studente.</p>
+      </div>
+
       <!-- Aggiungere gestione errori -->
       <div v-if="error" class="error-message text-error text-sm mb-4">{{ error }}</div> <!-- Stile errore aggiornato -->
 
@@ -178,6 +185,7 @@ interface QuizTemplateFormData {
     completion_threshold_percent: number | null; // Mantenuto per ora
     // Aggiungere altri metadati specifici del template se necessario
   };
+  card_background_color: string | null; // Nuovo campo per il colore
 }
 
 const route = useRoute();
@@ -213,7 +221,8 @@ const templateData = reactive<QuizTemplateFormData>({ // Rinominato
   metadata: {
     points_on_completion: null,
     completion_threshold_percent: 100.0 // Default
-  }
+  },
+  card_background_color: '#FFFFFF' // Default a bianco
 });
 
 onMounted(async () => {
@@ -315,6 +324,7 @@ const loadQuizTemplateData = async (id: number) => { // Rinominata
     // Assumendo che la soglia sia salvata come 0-1 nel metadata del template
     const threshold_api = fetchedTemplate.metadata?.completion_threshold;
     templateData.metadata.completion_threshold_percent = threshold_api !== undefined && threshold_api !== null ? threshold_api * 100 : 100.0;
+    templateData.card_background_color = fetchedTemplate.card_background_color || '#FFFFFF'; // Carica il colore o default
 
 
   } catch (err: any) {
@@ -366,6 +376,7 @@ const saveQuizTemplate = async () => { // Rinominata
           points_on_completion: templateData.metadata.points_on_completion === null || isNaN(Number(templateData.metadata.points_on_completion)) ? 0 : Number(templateData.metadata.points_on_completion),
           completion_threshold: completion_threshold,
       },
+      card_background_color: templateData.card_background_color, // Aggiungi al payload
   };
 
   // Validazione: topic (nome) richiede subject (nome)

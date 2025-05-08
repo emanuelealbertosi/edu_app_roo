@@ -256,48 +256,49 @@ const getContrastingTextColor = (hexcolor: string): string => {
       <div
         v-for="attempt in quizzes"
         :key="attempt.attempt_id"
-        class="quiz-item bg-neutral-lightest rounded-lg p-4 shadow border-l-4 relative pb-16 hover:shadow-lg transition-shadow duration-200 cursor-pointer"
+        class="quiz-item rounded-lg p-4 shadow border-l-4 relative pb-16 hover:shadow-lg transition-shadow duration-200 cursor-pointer"
         :class="getStatusBorderClass(attempt)"
+        :style="{ backgroundColor: attempt.card_background_color || '#F5F5F5', color: getContrastingTextColor(attempt.card_background_color || '#F5F5F5') }"
         @click="openDetailsModal(attempt.quiz_id)"
       >
         <!-- Contenuto dell'item (usa 'attempt' invece di 'quiz') -->
         <div class="quiz-header flex justify-between items-center mb-2">
-          <h3 class="font-semibold text-lg text-neutral-darkest">{{ attempt.title }}</h3> <!-- Titolo dal tentativo (che lo eredita dal quiz) -->
-          <span :class="['quiz-status text-xs font-medium px-3 py-1 rounded-full', getStatusClass(attempt)]">{{ getAttemptStatusLabel(attempt) }}</span>
+          <h3 class="font-semibold text-lg" :style="{ color: getContrastingTextColor(attempt.card_background_color || '#F5F5F5') }">{{ attempt.title }}</h3> <!-- Titolo dal tentativo (che lo eredita dal quiz) -->
+          <span :class="['quiz-status text-xs font-medium px-3 py-1 rounded-full', getStatusClass(attempt)]" :style="attempt.card_background_color ? { color: getContrastingTextColor(attempt.card_background_color), backgroundColor: lightenColor(attempt.card_background_color, -10) } : {}">{{ getAttemptStatusLabel(attempt) }}</span>
         </div>
 
-        <p class="quiz-description text-neutral-dark text-sm mb-3 line-clamp-2">{{ attempt.description }}</p> <!-- Descrizione dal tentativo -->
+        <p class="quiz-description text-sm mb-3 line-clamp-2" :style="{ color: getContrastingTextColor(attempt.card_background_color || '#F5F5F5') }">{{ attempt.description }}</p> <!-- Descrizione dal tentativo -->
 
-        <div class="quiz-metadata flex flex-wrap gap-x-4 gap-y-2 text-xs mb-3"> <!-- Modificato gap per migliore spaziatura -->
-          <div v-if="attempt.metadata?.difficulty" class="quiz-difficulty bg-neutral text-neutral-darker px-2 py-1 rounded">
+        <div class="quiz-metadata flex flex-wrap gap-x-4 gap-y-2 text-xs mb-3" :style="{ color: getContrastingTextColor(attempt.card_background_color || '#F5F5F5') }"> <!-- Modificato gap per migliore spaziatura -->
+          <div v-if="attempt.metadata?.difficulty" class="quiz-difficulty px-2 py-1 rounded" :style="{ backgroundColor: attempt.card_background_color ? lightenColor(attempt.card_background_color, -10) : '#E5E7EB', color: getContrastingTextColor(attempt.card_background_color ? lightenColor(attempt.card_background_color, -10) : '#E5E7EB') }">
             Difficoltà: {{ attempt.metadata.difficulty }}
           </div>
 
           <div v-if="attempt.subject_name"
-               class="quiz-subject-actual px-2 py-1 rounded text-white"
-               :style="{ backgroundColor: attempt.subject_color_placeholder || '#6B7280' }">
+               class="quiz-subject-actual px-2 py-1 rounded"
+               :style="{ backgroundColor: attempt.subject_color_placeholder || (attempt.card_background_color ? lightenColor(attempt.card_background_color, -15) : '#6B7280'), color: getContrastingTextColor(attempt.subject_color_placeholder || (attempt.card_background_color ? lightenColor(attempt.card_background_color, -15) : '#6B7280')) }">
             {{ attempt.subject_name }}
           </div>
 
 
           <div v-if="attempt.topic_name"
                class="quiz-topic-actual px-2 py-1 rounded"
-               :style="{ backgroundColor: attempt.subject_color_placeholder ? lightenColor(attempt.subject_color_placeholder, 30) : '#9CA3AF', color: attempt.subject_color_placeholder ? getContrastingTextColor(lightenColor(attempt.subject_color_placeholder, 30)) : '#FFFFFF' }">
+               :style="{ backgroundColor: attempt.subject_color_placeholder ? lightenColor(attempt.subject_color_placeholder, 30) : (attempt.card_background_color ? lightenColor(attempt.card_background_color, -20) : '#9CA3AF'), color: getContrastingTextColor(attempt.subject_color_placeholder ? lightenColor(attempt.subject_color_placeholder, 30) : (attempt.card_background_color ? lightenColor(attempt.card_background_color, -20) : '#9CA3AF')) }">
             {{ attempt.topic_name }}
           </div>
 
-          <div v-if="attempt.metadata?.points_on_completion" class="quiz-points bg-warning/10 text-warning-dark px-2 py-1 rounded">
+          <div v-if="attempt.metadata?.points_on_completion" class="quiz-points px-2 py-1 rounded" :style="{ backgroundColor: attempt.card_background_color ? lightenColor(attempt.card_background_color, -10) : '#FEF3C7', color: getContrastingTextColor(attempt.card_background_color ? lightenColor(attempt.card_background_color, -10) : '#FEF3C7') }">
             Punti: {{ attempt.metadata.points_on_completion }}
           </div>
 
           <!-- NUOVO: Assegnato da -->
-          <div class="quiz-assigned-by text-neutral-dark">
+          <div class="quiz-assigned-by" :style="{ color: getContrastingTextColor(attempt.card_background_color || '#F5F5F5') }">
              <span class="font-medium">Assegnato da:</span> {{ attempt.teacher_first_name }} {{ attempt.teacher_last_name }}
           </div>
         </div>
 
         <!-- Mostra le date se il tentativo non è completato -->
-        <div v-if="attempt.status !== 'COMPLETED'" class="quiz-dates flex flex-wrap gap-x-4 gap-y-1 text-xs text-neutral-dark">
+        <div v-if="attempt.status !== 'COMPLETED'" class="quiz-dates flex flex-wrap gap-x-4 gap-y-1 text-xs" :style="{ color: getContrastingTextColor(attempt.card_background_color || '#F5F5F5') }">
           <div v-if="attempt.available_from" class="quiz-available-from">
             <span class="font-medium">Da:</span> {{ formatDate(attempt.available_from) }}
           </div>
