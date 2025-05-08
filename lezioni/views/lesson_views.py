@@ -150,10 +150,28 @@ class LessonViewSet(viewsets.ModelViewSet):
         valid_students = []
         invalid_student_ids = []
         if Student and student_ids:
-            students = Student.objects.filter(id__in=student_ids, teacher_id=request.user.id) # Solo studenti del docente
-            valid_students = list(students)
-            valid_student_ids = {s.id for s in valid_students}
-            invalid_student_ids = [sid for sid in student_ids if sid not in valid_student_ids]
+            # students = Student.objects.filter(id__in=student_ids, teacher_id=request.user.id) # RIGA ORIGINALE CON ERRORE
+
+            # Nuova logica per validare gli studenti
+            # Filtra gli studenti richiesti per ID e poi verifica l'associazione con l'insegnante
+            # tramite l'appartenenza a un gruppo di cui l'insegnante è proprietario.
+            potential_students_qs = Student.objects.filter(id__in=student_ids)
+            
+            current_valid_students_list = []
+            processed_valid_student_ids_set = set()
+
+            for student_obj in potential_students_qs:
+                # Verifica se lo studente è in almeno un gruppo di proprietà del docente.
+                # Si assume che 'group_memberships' (campo di Student) sia una relazione
+                # (es. ManyToManyField o related_name) che porta a oggetti StudentGroup,
+                # e che StudentGroup abbia un campo 'owner' che si riferisce a request.user.
+                if hasattr(student_obj, 'group_memberships') and student_obj.group_memberships.filter(group__owner=request.user).exists():
+                    current_valid_students_list.append(student_obj)
+                    processed_valid_student_ids_set.add(student_obj.id)
+            
+            valid_students = current_valid_students_list # Questa è la lista di oggetti Student validi
+            # invalid_student_ids sono quelli richiesti ma non trovati validi (o non appartenenti ai gruppi del docente)
+            invalid_student_ids = [sid for sid in student_ids if sid not in processed_valid_student_ids_set]
 
         valid_groups = []
         invalid_group_ids = []

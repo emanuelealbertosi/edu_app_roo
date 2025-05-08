@@ -112,6 +112,25 @@ const loadLesson = async () => {
         if (!isNaN(id)) {
             lessonId.value = id;
             await lessonStore.fetchLesson(id); // Usa l'azione rinominata
+
+            // Dopo aver caricato la lezione, controlla se c'è un assignment_id per marcarlo come visto
+            const assignmentIdParam = route.query.assignment_id;
+            if (typeof assignmentIdParam === 'string') {
+                const assignmentId = parseInt(assignmentIdParam, 10);
+                if (!isNaN(assignmentId)) {
+                    // Chiamata asincrona, non è necessario attendere qui se non impatta UI immediata
+                    lessonStore.markAssignmentAsViewed(assignmentId).then(success => {
+                        if (success) {
+                            console.log(`Assegnazione ${assignmentId} marcata come vista.`);
+                            // Potrebbe essere utile ricaricare le lezioni assegnate nello store
+                            // per aggiornare il badge, se non lo fa già reattivamente.
+                            // lessonStore.fetchAssignedLessons(); // Valutare se necessario
+                        } else {
+                            console.warn(`Fallimento nel marcare assegnazione ${assignmentId} come vista.`);
+                        }
+                    });
+                }
+            }
         } else {
             lessonStore.error = "ID lezione non valido.";
             lessonId.value = null;

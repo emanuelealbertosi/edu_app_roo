@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useSharedAuthStore } from '@/stores/sharedAuth'; // Importa lo store condiviso
+import { useLessonStore } from '@/stores/lessons'; // Importa lo store delle lezioni
 import { RouterLink, RouterView, useRouter } from 'vue-router'; // RouterView importata qui
 import emitter from '@/eventBus';
 // Rimosso import GlobalLoadingIndicator perché non esiste in questo FE
@@ -21,9 +22,70 @@ import {
 } from '@heroicons/vue/24/outline';
 
 const sharedAuth = useSharedAuthStore(); // Usa lo store condiviso
+const lessonStore = useLessonStore(); // Usa lo store delle lezioni
 const router = useRouter();
 const isMobileMenuOpen = ref(false); // Stato per menu mobile
 const isCreateMenuOpen = ref(false); // Stato per il dropdown "Create"
+const isNotificationsTooltipVisible = ref(false);
+const notificationsButtonRef = ref<HTMLButtonElement | null>(null);
+const notificationsDropdownRef = ref<HTMLDivElement | null>(null);
+
+const toggleNotificationsDropdown = () => {
+  isNotificationsTooltipVisible.value = !isNotificationsTooltipVisible.value;
+};
+
+const handleClickOutside = (event: MouseEvent) => {
+  if (isNotificationsTooltipVisible.value &&
+      notificationsButtonRef.value &&
+      !notificationsButtonRef.value.contains(event.target as Node) &&
+      notificationsDropdownRef.value &&
+      !notificationsDropdownRef.value.contains(event.target as Node)) {
+    isNotificationsTooltipVisible.value = false;
+  }
+};
+
+// Recupera le lezioni assegnate se l'utente è uno studente
+onMounted(() => {
+  if (sharedAuth.userRole === 'STUDENT' && sharedAuth.isAuthenticated) {
+    lessonStore.fetchAssignedLessons();
+  }
+  document.addEventListener('click', handleClickOutside);
+});
+
+watch(isNotificationsTooltipVisible, (newValue) => {
+  if (newValue) {
+    // Potremmo voler aggiungere il listener solo quando è visibile
+    // e rimuoverlo quando non lo è, ma per ora lo lasciamo globale
+    // document.addEventListener('click', handleClickOutside);
+  } else {
+    // document.removeEventListener('click', handleClickOutside);
+  }
+});
+
+// Assicurati di rimuovere il listener quando il componente viene smontato
+import { onBeforeUnmount } from 'vue';
+onBeforeUnmount(() => {
+  document.removeEventListener('click', handleClickOutside);
+});
+
+
+// Watcher per ricaricare le lezioni assegnate se il ruolo utente cambia a STUDENTE o se lo stato di autenticazione cambia
+watch(() => [sharedAuth.userRole, sharedAuth.isAuthenticated], ([newUserRole, newIsAuthenticated]) => {
+  if (newUserRole === 'STUDENT' && newIsAuthenticated) {
+    lessonStore.fetchAssignedLessons();
+  }
+});
+
+const unreadLessons = computed(() => {
+  if (sharedAuth.userRole === 'STUDENT') {
+    return lessonStore.assignedLessons.filter(lesson => !lesson.viewed_at);
+  }
+  return [];
+});
+
+const unreadLessonsCount = computed(() => {
+  return unreadLessons.value.length;
+});
 
 const toggleMobileMenu = () => {
   isMobileMenuOpen.value = !isMobileMenuOpen.value;
@@ -255,12 +317,46 @@ const handleLogout = () => {
                      </div>
                  </div>
 
-                 <!-- Pulsante Notifiche (solo per Studenti) -->
-                 <button v-if="sharedAuth.userRole === 'STUDENT'" class="p-2 rounded-full text-gray-500 hover:text-gray-700 hover:bg-gray-100 focus:outline-none focus:bg-gray-100 focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                     <span class="sr-only">View notifications</span>
-                     <BellIcon class="h-6 w-6" />
-                 </button>
-
+                 <!-- Pulsante Notifiche (solo per Studenti) con Badge e Dropdown -->
+                 <div v-if="sharedAuth.userRole === 'STUDENT'" class="relative">
+                     <button ref="notificationsButtonRef" @click="toggleNotificationsDropdown" class="p-2 rounded-full text-gray-500 hover:text-gray-700 hover:bg-gray-100 focus:outline-none focus:bg-gray-100 focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                         <span class="sr-only">View notifications</span>
+                         <BellIcon class="h-6 w-6" />
+                         <span v-if="unreadLessonsCount > 0" class="absolute top-0 right-0 block h-4 w-4 transform -translate-y-1/2 translate-x-1/2 rounded-full bg-red-500 text-white text-xs flex items-center justify-center">
+                             {{ unreadLessonsCount }}
+                         </span>
+                     </button>
+                     <!-- Dropdown Notifiche -->
+                      <div ref="notificationsDropdownRef" v-if="isNotificationsTooltipVisible"
+                           class="absolute right-0 mt-2 z-30">
+                          <div v-if="unreadLessons.length > 0"
+                               class="w-80 bg-white rounded-md shadow-lg py-1 border border-gray-200 max-h-96 overflow-y-auto">
+                              <div class="px-4 py-2 text-sm font-semibold text-gray-700 border-b">Lezioni non visualizzate</div>
+                              <ul>
+                                  <li v-for="assignment in unreadLessons" :key="assignment.id" class="border-b last:border-b-0">
+                                      <router-link :to="{ name: 'lesson-detail', params: { id: assignment.lesson.id }, query: { assignment_id: assignment.id } }"
+                                                         @click="isNotificationsTooltipVisible = false"
+                                                         class="block px-4 py-3 hover:bg-gray-100">
+                                          <div class="font-semibold text-gray-800">{{ assignment.lesson.title || 'Titolo non disponibile' }}</div>
+                                          <div class="text-xs text-gray-600">
+                                              Materia: {{ assignment.lesson.subject_name || 'N/D' }}
+                                          </div>
+                                          <div class="text-xs text-gray-600">
+                                              Argomento: {{ assignment.lesson.topic_name || 'N/D' }}
+                                          </div>
+                                          <div class="text-xs text-gray-500 italic">
+                                              Assegnata da: {{ assignment.lesson.creator?.first_name || '' }} {{ assignment.lesson.creator?.last_name || 'Docente non specificato' }}
+                                          </div>
+                                      </router-link>
+                                  </li>
+                              </ul>
+                          </div>
+                          <div v-else
+                               class="w-64 bg-white rounded-md shadow-lg py-3 px-4 border border-gray-200 text-sm text-gray-500">
+                              Nessuna nuova lezione.
+                          </div>
+                      </div>
+                 </div>
                  <!-- Pulsante/Dropdown Profilo -->
                  <button class="p-1 rounded-full text-gray-500 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
                      <span class="sr-only">Open user menu</span>
