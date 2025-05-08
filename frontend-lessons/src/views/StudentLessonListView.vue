@@ -5,6 +5,16 @@
         <h2 class="text-2xl font-semibold">Le Mie Lezioni Assegnate</h2>
     </div>
 
+    <!-- Barra di ricerca -->
+    <div class="mb-6">
+        <input
+            type="text"
+            v-model="searchTerm"
+            placeholder="Cerca per titolo, materia, argomento o docente..."
+            class="w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+        />
+    </div>
+
     <div v-if="lessonStore.isLoadingAssignments" class="text-center text-gray-500 py-10">
       Caricamento lezioni assegnate...
     </div>
@@ -14,8 +24,8 @@
       <span class="block sm:inline"> {{ lessonStore.error }}</span>
     </div>
 
-    <div v-if="!lessonStore.isLoadingAssignments && assignedLessons.length > 0" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-       <div v-for="assignment in assignedLessons" :key="assignment.id" class="lesson-card bg-white rounded-lg shadow-md overflow-hidden flex flex-col">
+    <div v-if="!lessonStore.isLoadingAssignments && filteredLessons.length > 0" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+       <div v-for="assignment in filteredLessons" :key="assignment.id" class="lesson-card bg-white rounded-lg shadow-md overflow-hidden flex flex-col">
            <div class="p-5 flex-grow">
                <h3 class="text-lg font-semibold text-gray-800 mb-2">{{ assignment.lesson.title || 'Lezione (ID: ' + assignment.lesson.id + ')' }}</h3>
                <!-- Aggiunta informazioni Docente, Materia, Argomento -->
@@ -42,7 +52,10 @@
        </div>
     </div>
 
-    <div v-if="!lessonStore.isLoadingAssignments && assignedLessons.length === 0 && !lessonStore.error" class="text-center text-gray-500 py-10">
+    <div v-if="!lessonStore.isLoadingAssignments && filteredLessons.length === 0 && searchTerm && !lessonStore.error" class="text-center text-gray-500 py-10">
+        Nessuna lezione trovata per "{{ searchTerm }}".
+    </div>
+    <div v-else-if="!lessonStore.isLoadingAssignments && assignedLessons.length === 0 && !lessonStore.error" class="text-center text-gray-500 py-10">
       Nessuna lezione ti è stata ancora assegnata.
     </div>
 
@@ -50,7 +63,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, computed } from 'vue';
+import { onMounted, computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useLessonStore } from '@/stores/lessons';
 // Importa il tipo corretto
@@ -59,8 +72,32 @@ import type { LessonAssignment } from '@/types/lezioni';
 
 const lessonStore = useLessonStore();
 const router = useRouter();
+const searchTerm = ref('');
 
 const assignedLessons = computed(() => lessonStore.assignedLessons);
+
+const filteredLessons = computed(() => {
+  if (!searchTerm.value.trim()) {
+    return assignedLessons.value;
+  }
+  const lowerSearchTerm = searchTerm.value.toLowerCase();
+  return assignedLessons.value.filter(assignment => {
+    const lesson = assignment.lesson;
+    const titleMatch = lesson.title?.toLowerCase().includes(lowerSearchTerm);
+    const subjectMatch = lesson.subject_name?.toLowerCase().includes(lowerSearchTerm);
+    const topicMatch = lesson.topic_name?.toLowerCase().includes(lowerSearchTerm);
+    
+    let creatorMatch = false;
+    if (lesson.creator) {
+        const creatorFirstNameMatch = lesson.creator.first_name?.toLowerCase().includes(lowerSearchTerm);
+        const creatorLastNameMatch = lesson.creator.last_name?.toLowerCase().includes(lowerSearchTerm);
+        const creatorUsernameMatch = lesson.creator.username?.toLowerCase().includes(lowerSearchTerm);
+        creatorMatch = !!(creatorFirstNameMatch || creatorLastNameMatch || creatorUsernameMatch);
+    }
+    
+    return titleMatch || subjectMatch || topicMatch || creatorMatch;
+  });
+});
 
 onMounted(() => {
   lessonStore.fetchAssignedLessons();

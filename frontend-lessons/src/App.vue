@@ -357,11 +357,7 @@ const handleLogout = () => {
                           </div>
                       </div>
                  </div>
-                 <!-- Pulsante/Dropdown Profilo -->
-                 <button class="p-1 rounded-full text-gray-500 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                     <span class="sr-only">Open user menu</span>
-                     <UserCircleIcon class="h-7 w-7" />
-                 </button>
+                 <!-- Pulsante/Dropdown Profilo Rimosso -->
                  <!-- Aggiungere dropdown profilo se necessario -->
              </div>
         </header>
