@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref, computed } from 'vue'; // Aggiunto computed
+import { onMounted, ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { useDashboardStore } from '@/stores/dashboard';
@@ -17,6 +17,8 @@ const router = useRouter();
 const isLoading = ref(true);
 const dashboardError = computed(() => dashboardStore.error);
 
+const searchTerm = ref('');
+
 // Definisci i tab (invariato)
 const dashboardTabs = ref([
   { name: 'Da Fare', slotName: 'todo' },
@@ -25,6 +27,34 @@ const dashboardTabs = ref([
 
 // Accedi all'ultimo badge tramite getter
 const latestBadge = computed(() => dashboardStore.latestEarnedBadge);
+
+const filterQuizzes = (quizzes: any[]) => {
+  if (!searchTerm.value.trim()) {
+    return quizzes;
+  }
+  const lowerSearchTerm = searchTerm.value.toLowerCase();
+  return quizzes.filter(quiz => {
+    const subjectName = quiz.subject_name?.toLowerCase() || '';
+    const topicName = quiz.topic_name?.toLowerCase() || '';
+    const title = quiz.title?.toLowerCase() || '';
+    // const className = quiz.class_name?.toLowerCase() || ''; // Campo classe non presente direttamente
+    const teacherUsername = quiz.teacher_username?.toLowerCase() || '';
+    const teacherFirstName = quiz.teacher_first_name?.toLowerCase() || '';
+    const teacherLastName = quiz.teacher_last_name?.toLowerCase() || '';
+
+    return subjectName.includes(lowerSearchTerm) ||
+           topicName.includes(lowerSearchTerm) ||
+           title.includes(lowerSearchTerm) ||
+           // className.includes(lowerSearchTerm) ||
+           teacherUsername.includes(lowerSearchTerm) ||
+           teacherFirstName.includes(lowerSearchTerm) ||
+           teacherLastName.includes(lowerSearchTerm);
+  });
+};
+
+const filteredAvailableQuizzes = computed(() => filterQuizzes(dashboardStore.availableQuizzes));
+const filteredInProgressOrFailedQuizzes = computed(() => filterQuizzes(dashboardStore.inProgressOrFailedQuizzes));
+const filteredCompletedQuizzes = computed(() => filterQuizzes(dashboardStore.completedQuizzes));
 
 onMounted(async () => {
   // Usa il getter isAuthenticated invece della funzione checkAuth rimossa
@@ -96,18 +126,26 @@ const goToShop = () => {
       </div>
 
       <div class="educational-content lg:col-span-2 bg-white p-6 rounded-lg shadow-md">
+        <div class="mb-4">
+          <input
+            type="text"
+            v-model="searchTerm"
+            placeholder="Cerca quiz per materia, argomento, titolo..."
+            class="w-full p-2 border border-neutral-light rounded-md focus:ring-primary focus:border-primary"
+          />
+        </div>
         <BaseTabs :tabs="dashboardTabs">
           <template #todo>
             <div class="space-y-6">
               <QuizList
-                :quizzes="dashboardStore.availableQuizzes"
+                :quizzes="filteredAvailableQuizzes"
                 title="Quiz Disponibili"
                 emptyMessage="Non ci sono quiz disponibili al momento."
                 :loading="dashboardStore.loading.quizzes"
                 :showStartButton="true"
               />
               <QuizList
-                :quizzes="dashboardStore.inProgressOrFailedQuizzes"
+                :quizzes="filteredInProgressOrFailedQuizzes"
                 title="Quiz da Continuare o Ritentare"
                 emptyMessage="Non hai quiz in corso o da ritentare."
                 :loading="dashboardStore.loading.quizzes"
@@ -125,7 +163,7 @@ const goToShop = () => {
           <template #completed>
             <div class="space-y-6">
               <QuizList
-                :quizzes="dashboardStore.completedQuizzes"
+                :quizzes="filteredCompletedQuizzes"
                 title="Quiz Completati"
                 emptyMessage="Non hai ancora completato nessun quiz."
                 :loading="dashboardStore.loading.quizzes"

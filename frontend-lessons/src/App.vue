@@ -233,10 +233,10 @@ const handleLogout = () => {
                <Bars3Icon class="h-6 w-6" />
              </button>
 
-             <!-- Barra di ricerca (Placeholder) -->
-              <div class="relative flex-1 ml-4 md:ml-0">
-                  <input type="text" placeholder="Cerca..." class="px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full md:w-auto">
-              </div>
+              <!-- Barra di ricerca rimossa -->
+              <!-- Contenitore per allineare gli elementi a destra -->
+              <div class="flex-grow"></div>
+
 
              <!-- Pulsanti Header -->
              <div class="flex items-center space-x-4">
@@ -255,8 +255,8 @@ const handleLogout = () => {
                      </div>
                  </div>
 
-                 <!-- Pulsante Notifiche -->
-                 <button class="p-2 rounded-full text-gray-500 hover:text-gray-700 hover:bg-gray-100 focus:outline-none focus:bg-gray-100 focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                 <!-- Pulsante Notifiche (solo per Studenti) -->
+                 <button v-if="sharedAuth.userRole === 'STUDENT'" class="p-2 rounded-full text-gray-500 hover:text-gray-700 hover:bg-gray-100 focus:outline-none focus:bg-gray-100 focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
                      <span class="sr-only">View notifications</span>
                      <BellIcon class="h-6 w-6" />
                  </button>
