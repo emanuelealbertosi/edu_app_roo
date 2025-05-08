@@ -1445,6 +1445,8 @@ class AttemptViewSet(viewsets.GenericViewSet):
         if attempt.status != QuizAttempt.AttemptStatus.IN_PROGRESS:
             return Response({'detail': 'Questo tentativo non è più in corso.'}, status=status.HTTP_400_BAD_REQUEST)
 
+        newly_earned_badges = [] # Inizializza a lista vuota
+
         # Verifica se ci sono domande a risposta aperta non ancora valutate manualmente
         has_manual_questions = attempt.quiz.questions.filter(question_type=QuestionType.OPEN_ANSWER_MANUAL).exists()
         needs_manual_grading = False

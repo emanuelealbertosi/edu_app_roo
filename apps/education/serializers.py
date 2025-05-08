@@ -815,19 +815,19 @@ class BasicQuizAttemptSerializer(serializers.ModelSerializer):
 class StudentAnswerSerializer(serializers.ModelSerializer):
     """ Serializer per inviare/visualizzare le risposte dello studente. """
     # Opzionale: includere dettagli domanda/opzione per GET, ma non per POST/PUT
-    question_text = serializers.CharField(source='question.text', read_only=True, allow_null=True)
-    selected_option_text = serializers.CharField(source='selected_option.text', read_only=True, allow_null=True)
+    question_text = serializers.CharField(source='question.text', read_only=True, allow_null=True) # Testo della domanda
+    # answer_option_text rimosso perché selected_answer_option non è più un campo diretto
 
     class Meta:
         model = StudentAnswer
         fields = [
-            'id', 'quiz_attempt', 'question', 'question_text',
-            'selected_option', 'selected_option_text', 'answer_text', 'score', 'is_correct'
+            'id', 'quiz_attempt', 'question', 'question_text', # Ripristinato 'quiz_attempt'
+            'selected_answers', # Nuovo campo JSON per le risposte
+            'score', 'is_correct', 'answered_at'
         ]
-        read_only_fields = ['quiz_attempt', 'score', 'is_correct', 'question_text', 'selected_option_text']
+        read_only_fields = ['quiz_attempt', 'score', 'is_correct', 'question_text', 'answered_at'] # Ripristinato 'quiz_attempt', aggiunto 'answered_at'
         extra_kwargs = {
-            'answer_text': {'required': False, 'allow_null': True, 'allow_blank': True},
-            'selected_option': {'required': False, 'allow_null': True}
+            'selected_answers': {'required': True} # selected_answers è il campo principale per la risposta
         }
 
 
