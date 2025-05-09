@@ -5,6 +5,11 @@ import QuizService, { type AttemptDetails, type Question, type StudentAnswerResu
 import RewardsService from '@/api/rewards'; // Importa RewardsService
 import { useNotificationStore } from '@/stores/notification'; // Importa store notifiche
 // import confetti from 'canvas-confetti'; // Per animazione successo
+import OpenAnswerManualQuestion from '@/components/quiz/questions/OpenAnswerManualQuestion.vue';
+import MultipleChoiceSingleQuestion from '@/components/quiz/questions/MultipleChoiceSingleQuestion.vue';
+import MultipleChoiceMultipleQuestion from '@/components/quiz/questions/MultipleChoiceMultipleQuestion.vue';
+import TrueFalseQuestion from '@/components/quiz/questions/TrueFalseQuestion.vue';
+import FillBlankQuestion from '@/components/quiz/questions/FillBlankQuestion.vue';
 
 // State
 // Rimosso route, router
@@ -58,52 +63,28 @@ function getQuestionById(questionId: number): Question | undefined {
     return attemptDetails.value?.questions.find(q => q.id === questionId);
 }
 
-// Modificato per accettare l'oggetto Question completo
-function formatAnswer(answerData: any, question: Question): string {
-    if (answerData === null || answerData === undefined) return 'Nessuna risposta';
-
-    // Usa question.question_type dall'oggetto passato
-    switch (question.question_type) {
-        case 'MC_SINGLE': { // Usa il tipo corretto dal backend
-            const optionId = answerData.answer_option_id;
-            // Usa direttamente l'oggetto question passato
-            const option = question.answer_options?.find(opt => opt.id === optionId);
-            return option ? option.text : 'Opzione non trovata';
-        }
-        case 'MC_MULTI': { // Usa il tipo corretto dal backend
-            const optionIds = answerData.answer_option_ids || [];
-            // Usa direttamente l'oggetto question passato
-            const selectedTexts = optionIds
-                .map((id: number) => question.answer_options?.find(opt => opt.id === id)?.text)
-                .filter(Boolean); // Filtra eventuali undefined
-            return selectedTexts.length > 0 ? selectedTexts.join(', ') : 'Nessuna opzione selezionata';
-        }
-        case 'TF': // Usa il tipo corretto dal backend
-            return answerData.is_true ? 'Vero' : 'Falso';
-        case 'FILL_BLANK': { // Usa il tipo corretto dal backend
-            // Assumendo che answerData.answers sia ora una lista di stringhe come salvato nel backend
-            const answersList = answerData.answers || [];
-            return answersList.map((ans: string, index: number) => `#${index + 1}: ${ans}`).join('; ');
-        }
-        case 'OPEN_MANUAL': // Usa il tipo corretto dal backend
-            // Assumendo che la chiave sia 'answer_text' come nella validazione backend
-            return answerData.answer_text || 'Nessuna risposta fornita';
-        default:
-            return JSON.stringify(answerData); // Fallback
-    }
+function getQuestionComponent(questionType: Question['question_type']) {
+  switch (questionType) {
+    case 'MC_SINGLE':
+      return MultipleChoiceSingleQuestion;
+    case 'MC_MULTI':
+      return MultipleChoiceMultipleQuestion;
+    case 'TF':
+      return TrueFalseQuestion;
+    case 'FILL_BLANK':
+      return FillBlankQuestion;
+    case 'OPEN_MANUAL':
+      return OpenAnswerManualQuestion;
+    default:
+      // Potrebbe restituire un componente di fallback o null
+      // Per ora, se il tipo non è gestito, il template avrà un v-else
+      console.warn(`Componente non mappato per il tipo di domanda: ${questionType}`);
+      return null;
+  }
 }
 
-function getCorrectnessClass(isCorrect: boolean | null): string {
-    if (isCorrect === true) return 'correct-answer';
-    if (isCorrect === false) return 'incorrect-answer';
-    return 'pending-answer'; // Per risposte manuali non ancora corrette
-}
-
-function getCorrectnessText(isCorrect: boolean | null): string {
-    if (isCorrect === true) return 'Corretta';
-    if (isCorrect === false) return 'Errata';
-    return 'In attesa di correzione';
-}
+// Le funzioni formatAnswer, getCorrectnessClass, e getCorrectnessText
+// non sono più necessarie qui perché ogni componente domanda gestirà la propria visualizzazione.
 
 // Calcola l'esito del quiz
 const quizOutcome = computed(() => {
@@ -244,18 +225,48 @@ const displayThreshold = computed(() => {
         </div>
         <div v-else-if="quizOutcome === 'pending'" class="outcome-content animate-fade-in">
           <span class="text-5xl mb-2 block">⏳</span>
-          <h3 class="text-2xl font-semibold mb-2">Risultato in attesa</h3>
-          <p>Il tuo punteggio finale sarà disponibile dopo la correzione manuale da parte del docente.</p>
+          <h3 class="text-2xl font-semibold mb-2">Quiz Inviato!</h3>
+          <p>Alcune risposte richiedono la correzione del docente. Riceverai una notifica quando il risultato finale sarà disponibile.</p>
         </div>
         <div v-else class="outcome-content">
           <p>Stato del tentativo non determinato.</p>
         </div>
       </div>
 
-      <!-- Dettagli Quiz e Risposte rimossi come richiesto -->
+      <!-- Dettagli Quiz e Risposte -->
+      <div v-if="attemptDetails && attemptDetails.questions && attemptDetails.questions.length > 0" class="mt-8">
+        <h2 class="text-2xl font-semibold text-gray-800 mb-6 border-b pb-2">Dettaglio Risposte:</h2>
+        <ul class="answers-list space-y-6">
+          <li v-for="(question, index) in attemptDetails.questions" :key="question.id" class="answer-item bg-white p-5 rounded-lg shadow">
+            <h3 class="question-text text-lg font-semibold text-purple-700 dark:text-purple-400 mb-2">
+              Domanda {{ index + 1 }}: <span class="text-gray-800 dark:text-gray-300 font-normal">{{ question.text }}</span>
+            </h3>
+            
+            <div class="student-answer-details mt-3">
+              <component
+                :is="getQuestionComponent(question.question_type)"
+                v-if="getQuestionComponent(question.question_type)"
+                :question="question"
+                displayMode="result"
+                :studentAnswerData="getStudentAnswerForQuestion(question.id)"
+              />
+              <div v-else class="text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 p-3 rounded-md">
+                <p>
+                  Visualizzazione dettagliata per tipo domanda '{{ question.question_type_display || question.question_type }}' non ancora implementata o tipo sconosciuto.
+                </p>
+                 <p class="text-xs mt-2">Dati risposta: {{ getStudentAnswerForQuestion(question.id) }}</p>
+              </div>
+            </div>
+          </li>
+        </ul>
+      </div>
 
       <!-- Modificato per emettere 'close' invece di navigare -->
-      <button @click="handleClose" class="back-button">Chiudi</button>
+      <button @click="handleClose"
+        class="mt-8 px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white font-semibold rounded-lg shadow-md transition duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50 w-full md:w-auto dark:bg-gray-700 dark:hover:bg-gray-600"
+      >
+        Chiudi Riepilogo
+      </button>
     </div>
   </div>
 </template>
@@ -263,8 +274,15 @@ const displayThreshold = computed(() => {
 <style scoped>
 .quiz-result-view {
   padding: 20px;
-  max-width: 900px;
-  margin: 0 auto;
+  max-width: 900px; /* Aumentato per più spazio */
+  margin: 20px auto; /* Aggiunto margine superiore/inferiore */
+  background-color: #f9fafb; /* Sfondo leggermente diverso per la modale/vista */
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.dark .quiz-result-view {
+   background-color: #1f2937; /* Sfondo scuro */
 }
 
 .loading, .error-message {

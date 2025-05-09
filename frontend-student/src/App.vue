@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue'; // Aggiunto onMounted
 import { useAuthStore } from '@/stores/auth';
+import { useNotificationStore } from '@/stores/notification'; // Aggiunto NotificationStore
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router';
 import GlobalLoadingIndicator from '@/components/common/GlobalLoadingIndicator.vue';
 import NotificationContainer from '@/components/common/NotificationContainer.vue';
@@ -13,9 +14,11 @@ import {
 } from '@heroicons/vue/24/outline';
 
 const authStore = useAuthStore();
+const notificationStore = useNotificationStore(); // Istanziato NotificationStore
 const route = useRoute();
 const router = useRouter();
 const isMobileMenuOpen = ref(false);
+const isNotificationsOpen = ref(false); // Stato per il dropdown delle notifiche
 
 // Stato per la modale
 const isModalOpen = ref(false);
@@ -224,6 +227,34 @@ const goToProfile = () => {
   router.push({ name: 'Profile' });
 };
 
+const toggleNotificationsDropdown = () => {
+  isNotificationsOpen.value = !isNotificationsOpen.value;
+  if (isNotificationsOpen.value && authStore.isAuthenticated) {
+    // Ricarica le notifiche quando il dropdown viene aperto,
+    // per assicurarsi che siano aggiornate.
+    notificationStore.fetchServerNotifications();
+  }
+};
+
+const handleNotificationClick = async (notification: any, routerInstance: any) => {
+  if (!notification.is_read) {
+    await notificationStore.markServerNotificationAsRead(notification.id);
+  }
+  if (notification.link) {
+    routerInstance.push(notification.link);
+  }
+  isNotificationsOpen.value = false; // Chiudi il dropdown dopo il click
+};
+
+// Chiamata per caricare le notifiche al mount del componente
+onMounted(() => {
+  if (authStore.isAuthenticated) {
+    notificationStore.fetchServerNotifications();
+  }
+});
+
+// TODO: Aggiungere watch su authStore.isAuthenticated per caricare le notifiche dopo il login, se App.vue è già montato
+
 </script>
 <template>
   <GlobalLoadingIndicator />
@@ -383,10 +414,45 @@ const goToProfile = () => {
              <!-- Pulsanti Header (Notifiche, Profilo) -->
              <div class="flex items-center space-x-4">
                  <!-- Pulsante Notifiche -->
-                 <button class="p-2 rounded-full text-gray-500 hover:text-gray-700 hover:bg-gray-100 focus:outline-none focus:bg-gray-100 focus:ring-2 focus:ring-offset-2 focus:ring-purple-500">
-                     <span class="sr-only">View notifications</span>
-                     <BellIcon class="h-6 w-6" />
-                 </button>
+                 <div class="relative">
+                   <button @click="toggleNotificationsDropdown" class="p-2 rounded-full text-gray-500 hover:text-gray-700 hover:bg-gray-100 focus:outline-none focus:bg-gray-100 focus:ring-2 focus:ring-offset-2 focus:ring-purple-500">
+                       <span class="sr-only">View notifications</span>
+                       <BellIcon class="h-6 w-6" />
+                       <span v-if="notificationStore.unreadServerNotificationCount > 0" class="absolute top-0 right-0 block h-2 w-2 transform translate-x-1/2 -translate-y-1/2 rounded-full bg-red-500 ring-2 ring-white"></span>
+                   </button>
+                   <!-- Dropdown Notifiche -->
+                   <div v-if="isNotificationsOpen" class="absolute right-0 mt-2 w-80 bg-white rounded-md shadow-lg overflow-hidden z-20">
+                     <div class="py-2 px-4 text-sm text-gray-700 font-semibold border-b">Notifiche</div>
+                      <div v-if="notificationStore.isLoadingServerNotifications" class="p-4 text-sm text-gray-500 text-center">
+                        Caricamento...
+                      </div>
+                      <div v-else-if="notificationStore.serverNotificationsError" class="p-4 text-sm text-red-500">
+                        Errore: {{ notificationStore.serverNotificationsError }}
+                      </div>
+                      <div v-else-if="notificationStore.serverNotifications.length === 0" class="p-4 text-sm text-gray-500">
+                        Nessuna notifica.
+                      </div>
+                      <ul v-else class="divide-y divide-gray-200 max-h-96 overflow-y-auto">
+                        <li v-for="notification in notificationStore.serverNotifications" :key="notification.id"
+                            class="p-3 hover:bg-gray-50 cursor-pointer"
+                            @click="handleNotificationClick(notification, router)">
+                          <div class="flex justify-between items-center">
+                            <p class="text-sm text-gray-600" :class="{'font-semibold': !notification.is_read}">{{ notification.message }}</p>
+                            <span v-if="!notification.is_read" class="ml-2 h-2 w-2 bg-primary rounded-full"></span>
+                          </div>
+                          <p class="text-xs text-gray-400 mt-1">{{ new Date(notification.created_at).toLocaleString() }}</p>
+                        </li>
+                      </ul>
+                      <div v-if="notificationStore.serverNotifications.length > 0 && !notificationStore.isLoadingServerNotifications && !notificationStore.serverNotificationsError" class="py-2 px-4 border-t">
+                        <button
+                          @click="notificationStore.markAllServerNotificationsAsRead()"
+                          class="w-full text-sm text-primary hover:underline disabled:text-gray-400 disabled:no-underline"
+                          :disabled="notificationStore.unreadServerNotificationCount === 0">
+                          Segna tutte come lette
+                        </button>
+                      </div>
+                   </div>
+                 </div>
 
                  <!-- Pulsante Profilo (Link diretto) -->
                  <button @click="goToProfile" class="p-1 rounded-full text-gray-500 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500">

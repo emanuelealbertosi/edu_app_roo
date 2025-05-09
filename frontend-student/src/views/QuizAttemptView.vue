@@ -62,6 +62,7 @@ const isCompleting = ref(false);
 const showFeedback = ref(false); // Nuovo: Controlla visibilità feedback
 const isCorrectFeedback = ref(false); // Nuovo: Indica se il feedback è per risposta corretta
 const feedbackTimeoutId = ref<number | null>(null); // Nuovo: Per gestire il timeout (tipo corretto per browser)
+const showPendingGradingMessage = ref(false); // Nuovo: Controlla visibilità messaggio "pending grading"
 
 // --- Funzioni Logiche ---
 
@@ -234,25 +235,33 @@ async function completeAttemptHandler() {
     const finalAttemptDetails = await QuizService.completeAttempt(attempt.value.id);
     console.log("Tentativo completato:", finalAttemptDetails);
 
-    // --- Logica Notifica Badge ---
-    // Assicurati di importare useNotificationStore all'inizio dello script setup
-    const notificationStore = useNotificationStore();
-    if (finalAttemptDetails.newly_earned_badges && finalAttemptDetails.newly_earned_badges.length > 0) {
-      console.log("Nuovi badge guadagnati:", finalAttemptDetails.newly_earned_badges);
-      // Assumiamo che newly_earned_badges contenga oggetti conformi a BadgeInfo (incluso animation_class)
-      finalAttemptDetails.newly_earned_badges.forEach((badge: any) => { // Usa 'any' o importa/definisci BadgeInfo
-        notificationStore.addBadgeNotification(badge); // Passa l'intero oggetto badge
-      });
-    }
-    // --- Fine Logica Notifica Badge ---
-
-    // <-- AGGIUNTO: Ricarica i dati della dashboard -->
+    // <-- AGGIUNTO: Ricarica i dati della dashboard in ogni caso -->
     await dashboardStore.loadDashboard();
-    console.log("[QuizAttemptView] Dashboard data reload triggered after quiz completion.");
+    console.log("[QuizAttemptView] Dashboard data reload triggered after quiz completion attempt.");
 
-    // --- Sostituisci router.push con emit ---
-    // router.push({ name: 'QuizResult', params: { attemptId: attempt.value.id } });
-    emit('completed', attempt.value.id); // Emetti evento con l'ID del tentativo
+    if (finalAttemptDetails.status === 'PENDING_GRADING') {
+      console.log("Tentativo in attesa di correzione manuale.");
+      showPendingGradingMessage.value = true;
+      // Non emettere 'completed' qui. La modale si chiuderà tramite il messaggio.
+      // Potremmo aggiungere un timeout per chiudere automaticamente la modale dopo aver mostrato il messaggio.
+      setTimeout(() => {
+        if (showPendingGradingMessage.value) { // Controlla se il messaggio è ancora visibile
+          emit('close');
+        }
+      }, 5000); // Chiudi dopo 5 secondi se l'utente non lo fa prima
+    } else {
+      // --- Logica Notifica Badge (solo se non è pending) ---
+      const notificationStore = useNotificationStore();
+      if (finalAttemptDetails.newly_earned_badges && finalAttemptDetails.newly_earned_badges.length > 0) {
+        console.log("Nuovi badge guadagnati:", finalAttemptDetails.newly_earned_badges);
+        finalAttemptDetails.newly_earned_badges.forEach((badge: any) => {
+          notificationStore.addBadgeToastNotification(badge);
+        });
+      }
+      // --- Fine Logica Notifica Badge ---
+
+      emit('completed', attempt.value.id); // Emetti evento con l'ID del tentativo
+    }
 
   } catch (err: any) {
     // ... (gestione errore invariata) ...
@@ -413,8 +422,28 @@ onUnmounted(() => {
           <span class="block sm:inline"> {{ error }}</span>
         </div>
 
-        <!-- Mostra il contenuto del quiz solo se l'animazione iniziale è finita -->
-        <div v-if="attempt && !isLoading && !showStartAnimation" class="">
+        <!-- Messaggio di Attesa Correzione Manuale -->
+        <div v-if="showPendingGradingMessage" class="pending-grading-message bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-6 rounded-md shadow-md my-6">
+          <div class="flex">
+            <div class="py-1">
+              <svg class="fill-current h-6 w-6 text-yellow-500 mr-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M2.93 17.07A10 10 0 1 1 17.07 2.93 10 10 0 0 1 2.93 17.07zM9 11v2h2v-2H9zm0-4v3h2V7H9z"/></svg>
+            </div>
+            <div>
+              <p class="font-bold text-lg mb-2">Quiz Inviato Correttamente!</p>
+              <p class="text-sm">Alcune risposte richiedono la correzione manuale da parte del docente.</p>
+              <p class="text-sm mt-1">Riceverai una notifica quando il risultato finale sarà disponibile.</p>
+              <button
+                @click="() => { showPendingGradingMessage = false; emit('close'); }"
+                class="mt-4 bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-2 px-4 rounded text-sm transition-colors duration-150"
+              >
+                OK, Ho Capito
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Mostra il contenuto del quiz solo se l'animazione iniziale è finita E NON c'è il messaggio di pending grading -->
+        <div v-if="attempt && !isLoading && !showStartAnimation && !showPendingGradingMessage" class="">
           <h2 class="text-2xl font-semibold text-gray-800 mb-2">{{ attempt?.quiz?.title }}</h2>
           <p class="text-gray-600 mb-6">{{ attempt?.quiz?.description }}</p>
 

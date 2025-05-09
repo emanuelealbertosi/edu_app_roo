@@ -14,7 +14,8 @@ from .models import (
     QuizTemplate, QuestionTemplate, AnswerOptionTemplate,
     Quiz, Question, AnswerOption, Pathway, PathwayQuiz,
     QuizAttempt, StudentAnswer, PathwayProgress, QuestionType,
-    QuizAssignment, PathwayAssignment, PathwayTemplate, PathwayQuizTemplate # Importa i modelli Assignment e Template Percorsi
+    QuizAssignment, PathwayAssignment, PathwayTemplate, PathwayQuizTemplate, # Importa i modelli Assignment e Template Percorsi
+    Notification, NotificationType # NUOVI IMPORT PER NOTIFICHE
 )
 from .serializers import (
     QuizTemplateSerializer, QuestionTemplateSerializer, AnswerOptionTemplateSerializer,
@@ -30,7 +31,12 @@ from .serializers import (
     PathwayTemplateSerializer, PathwayQuizTemplateSerializer,
     QuizAssignmentSerializer, PathwayAssignmentSerializer,
     # Nuovi serializer per azioni di assegnazione
-    AssignQuizSerializer, AssignPathwaySerializer
+    AssignQuizSerializer, AssignPathwaySerializer,
+    NotificationSerializer, # NUOVO IMPORT PER NOTIFICHE
+    # Serializers per TeacherGradingViewSet
+    PendingQuizAttemptSerializer,
+    GradingQuizAttemptDetailSerializer,
+    GradeSubmissionSerializer
 )
 from .permissions import (
     IsAdminOrReadOnly, IsQuizTemplateOwnerOrAdmin, IsQuizOwnerOrAdmin, IsPathwayOwnerOrAdmin, # Updated IsPathwayOwner -> IsPathwayOwnerOrAdmin
@@ -46,7 +52,7 @@ from .models import (
     Quiz, Question, AnswerOption, Pathway, PathwayQuiz,
     QuizAttempt, StudentAnswer, PathwayProgress, QuestionType,
     QuizAssignment, PathwayAssignment, PathwayTemplate, PathwayQuizTemplate,
-    # Assicurati che Quiz sia importato
+    Notification, NotificationType, # Assicurati che Quiz e Notification siano importati
 )
 from apps.student_groups.models import StudentGroup, StudentGroupMembership, GroupAccessRequest # Importa modelli per permessi gruppi
 # Importa PermissionDenied da Django Core Exceptions
@@ -54,6 +60,58 @@ from django.core.exceptions import PermissionDenied
 
 # Get an instance of a logger
 logger = logging.getLogger(__name__)
+
+
+# --- Notification ViewSet (Student) ---
+class NotificationViewSet(viewsets.ReadOnlyModelViewSet): # ReadOnly per ora, le azioni modificano lo stato
+    """
+    API endpoint per le notifiche dello studente.
+    """
+    serializer_class = NotificationSerializer
+    permission_classes = [permissions.IsAuthenticated, IsStudentAuthenticated] # Solo lo studente autenticato
+
+    def get_queryset(self):
+        """
+        Restituisce solo le notifiche per lo studente autenticato.
+        Permette di filtrare per 'is_read=false'.
+        """
+        user = self.request.user # Dovrebbe essere l'istanza Student grazie a IsStudentAuthenticated
+        queryset = Notification.objects.filter(student=user)
+
+        is_read_param = self.request.query_params.get('is_read')
+        if is_read_param is not None:
+            if is_read_param.lower() == 'false':
+                queryset = queryset.filter(is_read=False)
+            elif is_read_param.lower() == 'true':
+                queryset = queryset.filter(is_read=True)
+        return queryset.order_by('-created_at') # Le più recenti prima
+
+    @action(detail=True, methods=['post'], url_path='mark-as-read')
+    def mark_as_read(self, request, pk=None):
+        """
+        Segna una specifica notifica come letta.
+        """
+        notification = self.get_object() # get_object si basa su get_queryset, quindi è già filtrato per utente
+        if notification.student != request.user:
+            # Questo controllo è una doppia sicurezza, get_queryset dovrebbe già prevenire
+            raise DRFPermissionDenied("Non puoi modificare questa notifica.")
+        
+        if not notification.is_read:
+            notification.is_read = True
+            notification.save(update_fields=['is_read'])
+            logger.info(f"Notifica {notification.id} per studente {request.user.id} segnata come letta.")
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=False, methods=['post'], url_path='mark-all-as-read')
+    def mark_all_as_read(self, request):
+        """
+        Segna tutte le notifiche non lette dello studente come lette.
+        """
+        user = request.user
+        updated_count = Notification.objects.filter(student=user, is_read=False).update(is_read=True)
+        logger.info(f"{updated_count} notifiche per studente {user.id} segnate come lette.")
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
 
 # --- ViewSets per Admin (Templates) ---
 class QuizTemplateViewSet(viewsets.ModelViewSet):
@@ -1447,221 +1505,121 @@ class AttemptViewSet(viewsets.GenericViewSet):
 
         newly_earned_badges = [] # Inizializza a lista vuota
 
-        # Verifica se ci sono domande a risposta aperta non ancora valutate manualmente
+        # --- Inizio Valutazione IMMEDIATA Risposte Automatiche ---
+        # Itera su tutte le risposte date per questo tentativo e valuta quelle automatiche
+        logger.debug(f"Inizio valutazione immediata risposte per tentativo {attempt.id}")
+        for student_answer in attempt.student_answers.prefetch_related('question', 'question__answer_options').all():
+            question = student_answer.question
+            valid_data_for_storage = student_answer.selected_answers # Recupera i dati salvati
+            
+            # Usa nomi di variabili locali diversi per evitare confusione con i campi del modello
+            is_correct_val = None
+            score_val = None
+            
+            # Esegui la logica di valutazione solo per domande a correzione automatica
+            if question.question_type != QuestionType.OPEN_ANSWER_MANUAL:
+                logger.debug(f"Valutazione Q{question.order} (Tipo: {question.question_type})")
+                try:
+                    if question.question_type == QuestionType.MULTIPLE_CHOICE_SINGLE:
+                        correct_option = question.answer_options.filter(is_correct=True).first()
+                        selected_option_id = valid_data_for_storage.get('answer_option_id')
+                        is_correct_val = bool(correct_option and selected_option_id == correct_option.id)
+                        score_val = float(question.metadata.get('points_per_correct_answer', 1.0)) if is_correct_val else 0.0
+                        logger.debug(f"  MC_SINGLE: Sel={selected_option_id}, Corr={correct_option.id if correct_option else None}, Result={is_correct_val}, Score={score_val}")
+
+                    elif question.question_type == QuestionType.TRUE_FALSE:
+                        correct_option = question.answer_options.filter(is_correct=True).first()
+                        selected_option_id = valid_data_for_storage.get('answer_option_id')
+                        if correct_option:
+                            is_correct_val = bool(selected_option_id == correct_option.id)
+                            score_val = float(question.metadata.get('points_per_correct_answer', 1.0)) if is_correct_val else 0.0
+                            logger.debug(f"  TF: SelOptID={selected_option_id}, CorrOptID={correct_option.id}, Result={is_correct_val}, Score={score_val}")
+                        else:
+                            is_correct_val = False; score_val = 0.0
+                            logger.warning(f"  TF: Nessuna opzione corretta definita per Q ID {question.id}")
+
+                    elif question.question_type == QuestionType.MULTIPLE_CHOICE_MULTIPLE:
+                        correct_option_ids = set(question.answer_options.filter(is_correct=True).values_list('id', flat=True))
+                        selected_option_ids = set(valid_data_for_storage.get('answer_option_ids', []))
+                        is_correct_val = (correct_option_ids == selected_option_ids)
+                        score_val = float(question.metadata.get('points_per_correct_answer', 1.0)) if is_correct_val else 0.0
+                        logger.debug(f"  MC_MULTI: Sel={selected_option_ids}, Corr={correct_option_ids}, Result={is_correct_val}, Score={score_val}")
+
+                    elif question.question_type == QuestionType.FILL_BLANK:
+                        correct_answers_list = question.metadata.get('correct_answers', [])
+                        case_sensitive = question.metadata.get('case_sensitive', False)
+                        submitted_answers = valid_data_for_storage.get('answers', [])
+                        if len(correct_answers_list) != len(submitted_answers):
+                            is_correct_val = False
+                            logger.debug(f"  FILL_BLANK: Numero risposte errato (atteso {len(correct_answers_list)}, dato {len(submitted_answers)})")
+                        else:
+                            all_match = True
+                            for i, correct_ans in enumerate(correct_answers_list):
+                                submitted = submitted_answers[i]
+                                correct_str = str(correct_ans)
+                                submitted_str = str(submitted)
+                                if not case_sensitive:
+                                    if correct_str.lower() != submitted_str.lower(): all_match = False; break
+                                else:
+                                    if correct_str != submitted_str: all_match = False; break
+                            is_correct_val = all_match
+                        score_val = float(question.metadata.get('points_per_correct_answer', 1.0)) if is_correct_val else 0.0
+                        logger.debug(f"  FILL_BLANK: Result={is_correct_val}, Score={score_val}")
+
+                    # Salva i risultati della valutazione sulla singola risposta
+                    if is_correct_val is not None: # Salva solo se è stata valutata
+                        student_answer.is_correct = is_correct_val
+                        student_answer.score = score_val
+                        student_answer.save(update_fields=['is_correct', 'score'])
+                        logger.debug(f"  Risposta salvata: is_correct={student_answer.is_correct}, score={student_answer.score}")
+                    else:
+                         logger.debug(f"  Nessuna valutazione automatica applicabile (is_correct_val is None).")
+
+                except Exception as eval_error:
+                     logger.error(f"Errore durante valutazione automatica immediata per Q ID {question.id} in tentativo {attempt.id}: {eval_error}", exc_info=True)
+                     student_answer.is_correct = None # Assicura che rimanga non valutato in caso di errore
+                     student_answer.score = None
+                     student_answer.save(update_fields=['is_correct', 'score'])
+        logger.debug(f"Fine valutazione immediata risposte per tentativo {attempt.id}")
+        # --- Fine Valutazione IMMEDIATA Risposte Automatiche ---
+
+        # Ora determina se è necessaria la correzione manuale
         has_manual_questions = attempt.quiz.questions.filter(question_type=QuestionType.OPEN_ANSWER_MANUAL).exists()
         needs_manual_grading = False
         if has_manual_questions:
-            # Controlla se *tutte* le risposte alle domande manuali sono state date
             manual_question_ids = attempt.quiz.questions.filter(question_type=QuestionType.OPEN_ANSWER_MANUAL).values_list('id', flat=True)
             answered_manual_ids = attempt.student_answers.filter(question_id__in=manual_question_ids).values_list('question_id', flat=True)
             if set(manual_question_ids) == set(answered_manual_ids):
-                 # Tutte le domande manuali hanno una risposta, ma potrebbero non essere state corrette
                  needs_manual_grading = True
             else:
-                 # Non tutte le domande manuali hanno una risposta, l'utente non può completare
                  return Response({'detail': 'Devi rispondere a tutte le domande prima di completare il tentativo.'}, status=status.HTTP_400_BAD_REQUEST)
 
+        attempt.completed_at = timezone.now() # Imposta il tempo di completamento per tutti i casi
 
         if needs_manual_grading:
             attempt.status = QuizAttempt.AttemptStatus.PENDING_GRADING
-            attempt.completed_at = timezone.now() # Registra comunque il tempo di completamento
-            attempt.save()
-            logger.info(f"Tentativo Quiz {attempt.id} completato, in attesa di correzione manuale.")
+            logger.info(f"Tentativo Quiz {attempt.id} completato, ora PENDING_GRADING.")
         else:
-            # --- Inizio Valutazione Risposte Automatiche ---
-            # Itera su tutte le risposte date per questo tentativo e valuta quelle automatiche
-            logger.debug(f"Inizio valutazione risposte per tentativo {attempt.id}")
-            for student_answer in attempt.student_answers.prefetch_related('question', 'question__answer_options').all(): # Corretto: usa prefetch_related per entrambe
-                question = student_answer.question
-                valid_data_for_storage = student_answer.selected_answers # Recupera i dati salvati
-                is_correct = None
-                score = None
-                logger.debug(f"Valutazione Q{question.order} (Tipo: {question.question_type})")
-
-                # Esegui la logica di valutazione solo per domande a correzione automatica
-                # e solo se la risposta non è già stata valutata (is_correct è None)
-                if question.question_type != QuestionType.OPEN_ANSWER_MANUAL and student_answer.is_correct is None:
-                    try:
-                        if question.question_type == QuestionType.MULTIPLE_CHOICE_SINGLE:
-                            correct_option = question.answer_options.filter(is_correct=True).first()
-                            selected_option_id = valid_data_for_storage.get('answer_option_id')
-                            is_correct = bool(correct_option and selected_option_id == correct_option.id)
-                            score = float(question.metadata.get('points_per_correct_answer', 1.0)) if is_correct else 0.0
-                            logger.debug(f"  MC_SINGLE: Sel={selected_option_id}, Corr={correct_option.id if correct_option else None}, Result={is_correct}, Score={score}")
-
-                        elif question.question_type == QuestionType.TRUE_FALSE:
-                            correct_option = question.answer_options.filter(is_correct=True).first()
-                            selected_bool = valid_data_for_storage.get('is_true')
-                            if correct_option:
-                                is_correct_option_true = correct_option.text.lower() == 'vero'
-                                is_correct = (selected_bool == is_correct_option_true)
-                                score = float(question.metadata.get('points_per_correct_answer', 1.0)) if is_correct else 0.0
-                                logger.debug(f"  TF: Sel={selected_bool}, CorrVal={is_correct_option_true}, Result={is_correct}, Score={score}")
-                            else:
-                                is_correct = False; score = 0.0
-                                logger.warning(f"  TF: Nessuna opzione corretta definita per Q ID {question.id}")
-
-
-                        elif question.question_type == QuestionType.MULTIPLE_CHOICE_MULTIPLE:
-                            correct_option_ids = set(question.answer_options.filter(is_correct=True).values_list('id', flat=True))
-                            selected_option_ids = set(valid_data_for_storage.get('answer_option_ids', []))
-                            is_correct = (correct_option_ids == selected_option_ids)
-                            score = float(question.metadata.get('points_per_correct_answer', 1.0)) if is_correct else 0.0
-                            logger.debug(f"  MC_MULTI: Sel={selected_option_ids}, Corr={correct_option_ids}, Result={is_correct}, Score={score}")
-
-                        elif question.question_type == QuestionType.FILL_BLANK:
-                            correct_answers_list = question.metadata.get('correct_answers', [])
-                            case_sensitive = question.metadata.get('case_sensitive', False)
-                            submitted_answers = valid_data_for_storage.get('answers', [])
-                            if len(correct_answers_list) != len(submitted_answers):
-                                is_correct = False
-                                logger.debug(f"  FILL_BLANK: Numero risposte errato (atteso {len(correct_answers_list)}, dato {len(submitted_answers)})")
-                            else:
-                                all_match = True
-                                for i, correct_ans in enumerate(correct_answers_list):
-                                    submitted = submitted_answers[i]
-                                    correct_str = str(correct_ans)
-                                    submitted_str = str(submitted)
-                                    if not case_sensitive:
-                                        if correct_str.lower() != submitted_str.lower(): all_match = False; break
-                                    else:
-                                        if correct_str != submitted_str: all_match = False; break
-                                is_correct = all_match
-                            score = float(question.metadata.get('points_per_correct_answer', 1.0)) if is_correct else 0.0
-                            logger.debug(f"  FILL_BLANK: Result={is_correct}, Score={score}")
-
-                        # Salva i risultati della valutazione sulla singola risposta
-                        if is_correct is not None: # Salva solo se è stata valutata
-                            student_answer.is_correct = is_correct
-                            student_answer.score = score
-                            student_answer.save(update_fields=['is_correct', 'score'])
-                            logger.debug(f"  Risposta salvata: is_correct={is_correct}, score={score}")
-                        else:
-                             logger.debug(f"  Nessuna valutazione automatica applicabile o già valutata.")
-
-                    except Exception as eval_error:
-                         logger.error(f"Errore durante valutazione automatica risposta per Q ID {question.id} in tentativo {attempt.id}: {eval_error}", exc_info=True)
-                         # Non bloccare il completamento, ma logga l'errore
-                         student_answer.is_correct = None # Assicura che rimanga non valutato
-                         student_answer.score = None
-                         student_answer.save(update_fields=['is_correct', 'score'])
-
-            logger.debug(f"Fine valutazione risposte per tentativo {attempt.id}")
-            # --- Fine Valutazione Risposte Automatiche ---
-
-            # Ora calcola il punteggio finale e assegna punti/badge basandosi sulle risposte valutate
+            # Quiz completamente automatico o uno le cui domande manuali sono già state valutate
+            # (questo secondo caso di solito seguirebbe un flusso di 'finalize_grading' separato,
+            # ma qui gestiamo il caso in cui non ci sono domande manuali o sono state tutte risposte
+            # e per qualche motivo non è PENDING_GRADING - anche se la logica sopra lo imposterebbe).
+            # La logica principale qui è per quiz interamente automatici.
             final_score = attempt.calculate_final_score() # Calcola e salva lo score sull'attempt
-            newly_earned_badges = attempt.assign_completion_points() # Assegna punti/badge e cattura i nuovi badge
-            # Lo stato viene aggiornato dentro assign_completion_points o rimane COMPLETED
-            attempt.completed_at = timezone.now()
-            attempt.save() # Salva eventuali modifiche da assign_completion_points
-            logger.info(f"Tentativo Quiz {attempt.id} completato automaticamente. Score: {final_score}, Status: {attempt.status}")
-
+            newly_earned_badges = attempt.assign_completion_points() # Assegna punti/badge e aggiorna lo stato dell'attempt
+            logger.info(f"Tentativo Quiz {attempt.id} completato e valutato automaticamente. Score: {final_score}, Status: {attempt.status}")
+        
+        attempt.save() # Salva lo stato finale (PENDING_GRADING o COMPLETED/FAILED) e completed_at
 
         # Passa i nuovi badge al contesto del serializer
         context = {'request': request, 'newly_earned_badges': newly_earned_badges}
+        # Usiamo QuizAttemptSerializer per coerenza, ma potrebbe essere utile QuizAttemptDetailSerializer se il FE lo aspetta
         serializer = QuizAttemptSerializer(attempt, context=context)
         return Response(serializer.data)
 
 
 # --- ViewSet per Docenti (Correzione Manuale) ---
 
-class TeacherGradingViewSet(viewsets.GenericViewSet):
-    """ Endpoint per Docenti per visualizzare e correggere risposte manuali. """
-    # queryset = QuizAttempt.objects.filter(status=QuizAttempt.AttemptStatus.PENDING_GRADING)
-    serializer_class = QuizAttemptSerializer # Usato per la lista
-    permission_classes = [permissions.IsAuthenticated, IsTeacherUser] # Solo Docenti
-
-    def get_queryset(self):
-        """ Filtra i tentativi in attesa di correzione per i quiz del docente. """
-        user = self.request.user
-        if not isinstance(user, User) or not user.is_teacher:
-            return QuizAttempt.objects.none() # Sicurezza: non docenti non vedono nulla
-
-        # Filtra i tentativi PENDING_GRADING relativi ai quiz creati da questo docente
-        return QuizAttempt.objects.filter(
-            quiz__teacher=user,
-            status=QuizAttempt.AttemptStatus.PENDING_GRADING
-        ).select_related('student', 'quiz').order_by('completed_at')
-
-
-    # GET /api/education/teacher/grading/pending/
-    @action(detail=False, methods=['get'], url_path='pending')
-    def list_pending(self, request):
-        """ Lista dei tentativi in attesa di correzione per il docente loggato. """
-        # Workaround per permessi: controllo manuale perché i permessi standard sembrano fallire qui
-        if not isinstance(request.user, User) or not request.user.is_teacher:
-             raise DRFPermissionDenied("Accesso negato.")
-
-        queryset = self.get_queryset()
-        serializer = self.get_serializer(queryset, many=True)
-        return Response(serializer.data)
-
-    # POST /api/education/teacher/grading/{pk}/grade/
-    @action(detail=True, methods=['post'], url_path='grade')
-    def grade_answer(self, request, pk=None):
-        """ Permette al docente di assegnare un punteggio a una risposta manuale. """
-        # Workaround per permessi: controllo manuale
-        if not isinstance(request.user, User) or not request.user.is_teacher:
-             raise DRFPermissionDenied("Accesso negato.")
-
-        attempt = get_object_or_404(QuizAttempt, pk=pk)
-
-        # Verifica che il docente sia il proprietario del quiz
-        if attempt.quiz.teacher != request.user:
-             raise DRFPermissionDenied("Non puoi correggere tentativi per quiz di altri docenti.")
-
-        if attempt.status != QuizAttempt.AttemptStatus.PENDING_GRADING:
-            return Response({'detail': 'Questo tentativo non è in attesa di correzione.'}, status=status.HTTP_400_BAD_REQUEST)
-
-        answer_id = request.data.get('answer_id')
-        score = request.data.get('score')
-        is_correct = request.data.get('is_correct') # Boolean
-
-        if answer_id is None or score is None or is_correct is None:
-            return Response({'detail': 'answer_id, score e is_correct sono richiesti.'}, status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            answer = StudentAnswer.objects.get(pk=answer_id, quiz_attempt=attempt, question__question_type=QuestionType.OPEN_ANSWER_MANUAL)
-        except StudentAnswer.DoesNotExist:
-            return Response({'detail': 'Risposta manuale non trovata per questo tentativo.'}, status=status.HTTP_404_NOT_FOUND)
-
-        try:
-            score = int(score)
-            if score < 0: raise ValueError("Score non può essere negativo")
-            # Potremmo aggiungere un controllo sul punteggio massimo della domanda se definito nei metadata
-        except (ValueError, TypeError):
-            return Response({'score': 'Il punteggio deve essere un intero non negativo.'}, status=status.HTTP_400_BAD_REQUEST)
-
-        if not isinstance(is_correct, bool):
-             return Response({'is_correct': 'is_correct deve essere un booleano (true/false).'}, status=status.HTTP_400_BAD_REQUEST)
-
-
-        # Aggiorna la risposta
-        answer.score = score
-        answer.is_correct = is_correct
-        answer.save()
-
-        # Verifica se tutte le risposte manuali sono state corrette
-        all_manual_answers_graded = not attempt.student_answers.filter(
-            question__question_type=QuestionType.OPEN_ANSWER_MANUAL,
-            score__isnull=True # Cerca risposte manuali non ancora corrette (score è NULL)
-        ).exists()
-
-        if all_manual_answers_graded:
-            # Tutte corrette, finalizza il tentativo
-            logger.info(f"Tutte le risposte manuali per il tentativo {attempt.id} sono state corrette.")
-            final_score = attempt.calculate_final_score() # Calcola e salva lo score finale
-            attempt.assign_completion_points() # Assegna punti se necessario (e aggiorna stato)
-            attempt.save() # Salva eventuali modifiche da assign_completion_points
-            logger.info(f"Tentativo Quiz {attempt.id} finalizzato dopo correzione manuale. Score: {final_score}, Status: {attempt.status}")
-            # Restituisci lo stato aggiornato del tentativo
-            serializer = QuizAttemptSerializer(attempt, context={'request': request})
-            return Response(serializer.data)
-        else:
-            # Ci sono ancora risposte da correggere, restituisci solo la risposta aggiornata
-            serializer = StudentAnswerSerializer(answer)
-            return Response(serializer.data)
 
 
 # --- Viste Generiche per Dashboard Studente (usano generics.ListAPIView) ---
@@ -2086,3 +2044,196 @@ class PathwayAttemptDetailView(generics.RetrieveAPIView):
         data['next_quiz'] = NextPathwayQuizSerializer(next_quiz).data if next_quiz else None # Corretto: Usa il serializer importato
 
         return Response(data)
+
+# --- Teacher Grading ViewSet ---
+
+class TeacherGradingViewSet(viewsets.GenericViewSet):
+    """
+    ViewSet per i docenti per gestire la correzione manuale dei QuizAttempt.
+    """
+    permission_classes = [permissions.IsAuthenticated, IsTeacherUser]
+
+    # Serializer di base per il ViewSet (potrebbe non essere usato direttamente se tutte le azioni ne specificano uno)
+    # serializer_class = QuizAttemptSerializer # O un serializer più specifico se necessario
+
+    def get_queryset(self):
+        """
+        Restituisce i QuizAttempt che il docente autenticato è autorizzato a vedere/correggere.
+        Il filtro di base qui è sui quiz creati dal docente.
+        Le azioni specifiche possono aggiungere ulteriori filtri o logiche di permesso.
+        """
+        user = self.request.user
+        # Filtra i tentativi relativi ai quiz creati dal docente autenticato.
+        # Questo serve come base per le azioni che poi selezioneranno un tentativo specifico
+        # o elencheranno quelli in attesa di correzione.
+        return QuizAttempt.objects.filter(quiz__teacher=user).distinct()
+
+
+    @action(detail=False, methods=['get'], url_path='pending-attempts', serializer_class=PendingQuizAttemptSerializer)
+    def list_pending_attempts(self, request):
+        """
+        Elenca tutti i QuizAttempt in stato 'PENDING_GRADING' che richiedono
+        l'attenzione del docente autenticato.
+        """
+        user = request.user
+        # Filtra i tentativi in attesa di correzione per i quiz creati dal docente
+        # o per quiz assegnati a studenti/gruppi del docente.
+        # La logica esatta di "competenza" del docente potrebbe variare.
+        # Per ora, un docente vede i tentativi PENDING_GRADING dei quiz che ha creato.
+        # O tentativi di quiz assegnati ai suoi studenti (se QuizAssignment traccia il docente)
+        # O tentativi di quiz assegnati ai suoi gruppi.
+
+        # Un approccio potrebbe essere: il docente vede i tentativi PENDING_GRADING dei quiz che LUI ha creato.
+        pending_attempts = QuizAttempt.objects.filter(
+            quiz__teacher=user, # Il docente è il creatore del quiz originale
+            status=QuizAttempt.AttemptStatus.PENDING_GRADING
+        ).select_related('student', 'quiz').order_by('-completed_at') # Ordina per data di sottomissione
+
+        # TODO: Considerare anche i quiz che il docente non ha creato ma a cui ha accesso per correzione
+        # (es. se un admin assegna un quiz e delega la correzione, o per co-docenti)
+        # Questo richiederebbe una logica di permessi più granulare.
+
+        page = self.paginate_queryset(pending_attempts)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(pending_attempts, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['get'], url_path=r'attempts/(?P<pk>[^/.]+)/details-for-grading', serializer_class=GradingQuizAttemptDetailSerializer)
+    def get_attempt_details_for_grading(self, request, pk=None):
+        """
+        Restituisce i dettagli completi di un QuizAttempt specifico per la correzione,
+        incluse tutte le domande e le relative risposte dello studente.
+        Il pk è l'ID del QuizAttempt.
+        """
+        # Utilizza il queryset del ViewSet che già filtra per quiz__teacher=request.user
+        # e aggiunge select_related specifici per questa azione.
+        queryset = self.get_queryset().select_related('student', 'quiz', 'quiz__teacher')
+        attempt = get_object_or_404(queryset, pk=pk)
+
+        # Verifica permessi: il docente può correggere questo tentativo?
+        # Ad esempio, se è il docente del quiz o se il tentativo è per un suo studente.
+        if attempt.quiz.teacher != request.user:
+            # Potremmo aggiungere un controllo più granulare se lo studente appartiene al docente
+            # if not Student.objects.filter(user=request.user, students__quiz_attempts=attempt).exists():
+            # Per ora, semplice controllo sul creatore del quiz.
+            raise DRFPermissionDenied("Non sei autorizzato a correggere questo tentativo.")
+
+        if attempt.status != QuizAttempt.AttemptStatus.PENDING_GRADING:
+            return Response(
+                {'detail': 'Questo tentativo non è in attesa di correzione manuale.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        serializer = self.get_serializer(attempt, context={'request': request})
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['post'], url_path=r'attempts/(?P<pk>[^/.]+)/finalize-grading', serializer_class=GradeSubmissionSerializer)
+    @transaction.atomic
+    def finalize_grading(self, request, pk=None):
+        """
+        Permette al docente di inviare le valutazioni per le risposte aperte
+        di un QuizAttempt e finalizzare la correzione.
+        Il pk è l'ID del QuizAttempt.
+        """
+        # Utilizza il queryset del ViewSet che già filtra per quiz__teacher=request.user
+        # e aggiunge select_related specifici per questa azione.
+        queryset = self.get_queryset().select_related('quiz', 'student', 'quiz__teacher')
+        attempt = get_object_or_404(queryset, pk=pk)
+
+        # Verifica permessi
+        if attempt.quiz.teacher != request.user:
+            raise DRFPermissionDenied("Non sei autorizzato a finalizzare la correzione per questo tentativo.")
+
+        if attempt.status != QuizAttempt.AttemptStatus.PENDING_GRADING:
+            return Response(
+                {'detail': 'Questo tentativo non è (o non è più) in attesa di correzione manuale.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        serializer = self.get_serializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        graded_answers_data = serializer.validated_data['answers']
+        student_answer_ids_from_payload = {item['student_answer_id'] for item in graded_answers_data}
+
+        # Verifica che tutte le risposte aperte del tentativo siano state inviate per la correzione
+        open_manual_answer_ids_for_attempt = set(
+            StudentAnswer.objects.filter(
+                quiz_attempt=attempt,
+                question__question_type=QuestionType.OPEN_ANSWER_MANUAL
+            ).values_list('id', flat=True)
+        )
+
+        if student_answer_ids_from_payload != open_manual_answer_ids_for_attempt:
+            missing_ids = open_manual_answer_ids_for_attempt - student_answer_ids_from_payload
+            extra_ids = student_answer_ids_from_payload - open_manual_answer_ids_for_attempt
+            error_detail = "Payload di correzione incompleto o errato. "
+            if missing_ids:
+                error_detail += f"Mancano le correzioni per le risposte ID: {missing_ids}. "
+            if extra_ids:
+                error_detail += f"Sono state inviate correzioni per ID non pertinenti o non aperti: {extra_ids}."
+            return Response({'detail': error_detail}, status=status.HTTP_400_BAD_REQUEST)
+
+
+        total_score_from_manual = 0
+        for item_data in graded_answers_data:
+            try:
+                student_answer = StudentAnswer.objects.get(
+                    pk=item_data['student_answer_id'],
+                    quiz_attempt=attempt, # Assicura che la risposta appartenga a questo tentativo
+                    question__question_type=QuestionType.OPEN_ANSWER_MANUAL # Doppia verifica
+                )
+                student_answer.is_correct = item_data['is_correct']
+                student_answer.score = 1.0 if item_data['is_correct'] else 0.0 # Punteggio 0 o 1
+                student_answer.teacher_comment = item_data.get('teacher_comment')
+                student_answer.save(update_fields=['is_correct', 'score', 'teacher_comment'])
+                total_score_from_manual += student_answer.score
+            except StudentAnswer.DoesNotExist:
+                # Questo non dovrebbe accadere se la validazione degli ID è corretta
+                logger.error(f"StudentAnswer ID {item_data['student_answer_id']} non trovata durante la finalizzazione della correzione per l'attempt {attempt.id}.")
+                # Potremmo voler sollevare un errore qui o semplicemente loggare e continuare
+                return Response({'detail': f"Errore interno: Risposta studente con ID {item_data['student_answer_id']} non trovata."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            except Exception as e:
+                 logger.error(f"Errore durante l'aggiornamento di StudentAnswer ID {item_data['student_answer_id']}: {e}", exc_info=True)
+                 return Response({'detail': f"Errore durante l'aggiornamento della risposta: {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+        # Ricalcola il punteggio totale del QuizAttempt e aggiorna lo stato
+        # Questo metodo dovrebbe considerare sia le risposte auto-corrette sia quelle manuali
+        final_score_value = attempt.calculate_final_score() # Questo metodo ora dovrebbe usare i .score delle StudentAnswer
+        
+        # Assegna punti e badge (questo metodo aggiorna anche lo stato dell'attempt a COMPLETED/FAILED)
+        newly_earned_badges = attempt.assign_completion_points()
+        
+        # completed_at è stato impostato quando lo studente ha sottomesso.
+        # Lo stato è aggiornato da assign_completion_points.
+        # Lo score è aggiornato da calculate_final_score.
+        attempt.save() # Salva le modifiche allo score e allo stato.
+
+        # --- CREAZIONE NOTIFICA PER LO STUDENTE ---
+        if attempt.status in [QuizAttempt.AttemptStatus.COMPLETED, QuizAttempt.AttemptStatus.FAILED]:
+            try:
+                notification_message = f"Il tuo quiz '{attempt.quiz.title}' è stato corretto!"
+                notification_link = f"/quiz/attempt/{attempt.id}/result" # Assumendo questa struttura URL per il frontend
+                
+                Notification.objects.create(
+                    student=attempt.student,
+                    message=notification_message,
+                    link=notification_link,
+                    notification_type=NotificationType.QUIZ_GRADED
+                )
+                logger.info(f"Notifica creata per studente {attempt.student.id} per correzione attempt {attempt.id}.")
+            except Exception as e_notif:
+                logger.error(f"Errore durante la creazione della notifica per attempt {attempt.id} (studente {attempt.student.id}): {e_notif}", exc_info=True)
+        # --- FINE CREAZIONE NOTIFICA ---
+
+        logger.info(f"Correzione manuale per QuizAttempt {attempt.id} finalizzata dal docente {request.user.username}. Score finale: {attempt.score}, Stato: {attempt.status}")
+
+        # Serializza il tentativo aggiornato per la risposta
+        # Potremmo voler un serializer specifico per la risposta post-correzione
+        response_serializer = QuizAttemptDetailSerializer(attempt, context={'request': request, 'newly_earned_badges': newly_earned_badges})
+        return Response(response_serializer.data, status=status.HTTP_200_OK)

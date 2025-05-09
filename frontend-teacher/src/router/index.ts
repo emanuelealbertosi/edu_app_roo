@@ -195,8 +195,15 @@ const router = createRouter({
     },
     {
       path: '/grading',
-      name: 'grading',
-      component: () => import('../views/GradingView.vue'),
+      name: 'GradingDashboard', // Rinominiamo per chiarezza, se GradingView non serve più
+      component: () => import('../views/GradingDashboardView.vue'), // Punta alla nuova vista
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/grading/attempt/:attemptId',
+      name: 'GradingAttemptView',
+      component: () => import('../views/GradingAttemptView.vue'),
+      props: true, // Passa i parametri della rotta (attemptId) come props
       meta: { requiresAuth: true },
     },
     {

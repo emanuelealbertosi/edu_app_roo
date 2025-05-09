@@ -10,7 +10,8 @@ from .views import (
     StudentQuizDetailView, # Importa la nuova vista per i dettagli del quiz studente
     # Nuovi ViewSet per Template Percorsi
     PathwayTemplateViewSet, PathwayQuizTemplateViewSet, TeacherQuizTemplateViewSet,
-    TeacherQuestionTemplateViewSet, TeacherAnswerOptionTemplateViewSet # Aggiungo i nuovi ViewSet nidificati
+    TeacherQuestionTemplateViewSet, TeacherAnswerOptionTemplateViewSet, # Aggiungo i nuovi ViewSet nidificati
+    NotificationViewSet # NUOVO IMPORT PER NOTIFICHE
 )
 
 # Router principale per le risorse top-level dell'app education
@@ -24,6 +25,7 @@ router.register(r'attempts', AttemptViewSet, basename='attempt') # Gestione Tent
 router.register(r'teacher/grading', TeacherGradingViewSet, basename='teacher-grading') # Gestione Correzioni (Docente)
 router.register(r'pathway-templates', PathwayTemplateViewSet, basename='pathway-template') # Gestione Template Percorsi (Docente)
 router.register(r'teacher/quiz-templates', TeacherQuizTemplateViewSet, basename='teacher-quiz-template') # Gestione Template Quiz (Docente)
+router.register(r'student/notifications', NotificationViewSet, basename='student-notification') # NUOVO: Endpoint notifiche studente
 
 # --- Router Annidati ---
 

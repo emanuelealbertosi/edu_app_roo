@@ -421,7 +421,7 @@ class QuizAttempt(models.Model):
     """ Registra un tentativo di uno Studente di completare un Quiz. """
     class AttemptStatus(models.TextChoices):
         IN_PROGRESS = 'IN_PROGRESS', _('In Progress')
-        PENDING_GRADING = 'PENDING', _('Pending Manual Grading')
+        PENDING_GRADING = 'PENDING_GRADING', _('Pending Manual Grading')
         COMPLETED = 'COMPLETED', _('Completed (Passed)') # Chiarito che COMPLETED implica superato
         FAILED = 'FAILED', _('Completed (Failed)') # Nuovo stato per tentativi non superati
 
@@ -469,145 +469,144 @@ class QuizAttempt(models.Model):
     # Methods moved from AttemptViewSet
     def calculate_final_score(self):
         """
-        Calculates the final score for this attempt based on saved answers.
-
-        This method operates on the QuizAttempt instance (`self`).
-        It evaluates automatically gradable questions (MC_SINGLE, MC_MULTI, TF, FILL_BLANK)
-        and calculates a score percentage based on those.
-
-        If only manually graded questions (OPEN_MANUAL) exist and have been graded,
-        it calculates the score based on the percentage of correctly marked manual answers.
-
-        Note: The current logic prioritizes the score from auto-graded questions if present.
-              Manually assigned scores on OPEN_MANUAL questions are used primarily for teacher feedback
-              unless *only* manual questions exist in the quiz.
+        Calculates the final score for this attempt based on ALL saved answers (auto-graded and manually graded).
+        This method should be called after manual grading is complete for quizzes with open answers.
 
         Returns:
             float: The calculated final score (percentage, 0-100), rounded to 2 decimal places.
+                   Returns None if there are no questions in the quiz.
         """
-        score = 0
-        # Recupera le risposte dello studente per questo tentativo
-        student_answers = self.student_answers.select_related('question').all()
-        quiz = self.quiz
+        student_answers = self.student_answers.select_related('question', 'question__quiz').all()
+        quiz_questions = self.quiz.questions.all() # Tutte le domande del quiz
 
-        # Pre-fetch questions and their correct options for efficiency
-        questions = quiz.questions.prefetch_related('answer_options').all()
+        if not quiz_questions.exists():
+            logger.warning(f"Attempt {self.id}: Quiz {self.quiz.id} has no questions. Score cannot be calculated.")
+            self.score = None # O 0.0 a seconda della logica desiderata
+            self.save(update_fields=['score'])
+            return None
+
+        total_achieved_score = 0.0
+        max_possible_score_for_quiz = 0.0
+
+        # Pre-calcola le risposte corrette per le domande auto-gradabili per efficienza
         correct_options_map = {}
         fill_blank_answers_map = {}
-        total_questions = 0 # Conteggio totale domande (per punteggio manuale)
-        total_autograded_questions = 0 # Conteggio domande auto-gradate
+        for q_config in quiz_questions:
+            # Ogni domanda, per default, vale 1 punto se non specificato diversamente
+            # Per OPEN_ANSWER_MANUAL, il punteggio è 0 o 1, quindi max è 1.
+            # Per le altre, usiamo 'points_per_correct_answer' se presente, altrimenti 1.
+            if q_config.question_type == QuestionType.OPEN_ANSWER_MANUAL:
+                max_possible_score_for_quiz += float(q_config.metadata.get('max_score', 1.0)) # Default a 1 per le aperte
+            elif q_config.question_type == QuestionType.FILL_BLANK:
+                # Per fill_blank, il punteggio massimo è il numero di blank * punti per blank
+                num_blanks = len(q_config.metadata.get('correct_answers', [1]))
+                points_per_blank = float(q_config.metadata.get('points_per_blank', 1.0))
+                max_possible_score_for_quiz += num_blanks * points_per_blank
+            else: # MC_SINGLE, MC_MULTI, TF
+                max_possible_score_for_quiz += float(q_config.metadata.get('points_per_correct_answer', 1.0))
 
-        for q in questions:
-            total_questions += 1
-            # Considera solo le domande a correzione automatica per il calcolo del punteggio %
-            if q.question_type != QuestionType.OPEN_ANSWER_MANUAL:
-                total_autograded_questions += 1
-                if q.question_type in [QuestionType.MULTIPLE_CHOICE_SINGLE, QuestionType.TRUE_FALSE]:
-                     correct_option = q.answer_options.filter(is_correct=True).first()
-                     if correct_option:
-                         correct_options_map[q.id] = correct_option.id
-                elif q.question_type == QuestionType.MULTIPLE_CHOICE_MULTIPLE:
-                     correct_options_map[q.id] = set(q.answer_options.filter(is_correct=True).values_list('id', flat=True))
-                elif q.question_type == QuestionType.FILL_BLANK:
-                    correct_answers = [ans.strip().lower() for ans in q.metadata.get('correct_answers', [])]
-                    fill_blank_answers_map[q.id] = correct_answers
+            # Popola le mappe per l'auto-correzione
+            if q_config.question_type in [QuestionType.MULTIPLE_CHOICE_SINGLE, QuestionType.TRUE_FALSE]:
+                correct_option = q_config.answer_options.filter(is_correct=True).first()
+                if correct_option:
+                    correct_options_map[q_config.id] = correct_option.id
+            elif q_config.question_type == QuestionType.MULTIPLE_CHOICE_MULTIPLE:
+                correct_options_map[q_config.id] = set(q_config.answer_options.filter(is_correct=True).values_list('id', flat=True))
+            elif q_config.question_type == QuestionType.FILL_BLANK:
+                # Le risposte corrette per fill_blank sono già stringhe nel metadata
+                # La case sensitivity è gestita durante la valutazione della risposta dello studente
+                fb_meta_answers = q_config.metadata.get('correct_answers', [])
+                # Non è necessario normalizzare qui, lo facciamo al momento del confronto
+                fill_blank_answers_map[q_config.id] = fb_meta_answers
 
-        # Se non ci sono domande auto-gradate, non possiamo calcolare un punteggio automatico
-        if total_autograded_questions == 0:
-            # Potremmo controllare se ci sono domande manuali e se sono state valutate,
-            # ma per ora restituiamo None se non ci sono domande auto-gradate.
-            # Oppure potremmo impostare lo stato su PENDING_GRADING se ci sono domande manuali.
-            logger.info(f"Attempt {self.id}: No auto-gradable questions found. Score calculation skipped.")
-            # Se ci sono domande totali ma nessuna auto-gradabile, probabilmente sono tutte manuali
-            if total_questions > 0:
-                 self.status = self.AttemptStatus.PENDING_GRADING
-                 self.save(update_fields=['status'])
-                 logger.info(f"Attempt {self.id}: Status set to PENDING_GRADING as only manual questions exist.")
-            self.score = None # Assicura che lo score sia None
-            self.save(update_fields=['score'])
-            return None # O 0.0? None indica che non è stato calcolato automaticamente.
-
-        correct_answers_count = 0
-        total_score_points = 0.0 # Punteggio basato sui punti per domanda
-        max_possible_points = 0.0 # Punteggio massimo possibile dalle domande auto-gradate
 
         for answer in student_answers:
-            q = answer.question
-            # Considera solo le risposte a domande auto-gradate per il punteggio
-            if q.question_type != QuestionType.OPEN_ANSWER_MANUAL:
-                points_per_correct = float(q.metadata.get('points_per_correct_answer', 1.0)) # Default a 1 punto
-                max_possible_points += points_per_correct # Aggiungi al massimo possibile
+            question = answer.question
+            current_answer_score = 0.0 # Punteggio per questa specifica risposta
 
-                is_correct = False # Resetta per ogni risposta
+            if question.question_type == QuestionType.OPEN_ANSWER_MANUAL:
+                # Per le risposte manuali, lo 'score' (0 o 1) dovrebbe essere già stato impostato
+                # dal docente durante la correzione.
+                if answer.score is not None:
+                    current_answer_score = float(answer.score)
+                else:
+                    # Questo non dovrebbe accadere se calculate_final_score è chiamato dopo la correzione.
+                    logger.warning(f"Attempt {self.id}, Q {question.id} (OPEN_MANUAL): StudentAnswer.score is None. Treating as 0.")
+                    current_answer_score = 0.0
+            else:
+                # Logica di auto-correzione per gli altri tipi di domanda
+                # Questa logica dovrebbe aggiornare answer.is_correct e answer.score se non già fatto
+                is_correct_auto = False
                 selected_data = answer.selected_answers
+                points_for_this_q_type = float(question.metadata.get('points_per_correct_answer', 1.0))
+                if question.question_type == QuestionType.FILL_BLANK: # Gestione speciale per fill_blank
+                    points_for_this_q_type = float(question.metadata.get('points_per_blank', 1.0)) * len(question.metadata.get('correct_answers', [1]))
 
-                if q.question_type == QuestionType.MULTIPLE_CHOICE_SINGLE:
-                    correct_option_id = correct_options_map.get(q.id)
-                    selected_option_id = selected_data.get('answer_option_id') if isinstance(selected_data, dict) else None
-                    if correct_option_id is not None and selected_option_id == correct_option_id:
-                        is_correct = True
 
-                elif q.question_type == QuestionType.TRUE_FALSE:
-                    correct_option_id = correct_options_map.get(q.id)
-                    selected_bool = selected_data.get('is_true') if isinstance(selected_data, dict) else None
-                    # Trova l'opzione corretta per determinare se la risposta attesa è True o False
-                    correct_option_obj = q.answer_options.filter(id=correct_option_id).first() if correct_option_id else None
-                    if correct_option_obj:
-                         expected_bool = correct_option_obj.text.lower() == 'vero' # O un check più robusto
-                         if selected_bool == expected_bool:
-                             is_correct = True
-                    # Se correct_option_obj non esiste o selected_bool è None, is_correct rimane False
+                if answer.is_correct is not None and answer.score is not None:
+                    # Se già valutata (es. da submit_answer), usa quei valori
+                    is_correct_auto = answer.is_correct
+                    current_answer_score = float(answer.score)
+                else:
+                    # Altrimenti, valuta ora
+                    if question.question_type == QuestionType.MULTIPLE_CHOICE_SINGLE:
+                        correct_option_id = correct_options_map.get(question.id)
+                        selected_option_id = selected_data.get('answer_option_id') if isinstance(selected_data, dict) else None
+                        if correct_option_id is not None and selected_option_id == correct_option_id:
+                            is_correct_auto = True
+                    elif question.question_type == QuestionType.TRUE_FALSE:
+                        correct_option_id = correct_options_map.get(question.id)
+                        selected_bool = selected_data.get('is_true') if isinstance(selected_data, dict) else None
+                        correct_option_obj = question.answer_options.filter(id=correct_option_id).first() if correct_option_id else None
+                        if correct_option_obj:
+                            expected_bool = correct_option_obj.text.lower() == 'vero'
+                            if selected_bool == expected_bool:
+                                is_correct_auto = True
+                    elif question.question_type == QuestionType.MULTIPLE_CHOICE_MULTIPLE:
+                        correct_option_ids_set = correct_options_map.get(question.id, set())
+                        selected_option_ids_set = set(selected_data.get('answer_option_ids', [])) if isinstance(selected_data, dict) else set()
+                        if correct_option_ids_set == selected_option_ids_set:
+                            is_correct_auto = True
+                    elif question.question_type == QuestionType.FILL_BLANK:
+                        correct_answers_list_meta = fill_blank_answers_map.get(question.id, [])
+                        submitted_answers_list = selected_data.get('answers', []) if isinstance(selected_data, dict) else []
+                        case_sensitive = question.metadata.get('case_sensitive', False)
 
-                elif q.question_type == QuestionType.MULTIPLE_CHOICE_MULTIPLE:
-                    correct_option_ids = correct_options_map.get(q.id, set())
-                    selected_option_ids = set(selected_data.get('answer_option_ids', [])) if isinstance(selected_data, dict) else set()
-                    if correct_option_ids == selected_option_ids:
-                        is_correct = True
+                        if len(correct_answers_list_meta) == len(submitted_answers_list) and len(correct_answers_list_meta) > 0:
+                            all_blanks_match = True
+                            for i, correct_ans_meta in enumerate(correct_answers_list_meta):
+                                submitted_blank = submitted_answers_list[i]
+                                if not case_sensitive:
+                                    if str(correct_ans_meta).lower() != str(submitted_blank).lower():
+                                        all_blanks_match = False; break
+                                else:
+                                    if str(correct_ans_meta) != str(submitted_blank):
+                                        all_blanks_match = False; break
+                            if all_blanks_match:
+                                is_correct_auto = True
+                    
+                    answer.is_correct = is_correct_auto
+                    answer.score = points_for_this_q_type if is_correct_auto else 0.0
+                    answer.save(update_fields=['is_correct', 'score']) # Salva la valutazione automatica
+                    current_answer_score = answer.score
 
-                elif q.question_type == QuestionType.FILL_BLANK:
-                    correct_answers_list = fill_blank_answers_map.get(q.id, [])
-                    submitted_answers = selected_data.get('answers', []) if isinstance(selected_data, dict) else []
-                    case_sensitive = q.metadata.get('case_sensitive', False)
-
-                    if len(correct_answers_list) == len(submitted_answers):
-                        all_match = True
-                        for i, correct_ans in enumerate(correct_answers_list):
-                            submitted = submitted_answers[i]
-                            correct_str = str(correct_ans)
-                            submitted_str = str(submitted)
-                            if not case_sensitive:
-                                if correct_str.lower() != submitted_str.lower(): all_match = False; break
-                            else:
-                                if correct_str != submitted_str: all_match = False; break
-                        if all_match:
-                            is_correct = True
-
-                # Aggiorna il conteggio e il punteggio se la risposta è corretta
-                if is_correct:
-                    correct_answers_count += 1
-                    total_score_points += points_per_correct
-
-                # Salva is_correct e score sulla singola risposta (se non già fatto in submit_answer)
-                # Questo è ridondante se lo facciamo già in submit_answer, ma può servire come fallback
-                # o se vogliamo ricalcolare tutto qui. Per ora lo commentiamo assumendo che submit_answer lo faccia.
-                # answer.is_correct = is_correct
-                # answer.score = points_per_correct if is_correct else 0.0
-                # answer.save(update_fields=['is_correct', 'score'])
-
+            total_achieved_score += current_answer_score
+            logger.debug(f"Attempt {self.id}, Q {question.id} (Type: {question.question_type}): Achieved Score for this answer = {current_answer_score}")
 
         # Calcola il punteggio percentuale finale
         final_score_percent = 0.0
-        if max_possible_points > 0:
-            final_score_percent = round((total_score_points / max_possible_points) * 100, 2)
-        else:
-            # Se non ci sono punti massimi possibili (es. solo domande con 0 punti?), il punteggio è 0 o indeterminato?
-            # Per ora impostiamo a 0.
+        if max_possible_score_for_quiz > 0:
+            final_score_percent = round((total_achieved_score / max_possible_score_for_quiz) * 100, 2)
+        elif total_achieved_score == 0 and max_possible_score_for_quiz == 0: # Caso di quiz vuoto o con solo domande a 0 punti
+             final_score_percent = 0.0 # O 100.0 se si considera "tutto corretto" in un quiz vuoto? 0.0 è più sicuro.
+        else: # max_possible_score_for_quiz è 0 ma total_achieved_score > 0 (improbabile con la logica attuale)
+            logger.warning(f"Attempt {self.id}: max_possible_score_for_quiz is 0 but total_achieved_score is {total_achieved_score}. Setting score to 0%.")
             final_score_percent = 0.0
 
-        # Salva il punteggio finale sul tentativo
+
         self.score = final_score_percent
         self.save(update_fields=['score'])
-        logger.info(f"Attempt {self.id}: Final score calculated: {final_score_percent}% ({total_score_points}/{max_possible_points} points)")
+        logger.info(f"Attempt {self.id}: Final score calculated: {final_score_percent}% ({total_achieved_score}/{max_possible_score_for_quiz} points)")
 
         return final_score_percent
 
@@ -990,6 +989,12 @@ class StudentAnswer(models.Model):
         blank=True,
         help_text=_('Specific score for this answer, especially for manual grading.')
     )
+    teacher_comment = models.TextField(
+        _('Teacher Comment'),
+        null=True,
+        blank=True,
+        help_text=_('Feedback provided by the teacher for this answer, especially for open answers.')
+    )
     answered_at = models.DateTimeField(_('Answered At'), auto_now=True) # O auto_now_add=True? auto_now aggiorna ogni volta che si salva
 
     class Meta:
@@ -1198,3 +1203,52 @@ class PathwayAssignment(models.Model):
         return f"Percorso '{self.pathway.title}' assegnato a {target}"
 
     # Rimosso clean() method per ora
+
+# --- Notification Models ---
+
+class NotificationType(models.TextChoices):
+    QUIZ_GRADED = 'QUIZ_GRADED', _('Quiz Graded')
+    # Aggiungere altri tipi di notifica qui in futuro, es:
+    # NEW_ASSIGNMENT = 'NEW_ASSIGNMENT', _('New Assignment')
+    # BADGE_AWARDED = 'BADGE_AWARDED', _('Badge Awarded')
+
+class Notification(models.Model):
+    """
+    Modello per le notifiche in-app per gli studenti.
+    """
+    student = models.ForeignKey(
+        Student,
+        on_delete=models.CASCADE,
+        related_name='notifications',
+        verbose_name=_('Student')
+    )
+    message = models.CharField(
+        _('Message'),
+        max_length=255,
+        help_text=_("Testo della notifica, es. 'Il tuo quiz \"Nome Quiz\" è stato corretto!'")
+    )
+    link = models.CharField(
+        _('Link'),
+        max_length=255,
+        help_text=_("URL relativo per il frontend, es. '/quiz/attempt/123/result'")
+    )
+    notification_type = models.CharField(
+        _('Notification Type'),
+        max_length=50,
+        choices=NotificationType.choices,
+        default=NotificationType.QUIZ_GRADED
+    )
+    is_read = models.BooleanField(
+        _('Is Read?'),
+        default=False,
+        db_index=True # Utile per filtrare rapidamente le notifiche non lette
+    )
+    created_at = models.DateTimeField(_('Created At'), auto_now_add=True)
+
+    class Meta:
+        verbose_name = _('Notification')
+        verbose_name_plural = _('Notifications')
+        ordering = ['-created_at'] # Le più recenti prima
+
+    def __str__(self):
+        return f"Notifica per {self.student.full_name}: {self.message[:50]}... ({'Letta' if self.is_read else 'Non letta'})"

@@ -16,7 +16,8 @@ from .models import (
     Quiz, Question, AnswerOption, Pathway, PathwayQuiz,
     QuizAttempt, StudentAnswer, PathwayProgress, QuestionType,
     QuizAssignment, PathwayAssignment, # Importa Assignment
-    PathwayTemplate, PathwayQuizTemplate # Importa i nuovi modelli Template
+    PathwayTemplate, PathwayQuizTemplate, # Importa i nuovi modelli Template
+    Notification # Assicura che Notification sia importato
 )
 from apps.users.serializers import UserSerializer, StudentSerializer, StudentBasicSerializer # Usiamo StudentBasicSerializer
 from apps.users.models import User, Student
@@ -1056,6 +1057,159 @@ class StudentPathwayDashboardSerializer(PathwaySerializer):
             return "group"
         return "unknown"
 
+# --- Teacher Grading Serializers ---
+
+class PendingQuizAttemptSerializer(serializers.ModelSerializer):
+    """
+    Serializer per elencare i tentativi di quiz in attesa di correzione da parte del docente.
+    """
+    student_name = serializers.CharField(source='student.full_name', read_only=True)
+    quiz_title = serializers.CharField(source='quiz.title', read_only=True)
+    # Potremmo aggiungere il nome del docente del quiz se diverso da quello che corregge
+    # teacher_name = serializers.CharField(source='quiz.teacher.full_name', read_only=True)
+
+    class Meta:
+        model = QuizAttempt
+        fields = [
+            'id',
+            'student_name',
+            'quiz_title',
+            'started_at', # Data di inizio del tentativo
+            'completed_at', # Data di "completamento" da parte dello studente (quando entra in pending)
+            'status'
+        ]
+        read_only_fields = fields
+
+
+class GradingStudentAnswerSerializer(serializers.ModelSerializer):
+    """
+    Serializer per visualizzare una StudentAnswer nel contesto della correzione manuale.
+    """
+    selected_answers_text = serializers.SerializerMethodField()
+    question_text = serializers.CharField(source='question.text', read_only=True)
+    question_order = serializers.IntegerField(source='question.order', read_only=True)
+    # Aggiungiamo il campo teacher_comment per la visualizzazione
+    teacher_comment = serializers.CharField(read_only=True, allow_blank=True, allow_null=True)
+
+
+    class Meta:
+        model = StudentAnswer
+        fields = [
+            'id',
+            'question_text', # Testo della domanda originale
+            'question_order', # Ordine della domanda
+            'selected_answers_text', # Testo della risposta data dallo studente
+            'is_correct', # Stato attuale (potrebbe essere None)
+            'score', # Punteggio attuale (potrebbe essere None)
+            'teacher_comment' # Commento attuale del docente (se presente)
+        ]
+        # Rendiamo is_correct e score leggibili qui, la modifica avverrà tramite un altro serializer
+        read_only_fields = ['id', 'question_text', 'question_order', 'selected_answers_text', 'is_correct', 'score', 'teacher_comment']
+
+
+    def get_selected_answers_text(self, obj: StudentAnswer) -> str | None:
+        if obj.question.question_type == QuestionType.OPEN_ANSWER_MANUAL:
+            return obj.selected_answers.get('text', None)
+        return None
+
+
+class GradingQuestionWithAnswerSerializer(serializers.ModelSerializer):
+    """
+    Serializer per una domanda che include la risposta dello studente per quel tentativo.
+    Usato all'interno di GradingQuizAttemptDetailSerializer.
+    """
+    student_answer = serializers.SerializerMethodField()
+    question_type_display = serializers.CharField(source='get_question_type_display', read_only=True)
+    # Aggiungiamo answer_options per visualizzare le opzioni nel caso di domande non aperte
+    answer_options = AnswerOptionSerializer(many=True, read_only=True)
+
+
+    class Meta:
+        model = Question
+        fields = [
+            'id',
+            'text',
+            'question_type',
+            'question_type_display',
+            'order',
+            'metadata', # Potrebbe essere utile per il docente vedere i metadati della domanda
+            'answer_options', # Aggiunto per contesto
+            'student_answer'
+        ]
+        read_only_fields = fields
+
+    def get_student_answer(self, obj: Question) -> dict | None:
+        quiz_attempt = self.context.get('quiz_attempt')
+        if quiz_attempt:
+            try:
+                student_answer_instance = StudentAnswer.objects.get(question=obj, quiz_attempt=quiz_attempt)
+                return GradingStudentAnswerSerializer(student_answer_instance, context=self.context).data
+            except StudentAnswer.DoesNotExist:
+                logger.warning(f"Nessuna StudentAnswer trovata per la domanda {obj.id} nel tentativo {quiz_attempt.id}")
+                return None
+        logger.warning(f"QuizAttempt non trovato nel contesto per GradingQuestionWithAnswerSerializer (domanda {obj.id})")
+        return None
+
+
+class GradingQuizAttemptDetailSerializer(serializers.ModelSerializer):
+    """
+    Serializer dettagliato per un QuizAttempt in fase di correzione manuale.
+    """
+    student = StudentBasicSerializer(read_only=True)
+    quiz_title = serializers.CharField(source='quiz.title', read_only=True)
+    quiz_description = serializers.CharField(source='quiz.description', read_only=True, allow_blank=True, allow_null=True)
+    questions_with_answers = serializers.SerializerMethodField()
+
+    class Meta:
+        model = QuizAttempt
+        fields = [
+            'id',
+            'student',
+            'quiz_title',
+            'quiz_description',
+            'started_at',
+            'completed_at',
+            'status',
+            'questions_with_answers'
+        ]
+        read_only_fields = fields
+
+    def get_questions_with_answers(self, obj: QuizAttempt) -> list[dict]:
+        questions = Question.objects.filter(quiz=obj.quiz).order_by('order').prefetch_related('answer_options') # Aggiunto prefetch
+        return GradingQuestionWithAnswerSerializer(questions, many=True, context={'request': self.context.get('request'), 'quiz_attempt': obj}).data
+
+
+class GradeSubmissionItemSerializer(serializers.Serializer):
+    """
+    Serializer per i dati di una singola risposta da correggere.
+    """
+    student_answer_id = serializers.IntegerField(required=True)
+    is_correct = serializers.BooleanField(required=True)
+    teacher_comment = serializers.CharField(required=False, allow_blank=True, allow_null=True, max_length=1000)
+
+    def validate_student_answer_id(self, value):
+        try:
+            sa = StudentAnswer.objects.select_related('question').get(pk=value)
+            # Verifica che la domanda sia effettivamente di tipo OPEN_ANSWER_MANUAL
+            if sa.question.question_type != QuestionType.OPEN_ANSWER_MANUAL:
+                raise serializers.ValidationError(f"La risposta con ID {value} non appartiene a una domanda a risposta aperta.")
+        except StudentAnswer.DoesNotExist:
+            raise serializers.ValidationError(f"StudentAnswer con ID {value} non trovata.")
+        return value
+
+
+class GradeSubmissionSerializer(serializers.Serializer):
+    """
+    Serializer per il payload completo dell'invio delle correzioni da parte del docente.
+    """
+    answers = GradeSubmissionItemSerializer(many=True, required=True, allow_empty=False)
+
+    def validate_answers(self, value):
+        if not value:
+            raise serializers.ValidationError("La lista delle risposte corrette non può essere vuota.")
+        # Ulteriori validazioni (es. ID unici, appartenenza allo stesso attempt) andranno fatte nella view.
+        return value
+
 
 # --- NUOVO Serializer per Tentativi Quiz nella Dashboard Studente ---
 
@@ -1169,3 +1323,37 @@ class PathwayAttemptDetailSerializer(PathwaySerializer):
             # Serializza solo i dettagli necessari del Quiz, non l'intero PathwayQuiz
             return NextPathwayQuizSerializer(next_pathway_quiz.quiz).data
         return None
+# --- Notification Serializers ---
+
+class NotificationSerializer(serializers.ModelSerializer):
+    """
+    Serializer per il modello Notification.
+    """
+    # Potremmo voler aggiungere campi derivati o formattati qui se necessario
+    # Esempio: student_name = serializers.CharField(source='student.full_name', read_only=True)
+    #          created_at_formatted = serializers.DateTimeField(source='created_at', format="%Y-%m-%d %H:%M", read_only=True)
+
+    class Meta:
+        model = Notification
+        fields = [
+            'id', 
+            'student', # In genere non si espone l'ID studente direttamente se l'endpoint è già per lo studente loggato
+            'message', 
+            'link', 
+            'notification_type', 
+            'is_read', 
+            'created_at'
+        ]
+        read_only_fields = ['id', 'student', 'message', 'link', 'notification_type', 'created_at']
+        # 'is_read' è modificabile tramite azioni specifiche nel ViewSet, non direttamente qui.
+
+    def to_representation(self, instance):
+        """
+        Personalizza la rappresentazione. Ad esempio, per non esporre 'student' ID.
+        """
+        representation = super().to_representation(instance)
+        # Rimuovi 'student' se l'API è già contestualizzata per lo studente loggato
+        # Questo dipende da come il ViewSet gestisce il queryset e i permessi.
+        # Se l'endpoint è /api/student/notifications/, 'student' potrebbe essere ridondante.
+        # representation.pop('student', None) 
+        return representation

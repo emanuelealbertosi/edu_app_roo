@@ -51,10 +51,16 @@ export const useDashboardStore = defineStore('dashboard', {
     availableQuizzes(state): QuizAttemptDashboardItem[] {
       const now = new Date();
       // Filtra l'array di tentativi (state.quizzes) per trovare quelli "nuovi"
+      console.log('[DashboardStore] Filtering availableQuizzes. Raw attempts in state:', JSON.parse(JSON.stringify(state.quizzes)));
       return state.quizzes.filter(attempt => {
+        console.log(`[DashboardStore] Checking attempt for quiz_id: ${attempt.quiz_id}, attempt_id: ${attempt.attempt_id}, status: ${attempt.status}`);
         // 1. Filtra per stato: deve essere 'PENDING' (quiz assegnato ma non iniziato)
-        if (attempt.status !== 'PENDING') {
-          return false; // Esclude quiz con altri stati (IN_PROGRESS, FAILED, COMPLETED, etc.)
+        // Un quiz è "disponibile" o "da iniziare" se il suo stato è 'PENDING'.
+        // Tutti gli altri stati (IN_PROGRESS, PENDING_GRADING, COMPLETED, FAILED) lo rendono non "nuovo".
+        const isPending = attempt.status === 'PENDING';
+        if (!isPending) {
+          console.log(`[DashboardStore] Excluding quiz_id: ${attempt.quiz_id} due to status: ${attempt.status}`);
+          return false;
         }
 
         // 2. Filtra per date di disponibilità (invariato)
@@ -143,7 +149,7 @@ export const useDashboardStore = defineStore('dashboard', {
         // La chiamata API ora restituisce QuizAttemptDashboardItem[]
         const fetchedAttempts = await DashboardService.getAssignedQuizzes();
         // Log per debug: vediamo cosa restituisce l'API
-        console.log('Raw attempts received from API:', JSON.stringify(fetchedAttempts, null, 2));
+        console.log('[DashboardStore] Raw attempts received from API (fetchQuizzes):', JSON.parse(JSON.stringify(fetchedAttempts)));
         this.quizzes = fetchedAttempts;
       } catch (error) {
         console.error('Error in fetchQuizzes (attempts):', error); // Aggiornato log errore

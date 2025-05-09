@@ -345,7 +345,7 @@ onMounted(async () => {
           </li>
           <!-- Valutazioni -->
           <li class="mb-2">
-            <router-link :to="{ name: 'grading' }" class="flex items-center p-2 rounded hover:bg-secondary-light">
+            <router-link :to="{ name: 'GradingDashboard' }" class="flex items-center p-2 rounded hover:bg-secondary-light">
               <PencilSquareIcon class="h-5 w-5 flex-shrink-0" />
               <span class="ml-3 text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Valutazioni</span>
             </router-link>
@@ -479,7 +479,7 @@ onMounted(async () => {
             </li>
             <!-- Valutazioni -->
             <li class="mb-2">
-              <router-link :to="{ name: 'grading' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-secondary-light">
+              <router-link :to="{ name: 'GradingDashboard' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-secondary-light">
                 <PencilSquareIcon class="h-5 w-5 flex-shrink-0" />
                 <span class="ml-3 text-sm">Valutazioni</span>
               </router-link>

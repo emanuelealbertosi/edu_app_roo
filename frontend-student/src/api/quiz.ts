@@ -26,6 +26,7 @@ export interface Question {
     id: number;
     text: string;
     order: number;
+    is_correct: boolean; // Aggiunto per la modalità risultato
   }[];
 }
 
