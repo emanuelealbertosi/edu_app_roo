@@ -13,7 +13,6 @@ import {
   CogIcon,
   ArrowLeftOnRectangleIcon,
   BellIcon,
-  UserCircleIcon,
   ChevronDownIcon,
   PlusCircleIcon,
   QuestionMarkCircleIcon,
