@@ -75,9 +75,22 @@
           <p class="text-sm text-gray-500 italic">Salva la domanda prima di poter aggiungere le opzioni di risposta (se applicabile).</p>
       </div>
 
+     <!-- FillBlankQuestionEditor Section (conditionally rendered) -->
+     <div v-if="showFillBlankEditor" class="pt-6 border-t border-gray-200">
+       <h2 class="text-lg font-medium text-gray-900 mb-4">Configurazione Domanda Fill in the Blank</h2>
+       <FillBlankQuestionEditor
+         :initial-question-text="questionData.text"
+         :initial-metadata="questionData.metadata as FillBlankMetadata | null"
+         @update:metadata="handleFillBlankMetadataUpdate"
+       />
+       <p class="mt-2 text-xs text-gray-500 italic">
+         Il testo della domanda inserito sopra verrà utilizzato da questo editor.
+         Assicurati di definire gli spazi vuoti (usando '___') nel testo principale della domanda.
+       </p>
+     </div>
 
-      <!-- Form Actions -->
-      <div class="flex justify-end space-x-3 pt-6 border-t border-gray-200">
+     <!-- Form Actions -->
+     <div class="flex justify-end space-x-3 pt-6 border-t border-gray-200 mt-6">
         <button type="button" @click="goBack"
                 class="py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
           Annulla
@@ -97,6 +110,7 @@ import { ref, computed, nextTick, watch, onMounted, reactive } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { createQuestion, fetchQuestionDetails, updateQuestion, type QuestionPayload, fetchQuestions } from '@/api/questions';
 import AnswerOptionsEditor from '@/components/AnswerOptionsEditor.vue';
+import FillBlankQuestionEditor, { type FillBlankMetadata } from '@/components/questions/FillBlankQuestionEditor.vue';
 import type { AnswerOption, Question } from '@/api/questions';
 
 const route = useRoute();
@@ -126,12 +140,15 @@ const showAnswerOptionsEditor = computed(() =>
     isEditing.value && questionId.value && typesWithOptions.includes(questionData.question_type)
 );
 
+const showFillBlankEditor = computed(() => questionData.question_type === 'fill_blank');
+
+
 // --- Constants ---
 const questionTypes = [
     { value: 'MC_SINGLE', label: 'Multiple Choice (Single Answer)' },
     { value: 'MC_MULTI', label: 'Multiple Choice (Multiple Answers)' },
     { value: 'TF', label: 'True/False' },
-    { value: 'FILL_BLANK', label: 'Fill in the Blank' },
+    { value: 'fill_blank', label: 'Fill in the Blank' },
     { value: 'OPEN_MANUAL', label: 'Open Answer (Manual Grading)' },
 ];
 const typesWithOptions: string[] = ['MC_SINGLE', 'MC_MULTI', 'TF'];
@@ -157,12 +174,16 @@ const loadQuestionData = async (qId: number, questId: number) => {
         const fetchedQuestion = await fetchQuestionDetails(qId, questId);
         console.log("[QuestionFormView] Fetched question data:", JSON.stringify(fetchedQuestion));
         questionData.text = fetchedQuestion.text;
-        questionData.question_type = fetchedQuestion.question_type;
+        // Normalizza question_type a minuscolo per coerenza con le definizioni interne
+        questionData.question_type = fetchedQuestion.question_type ? fetchedQuestion.question_type.toLowerCase() : '';
         questionData.order = fetchedQuestion.order;
         questionData.metadata = fetchedQuestion.metadata || {};
         initialAnswerOptions.value = fetchedQuestion.answer_options || [];
         console.log(`[QuestionFormView] Assigned text: "${questionData.text}"`);
+        console.log(`[QuestionFormView] questionData.question_type (normalized): "${questionData.question_type}"`);
+        console.log(`[QuestionFormView] questionData.metadata:`, JSON.stringify(questionData.metadata));
         await nextTick();
+        console.log(`[QuestionFormView] showFillBlankEditor computed: ${showFillBlankEditor.value}`);
     } catch (err: any) {
         console.error(`Errore caricamento domanda ${questId}:`, err);
         error.value = `Errore caricamento domanda: ${err.response?.data?.detail || err.message || 'Errore sconosciuto'}`;
@@ -275,6 +296,21 @@ const handleOptionsSaved = (savedOptions: AnswerOption[]) => {
 const handleOptionsError = (errorMessage: string) => {
     console.error("Errore dall'editor opzioni:", errorMessage);
     error.value = errorMessage;
+};
+
+const handleFillBlankMetadataUpdate = (metadata: FillBlankMetadata | null) => {
+  if (metadata) {
+    questionData.metadata = { ...questionData.metadata, ...metadata }; // Unisci per preservare altri metadati se presenti
+    console.log('[QuestionFormView] FillBlank metadata updated:', JSON.stringify(questionData.metadata));
+  } else {
+    // Se i metadati sono null (es. testo domanda cambiato e blank non più validi)
+    // potremmo voler pulire la parte specifica di fill_blank dai metadati.
+    // Per ora, li sovrascriviamo o li uniamo. Se FillBlankQuestionEditor emette null,
+    // significa che la sua configurazione non è valida/completa.
+    const { text_with_placeholders, blanks, case_sensitive, ...rest } = questionData.metadata;
+    questionData.metadata = rest; // Mantiene solo altri metadati non fill_blank
+    console.log('[QuestionFormView] FillBlank metadata cleared/invalidated.');
+  }
 };
 
 // --- Watchers e Lifecycle Hooks ---

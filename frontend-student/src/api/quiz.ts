@@ -1,4 +1,5 @@
 import apiClient from './config';
+import type { StudentAnswerPayloadFillBlank, BlankDisplayConfig } from '../types/education'; // Import per FillBlank
 
 // Interfacce per TypeScript
 export interface QuizDetails {
@@ -6,27 +7,47 @@ export interface QuizDetails {
   title: string;
   description: string;
   metadata: {
-    [key: string]: any;
+    [key: string]: any; // Mantenuto generico per altri usi, ma FillBlank avrà una struttura specifica
   };
+}
+
+// Definiamo una struttura più specifica per i blank come da FILL_BLANK_PLAN.md
+// da usare in QuestionMetadataFillBlank
+export interface QuestionBlankDefinitionApi extends BlankDisplayConfig {
+  // correct_answers NON viene inviato allo studente durante lo svolgimento
+  // ma potrebbe essere presente nei metadati completi per la visualizzazione dei risultati
+  correct_answers?: string[];
+}
+
+export interface QuestionMetadataFillBlankApi {
+  text_with_placeholders: string;
+  blanks: QuestionBlankDefinitionApi[];
+  case_sensitive?: boolean; // Opzionale durante lo svolgimento, presente nei risultati
+  points?: number;
 }
 
 export interface Question {
   id: number;
   text: string;
-  // Aggiornato per usare i valori effettivi del backend (come in models.py)
-  question_type: 'MC_SINGLE' | 'MC_MULTI' | 'TF' | 'FILL_BLANK' | 'OPEN_MANUAL';
-  question_type_display?: string | null; // Aggiunto campo display opzionale
+  question_type: 'MC_SINGLE' | 'MC_MULTI' | 'TF' | 'fill_blank' | 'OPEN_MANUAL';
+  question_type_display?: string | null;
   order: number;
-  metadata: {
+  metadata: { // Questo metadata è un oggetto generico
     points?: number;
-    fill_blank_correct_answers?: string[];
-    [key: string]: any;
+    // fill_blank_correct_answers?: string[]; // OBSOLETO, usare la struttura in QuestionMetadataFillBlankApi
+    // Per FILL_BLANK, ci aspettiamo che metadata contenga QuestionMetadataFillBlankApi
+    // Per gli altri tipi, potrebbe avere altre strutture.
+    // Si potrebbe usare un tipo unione discriminata qui se si volessero tipizzare tutti i metadata.
+    text_with_placeholders?: string; // Aggiunto per FILL_BLANK
+    blanks?: QuestionBlankDefinitionApi[]; // Aggiunto per FILL_BLANK
+    case_sensitive?: boolean; // Aggiunto per FILL_BLANK (per risultati)
+    [key: string]: any; // Per retrocompatibilità e altri tipi di domande
   };
   answer_options?: {
     id: number;
     text: string;
     order: number;
-    is_correct: boolean; // Aggiunto per la modalità risultato
+    is_correct: boolean;
   }[];
 }
 
@@ -86,21 +107,28 @@ export interface TrueFalseAnswer {
   is_true: boolean;
 }
 
-export interface FillBlankAnswer {
-  answers: {
-    [key: string]: string; // Indice -> valore risposta
-  };
+// FillBlankAnswer ora userà la struttura da StudentAnswerPayloadFillBlank
+// export interface FillBlankAnswer { // OBSOLETO
+//   answers: {
+//     [key: string]: string; // Indice -> valore risposta
+//   };
+// }
+// Al suo posto, usiamo direttamente StudentAnswerPayloadFillBlank importato
+
+// Nuovo tipo per il payload API specifico per fill_blank
+export interface FillBlankApiPayload {
+  answers: string[]; // Lista ordinata di stringhe di risposta
 }
 
 export interface OpenAnswerManualAnswer {
   text: string;
 }
 
-export type Answer = 
-  | MultipleChoiceSingleAnswer 
-  | MultipleChoiceMultipleAnswer 
-  | TrueFalseAnswer 
-  | FillBlankAnswer 
+export type Answer =
+  | MultipleChoiceSingleAnswer
+  | MultipleChoiceMultipleAnswer
+  | TrueFalseAnswer
+  | FillBlankApiPayload // Aggiornato per usare il nuovo tipo per l'API
   | OpenAnswerManualAnswer;
 
 /**

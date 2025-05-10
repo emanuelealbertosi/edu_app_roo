@@ -37,6 +37,7 @@ export interface QuizTemplate {
   topic_id?: number | null;   // ID per la selezione nel frontend (opzionale)
   metadata: Record<string, any> | null;
   created_at: string; // Formato ISO 8601
+  card_background_color?: string | null; // Aggiunto per il colore di sfondo della card
 }
 
 // Interfaccia per i dati inviati durante la creazione/aggiornamento di un Quiz Template
@@ -47,6 +48,7 @@ export interface QuizTemplatePayload {
     subject?: string | null; // Nome della materia
     topic?: string | null;   // Nome dell'argomento
     metadata?: Record<string, any> | null;
+    card_background_color?: string | null; // Aggiunto per il colore di sfondo della card
     // admin/teacher vengono impostati automaticamente dal backend
 }
 

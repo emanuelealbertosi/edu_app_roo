@@ -135,6 +135,162 @@ class QuestionSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['quiz']
 
+    def validate_metadata(self, value):
+        """
+        Valida la struttura dei metadati per i diversi tipi di domanda,
+        in particolare per FILL_BLANK.
+        """
+        # self.initial_data contiene i dati grezzi inviati nella richiesta
+        question_type = self.initial_data.get('question_type')
+        
+        # Se stiamo aggiornando e question_type non è fornito, prendilo dall'istanza
+        if self.instance and not question_type:
+            question_type = self.instance.question_type
+
+        if question_type == QuestionType.FILL_BLANK:
+            if not isinstance(value, dict):
+                raise serializers.ValidationError("I metadati per FILL_BLANK devono essere un dizionario.")
+
+            required_keys = {
+                'text_with_placeholders': str,
+                'blanks': list,
+                'case_sensitive': bool,
+                'points': (int, float)
+            }
+            for key, expected_type in required_keys.items():
+                if key not in value:
+                    raise serializers.ValidationError(f"Chiave mancante nei metadati FILL_BLANK: '{key}'.")
+                if not isinstance(value[key], expected_type):
+                    raise serializers.ValidationError(f"Chiave '{key}' nei metadati FILL_BLANK deve essere di tipo {expected_type}, ricevuto {type(value[key])}.")
+
+            for blank_config in value['blanks']:
+                if not isinstance(blank_config, dict):
+                    raise serializers.ValidationError("Ogni elemento in 'blanks' deve essere un dizionario.")
+                
+                required_blank_keys = {
+                    'id': str,
+                    'correct_answers': list,
+                    'order': int
+                }
+                for bk_key, bk_expected_type in required_blank_keys.items():
+                    if bk_key not in blank_config:
+                        raise serializers.ValidationError(f"Chiave mancante in un oggetto 'blank': '{bk_key}'.")
+                    if not isinstance(blank_config[bk_key], bk_expected_type):
+                         raise serializers.ValidationError(f"Chiave '{bk_key}' in un oggetto 'blank' deve essere di tipo {bk_expected_type}.")
+                
+                if not all(isinstance(ans, str) for ans in blank_config['correct_answers']):
+                    raise serializers.ValidationError("Tutte le 'correct_answers' in un oggetto 'blank' devono essere stringhe.")
+        
+        # Aggiungere qui validazioni per altri tipi di domanda se necessario
+        # Esempio: MC_SINGLE dovrebbe avere 'points_per_correct_answer'
+        elif question_type == QuestionType.MULTIPLE_CHOICE_SINGLE or \
+             question_type == QuestionType.TRUE_FALSE or \
+             question_type == QuestionType.MULTIPLE_CHOICE_MULTIPLE:
+            if not isinstance(value, dict):
+                # Per questi tipi, metadata potrebbe essere vuoto o contenere 'points_per_correct_answer'
+                # Se non è un dict, potrebbe essere un errore se si aspettano 'points_per_correct_answer'
+                # Ma se è opzionale, un dict vuoto è ok.
+                # Per ora, se non è un dict e non è None, solleva errore. Se è None, va bene.
+                if value is not None:
+                     raise serializers.ValidationError(f"I metadati per {question_type} devono essere un dizionario o null.")
+            elif 'points_per_correct_answer' in value and not isinstance(value['points_per_correct_answer'], (int, float)):
+                 raise serializers.ValidationError(f"La chiave 'points_per_correct_answer' per {question_type} deve essere un numero.")
+
+
+        return value
+
+    def to_representation(self, instance):
+        """
+        Personalizza la rappresentazione del campo 'metadata' per le domande FILL_BLANK.
+        - Durante lo svolgimento: mostra solo placeholder e struttura base dei blank.
+        - In visualizzazione risultati: mostra anche le risposte corrette.
+        """
+        representation = super().to_representation(instance)
+        
+        if instance.question_type == QuestionType.FILL_BLANK:
+            metadata = representation.get('metadata', {})
+            # metadata = representation.get('metadata', {}) # representation['metadata'] might not be set if super() didn't include it
+            # if not isinstance(metadata, dict):
+            #     metadata = {} # This was for modifying existing metadata, now we rebuild it for fill_blank
+
+            viewing_results = self.context.get('viewing_results', False)
+            
+            if viewing_results:
+                # For results, we assume metadata is correctly populated from the DB
+                # or was processed correctly at creation/update.
+                # If it's still bad here, that's a deeper issue.
+                representation['metadata'] = instance.metadata
+            else: # Not viewing results, i.e., student is taking the quiz
+                current_instance_metadata = instance.metadata if isinstance(instance.metadata, dict) else {}
+                logger.debug(f"[QID: {instance.id}] Initial instance.metadata: {current_instance_metadata}")
+
+                # Attempt to get pre-processed values
+                text_from_meta = current_instance_metadata.get('text_with_placeholders')
+                blanks_from_meta = current_instance_metadata.get('blanks', []) # Default to empty list
+
+                # Determine if pre-processed data is usable
+                # Usable if text_from_meta is a non-empty string AND blanks_from_meta is a non-empty list of dicts with id and order
+                is_text_usable = isinstance(text_from_meta, str) and text_from_meta.strip()
+                are_blanks_usable = (
+                    isinstance(blanks_from_meta, list) and
+                    bool(blanks_from_meta) and # Ensure list is not empty
+                    all(isinstance(b, dict) and 'id' in b and 'order' in b for b in blanks_from_meta)
+                )
+                
+                logger.debug(f"[QID: {instance.id}] Pre-check: text_from_meta='{text_from_meta}', is_text_usable={is_text_usable}")
+                logger.debug(f"[QID: {instance.id}] Pre-check: blanks_from_meta='{blanks_from_meta}', are_blanks_usable={are_blanks_usable}")
+
+                final_text_with_placeholders = None
+                final_blanks_list = []
+
+                if is_text_usable and are_blanks_usable:
+                    logger.info(f"[QID: {instance.id}] Using pre-existing metadata for 'text_with_placeholders' and 'blanks'.")
+                    final_text_with_placeholders = text_from_meta
+                    # We only need id and order for student view
+                    for blank_conf in blanks_from_meta:
+                        final_blanks_list.append({
+                            'id': blank_conf.get('id'),
+                            'order': blank_conf.get('order')
+                        })
+                else:
+                    logger.warning(
+                        f"[QID: {instance.id}] Metadata for 'text_with_placeholders' or 'blanks' is missing/invalid. "
+                        f"Attempting to generate from instance.text. is_text_usable={is_text_usable}, are_blanks_usable={are_blanks_usable}"
+                    )
+                    raw_text = instance.text if instance.text else ""
+                    generated_text = ""
+                    # final_blanks_list is already []
+                    last_idx = 0
+                    blank_count = 0
+                    
+                    for match in re.finditer(r'_{3,}', raw_text): # Find 3 or more underscores
+                        start, end = match.span()
+                        generated_text += raw_text[last_idx:start]
+                        blank_id = f"blank_{blank_count}"
+                        generated_text += f"{{{blank_id}}}" # Use {blank_id} format
+                        final_blanks_list.append({'id': blank_id, 'order': blank_count})
+                        blank_count += 1
+                        last_idx = end
+                    generated_text += raw_text[last_idx:]
+                    
+                    final_text_with_placeholders = generated_text
+                    
+                    if blank_count == 0 and raw_text.strip():
+                         logger.warning(
+                             f"[QID: {instance.id}] No blanks (___) found in instance.text ('{raw_text[:100]}...') "
+                             f"during fallback generation. Frontend might not render inputs."
+                         )
+                    elif blank_count > 0:
+                        logger.info(f"[QID: {instance.id}] Generated {blank_count} blanks from instance.text.")
+
+                representation['metadata'] = {
+                    'text_with_placeholders': final_text_with_placeholders,
+                    'blanks': final_blanks_list,
+                    'case_sensitive': current_instance_metadata.get('case_sensitive', False), # Keep case_sensitive if present
+                }
+                logger.debug(f"[QID: {instance.id}] Final representation['metadata']: {representation['metadata']}")
+        return representation
+
 
 class QuizSerializer(serializers.ModelSerializer):
     teacher_username = serializers.CharField(source='teacher.username', read_only=True) # Mantenuto per compatibilità, se necessario
@@ -865,31 +1021,50 @@ class QuizAttemptSerializer(serializers.ModelSerializer):
 class QuizAttemptDetailSerializer(QuizAttemptSerializer):
     """ Serializer dettagliato per un tentativo, include risposte date e info aggiuntive. """
     # Eredita student, quiz_title, status, score, ecc. da QuizAttemptSerializer
-    student_answers = StudentAnswerSerializer(many=True, read_only=True) # DECOMMENTATO
+    # student_answers = StudentAnswerSerializer(many=True, read_only=True) # SOSTITUITO con SerializerMethodField
+    student_answers = serializers.SerializerMethodField() # NUOVO: Usa SerializerMethodField
     # Aggiungiamo i campi calcolati per il frontend
     total_questions = serializers.SerializerMethodField()
     correct_answers_count = serializers.SerializerMethodField() # DECOMMENTATO
     completion_threshold = serializers.SerializerMethodField() # Percentuale richiesta per passare
 
     class Meta(QuizAttemptSerializer.Meta): # Eredita Meta dal genitore
-        # Nota: 'quiz' viene ereditato da QuizAttemptSerializer.Meta.fields.
-        # Se la sua serializzazione causa problemi, va gestito (es. commentato sopra o filtrato qui).
-        fields = [f for f in QuizAttemptSerializer.Meta.fields if f not in ['student_answers', 'quiz']] + [ # Rimuoviamo 'quiz' e 'student_answers' ereditati
-            'student_answers', # DECOMMENTATO
+        fields = [f for f in QuizAttemptSerializer.Meta.fields if f not in ['student_answers', 'quiz']] + [
+            'student_answers',
             'total_questions',
             'correct_answers_count',
             'completion_threshold',
-            # Aggiungiamo qui i campi del Quiz che vogliamo esporre, se 'quiz' è rimosso
-            # 'quiz_id', 'quiz_title', 'quiz_description', 'quiz_metadata', ecc.
-            # Per ora, assumiamo che il frontend possa fare una richiesta separata per i dettagli del Quiz se necessario,
-            # oppure che il client abbia già queste info.
-            # Se 'quiz' è mantenuto nel serializer genitore, questi non servono.
         ]
-        # Aggiungiamo esplicitamente i nuovi campi read_only se non ereditati correttamente
         read_only_fields = QuizAttemptSerializer.Meta.read_only_fields + [
              'student_answers', 'total_questions', 'correct_answers_count', 'completion_threshold'
         ]
 
+    def get_student_answers(self, obj: QuizAttempt):
+        """
+        Serializza le student_answers passando il contesto corretto a QuestionSerializer
+        per la gestione dinamica dei metadata delle domande FILL_BLANK.
+        """
+        viewing_results = False
+        if obj.status in [QuizAttempt.AttemptStatus.COMPLETED,
+                          QuizAttempt.AttemptStatus.FAILED,
+                          QuizAttempt.AttemptStatus.PENDING_GRADING]:
+            viewing_results = True
+        
+        # Passa il contesto al StudentAnswerSerializer, che a sua volta lo passerà
+        # implicitamente al QuestionSerializer quando serializza il campo 'question'.
+        context = self.context.copy() # Eredita contesto esistente (es. request)
+        context['viewing_results'] = viewing_results
+        
+        # Precarica le domande e le opzioni per ottimizzare
+        answers_queryset = obj.student_answers.prefetch_related(
+            'question',
+            'question__answer_options' # Per MC, TF
+            # Non è necessario precaricare question__metadata specificamente qui,
+            # QuestionSerializer vi accederà direttamente.
+        ).all()
+        
+        serializer = StudentAnswerSerializer(answers_queryset, many=True, context=context)
+        return serializer.data
 
     def get_completion_threshold(self, obj: QuizAttempt) -> float | None:
         """ Restituisce la soglia di completamento del quiz, se definita. Gestisce errori e logga i metadati se la chiave manca. """

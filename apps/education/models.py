@@ -22,7 +22,7 @@ class QuestionType(models.TextChoices):
     MULTIPLE_CHOICE_SINGLE = 'MC_SINGLE', _('Multiple Choice (Single Answer)')
     MULTIPLE_CHOICE_MULTIPLE = 'MC_MULTI', _('Multiple Choice (Multiple Answers)')
     TRUE_FALSE = 'TF', _('True/False')
-    FILL_BLANK = 'FILL_BLANK', _('Fill in the Blank')
+    FILL_BLANK = 'fill_blank', _('Fill in the Blank')
     OPEN_ANSWER_MANUAL = 'OPEN_MANUAL', _('Open Answer (Manual Grading)')
 
 

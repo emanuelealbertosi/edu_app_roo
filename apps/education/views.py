@@ -1546,25 +1546,100 @@ class AttemptViewSet(viewsets.GenericViewSet):
                         logger.debug(f"  MC_MULTI: Sel={selected_option_ids}, Corr={correct_option_ids}, Result={is_correct_val}, Score={score_val}")
 
                     elif question.question_type == QuestionType.FILL_BLANK:
-                        correct_answers_list = question.metadata.get('correct_answers', [])
-                        case_sensitive = question.metadata.get('case_sensitive', False)
-                        submitted_answers = valid_data_for_storage.get('answers', [])
-                        if len(correct_answers_list) != len(submitted_answers):
+                        # Nuova logica di valutazione per FILL_BLANK come da FILL_BLANK_PLAN.md
+                        question_metadata = question.metadata
+                        blanks_config = question_metadata.get('blanks', []) # Lista di oggetti blank
+                        case_sensitive = question_metadata.get('case_sensitive', False)
+                        student_selected_answers = valid_data_for_storage.get('answers', []) # Lista di oggetti {blank_id, student_response}
+
+                        if not blanks_config: # Se non ci sono blank configurati, la domanda non può essere corretta
                             is_correct_val = False
-                            logger.debug(f"  FILL_BLANK: Numero risposte errato (atteso {len(correct_answers_list)}, dato {len(submitted_answers)})")
+                            logger.warning(f"  FILL_BLANK: Nessuna configurazione 'blanks' trovata nei metadati per Q ID {question.id}")
                         else:
-                            all_match = True
-                            for i, correct_ans in enumerate(correct_answers_list):
-                                submitted = submitted_answers[i]
-                                correct_str = str(correct_ans)
-                                submitted_str = str(submitted)
-                                if not case_sensitive:
-                                    if correct_str.lower() != submitted_str.lower(): all_match = False; break
+                            # Trasforma le risposte dello studente in un dizionario per un facile accesso by blank_id
+                            student_responses_map = {}
+                            # student_selected_answers è valid_data_for_storage.get('answers', [])
+                            # blanks_config è question_metadata.get('blanks', [])
+
+                            if student_selected_answers and isinstance(student_selected_answers[0], str):
+                                # Caso: student_selected_answers è una lista di stringhe (es. ["risposta1", "risposta2"])
+                                # Assumiamo che l'ordine delle risposte corrisponda all'ordine dei blank in blanks_config.
+                                # Questo è coerente con il commento in riga 1443 e il formato del bug report.
+                                if len(student_selected_answers) == len(blanks_config):
+                                    for i, blank_conf in enumerate(blanks_config):
+                                        blank_id = blank_conf.get('id')
+                                        if blank_id: # Assicura che blank_id esista
+                                            student_responses_map[blank_id] = student_selected_answers[i].strip()
                                 else:
-                                    if correct_str != submitted_str: all_match = False; break
-                            is_correct_val = all_match
-                        score_val = float(question.metadata.get('points_per_correct_answer', 1.0)) if is_correct_val else 0.0
-                        logger.debug(f"  FILL_BLANK: Result={is_correct_val}, Score={score_val}")
+                                    # Numero di risposte stringa non corrisponde al numero di blanks.
+                                    # La logica successiva (controllo len(student_responses_map) != len(blanks_config))
+                                    # dovrebbe gestire questa discrepanza se la mappa risulta incompleta o di lunghezza errata.
+                                    logger.debug(
+                                        f"  FILL_BLANK: Numero di risposte stringa ({len(student_selected_answers)}) "
+                                        f"non corrisponde al numero di blanks ({len(blanks_config)}) per Q ID {question.id}. "
+                                        f"La mappa potrebbe essere popolata in modo incompleto o la validazione successiva fallirà."
+                                    )
+                            
+                            elif student_selected_answers and isinstance(student_selected_answers[0], dict):
+                                # Caso: student_selected_answers è una lista di dizionari (formato del piano originale)
+                                # Esempio: [{"blank_id": "b0", "student_response": "r0"}, ...]
+                                for ans_obj in student_selected_answers:
+                                    blank_id = ans_obj.get('blank_id')
+                                    student_response = ans_obj.get('student_response', '')
+                                    if blank_id:
+                                        student_responses_map[blank_id] = str(student_response).strip()
+                            else:
+                                # Formato inatteso o lista vuota di risposte.
+                                # student_responses_map rimane vuota.
+                                if student_selected_answers: # Solo se non è vuota ma ha un formato strano
+                                    logger.warning(
+                                        f"  FILL_BLANK: Formato inatteso o vuoto per student_selected_answers: "
+                                        f"{student_selected_answers} per Q ID {question.id}"
+                                    )
+                            
+                            all_blanks_match = True
+                            if len(student_responses_map) != len(blanks_config):
+                                # Se il numero di risposte fornite non corrisponde al numero di blank attesi
+                                all_blanks_match = False
+                                logger.debug(f"  FILL_BLANK: Numero di risposte fornite ({len(student_responses_map)}) non corrisponde al numero di blanks attesi ({len(blanks_config)}) per Q ID {question.id}")
+
+                            if all_blanks_match: # Prosegui solo se il numero di risposte corrisponde
+                                for blank_conf in blanks_config:
+                                    blank_id = blank_conf.get('id')
+                                    correct_variants_for_blank = blank_conf.get('correct_answers', [])
+                                    student_response_for_blank = student_responses_map.get(blank_id)
+
+                                    if student_response_for_blank is None: # Risposta mancante per questo blank_id
+                                        all_blanks_match = False
+                                        logger.debug(f"  FILL_BLANK: Risposta mancante per blank_id '{blank_id}' in Q ID {question.id}")
+                                        break
+
+                                    match_found_for_this_blank = False
+                                    for correct_variant in correct_variants_for_blank:
+                                        # Assicura che entrambe le stringhe siano effettivamente stringhe prima del confronto
+                                        correct_variant_str = str(correct_variant).strip()
+                                        # student_response_for_blank è già strippata quando inserita nella mappa
+                                        student_response_str = str(student_response_for_blank)
+
+                                        if not case_sensitive:
+                                            if correct_variant_str.lower() == student_response_str.lower():
+                                                match_found_for_this_blank = True
+                                                break
+                                        else:
+                                            if correct_variant_str == student_response_str:
+                                                match_found_for_this_blank = True
+                                                break
+                                    
+                                    if not match_found_for_this_blank:
+                                        all_blanks_match = False
+                                        logger.debug(f"  FILL_BLANK: Nessun match per blank_id '{blank_id}' (risposta: '{student_response_for_blank}') in Q ID {question.id}")
+                                        break # Esci dal ciclo dei blank, la domanda è sbagliata
+                            
+                            is_correct_val = all_blanks_match
+                        
+                        # Il punteggio è per l'intera domanda, non per singolo blank
+                        score_val = float(question_metadata.get('points', 1.0)) if is_correct_val else 0.0
+                        logger.debug(f"  FILL_BLANK (Nuova Logica): Result={is_correct_val}, Score={score_val} per Q ID {question.id}")
 
                     # Salva i risultati della valutazione sulla singola risposta
                     if is_correct_val is not None: # Salva solo se è stata valutata

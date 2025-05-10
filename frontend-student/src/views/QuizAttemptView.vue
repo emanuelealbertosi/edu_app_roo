@@ -3,7 +3,19 @@ import { ref, onMounted, computed, shallowRef, watch, defineProps, defineEmits, 
 // Rimuovere useRoute
 // import { useRoute, useRouter } from 'vue-router';
 import { useRouter } from 'vue-router'; // Mantenere useRouter per ora, se serve per altro
-import QuizService, { type Question, type QuizAttempt, type Answer } from '@/api/quiz';
+import QuizService, {
+  type Question,
+  type QuizAttempt,
+  type Answer as ApiAnswer, // Rinomino Answer per evitare conflitti con il tipo interno
+  type QuestionMetadataFillBlankApi,
+  // Importo i tipi specifici per costruire UserProvidedAnswer
+  type MultipleChoiceSingleAnswer,
+  type MultipleChoiceMultipleAnswer,
+  type TrueFalseAnswer,
+  type OpenAnswerManualAnswer
+} from '@/api/quiz';
+// StudentAnswerPayloadFillBlank è ciò che FillBlankQuestion.vue emette
+import type { StudentAnswerPayloadFillBlank } from '@/types/education';
 // Importa i componenti delle domande
 import MultipleChoiceSingleQuestion from '@/components/quiz/questions/MultipleChoiceSingleQuestion.vue';
 import MultipleChoiceMultipleQuestion from '@/components/quiz/questions/MultipleChoiceMultipleQuestion.vue';
@@ -13,6 +25,15 @@ import OpenAnswerManualQuestion from '@/components/quiz/questions/OpenAnswerManu
 import { useAuthStore } from '@/stores/auth';
 import { useNotificationStore } from '@/stores/notification'; // Importa lo store notifiche
 import { useDashboardStore } from '@/stores/dashboard'; // <-- AGGIUNTO: Importa lo store dashboard
+
+// Definiamo un tipo per lo stato interno di userAnswer.value, che riflette
+// i dati così come emessi dai componenti domanda.
+type UserProvidedAnswer =
+  | MultipleChoiceSingleAnswer
+  | MultipleChoiceMultipleAnswer
+  | TrueFalseAnswer
+  | StudentAnswerPayloadFillBlank // Questo è ciò che FillBlankQuestion.vue emette
+  | OpenAnswerManualAnswer;
 
 // --- Props & Emits ---
 const props = defineProps<{
@@ -54,7 +75,7 @@ const dashboardStore = useDashboardStore(); // <-- AGGIUNTO: Istanza dello store
 
 const attempt = ref<QuizAttempt | null>(null);
 const currentQuestion = ref<Question | null>(null);
-const userAnswer = ref<Answer | null>(null); // Da definire meglio in base al tipo di domanda
+const userAnswer = ref<UserProvidedAnswer | null>(null);
 const isLoading = ref(false);
 const error = ref<string | null>(null);
 const isSubmitting = ref(false);
@@ -182,11 +203,43 @@ async function submitAnswerHandler() {
   error.value = null;
 
   try {
-    // --- Assumiamo che l'API ritorni { is_correct: boolean, ... } ---
+    let payloadForApi: ApiAnswer; // Il payload per l'API usa ApiAnswer
+
+    if (currentQuestion.value.question_type === 'fill_blank' && userAnswer.value) {
+      // Qui userAnswer.value è di tipo UserProvidedAnswer.
+      // Se question_type è 'fill_blank', allora dovrebbe essere StudentAnswerPayloadFillBlank.
+      // Il cast è più sicuro ora grazie alla tipizzazione di userAnswer.
+      const fillBlankUserAnswer = userAnswer.value as StudentAnswerPayloadFillBlank;
+      const questionMetadata = currentQuestion.value.metadata as QuestionMetadataFillBlankApi;
+
+      if (fillBlankUserAnswer && fillBlankUserAnswer.answers && questionMetadata.blanks) {
+        const sortedBlanks = [...questionMetadata.blanks].sort((a, b) => a.order - b.order);
+        const orderedStudentResponses: string[] = sortedBlanks.map(blankDef => {
+          const foundAnswer = fillBlankUserAnswer.answers.find(ans => ans.blank_id === blankDef.id);
+          // Se foundAnswer esiste e foundAnswer.student_response è definito, usa quello, altrimenti stringa vuota.
+          return (foundAnswer && typeof foundAnswer.student_response === 'string') ? foundAnswer.student_response : "";
+        });
+        // payloadForApi deve essere di tipo FillBlankApiPayload (che è { answers: string[] })
+        // Questo è compatibile con ApiAnswer.
+        payloadForApi = { answers: orderedStudentResponses };
+      } else {
+        console.error("Dati mancanti o malformati per formattare la risposta fill_blank:", userAnswer.value, questionMetadata);
+        error.value = "Errore nella formattazione della risposta fill_blank (dati interni).";
+        isSubmitting.value = false;
+        return;
+      }
+    } else {
+      // Per altri tipi di domande, userAnswer.value (che è UserProvidedAnswer)
+      // dovrebbe essere direttamente assegnabile a payloadForApi (che è ApiAnswer)
+      // se i tipi corrispondenti sono compatibili (es. MultipleChoiceSingleAnswer).
+      payloadForApi = userAnswer.value as ApiAnswer; // Cast necessario perché UserProvidedAnswer e ApiAnswer differiscono per fill_blank
+    }
+
+    // --- Invio della risposta ---
     const result = await QuizService.submitAnswer(
       attempt.value.id,
       currentQuestion.value.id,
-      userAnswer.value
+      payloadForApi // Ora payloadForApi è sempre di tipo Answer (che include FillBlankApiPayload)
     );
     console.log("Risposta inviata, risultato API:", result); // Log per debug
 
@@ -206,8 +259,25 @@ async function submitAnswerHandler() {
     console.error("Errore durante l'invio della risposta:", err);
      if (err.response?.data?.detail) {
         error.value = `Errore invio risposta: ${err.response.data.detail}`;
-    } else if (err.response?.data?.selected_answers) { // Errore di validazione specifico
-         error.value = `Errore dati risposta: ${err.response.data.selected_answers.join(', ')}`;
+    } else if (err.response?.data?.selected_answers) {
+        const saError = err.response.data.selected_answers;
+        if (typeof saError === 'string') {
+            error.value = `Errore dati risposta: ${saError}`;
+        } else if (Array.isArray(saError)) {
+            error.value = `Errore dati risposta: ${saError.join(', ')}`;
+        } else if (typeof saError === 'object' && saError !== null) {
+            // Se selected_answers è un oggetto, potrebbe contenere messaggi per campo
+            // Esempio: { "answers": ["Questo campo non è valido."] }
+            // Tentiamo di estrarre il primo messaggio o una rappresentazione generica
+            const messages = Object.values(saError).flat(); // Prende tutti i valori, li appiattisce se sono array
+            if (messages.length > 0 && typeof messages[0] === 'string') {
+                 error.value = `Errore dati risposta: ${messages[0]}`;
+            } else {
+                 error.value = `Errore dati risposta: Formato errore non riconosciuto per selected_answers.`;
+            }
+        } else {
+            error.value = "Errore nei dati della risposta inviati (selected_answers).";
+        }
     } else {
         error.value = "Errore nell'invio della risposta. Riprova.";
     }
@@ -307,7 +377,7 @@ const questionComponentMap = {
   'MC_SINGLE': shallowRef(MultipleChoiceSingleQuestion), // Aggiornato per corrispondere al backend
   'MC_MULTI': shallowRef(MultipleChoiceMultipleQuestion), // Aggiornato per corrispondere al backend
   'TF': shallowRef(TrueFalseQuestion), // Aggiornato per corrispondere al backend
-  'FILL_BLANK': shallowRef(FillBlankQuestion), // Aggiornato per corrispondere al backend
+  'fill_blank': shallowRef(FillBlankQuestion), // Chiave aggiornata a minuscolo per corrispondenza backend
   'OPEN_MANUAL': shallowRef(OpenAnswerManualQuestion), // Aggiornato per corrispondere al backend
   // 'true_false': shallowRef(TrueFalseQuestion),
   // 'fill_blank': shallowRef(FillBlankQuestion),
@@ -321,8 +391,8 @@ const currentQuestionComponent = computed(() => {
 });
 
 // Funzione per aggiornare la risposta dell'utente dal componente figlio
-function updateUserAnswer(answer: Answer | null) {
-  userAnswer.value = answer;
+function updateUserAnswer(answerData: UserProvidedAnswer | null) {
+  userAnswer.value = answerData;
 }
 
 // --- Funzioni per il Contatore ---
@@ -463,7 +533,7 @@ onUnmounted(() => {
                <!-- Blocco Domanda Effettivo -->
               <div :key="currentQuestion.id" class="question-container py-4 px-6"> <!-- Rimosso bg, border, padding extra, shadow -->
                 <h3 class="text-lg font-semibold text-purple-700 mb-3">Domanda {{ currentQuestion.order + 1 }}</h3>
-                <p class="question-text text-gray-800 text-lg mb-5">{{ currentQuestion.text }}</p>
+                <p v-if="currentQuestion.question_type !== 'fill_blank'" class="question-text text-gray-800 text-lg mb-5">{{ currentQuestion.text }}</p>
 
                 <!-- Renderizza dinamicamente il componente domanda corretto -->
                 <div class="answer-area">

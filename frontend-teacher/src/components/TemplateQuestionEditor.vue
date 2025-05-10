@@ -18,6 +18,13 @@
       >
         Elimina
       </button>
+      <button
+        v-if="question.question_type === 'fill_blank'"
+        @click="configureFillBlank"
+        class="btn btn-info text-sm mt-1 w-full text-center"
+      >
+        Configura Blank
+      </button>
     </div>
     <!-- TODO: Aggiungere sezione per visualizzare/modificare AnswerOptionTemplate -->
   </li>
@@ -32,7 +39,7 @@ const props = defineProps<{
   question: QuestionTemplate; // Usa il tipo QuestionTemplate
 }>();
 
-const emit = defineEmits(['edit', 'delete']);
+const emit = defineEmits(['edit', 'delete', 'configure-fill-blank']);
 
 const editQuestion = () => {
   // Emette l'ID della QuestionTemplate
@@ -42,6 +49,10 @@ const editQuestion = () => {
 const deleteQuestion = () => {
   // Emette l'ID della QuestionTemplate
   emit('delete', props.question.id);
+};
+
+const configureFillBlank = () => {
+  emit('configure-fill-blank', props.question.id);
 };
 </script>
 

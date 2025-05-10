@@ -91,6 +91,7 @@
                     :question="question"
                     @edit="handleEditQuestion"
                     @delete="handleDeleteQuestion"
+                    @configure-fill-blank="handleConfigureFillBlank"
                     class="bg-white p-4 rounded-lg shadow border border-neutral-DEFAULT" /> <!-- Stile item aggiornato -->
             </ul>
         </div>
@@ -146,13 +147,51 @@
       </div>
     </div>
 
+    <!-- Modale per Configurare Fill Blank -->
+    <div v-if="isConfigureBlankModalOpen && currentQuestionForBlankConfig" class="fixed inset-0 z-50 overflow-y-auto bg-black bg-opacity-50 flex items-center justify-center p-4">
+      <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div class="flex justify-between items-center p-4 border-b">
+          <h2 class="text-xl font-semibold">Configura Risposte per "{{ currentQuestionForBlankConfig.text }}"</h2>
+          <button @click="closeConfigureBlankModal" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+        </div>
+        <div class="p-6">
+          <FillBlankQuestionEditor
+            :initial-question-text="currentQuestionForBlankConfig.text"
+            :initial-metadata="currentQuestionForBlankConfig.metadata as FillBlankMetadata | null"
+            @update:metadata="handleFillBlankMetadataSaved"
+          />
+          <!-- Aggiungere un pulsante Salva qui se FillBlankQuestionEditor non lo ha,
+               o se l'evento @update:metadata deve essere scatenato da un'azione esplicita in questa modale.
+               Per ora, assumiamo che @update:metadata sia sufficiente e venga emesso al salvataggio interno
+               di FillBlankQuestionEditor. Se FillBlankQuestionEditor emette solo al cambio,
+               allora avremo bisogno di un pulsante Salva qui che chiami una funzione
+               che prende i metadati da un ref esposto da FillBlankQuestionEditor e poi chiama handleFillBlankMetadataSaved.
+
+               Per semplicità, modifichiamo FillBlankQuestionEditor per avere un pulsante Salva interno
+               che emette 'update:metadata'. Se questo è già il caso, allora la struttura attuale va bene.
+               Altrimenti, questa modale dovrebbe avere i suoi pulsanti Salva/Annulla.
+               L'attuale FillBlankQuestionEditor ha un pulsante "Salva Configurazione Spazi Vuoti"
+               che emette 'update:metadata', quindi dovrebbe funzionare.
+          -->
+        </div>
+         <div class="p-4 border-t flex justify-end">
+            <BaseButton @click="closeConfigureBlankModal" variant="secondary">Chiudi</BaseButton>
+            <!-- Se FillBlankQuestionEditor non avesse un suo "salva" che emette update:metadata,
+                 un pulsante di salvataggio andrebbe qui. Ma dato che lo ha, questo "Chiudi" è sufficiente.
+                 L'utente salva DENTRO FillBlankQuestionEditor, che emette l'evento,
+                 e poi può chiudere questa modale. -->
+        </div>
+      </div>
+    </div>
+
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, computed, reactive } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import QuestionTemplateFormView from './QuestionTemplateFormView.vue'; // Importa il form
+import QuestionTemplateFormView from './QuestionTemplateFormView.vue';
+import FillBlankQuestionEditor, { type FillBlankMetadata } from '@/components/questions/FillBlankQuestionEditor.vue';
 // Importa API per Teacher Quiz Templates
 import {
     createTeacherQuizTemplate, fetchTeacherQuizTemplateDetails, updateTeacherQuizTemplate,
@@ -161,7 +200,8 @@ import {
 // Importa API per domande/opzioni template
 import {
     fetchTeacherQuestionTemplates, deleteTeacherQuestionTemplate,
-    type QuestionTemplate // Importa anche il tipo QuestionTemplate
+    type QuestionTemplate,
+    updateTeacherQuestionTemplate // Usiamo questa per aggiornare l'intera domanda template
     // TODO: Importare API per opzioni e gestione completa domande
 } from '@/api/templateQuestions';
 import TemplateQuestionEditor from '@/components/TemplateQuestionEditor.vue'; // Importa il nuovo componente
@@ -204,7 +244,10 @@ const isLoadingQuestions = ref(false);
 const questionsError = ref<string | null>(null);
 const isAddQuestionModalOpen = ref(false); // Stato per la modale di aggiunta
 const isEditQuestionModalOpen = ref(false); // Stato per la modale di modifica
-const questionToEditId = ref<number | null>(null); // ID domanda da modificare nella modale
+const questionToEditId = ref<number | null>(null);
+const isConfigureBlankModalOpen = ref(false);
+const questionToConfigureBlankId = ref<number | null>(null);
+const currentQuestionForBlankConfig = ref<QuestionTemplate | null>(null);
 
 // Dati per materie e argomenti
 const teacherSubjects = ref<Subject[]>([]);
@@ -341,7 +384,11 @@ const loadTemplateQuestions = async (id: number) => {
     questionsError.value = null;
     try {
         // Usa la funzione API importata
-        questions.value = await fetchTeacherQuestionTemplates(id);
+        const fetchedQuestions = await fetchTeacherQuestionTemplates(id);
+        questions.value = fetchedQuestions.map(q => ({
+            ...q,
+            question_type: q.question_type ? q.question_type.toLowerCase() : ''
+        }));
     } catch (err: any) {
         console.error(`Errore caricamento domande template per ${id}:`, err);
         questionsError.value = `Errore caricamento domande template: ${err.response?.data?.detail || err.message || 'Errore sconosciuto'}`;
@@ -474,6 +521,71 @@ const handleQuestionUpdatedInModal = async () => {
         successMessage.value = "Domanda aggiornata con successo!"; // Mostra messaggio
         setTimeout(() => { successMessage.value = null; }, 3000);
     }
+};
+
+const handleConfigureFillBlank = (qId: number) => {
+  const question = questions.value.find(q => q.id === qId);
+  if (question && question.question_type === 'fill_blank') {
+    currentQuestionForBlankConfig.value = question;
+    questionToConfigureBlankId.value = qId;
+    isConfigureBlankModalOpen.value = true;
+  } else {
+    console.error("Impossibile configurare i blank: domanda non trovata o tipo non corretto.");
+    questionsError.value = "Impossibile configurare i blank per questa domanda.";
+  }
+};
+
+const closeConfigureBlankModal = () => {
+  isConfigureBlankModalOpen.value = false;
+  questionToConfigureBlankId.value = null;
+  currentQuestionForBlankConfig.value = null;
+};
+
+const handleFillBlankMetadataSaved = async (newMetadata: FillBlankMetadata | null) => {
+  if (!templateId.value || !questionToConfigureBlankId.value) {
+    questionsError.value = "ID Template o ID Domanda mancante per salvare i metadati fill_blank.";
+    return;
+  }
+  if (newMetadata === null) {
+    console.warn("Tentativo di salvare metadati null per fill_blank. Operazione annullata.");
+    return;
+  }
+
+  const questionToUpdate = questions.value.find(q => q.id === questionToConfigureBlankId.value);
+  if (!questionToUpdate) {
+    questionsError.value = "Domanda da aggiornare non trovata.";
+    return;
+  }
+
+  isSaving.value = true;
+  try {
+    // Prepara il payload per l'aggiornamento della domanda template.
+    // L'API updateTeacherQuestionTemplate si aspetta un payload di tipo QuestionTemplatePayload.
+    const payloadForUpdate = {
+        text: questionToUpdate.text,
+        question_type: questionToUpdate.question_type,
+        order: questionToUpdate.order,
+        metadata: { ...questionToUpdate.metadata, ...newMetadata }, // Unisci i metadati
+        // Se QuestionTemplatePayload richiede altri campi da QuestionTemplate, aggiungili qui.
+        // Ad esempio, se 'answer_options_template' fosse parte del payload (ma di solito non lo è per un update di metadata)
+        // answer_options_template: questionToUpdate.answer_options_template || [],
+    };
+
+    // Assicurati che il tipo di payloadForUpdate sia compatibile con quello atteso da updateTeacherQuestionTemplate.
+    // Il tipo QuestionTemplatePayload è definito in @/api/templateQuestions.ts (o dove è definito per quella API).
+    // Se ci sono discrepanze, il cast `as any` è una soluzione temporanea.
+    await updateTeacherQuestionTemplate(templateId.value, questionToConfigureBlankId.value, payloadForUpdate as any);
+
+    await loadTemplateQuestions(templateId.value); // Ricarica le domande
+    successMessage.value = "Configurazione Fill in the Blank salvata con successo.";
+    setTimeout(() => { successMessage.value = null; }, 3000);
+    closeConfigureBlankModal();
+  } catch (err: any) {
+    console.error("Errore durante il salvataggio dei metadati fill_blank:", err);
+    questionsError.value = `Errore salvataggio configurazione: ${err.response?.data?.detail || err.message || 'Errore sconosciuto'}`;
+  } finally {
+    isSaving.value = false;
+  }
 };
 
 const handleDeleteQuestion = async (questionId: number) => {

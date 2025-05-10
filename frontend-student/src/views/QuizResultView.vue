@@ -71,7 +71,7 @@ function getQuestionComponent(questionType: Question['question_type']) {
       return MultipleChoiceMultipleQuestion;
     case 'TF':
       return TrueFalseQuestion;
-    case 'FILL_BLANK':
+    case 'fill_blank':
       return FillBlankQuestion;
     case 'OPEN_MANUAL':
       return OpenAnswerManualQuestion;

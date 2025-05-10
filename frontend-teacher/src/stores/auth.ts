@@ -133,29 +133,34 @@ export const useAuthStore = defineStore('authTeacher', () => { // Cambiato nome 
   // NUOVA AZIONE: Verifica token e recupera profilo se necessario
   async function checkAuthAndFetchProfile() {
     console.log("[checkAuthAndFetchProfile Teacher] Checking authentication status...");
-    const currentAccessToken = sharedAuth.accessToken;
-    const currentRefreshToken = sharedAuth.refreshToken; // Prendi anche il refresh token
+    sharedAuth.setLoading(true); // Imposta loading a true all'inizio
+    try {
+      const currentAccessToken = sharedAuth.accessToken;
+      const currentRefreshToken = sharedAuth.refreshToken; // Prendi anche il refresh token
 
-    if (currentAccessToken) {
-      console.log("[checkAuthAndFetchProfile Teacher] Access token found. Attempting to fetch profile...");
-      try {
-        // Usa il token esistente per recuperare il profilo
+      if (currentAccessToken) {
+        console.log("[checkAuthAndFetchProfile Teacher] Access token found. Attempting to fetch profile...");
+        // _fetchUserProfile gestisce il suo setLoading internamente, ma è bene averlo anche qui
+        // per coprire il caso in cui _fetchUserProfile non venga chiamato o fallisca prima del suo finally.
         await _fetchUserProfile(currentAccessToken, currentRefreshToken);
         console.log("[checkAuthAndFetchProfile Teacher] Profile fetch successful or already up-to-date.");
-      } catch (error: any) {
-        console.error("[checkAuthAndFetchProfile Teacher] Error fetching profile with existing token:", error);
-        // Se il fetch fallisce (es. token scaduto e refresh fallito nell'interceptor),
-        // lo store dovrebbe essere già stato pulito dall'interceptor o da refreshTokenAction.
-        // Non è necessario chiamare clearAuthData qui di nuovo.
-        // Potremmo reindirizzare al login se necessario, ma la guardia di navigazione dovrebbe gestirlo.
+      } else {
+        console.log("[checkAuthAndFetchProfile Teacher] No access token found. User is not authenticated.");
+        // Assicurati che lo store sia pulito se non c'è token
+        if (sharedAuth.user || sharedAuth.refreshToken) {
+            console.warn("[checkAuthAndFetchProfile Teacher] Inconsistency found: Access token missing but other auth data present. Clearing.");
+            sharedAuth.clearAuthData();
+        }
       }
-    } else {
-      console.log("[checkAuthAndFetchProfile Teacher] No access token found. User is not authenticated.");
-      // Assicurati che lo store sia pulito se non c'è token
-      if (sharedAuth.user || sharedAuth.refreshToken) {
-          console.warn("[checkAuthAndFetchProfile Teacher] Inconsistency found: Access token missing but other auth data present. Clearing.");
-          sharedAuth.clearAuthData();
-      }
+    } catch (error: any) {
+        // Anche se _fetchUserProfile gestisce i suoi errori, questo catch è per errori imprevisti
+        // direttamente in checkAuthAndFetchProfile o se _fetchUserProfile rilancia un errore
+        // che non è stato gestito internamente per quanto riguarda setLoading.
+        console.error("[checkAuthAndFetchProfile Teacher] General error during auth check:", error);
+        // Non pulire i dati qui a meno che non sia specificamente un errore di autenticazione
+        // che richiede un logout. sharedAuth.setError potrebbe essere chiamato se necessario.
+    } finally {
+      sharedAuth.setLoading(false); // Assicura che loading sia false alla fine
     }
   }
 

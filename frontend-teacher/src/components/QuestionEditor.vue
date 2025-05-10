@@ -7,6 +7,13 @@
     </div>
     <!-- Rimosso flex flex-col -->
     <div class="question-actions">
+      <button
+        v-if="props.question.question_type === 'FILL_BLANK'"
+        @click="configureBlanks"
+        class="btn btn-info text-sm mb-1 w-full text-center"
+      >
+        Configura Blank
+      </button>
       <!-- Aggiunto block e mb-1 -->
       <button
         @click="editQuestion"
@@ -34,7 +41,7 @@ const props = defineProps<{
   question: Question;
 }>();
 
-const emit = defineEmits(['edit', 'delete']);
+const emit = defineEmits(['edit', 'delete', 'configure-blanks']);
 
 const editQuestion = () => {
   emit('edit', props.question.id);
@@ -43,6 +50,10 @@ const editQuestion = () => {
 const deleteQuestion = () => {
   // Potremmo chiedere conferma qui o nel componente padre
   emit('delete', props.question.id);
+};
+
+const configureBlanks = () => {
+  emit('configure-blanks', props.question.id);
 };
 </script>
 

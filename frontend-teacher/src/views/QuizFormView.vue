@@ -134,6 +134,7 @@
                 :question-index="index"
                 @edit="handleEditQuestion"
                 @delete="handleDeleteQuestion"
+                @configure-blanks="handleConfigureBlanks"
                 class="border-b border-gray-200 pb-4 last:border-b-0"
             />
         </div>
@@ -155,15 +156,52 @@
         </div>
     </div>
 
+    <!-- Modal for Configuring Blanks -->
+    <BaseModal :show="isConfigureBlanksModalOpen" title="Configura Spazi Vuoti per Domanda Fill-in-the-Blank" @close="closeConfigureBlanksModal">
+        <div v-if="isLoadingConfiguringQuestion" class="text-center p-4">
+            <p>Caricamento dati domanda...</p>
+            <!-- Optional: Spinner -->
+        </div>
+        <div v-else-if="configuringQuestionDetails && configuringQuestion">
+            <FillBlankQuestionEditor
+                :key="configuringQuestion.id"
+                :initial-question-text="configuringQuestionDetails.text"
+                :initial-metadata="configuringQuestionDetails.metadata"
+                @update:metadata="handleFillBlankMetadataUpdateInModal"
+            />
+        </div>
+        <div v-else-if="!isLoadingConfiguringQuestion && questionsError" class="text-red-500 p-4">
+            <p>Errore nel caricamento dei dati della domanda: {{ questionsError }}</p>
+        </div>
+         <div v-else class="text-gray-500 p-4">
+            <p>Nessuna domanda selezionata per la configurazione o dati non disponibili.</p>
+        </div>
+
+        <template #footer>
+            <button @click="closeConfigureBlanksModal"
+                    class="py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
+                Annulla
+            </button>
+            <button @click="saveBlanksConfigurationInModal"
+                    :disabled="isSavingConfiguringQuestion || !configuringQuestion"
+                    :class="['py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white',
+                             (isSavingConfiguringQuestion || !configuringQuestion) ? 'bg-indigo-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700']">
+                {{ isSavingConfiguringQuestion ? 'Salvataggio...' : 'Salva Configurazione Blank' }}
+            </button>
+        </template>
+    </BaseModal>
+
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, computed, reactive } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { createQuiz, fetchQuizDetails, updateQuiz, type QuizPayload, type Quiz } from '@/api/quizzes'; // Importa anche Quiz type
-import { fetchQuestions, deleteQuestionApi, type Question } from '@/api/questions'; // Importa anche deleteQuestionApi
-import QuestionEditor from '@/components/QuestionEditor.vue'; // Importa il nuovo componente
+import { createQuiz, fetchQuizDetails, updateQuiz, type QuizPayload, type Quiz } from '@/api/quizzes';
+import { fetchQuestions, deleteQuestionApi, fetchQuestionDetails, updateQuestion, type Question, type QuestionPayload as SingleQuestionPayload } from '@/api/questions'; // Aggiunto fetchQuestionDetails, updateQuestion
+import QuestionEditor from '@/components/QuestionEditor.vue';
+import BaseModal from '@/components/common/BaseModal.vue'; // Aggiunto BaseModal
+import FillBlankQuestionEditor, { type FillBlankMetadata } from '@/components/questions/FillBlankQuestionEditor.vue'; // Aggiunto FillBlankQuestionEditor
 // Importa API e tipi per materie/argomenti
 import {
     fetchTeacherSubjects,
@@ -201,7 +239,15 @@ const successMessage = ref<string | null>(null); // Messaggio di successo
 // Stato per le domande
 const questions = ref<Question[]>([]);
 const isLoadingQuestions = ref(false);
-const questionsError = ref<string | null>(null);
+const questionsError = ref<string | null>(null); // Errore per la lista/operazioni sulle domande
+
+// State for configuring blanks modal
+const isConfigureBlanksModalOpen = ref(false);
+const configuringQuestion = ref<Question | null>(null);
+const configuringQuestionDetails = ref<{ text: string; metadata: FillBlankMetadata | null } | null>(null);
+const isLoadingConfiguringQuestion = ref(false);
+const updatedFillBlankMetadata = ref<FillBlankMetadata | null>(null);
+const isSavingConfiguringQuestion = ref(false);
 
 // Dati per materie e argomenti
 const teacherSubjects = ref<Subject[]>([]);
@@ -476,6 +522,100 @@ const handleEditQuestion = (questionId: number) => {
     if (!quizId.value) return; // Assicurati che quizId sia definito
     // Naviga alla rotta per modificare la domanda specifica
     router.push({ name: 'question-edit', params: { quizId: quizId.value.toString(), questionId: questionId.toString() } });
+};
+
+const handleConfigureBlanks = async (questionIdToConfigure: number) => {
+    if (!quizId.value) {
+        console.error("Quiz ID non disponibile per configurare i blank.");
+        questionsError.value = "ID Quiz non trovato.";
+        return;
+    }
+    isLoadingConfiguringQuestion.value = true;
+    questionsError.value = null; // Reset previous errors specific to this operation
+    try {
+        const detailedQuestion = await fetchQuestionDetails(quizId.value, questionIdToConfigure);
+        configuringQuestion.value = detailedQuestion; // Store the full question object
+
+        // Ensure metadata is correctly typed or defaulted for FillBlankQuestionEditor
+        let metadataForEditor: FillBlankMetadata | null = null;
+        if (detailedQuestion.metadata && typeof detailedQuestion.metadata === 'object') {
+            // Basic check if it resembles FillBlankMetadata. Adjust as needed.
+            if ('blanks' in detailedQuestion.metadata && 'case_sensitive' in detailedQuestion.metadata) {
+                 metadataForEditor = detailedQuestion.metadata as FillBlankMetadata;
+            } else {
+                // If metadata exists but isn't the right shape, log warning and default
+                console.warn(`Metadata for question ${questionIdToConfigure} is not in FillBlankMetadata format. Defaulting.`);
+                metadataForEditor = { text_with_placeholders: detailedQuestion.text, blanks: [], case_sensitive: false };
+            }
+        } else {
+            // No metadata, provide default structure
+            metadataForEditor = { text_with_placeholders: detailedQuestion.text, blanks: [], case_sensitive: false };
+        }
+
+        configuringQuestionDetails.value = {
+            text: detailedQuestion.text,
+            metadata: metadataForEditor
+        };
+        updatedFillBlankMetadata.value = JSON.parse(JSON.stringify(metadataForEditor)); // Initialize for editing
+        isConfigureBlanksModalOpen.value = true;
+    } catch (err: any) {
+        console.error(`Errore nel caricamento dei dettagli della domanda ${questionIdToConfigure} per la configurazione:`, err);
+        questionsError.value = `Impossibile caricare i dettagli per la configurazione: ${err.response?.data?.detail || err.message || 'Errore sconosciuto'}`;
+    } finally {
+        isLoadingConfiguringQuestion.value = false;
+    }
+};
+
+const closeConfigureBlanksModal = () => {
+    isConfigureBlanksModalOpen.value = false;
+    configuringQuestion.value = null;
+    configuringQuestionDetails.value = null;
+    updatedFillBlankMetadata.value = null;
+    questionsError.value = null; // Clear any errors specific to the modal
+};
+
+const handleFillBlankMetadataUpdateInModal = (newMetadata: FillBlankMetadata | null) => {
+    updatedFillBlankMetadata.value = newMetadata;
+};
+
+const saveBlanksConfigurationInModal = async () => {
+    if (!configuringQuestion.value || !quizId.value || updatedFillBlankMetadata.value === undefined) {
+        questionsError.value = "Dati mancanti per salvare la configurazione dei blank.";
+        return;
+    }
+    isSavingConfiguringQuestion.value = true;
+    questionsError.value = null;
+    try {
+        // Prepare payload for updating the question.
+        // We only want to update metadata. The API should support partial updates.
+        // If not, we need to send the full question payload.
+        const payload: Partial<SingleQuestionPayload> = {
+            // text: configuringQuestion.value.text, // Text is handled by FillBlankQuestionEditor's metadata.text_with_placeholders
+            // question_type: configuringQuestion.value.question_type,
+            // order: configuringQuestion.value.order,
+            metadata: updatedFillBlankMetadata.value || {},
+        };
+
+        // If your FillBlankQuestionEditor also modifies the main question text (not just text_with_placeholders in metadata)
+        // you might need to update payload.text here.
+        // For now, assuming text is part of metadata or FillBlankQuestionEditor handles it.
+
+        await updateQuestion(quizId.value, configuringQuestion.value.id, payload as SingleQuestionPayload);
+        successMessage.value = "Configurazione blank salvata con successo!";
+        
+        // Optionally, reload all questions to reflect changes, or update the specific question in the local 'questions' array.
+        // For simplicity, reloading all questions:
+        await loadQuestions(quizId.value);
+        
+        closeConfigureBlanksModal();
+        setTimeout(() => { successMessage.value = null; }, 3000);
+
+    } catch (err: any) {
+        console.error("Errore salvataggio configurazione blank:", err);
+        questionsError.value = `Errore salvataggio configurazione: ${err.response?.data?.detail || err.message || 'Errore sconosciuto'}`;
+    } finally {
+        isSavingConfiguringQuestion.value = false;
+    }
 };
 
 const handleDeleteQuestion = async (questionId: number) => {
