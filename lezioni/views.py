@@ -96,14 +96,33 @@ class TopicViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated, (IsTeacherUser | IsAdminUser)]
 
     def get_queryset(self):
-        """ Filtra argomenti per la materia specificata nell'URL. """
-        subject_pk = self.kwargs.get('subject_pk')
-        if not subject_pk:
-            return Topic.objects.none() # O solleva errore?
-        # Filtra per materia e opzionalmente per creatore se non admin
-        queryset = Topic.objects.filter(subject_id=subject_pk)
-        # if not self.request.user.is_admin:
-        #     queryset = queryset.filter(creator=self.request.user) # Docente vede solo i suoi argomenti?
+        """ Filtra argomenti per la materia specificata nell'URL (subject_pk)
+            o tramite parametro di query (subject_id). """
+        subject_pk_url = self.kwargs.get('subject_pk')
+        subject_id_query = self.request.query_params.get('subject_id')
+
+        subject_id_to_filter = None
+
+        if subject_pk_url:
+            subject_id_to_filter = subject_pk_url
+        elif subject_id_query:
+            subject_id_to_filter = subject_id_query
+        
+        if subject_id_to_filter:
+            try:
+                # Converte in intero per il filtro
+                subject_id_to_filter = int(subject_id_to_filter)
+                queryset = Topic.objects.filter(subject_id=subject_id_to_filter)
+            except (ValueError, TypeError):
+                # Se subject_id non è un intero valido, restituisce un queryset vuoto
+                return Topic.objects.none()
+        else:
+            # Se nessun filtro è specificato, restituisce tutti gli argomenti.
+            # Questo è coerente con un endpoint /api/lezioni/topics/ non filtrato.
+            queryset = Topic.objects.all()
+
+        # if not self.request.user.is_admin: # Esempio di ulteriore filtro per proprietario
+        #     queryset = queryset.filter(creator=self.request.user)
         return queryset.select_related('subject') # Ottimizza query
 
     def perform_create(self, serializer):

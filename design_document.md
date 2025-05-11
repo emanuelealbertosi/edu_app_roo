@@ -6,7 +6,7 @@
 
 *   Creare una piattaforma web per Admin, Docenti e Studenti.
 *   **Admin:** Gestione Docenti, creazione Template Quiz (globali), creazione Template Ricompense (globali), gestione Impostazioni Globali (opzionale).
-*   **Docente:** Gestione Studenti, creazione/assegnazione Quiz (da template Admin o da zero, con possibilità di associare Materia e Argomento opzionali), creazione/assegnazione Percorsi, creazione Template Ricompense (locali), creazione Ricompense specifiche (da template globali/locali o da zero), gestione disponibilità Ricompense (tutti/specifici), conferma consegna Ricompense reali.
+*   **Docente:** Gestione Studenti, creazione/assegnazione Quiz (da template Admin o da zero, con possibilità di associare Materia e Argomento opzionali), creazione/assegnazione Percorsi, creazione Template Ricompense (locali), creazione Ricompense specifiche (da template globali/locali o da zero), gestione disponibilità Ricompense (tutti/specifici), conferma consegna Ricompense reali, gestione Unità Didattiche di Apprendimento (UDA) come strumento di pianificazione, con possibilità di creare template riutilizzabili.
 *   **Studente:** Svolgimento Quiz/Percorsi (la modale di svolgimento quiz deve occupare almeno l'89% della larghezza del browser su desktop), guadagno punti, visualizzazione/acquisto Ricompense disponibili.
 *   Garantire sicurezza (Security by Design) e testabilità (Test Driven Development - TDD).
 
@@ -35,6 +35,7 @@ edu_app_roo/
 │   ├── education/      # Core educativo: Quiz, Domande, Percorsi, Risposte Studenti
 │   ├── rewards/        # Gestione Ricompense (Template, Specifiche), Shop, Transazioni Punti
 │   ├── student_groups/ # Gestione Gruppi Studenti, Membership, Token Registrazione
+│   ├── uda/            # Gestione Unità Didattiche di Apprendimento (UDA) e Template UDA (o integrata in lessons/)
 │   └── ... (eventuali altre app future, es. analytics)
 ├── static/             # File statici globali (se necessari)
 ├── templates/          # Template globali (es. email, pagine base se non SPA pura)
@@ -51,6 +52,9 @@ erDiagram
     USER ||--o{ SUBJECT : "crea_materia"
     USER ||--o{ TOPIC : "crea_argomento"
     SUBJECT ||--o{ TOPIC : "ha_argomenti"
+
+    USER ||--o{ COURSE : "creato_da (Docente)" // NUOVA RELAZIONE
+    COURSE ||--o{ UDA : "contiene" // NUOVA RELAZIONE
 
     QUIZ_TEMPLATE }o--|| SUBJECT : "materia_del_template_quiz (opz.)"
     QUIZ_TEMPLATE }o--|| TOPIC : "argomento_del_template_quiz (opz.)"
@@ -113,6 +117,36 @@ erDiagram
     STUDENT ||--|{ LESSON_ASSIGNMENT : "assegnato_a_studente"
     STUDENT ||--|{ REWARD_AVAILABILITY : "disponibile_per_studente"
 
+    USER ||--o{ UDA_TEMPLATE : "creato_da (Docente)"
+    USER ||--o{ UDA : "creato_da (Docente)"
+    SUBJECT ||--o{ UDA_TEMPLATE : "materia_del_template_uda (opz.)"
+    SUBJECT ||--o{ UDA : "materia_dell_uda (opz.)"
+    TOPIC ||--o{ UDA_TEMPLATE_TOPIC : "argomento_del_template_uda"
+    TOPIC ||--o{ UDA_TOPIC : "argomento_dell_uda"
+
+    UDA_TEMPLATE ||--o{ UDA_TEMPLATE_CONTENT : "contiene_contenuti_template"
+    UDA_TEMPLATE }o--|| SUBJECT : "materia_associata (opz.)"
+
+    UDA ||--o{ UDA_CONTENT : "contiene_contenuti"
+    UDA }o--|| UDA_TEMPLATE : "basata_su_template (opz.)"
+    UDA }o--|| SUBJECT : "materia_associata (opz.)"
+    UDA }o--|| COURSE : "appartiene_a_corso (opz.)" // NUOVA RELAZIONE (FK in UDA)
+
+    UDA_TEMPLATE_CONTENT }o--|| LESSON : "riferimento_lezione (opz.)"
+    UDA_TEMPLATE_CONTENT }o--|| QUIZ : "riferimento_quiz (opz.)"
+
+    UDA_CONTENT }o--|| LESSON : "riferimento_lezione (opz.)"
+    UDA_CONTENT }o--|| QUIZ : "riferimento_quiz (opz.)"
+
+
+    COURSE { // NUOVA TABELLA
+        int id PK
+        int teacher_id FK "USER(id) - Docente creatore"
+        string name UK "Nome corso (univoco per docente)"
+        string description NULL
+        datetime created_at
+        datetime updated_at
+    }
 
     SUBJECT {
         int id PK
@@ -391,6 +425,79 @@ erDiagram
         string description "Descrizione per l'Admin"
         string data_type "string, integer, boolean, json"
     }
+
+    UDA_TEMPLATE_TOPIC {
+        int udatemplate_id FK
+        int topic_id FK
+        PRIMARY KEY (udatemplate_id, topic_id)
+    }
+
+    UDA_TOPIC {
+        int uda_id FK
+        int topic_id FK
+        PRIMARY KEY (uda_id, topic_id)
+    }
+
+    UDA_TEMPLATE {
+        int id PK
+        int teacher_id FK "USER(id) - Docente creatore"
+        string name UK "Nome template (univoco per docente)"
+        string description NULL
+        int subject_id FK NULL "SUBJECT(id) - Materia associata (opzionale)"
+        // Molti-a-molti con TOPIC tramite UDA_TEMPLATE_TOPIC
+        datetime created_at
+        datetime updated_at
+    }
+
+    UDA_TEMPLATE_CONTENT {
+        int id PK
+        int uda_template_id FK "UDA_TEMPLATE(id)"
+        string content_type ENUM("LESSON", "QUIZ", "NOTE_TEMPLATE", "ACTIVITY_TEMPLATE")
+        int lesson_id FK NULL "LESSON(id) - Se content_type è LESSON"
+        int quiz_id FK NULL "QUIZ(id) - Se content_type è QUIZ"
+        string note_template_title NULL "Titolo per NOTE_TEMPLATE"
+        string note_template_content NULL "Testo per NOTE_TEMPLATE"
+        string activity_template_title NULL "Titolo per ACTIVITY_TEMPLATE"
+        string activity_template_description NULL "Testo per ACTIVITY_TEMPLATE"
+        int order "Ordine del contenuto nel template UDA"
+        datetime created_at
+        datetime updated_at
+    }
+
+    UDA {
+        int id PK
+        int teacher_id FK "USER(id) - Docente creatore"
+        int source_template_id FK NULL "UDA_TEMPLATE(id) - Template originale (opzionale)"
+        string title
+        string description NULL
+        date start_date NULL "Data inizio UDA (informativa)"
+        date end_date NULL "Data fine UDA (informativa)"
+        int subject_id FK NULL "SUBJECT(id) - Materia associata (opzionale)"
+        // Molti-a-molti con TOPIC tramite UDA_TOPIC
+        int course_id FK NULL "COURSE(id) - Corso di appartenenza (opzionale)"
+        int order_in_course NULL "Ordine della UDA all'interno del corso (opzionale, gestito per corso)"
+        string status ENUM("TODO", "IN_PROGRESS", "COMPLETED") DEFAULT "TODO"
+        datetime created_at
+        datetime updated_at
+    }
+
+    UDA_CONTENT {
+        int id PK
+        int uda_id FK "UDA(id)"
+        string content_type ENUM("LESSON", "QUIZ", "NOTE", "ACTIVITY")
+        int lesson_id FK NULL "LESSON(id) - Se content_type è LESSON"
+        int quiz_id FK NULL "QUIZ(id) - Se content_type è QUIZ"
+        string note_title NULL "Titolo per NOTE"
+        string note_content NULL "Testo per NOTE"
+        string activity_title NULL "Titolo per ACTIVITY"
+        string activity_description NULL "Testo per ACTIVITY"
+        string activity_attachment_url NULL "URL allegato per ACTIVITY (opzionale)"
+        bool activity_completed DEFAULT false "Stato completamento specifico per ACTIVITY"
+        bool teacher_marked_completed DEFAULT false "Marcatore di completamento generico per il docente (per LESSON, QUIZ, NOTE, ACTIVITY)"
+        int order "Ordine del contenuto nella UDA"
+        datetime created_at
+        datetime updated_at
+    }
 ```
 
 ## 5. Tipologie di Domande Supportate
@@ -520,6 +627,23 @@ erDiagram
     *   `GET, PUT, PATCH, DELETE /api/lessons/{lesson_id}/` (Payload e risposta includono `subject_id`, `topic_id`)
     *   `POST /api/lessons/{lesson_id}/assign/` (Body: `{"student_id": X}` o `{"group_id": Y}`)
     *   `POST /api/lessons/{lesson_id}/revoke/` (Body: `{"student_id": X}` o `{"group_id": Y}`)
+*   **Docente - Gestione Corsi:**
+    *   `GET, POST /api/courses/` (Lista e crea corsi per il docente loggato)
+    *   `GET, PUT, PATCH, DELETE /api/courses/{course_id}/` (CRUD su un corso specifico del docente)
+    *   `GET /api/courses/{course_id}/udas/` (Lista UDA associate a un corso specifico, ordinate da `order_in_course`)
+    *   `POST /api/courses/{course_id}/udas/reorder/` (Azione per riordinare le UDA in un corso. Payload: `{"uda_ids": [id1, id2, ...]}`)
+*   **Docente - Gestione Template UDA:**
+    *   `GET, POST /api/uda-templates/` (Lista e crea template UDA per il docente loggato. Payload POST e risposta GET includono `subject_id` (opz.), `topic_ids` (opz.))
+    *   `GET, PUT, PATCH, DELETE /api/uda-templates/{template_id}/` (CRUD su un template UDA specifico. Payload e risposta includono `subject_id` (opz.), `topic_ids` (opz.))
+    *   `GET, POST /api/uda-templates/{template_id}/contents/` (Lista e aggiunge contenuti al template UDA)
+    *   `GET, PUT, PATCH, DELETE /api/uda-templates/{template_id}/contents/{content_id}/` (CRUD su un contenuto specifico del template UDA)
+*   **Docente - Gestione UDA:**
+    *   `GET, POST /api/udas/` (Lista e crea UDA per il docente loggato. Payload POST e risposta GET includono `course_id` (opz.), `order_in_course` (opz.), `source_template_id` (opz.), `subject_id` (opz.), `topic_ids` (opz.), `start_date`, `end_date`, `status`)
+    *   `GET, PUT, PATCH, DELETE /api/udas/{uda_id}/` (CRUD su una UDA specifica. Payload e risposta includono `course_id` (opz.), `order_in_course` (opz.), `subject_id` (opz.), `topic_ids` (opz.), `start_date`, `end_date`, `status`)
+    *   `GET, POST /api/udas/{uda_id}/contents/` (Lista e aggiunge contenuti alla UDA)
+    *   `GET, PUT, PATCH, DELETE /api/udas/{uda_id}/contents/{content_id}/` (CRUD su un contenuto specifico della UDA. Include `activity_completed` e `teacher_marked_completed`)
+    *   `PATCH /api/udas/{uda_id}/contents/{content_id}/update-teacher-completion/` (Azione per marcare `teacher_marked_completed`. Payload: `{"completed": true/false}`)
+    *   `PATCH /api/udas/{uda_id}/contents/{content_id}/complete-activity/` (Per marcare `activity_completed` specificamente per le attività. Payload: `{"completed": true/false}`)
 
 ## 10. Sicurezza e Conformità GDPR (Security & Privacy by Design)
 
@@ -565,3 +689,87 @@ Questa procedura definisce i passi da seguire in caso di sospetta o confermata v
 *   **Flusso:** Scrivere test fallimentare -> Scrivere codice minimo -> Refactoring.
 *   **Copertura:** Test unitari (modelli, logica business), Test di integrazione (API views, flussi completi).
 *   **Strumenti:** `manage.py test`, `coverage.py`, `factory-boy`.
+
+## 12. Unità Didattiche di Apprendimento (UDA) e Template
+
+Questa sezione descrive la funzionalità delle Unità Didattiche di Apprendimento (UDA), uno strumento di pianificazione e organizzazione per i docenti, e i relativi Template UDA per la riusabilità.
+
+### 12.1. Obiettivi e Funzionalità
+
+*   **Pianificazione Didattica:** Permettere ai docenti di strutturare sequenze di contenuti didattici (lezioni, quiz, note, attività) per periodi specifici.
+*   **Organizzazione:** Associare UDA a materie e argomenti specifici.
+*   **Monitoraggio (Personale del Docente):** Tracciare lo stato di avanzamento di una UDA (`TODO`, `IN_PROGRESS`, `COMPLETED`) e delle singole attività al suo interno.
+*   **Riusabilità:** Consentire la creazione di `UDATemplate` (Template UDA) da cui generare UDA specifiche, personalizzando solo alcuni dettagli come titolo e date.
+*   **Flessibilità dei Contenuti:**
+    *   **Lezioni/Quiz:** Riferimenti a Lezioni e Quiz esistenti nel sistema.
+    *   **Note:** Contenuti testuali liberi inseriti dal docente (es. appunti, promemoria).
+    *   **Attività:** Contenuti testuali con possibilità di allegare file e un marcatore di completamento (es. "Verifica da svolgere", "Ricerca da consegnare").
+
+Le UDA sono concepite primariamente come uno strumento interno per il docente e non sono direttamente assegnabili o visibili agli studenti in questa fase.
+
+### 12.2. Modelli di Dati Dettagliati
+
+*   **`UDATemplate`**:
+    *   `teacher`: Foreign Key all'utente Docente che ha creato il template.
+    *   `name`: Nome univoco del template per quel docente.
+    *   `description`: Descrizione opzionale.
+    *   `subject`: Foreign Key opzionale alla Materia.
+    *   `topics`: Relazione ManyToMany con gli Argomenti (tramite `UDATemplateTopic`).
+    *   `created_at`, `updated_at`: Timestamp.
+
+*   **`UDATemplateContent`**:
+    *   `uda_template`: Foreign Key al `UDATemplate` di appartenenza.
+    *   `content_type`: Tipo di contenuto (`LESSON`, `QUIZ`, `NOTE_TEMPLATE`, `ACTIVITY_TEMPLATE`).
+    *   `lesson`: Foreign Key opzionale a `Lesson` (se `content_type` è `LESSON`).
+    *   `quiz`: Foreign Key opzionale a `Quiz` (se `content_type` è `QUIZ`).
+    *   `note_template_title`, `note_template_content`: Campi testuali per `NOTE_TEMPLATE`.
+    *   `activity_template_title`, `activity_template_description`: Campi testuali per `ACTIVITY_TEMPLATE`.
+    *   `order`: Ordine progressivo del contenuto all'interno del template.
+    *   `created_at`, `updated_at`: Timestamp.
+
+*   **`UDA`**:
+    *   `teacher`: Foreign Key all'utente Docente che ha creato l'UDA.
+    *   `source_template`: Foreign Key opzionale a `UDATemplate` da cui l'UDA è stata generata.
+    *   `title`: Titolo specifico dell'UDA.
+    *   `description`: Descrizione opzionale.
+    *   `start_date`, `end_date`: Date informative per l'intervallo temporale dell'UDA.
+    *   `subject`: Foreign Key opzionale alla Materia.
+    *   `topics`: Relazione ManyToMany con gli Argomenti (tramite `UDATopic`).
+    *   `course`: Foreign Key opzionale al Corso di appartenenza.
+    *   `status`: Stato dell'UDA (`TODO`, `IN_PROGRESS`, `COMPLETED`).
+    *   `created_at`, `updated_at`: Timestamp.
+
+*   **`UDAContent`**:
+    *   `uda`: Foreign Key all' `UDA` di appartenenza.
+    *   `content_type`: Tipo di contenuto (`LESSON`, `QUIZ`, `NOTE`, `ACTIVITY`).
+    *   `lesson`: Foreign Key opzionale a `Lesson` (se `content_type` è `LESSON`).
+    *   `quiz`: Foreign Key opzionale a `Quiz` (se `content_type` è `QUIZ`).
+    *   `note_title`, `note_content`: Campi testuali per `NOTE`.
+    *   `activity_title`, `activity_description`: Campi testuali per `ACTIVITY`.
+    *   `activity_attachment_url`: URL opzionale per un allegato dell'attività.
+    *   `activity_completed`: Booleano che indica se l'attività è stata completata dal docente.
+    *   `order`: Ordine progressivo del contenuto all'interno dell'UDA.
+    *   `created_at`, `updated_at`: Timestamp.
+
+### 12.3. Flusso di Lavoro e Interfaccia Utente (FE-lessons)
+
+*   **Gestione Corsi:**
+    *   Il docente può creare, visualizzare, modificare ed eliminare i propri Corsi.
+    *   Ogni corso mostrerà un elenco ordinabile (tramite drag-and-drop o bottoni su/giù) delle UDA ad esso associate.
+    *   Dalla vista di un corso, il docente potrà aggiungere una nuova UDA (da template o da zero) che verrà automaticamente associata a quel corso e potrà definirne l'ordine.
+*   **Gestione Template UDA:**
+    *   Il docente può creare nuovi template UDA, specificando nome, descrizione, materia, argomenti e aggiungendo in sequenza i contenuti template (riferimenti a lezioni/quiz, o definizioni di note/attività template).
+    *   Elenco dei template UDA esistenti, con possibilità di modificarli o eliminarli.
+*   **Gestione UDA:**
+    *   Il docente può creare una nuova UDA:
+        *   Da zero: specificando titolo, date, materia, argomenti, corso (opzionale), ordine nel corso (se applicabile) e aggiungendo contenuti.
+        *   Da un template: selezionando un `UDATemplate` esistente. Titolo, date, corso (opzionale) e ordine nel corso (se applicabile) saranno specifici per la nuova UDA, mentre la struttura dei contenuti verrà copiata dal template e potrà essere ulteriormente personalizzata.
+        *   Se la creazione avviene dalla pagina di un corso, l'UDA verrà automaticamente associata a quel corso.
+    *   Elenco delle UDA, filtrabili per stato (`TODO`, `IN_PROGRESS`, `COMPLETED`) e per corso.
+    *   Durante la modifica di una UDA, il docente potrà associarla o dissociarla da un corso e modificarne l'ordine all'interno del corso.
+    *   Vista dettagliata di una UDA con i suoi contenuti in sequenza e l'indicazione del corso di appartenenza (se presente).
+    *   Possibilità di modificare lo stato dell'UDA.
+    *   Per ogni contenuto (`UDAContent` - Lezione, Quiz, Nota, Attività), il docente potrà marcarlo come "completato" (dal suo punto di vista) tramite un apposito controllo (es. checkbox). Per le Attività, questo si aggiunge al flag specifico `activity_completed` (che potrebbe indicare il completamento effettivo dell'attività da parte dello studente o una verifica formale).
+*   **Menu:**
+    *   Una nuova voce "Corsi" nel menu principale di `FE-lessons` condurrà alla gestione dei Corsi.
+    *   La voce "Unità Didattiche" (o rinominata in "Pianificazioni UDA" o simile) rimarrà per la gestione generale delle UDA e dei Template UDA, con la possibilità di vedere tutte le UDA indipendentemente dal corso.

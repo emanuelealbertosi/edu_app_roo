@@ -55,6 +55,7 @@ urlpatterns = [
     path('api/education/', include('apps.education.urls')), # Gestione contenuti educativi
     path('api/lezioni/', include('lezioni.urls')), # Gestione Lezioni (nuova app)
     path('api/groups/', include('apps.student_groups.urls')), # Gestione Gruppi Studenti (Prefisso corretto)
+    path('api/uda/', include('apps.uda.urls')), # Gestione UDA (Unità Didattiche Apprendimento)
 ]
 
 # Serve media files during development

@@ -73,6 +73,7 @@ INSTALLED_APPS = [
     'apps.rewards.apps.RewardsConfig',
     'lezioni.apps.LezioniConfig', # Aggiunta nuova app lezioni
     'apps.student_groups.apps.StudentGroupsConfig', # Aggiunta app per gruppi studenti
+    'apps.uda.apps.UdaConfig', # Aggiunta app per Unità Didattiche Apprendimento
 ]
 
 MIDDLEWARE = [
@@ -250,7 +251,7 @@ SIMPLE_JWT = {
 
     "ALGORITHM": "HS256",
     "SIGNING_KEY": SECRET_KEY, # Use Django's SECRET_KEY
-    "VERIFYING_KEY": "",
+    "VERIFYING_KEY": None,
     "AUDIENCE": None,
     "ISSUER": None,
     "JSON_ENCODER": None,

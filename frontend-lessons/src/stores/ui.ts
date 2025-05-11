@@ -1,11 +1,21 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 
+export interface Notification {
+  id: string;
+  message: string;
+  type: 'success' | 'error' | 'info' | 'warning';
+  duration?: number; // in ms
+}
+
 export const useUiStore = defineStore('ui', () => {
   // State refs per richiedere l'apertura dei modali di aggiunta
   const requestOpenAddSubjectModal = ref(false);
   const requestOpenAddTopicModal = ref(false);
   const requestOpenAddLessonModal = ref(false);
+
+  // State per le notifiche
+  const notifications = ref<Notification[]>([]);
 
   // Actions per richiedere l'apertura
   function requestAddSubject() {
@@ -35,6 +45,21 @@ export const useUiStore = defineStore('ui', () => {
     requestOpenAddLessonModal.value = false;
   }
 
+  // Actions per le notifiche
+  function addNotification(notification: Omit<Notification, 'id'>) {
+    const id = Math.random().toString(36).substring(2, 9);
+    notifications.value.push({ ...notification, id });
+    if (notification.duration) {
+      setTimeout(() => {
+        removeNotification(id);
+      }, notification.duration);
+    }
+  }
+
+  function removeNotification(id: string) {
+    notifications.value = notifications.value.filter(n => n.id !== id);
+  }
+
   return {
     requestOpenAddSubjectModal,
     requestOpenAddTopicModal,
@@ -45,5 +70,10 @@ export const useUiStore = defineStore('ui', () => {
     clearAddSubjectRequest,
     clearAddTopicRequest,
     clearAddLessonRequest,
+
+    // Notifiche
+    notifications,
+    addNotification,
+    removeNotification,
   };
 });

@@ -6,6 +6,7 @@ import { RouterLink, RouterView, useRouter } from 'vue-router'; // RouterView im
 import emitter from '@/eventBus';
 // Rimosso import GlobalLoadingIndicator perché non esiste in questo FE
 // import GlobalLoadingIndicator from '@/components/common/GlobalLoadingIndicator.vue';
+import GlobalNotificationDisplay from '@/components/common/GlobalNotificationDisplay.vue';
 import {
   HomeIcon,
   BookOpenIcon,
@@ -17,7 +18,10 @@ import {
   PlusCircleIcon,
   QuestionMarkCircleIcon,
   Bars3Icon, // Hamburger
-  XMarkIcon // Close
+  XMarkIcon, // Close
+  ClipboardDocumentListIcon, // Icona per UDA
+DocumentDuplicateIcon, // Icona per Template UDA
+  FolderIcon // Icona per Corsi
 } from '@heroicons/vue/24/outline';
 
 const sharedAuth = useSharedAuthStore(); // Usa lo store condiviso
@@ -124,7 +128,7 @@ const handleLogout = () => {
 
 <template>
   <!-- Rimosso <GlobalLoadingIndicator /> -->
-  <!-- <NotificationContainer /> --> <!-- Se esiste -->
+  <GlobalNotificationDisplay />
 
   <div class="flex h-screen bg-gray-100 font-sans">
     <!-- Sidebar Desktop (visibile da md in su) -->
@@ -169,8 +173,29 @@ const handleLogout = () => {
                <span class="ml-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Gestione Lezioni</span>
              </router-link>
            </li>
-           <!-- Lezioni Assegnate (Studente) -->
-           <li v-if="sharedAuth.userRole === 'STUDENT'" class="mb-3"> <!-- Corretto case 'STUDENT' -->
+          <!-- Corsi (Teacher) -->
+          <li v-if="sharedAuth.userRole === 'TEACHER' || sharedAuth.userRole === 'ADMIN'" class="mb-3">
+            <router-link :to="{ name: 'course-list' }" class="flex items-center p-2 rounded hover:bg-indigo-700">
+              <FolderIcon class="h-6 w-6 flex-shrink-0" />
+              <span class="ml-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Corsi</span>
+            </router-link>
+          </li>
+          <!-- Unità Didattiche (Teacher) -->
+          <li v-if="sharedAuth.userRole === 'TEACHER' || sharedAuth.userRole === 'ADMIN'" class="mb-3">
+            <router-link :to="{ name: 'uda-list' }" class="flex items-center p-2 rounded hover:bg-indigo-700">
+              <ClipboardDocumentListIcon class="h-6 w-6 flex-shrink-0" />
+              <span class="ml-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Unità Didattiche</span>
+            </router-link>
+          </li>
+          <!-- Template UDA (Teacher) -->
+          <li v-if="sharedAuth.userRole === 'TEACHER' || sharedAuth.userRole === 'ADMIN'" class="mb-3">
+            <router-link :to="{ name: 'uda-template-list' }" class="flex items-center p-2 rounded hover:bg-indigo-700">
+              <DocumentDuplicateIcon class="h-6 w-6 flex-shrink-0" />
+              <span class="ml-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Template UDA</span>
+            </router-link>
+          </li>
+          <!-- Lezioni Assegnate (Studente) -->
+          <li v-if="sharedAuth.userRole === 'STUDENT'" class="mb-3"> <!-- Corretto case 'STUDENT' -->
              <router-link :to="{ name: 'assigned-lessons' }" class="flex items-center p-2 rounded hover:bg-indigo-700">
                <CogIcon class="h-6 w-6 flex-shrink-0" />
                <span class="ml-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Lezioni Assegnate</span>
@@ -248,6 +273,27 @@ const handleLogout = () => {
                <router-link :to="{ name: 'teacher-lessons' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-indigo-700">
                  <CogIcon class="h-6 w-6 flex-shrink-0" />
                  <span class="ml-3">Gestione Lezioni</span>
+               </router-link>
+             </li>
+            <!-- Corsi (Teacher) -->
+            <li v-if="sharedAuth.userRole === 'TEACHER' || sharedAuth.userRole === 'ADMIN'" class="mb-3">
+              <router-link :to="{ name: 'course-list' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-indigo-700">
+                <FolderIcon class="h-6 w-6 flex-shrink-0" />
+                <span class="ml-3">Corsi</span>
+              </router-link>
+            </li>
+             <!-- Unità Didattiche (Teacher) -->
+             <li v-if="sharedAuth.userRole === 'TEACHER' || sharedAuth.userRole === 'ADMIN'" class="mb-3">
+               <router-link :to="{ name: 'uda-list' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-indigo-700">
+                 <ClipboardDocumentListIcon class="h-6 w-6 flex-shrink-0" />
+                 <span class="ml-3">Unità Didattiche</span>
+               </router-link>
+             </li>
+             <!-- Template UDA (Teacher) -->
+             <li v-if="sharedAuth.userRole === 'TEACHER' || sharedAuth.userRole === 'ADMIN'" class="mb-3">
+               <router-link :to="{ name: 'uda-template-list' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-indigo-700">
+                 <DocumentDuplicateIcon class="h-6 w-6 flex-shrink-0" />
+                 <span class="ml-3">Template UDA</span>
                </router-link>
              </li>
              <!-- Lezioni Assegnate (Studente) -->
