@@ -1,5 +1,6 @@
 <template>
   <div class="container mx-auto p-4">
+    <button @click="goBack" class="mb-4 bg-none border-none text-blue-600 cursor-pointer text-sm hover:underline">&larr; Indietro</button>
     <!-- Intestazione con sfondo blu -->
     <div class="bg-blue-600 text-white p-4 rounded-md mb-6">
         <h1 class="text-2xl font-semibold">Assegna Lezione: {{ lesson?.title || '...' }}</h1>
@@ -152,6 +153,7 @@
 </template>
 
 <script setup lang="ts">
+import { useRouter } from 'vue-router'; // Importa useRouter
 import { ref, onMounted, computed } from 'vue';
 import { useRoute } from 'vue-router';
 import { useLessonStore } from '@/stores/lessons';
@@ -162,7 +164,7 @@ import StudentSelectionModal from '@/components/common/StudentSelectionModal.vue
 // Potrebbe servire un GroupSelectionModal se la lista diventa lunga
 
 const route = useRoute()
-// const router = useRouter() // Rimosso - non utilizzato
+const router = useRouter(); // Istanzia il router
 const lessonStore = useLessonStore()
 // Rimosso sharedAuthStore
 // const authStore = useAuthStore() // Rimosso - non utilizzato
@@ -381,6 +383,11 @@ onMounted(async () => {
       ]);
   }
 });
+
+// Function to navigate back in browser history
+const goBack = () => {
+  router.back();
+};
 </script>
 
 <style scoped>

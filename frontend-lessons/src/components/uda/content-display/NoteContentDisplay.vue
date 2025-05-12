@@ -1,8 +1,13 @@
 <template>
-  <div class="note-content-display">
-    <h6 v-if="content.note_title" class="mb-1">{{ content.note_title }}</h6>
-    <div v-if="content.note_content" v-html="renderedMarkdown" class="note-body"></div>
-    <p v-else class="text-muted">Nessun contenuto per questa nota.</p>
+  <div class="note-content-display p-3 bg-white rounded-b-md"> <!-- Aggiunto padding e sfondo per coerenza -->
+    <!-- Il titolo della nota è già gestito dal contentTitle in UdaContentItemRenderer -->
+    <!-- <h6 v-if="content.note_title" class="mb-1">{{ content.note_title }}</h6> -->
+    <div v-if="props.content.estimated_hours" class="flex text-sm mb-2">
+        <strong class="w-24 flex-shrink-0 text-gray-700">Ore Stimate:</strong>
+        <span class="text-gray-600">{{ props.content.estimated_hours }}h</span>
+    </div>
+    <div v-if="content.note_content" v-html="renderedMarkdown" class="note-body prose prose-sm max-w-none"></div>
+    <p v-else class="text-sm text-gray-500">Nessun contenuto per questa nota.</p>
   </div>
 </template>
 

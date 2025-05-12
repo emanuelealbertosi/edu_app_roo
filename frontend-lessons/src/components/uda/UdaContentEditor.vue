@@ -213,6 +213,8 @@ const handleExistingContentSelected = async (selectedItems: SelectedContentItem[
                           // o per UDATemplateContent (LESSON o QUIZ_TEMPLATE) a seconda di come SelectExistingContentModal emette
                           // Ma SelectedContentItem emette UDAContentType.QUIZ per i quiz.
           content_type: newItemData.type,
+          // Aggiungi gestione estimated_hours per la modifica
+          estimated_hours: newItemData.estimated_hours ?? null,
         };
         
         if (newItemData.type === UDAContentType.LESSON) {
@@ -251,7 +253,9 @@ const handleExistingContentSelected = async (selectedItems: SelectedContentItem[
         temp_id: generateTempId(),
         // item.type da SelectedContentItem è UDAContentType.LESSON o UDAContentType.QUIZ
         content_type: item.type,
-        order: 0 // Verrà ricalcolato
+        order: 0, // Verrà ricalcolato
+        // Aggiungi gestione estimated_hours per l'aggiunta
+        estimated_hours: item.estimated_hours ?? null,
       };
 
       if (item.type === UDAContentType.LESSON) {

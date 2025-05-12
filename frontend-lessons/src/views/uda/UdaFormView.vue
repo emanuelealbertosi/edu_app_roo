@@ -1,6 +1,6 @@
 <template>
   <div class="uda-form-view p-4 md:p-8">
-    <h1 class="text-3xl font-bold text-white bg-accent-DEFAULT p-4 rounded-t-lg mb-6 shadow-md">{{ pageTitle }}</h1>
+    <h1 class="text-3xl font-bold bg-blue-600 text-white p-4 rounded-t-lg mb-6 shadow-md">{{ pageTitle }}</h1>
 
     <div v-if="loadingInitialData" class="text-center py-10">
       <p class="text-gray-600">Caricamento dati UDA...</p>

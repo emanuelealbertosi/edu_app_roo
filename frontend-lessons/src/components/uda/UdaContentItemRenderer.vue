@@ -2,12 +2,46 @@
   <div class="bg-white shadow rounded-lg mb-4 border border-gray-200">
     <div class="p-4">
       <div class="flex justify-between items-start mb-3">
-        <div>
-          <h6 class="text-lg font-semibold text-neutral-darkest bg-neutral-light p-2 rounded-md mb-1">{{ contentTitle }}</h6>
-          <small class="text-gray-500 text-xs">Tipo: {{ मानविकीकरणContentType(content.content_type) }} | Ordine: {{ content.order }}</small>
+        <div class="w-full flex items-center space-x-2"> <!-- Modificato per flex e aggiunto spazio -->
+          <!-- Etichetta Tipo Contenuto Spostata Qui -->
+          <span :class="contentTypeLabelClass(content.content_type)" class="px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0"> <!-- Aggiunto flex-shrink-0 -->
+            {{ मानविकीकरणContentType(content.content_type) }}
+          </span>
+          <!-- Contenitore per titolo, spunta assegnazione e etichette materia/argomento -->
+          <div class="flex-grow">
+             <div class="flex items-center space-x-2"> <!-- Contenitore per titolo e indicatore manuale -->
+               <h6 class="text-lg font-semibold text-slate-900 bg-gray-200 p-3 rounded-md mb-1 flex-grow">{{ contentTitle }}</h6> <!-- Ridotto mb, aggiunto flex-grow -->
+               <!-- Indicatore Manuale Assegnazione (X/Spunta cliccabile, solo per Lezioni in contesto UDA) -->
+               <button
+                 v-if="isUDAContext && content.content_type === UDAContentType.LESSON"
+                 @click="toggleManualAssignment"
+                 type="button"
+                 class="p-1 rounded-full hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 flex-shrink-0"
+                 :aria-label="isManuallyMarkedAssigned ? 'Marca come non assegnata' : 'Marca come assegnata'"
+                 :title="isManuallyMarkedAssigned ? 'Marca come non assegnata' : 'Marca come assegnata'"
+               >
+                 <svg v-if="isManuallyMarkedAssigned" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                   <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                 </svg>
+                 <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                   <path stroke-linecap="round" stroke-linejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                 </svg>
+               </button>
+             </div>
+            <!-- Etichette Materia/Argomento (solo per Lezioni) -->
+            <div v-if="(content.content_type === UDAContentType.LESSON || content.content_type === UDATemplateContentType.LESSON) && (lessonSubjectName || lessonTopicName)" class="flex items-center space-x-2 mt-1 ml-1">
+               <span v-if="lessonSubjectName" class="px-2 py-0.5 rounded-full text-xs font-medium bg-teal-100 text-teal-800">
+                 M: {{ lessonSubjectName }}
+               </span>
+               <span v-if="lessonTopicName" class="px-2 py-0.5 rounded-full text-xs font-medium bg-cyan-100 text-cyan-800">
+                 A: {{ lessonTopicName }}
+               </span>
+            </div>
+          </div>
         </div>
-        <!-- Switch Personalizzato con Tailwind -->
-        <div v-if="isUDAContext && content.content_type !== 'ACTIVITY_TEMPLATE' && content.content_type !== 'NOTE_TEMPLATE'" class="flex items-center space-x-2">
+        <!-- Switch Personalizzato con Tailwind e Label Tipo Contenuto -->
+        <div v-if="isUDAContext && content.content_type !== 'ACTIVITY_TEMPLATE' && content.content_type !== 'NOTE_TEMPLATE'" class="flex items-center space-x-3 flex-shrink-0 ml-4">
+           <!-- Label Tipo Contenuto (Spostata sopra vicino al titolo) -->
            <label :for="`teacherMarkedCompleted-${content.id || content.temp_id}`" class="text-sm text-gray-600 select-none">Completato Docente:</label>
           <button
             type="button"
@@ -35,7 +69,7 @@
 
       <!-- Visualizzazione specifica per tipo di contenuto -->
       <div class="mt-3" v-if="content.content_type === UDAContentType.LESSON || content.content_type === UDATemplateContentType.LESSON">
-        <LessonContentDisplay :content="content as LessonUDAContent" />
+        <LessonContentDisplay :content="content as LessonUDAContent" @details-loaded="handleLessonDetailsLoaded" />
       </div>
       <div v-else-if="content.content_type === UDAContentType.QUIZ || content.content_type === UDATemplateContentType.QUIZ_TEMPLATE">
         <QuizContentDisplay :content="content as QuizUDAContent" />
@@ -57,41 +91,47 @@
         <pre>{{ content }}</pre>
       </div>
 
-      <!-- Azioni sull'item (Modifica, Elimina, Sposta) -->
-      <div class="mt-4 pt-3 border-t border-gray-200 flex space-x-2">
-        <!-- TODO: Sostituire con icone Heroicons -->
-        <button type="button"
-                class="text-sm border border-indigo-500 text-indigo-500 hover:bg-indigo-50 font-medium py-1 px-3 rounded-md shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                @click="$emit('edit', content)"
-                :disabled="isLoadingCompletion || isLoadingActivityCompletion">
-          Modifica
-        </button>
-        <button type="button"
-                class="text-sm border border-red-500 text-red-500 hover:bg-red-50 font-medium py-1 px-3 rounded-md shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                @click="$emit('delete', content.temp_id || content.id)"
-                :disabled="isLoadingCompletion || isLoadingActivityCompletion">
-          Elimina
-        </button>
-        <!-- Mostra i bottoni di spostamento solo se siamo nel contesto 'uda' -->
-        <template v-if="context === 'uda'">
-          <button type="button"
-                  class="text-sm border border-gray-300 text-gray-600 hover:bg-gray-100 font-medium py-1 px-3 rounded-md shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                  @click="$emit('move', content, -1)"
-                  :disabled="isFirst || isLoadingCompletion || isLoadingActivityCompletion">
-            <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-              <path fill-rule="evenodd" d="M3.293 9.707a1 1 0 011.414 0L10 5.414l5.293 4.293a1 1 0 011.414-1.414l-6-4.879a1 1 0 01-1.414 0l-6 4.879a1 1 0 010 1.414z" clip-rule="evenodd" />
+      <!-- Bottoni Azioni Lezione (Visualizza/Assegna) -->
+      <div v-if="isUDAContext && content.content_type === UDAContentType.LESSON && content.lesson" class="mt-4 pt-3 border-t border-gray-200 flex justify-end space-x-3">
+         <!-- Bottone Modifica (emette evento) -->
+         <button
+           @click="emitEditLesson"
+           type="button"
+           class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+         >
+           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+             <path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+           </svg>
+           Modifica
+         </button>
+         <!-- Bottone Contenuti (link) -->
+          <router-link
+           :to="`/lezioni/${content.lesson}/contenuti`"
+           class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+           rel="noopener noreferrer"
+         >
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
             </svg>
-          </button>
-          <button type="button"
-                  class="text-sm border border-gray-300 text-gray-600 hover:bg-gray-100 font-medium py-1 px-3 rounded-md shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                  @click="$emit('move', content, 1)"
-                  :disabled="isLast || isLoadingCompletion || isLoadingActivityCompletion">
-            <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-              <path fill-rule="evenodd" d="M16.707 10.293a1 1 0 01-1.414 0L10 14.586l-5.293-4.293a1 1 0 01-1.414 1.414l6 4.879a1 1 0 011.414 0l6-4.879a1 1 0 010-1.414z" clip-rule="evenodd" />
+           Contenuti
+         </router-link>
+         <!-- Bottone Assegna (emette evento) -->
+         <button
+           @click="emitAssignLesson"
+           type="button"
+           class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+         >
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
             </svg>
-          </button>
-        </template>
+           Assegna
+         </button>
       </div>
+
+      <!-- Azioni sull'item originali (spostamento/modifica/elimina) - Commentate/Rimosse -->
+      <!-- <div class="mt-4 pt-3 border-t border-gray-200 flex space-x-2"> -->
+        <!-- Bottoni di spostamento rimossi -->
+      <!-- </div> -->
     </div>
   </div>
 </template>
@@ -135,13 +175,18 @@ const props = defineProps({
     type: String as PropType<'uda' | 'template'>,
     required: true
   }
+  // Rimossa la prop isLessonAssigned
 });
 
-const emit = defineEmits(['edit', 'delete', 'move', 'update:teacher-marked-completed', 'update:activity-completed']);
+// AGGIUNTO 'edit-lesson' agli eventi emessi
+const emit = defineEmits(['edit', 'delete', 'move', 'update:teacher-marked-completed', 'update:activity-completed', 'assign-lesson', 'edit-lesson']);
 
 const udaStore = useUdaStore();
 const isLoadingCompletion = ref(false);
 const isLoadingActivityCompletion = ref(false);
+const lessonSubjectName = ref<string | null | undefined>(null);
+const lessonTopicName = ref<string | null | undefined>(null);
+const isManuallyMarkedAssigned = ref(false); // Stato locale per l'indicatore manuale
 
 const isUDAContext = computed(() => props.context === 'uda');
 
@@ -153,18 +198,20 @@ const isTeacherMarkedCompleted = computed(() => {
 });
 
 const contentTitle = computed(() => {
+  // Helper per accedere dinamicamente a 'title' se esiste
+  const genericTitle = (props.content as any)?.title;
+
   switch (props.content.content_type) {
     case UDAContentType.LESSON:
     case UDATemplateContentType.LESSON:
-      return (props.content as LessonUDAContent).lesson_title || `Lezione ID: ${(props.content as LessonUDAContent).lesson}`;
-    case UDAContentType.QUIZ: // MODIFICATO UDAContentType.QUIZ_TEMPLATE a UDAContentType.QUIZ
+      // Cerca prima lesson_title, poi title generico, poi fallback
+      return (props.content as LessonUDAContent).lesson_title || genericTitle || 'Lezione';
+    case UDAContentType.QUIZ:
     case UDATemplateContentType.QUIZ_TEMPLATE:
-      // Assumendo che QuizTemplateUDAContent abbia quiz_title e quiz_template
-      // Per UDAContentType.QUIZ, il titolo potrebbe dover essere recuperato diversamente se non direttamente sull'oggetto content.
-      // Per ora, manteniamo la stessa logica, ma potrebbe necessitare di aggiustamenti futuri se quiz_title non è presente.
-      return (props.content as QuizUDAContent).quiz_title || `Quiz (da Template ID: ${(props.content as QuizUDAContent).quiz_template})`; // MODIFICATO cast del tipo
+       // Cerca prima quiz_title, poi title generico, poi fallback
+      return (props.content as QuizUDAContent).quiz_title || genericTitle || 'Quiz';
     case UDAContentType.NOTE:
-      return (props.content as NoteUDAContent).note_title || 'Nota senza titolo';
+      return (props.content as NoteUDAContent).note_title || 'Nota'; // Testo generico se manca titolo
     case UDATemplateContentType.NOTE_TEMPLATE:
       return (props.content as NoteTemplateUDAContent).note_template_title || 'Template Nota senza titolo';
     case UDAContentType.ACTIVITY:
@@ -191,8 +238,30 @@ const मानविकीकरणContentType = (type: UDAContentType | UDATem
   };
   // Se un tipo non è in mappa (improbabile con gli enum), restituisce il tipo stesso.
   return map[type as string] || type;
-  return map[type] || type;
+  return map[type as string] || type; // Corretto accesso alla mappa
 };
+
+// Funzione per ottenere le classi della label del tipo di contenuto
+const contentTypeLabelClass = (type: UDAContentType | UDATemplateContentType): string => {
+  const baseClass = "px-2 py-0.5 rounded-full text-xs font-medium";
+  switch (type) {
+    case UDAContentType.LESSON:
+    case UDATemplateContentType.LESSON:
+      return `${baseClass} bg-blue-100 text-blue-800`;
+    case UDAContentType.QUIZ:
+    case UDATemplateContentType.QUIZ_TEMPLATE:
+      return `${baseClass} bg-green-100 text-green-800`;
+    case UDAContentType.NOTE:
+    case UDATemplateContentType.NOTE_TEMPLATE:
+      return `${baseClass} bg-yellow-100 text-yellow-800`;
+    case UDAContentType.ACTIVITY:
+    case UDATemplateContentType.ACTIVITY_TEMPLATE:
+      return `${baseClass} bg-purple-100 text-purple-800`;
+    default:
+      return `${baseClass} bg-gray-100 text-gray-800`;
+  }
+};
+
 
 const toggleTeacherMarkedCompleted = async () => {
   if (!isUDAContext.value || !props.udaId || !props.content.id) return;
@@ -225,6 +294,31 @@ const handleActivityCompletedUpdate = async (completed: boolean) => {
   } finally {
     isLoadingActivityCompletion.value = false;
   }
+};
+
+// Handler per l'evento details-loaded da LessonContentDisplay
+const handleLessonDetailsLoaded = (details: { subjectName?: string | null, topicName?: string | null }) => {
+  lessonSubjectName.value = details.subjectName;
+  lessonTopicName.value = details.topicName;
+};
+
+// Funzione per emettere l'evento di assegnazione
+const emitAssignLesson = () => {
+  if (isUDAContext.value && props.content.content_type === UDAContentType.LESSON && props.content.lesson) {
+    emit('assign-lesson', props.content.lesson);
+  }
+};
+
+// Funzione per emettere l'evento di modifica lezione
+const emitEditLesson = () => {
+  if (isUDAContext.value && props.content.content_type === UDAContentType.LESSON && props.content.lesson) {
+    emit('edit-lesson', props.content.lesson);
+  }
+};
+
+// Funzione per invertire lo stato dell'indicatore manuale
+const toggleManualAssignment = () => {
+  isManuallyMarkedAssigned.value = !isManuallyMarkedAssigned.value;
 };
 
 </script>

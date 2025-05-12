@@ -2,7 +2,7 @@
   <div class="modal-overlay" @click.self="close">
     <div class="modal-content">
       <!-- Intestazione Modale con sfondo blu -->
-      <div class="bg-blue-600 text-white p-4 rounded-t-md -m-8 mb-6"> <!-- -m-8 mb-6 per sovrapporre padding e aggiungere margine sotto -->
+      <div class="bg-blue-600 text-white p-4 rounded-t-md -m-8 mb-6">
         <h3 class="text-xl font-semibold text-center">{{ isEditing ? 'Modifica Lezione' : 'Crea Nuova Lezione' }}</h3>
       </div>
       <form @submit.prevent="submitForm">

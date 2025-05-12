@@ -1,28 +1,24 @@
 <template>
-  <div class="lesson-content-display">
-    <div v-if="isLoading" class="text-muted">
-      <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+  <div class="lesson-content-display p-3 bg-white rounded-b-md"> <!-- Aggiunto padding e sfondo per coerenza se il titolo ha sfondo -->
+    <div v-if="isLoading" class="text-sm text-gray-500">
       Caricamento dettagli lezione...
     </div>
-    <div v-else-if="lesson">
-      <p>
-        <strong>Lezione: </strong>
-        <router-link :to="{ name: 'lesson-detail', params: { id: lesson.id } }">
-          {{ lesson.title || `ID Lezione: ${lesson.id}` }}
-        </router-link>
-      </p>
-      <p v-if="lesson.subject_name">
-        <strong>Materia: </strong> {{ lesson.subject_name }}
-      </p>
-      <p v-if="lesson.topic_name">
-        <strong>Argomento: </strong> {{ lesson.topic_name }}
-      </p>
-      <!-- Potremmo aggiungere altri dettagli qui, es. descrizione breve -->
+    <div v-else-if="lesson" class="space-y-3 text-sm"> <!-- Aumentato space-y per descrizione -->
+      <!-- Titolo Lezione rimosso (già presente nel renderer) -->
+      <!-- Etichetta Descrizione rimossa -->
+      <div v-if="lesson.description" class="italic text-gray-600">
+        {{ lesson.description }}
+      </div>
+      <!-- Materia e Argomento rimossi da qui, verranno emessi all'evento details-loaded -->
+      <div v-if="props.content.estimated_hours" class="flex">
+        <strong class="w-24 flex-shrink-0 text-gray-700">Ore Stimate:</strong>
+        <span class="text-gray-600">{{ props.content.estimated_hours }}h</span>
+      </div>
     </div>
-    <p v-else-if="!props.content.lesson" class="text-warning">
+    <p v-else-if="!props.content.lesson" class="text-sm text-yellow-600">
       Nessun ID lezione specificato per questo contenuto.
     </p>
-    <p v-else class="text-danger">
+    <p v-else class="text-sm text-red-600">
       Impossibile caricare i dettagli della lezione (ID: {{ props.content.lesson }}).
     </p>
   </div>
@@ -41,6 +37,9 @@ const props = defineProps({
   }
 });
 
+// Definisci l'evento da emettere
+const emit = defineEmits(['details-loaded']);
+
 const lessonStore = useLessonStore();
 const lesson = ref<Lesson | null>(null);
 const isLoading = ref(false);
@@ -52,12 +51,22 @@ const fetchLessonDetails = async (lessonId: number) => {
   if (existingLesson) {
     lesson.value = existingLesson;
     isLoading.value = false;
+    // Emetti evento anche se preso dalla cache
+    emit('details-loaded', {
+      subjectName: lesson.value?.subject_name,
+      topicName: lesson.value?.topic_name
+    });
     return;
   }
   try {
     // Se non è nello store, la recupera (fetchLesson dovrebbe aggiungere/aggiornare lo store)
     await lessonStore.fetchLesson(lessonId);
     lesson.value = lessonStore.currentLesson; // currentLesson dovrebbe essere aggiornato da fetchLesson
+    // Emetti evento dopo il fetch
+    emit('details-loaded', {
+      subjectName: lesson.value?.subject_name,
+      topicName: lesson.value?.topic_name
+    });
   } catch (error) {
     console.error(`Errore nel caricare i dettagli della lezione ${lessonId}:`, error);
     lesson.value = null;

@@ -1,6 +1,10 @@
 <template>
   <div class="uda-template-form-view p-4 md:p-8">
-    <h1 class="text-3xl font-bold text-gray-800 mb-6">{{ pageTitle }}</h1>
+    <!-- Intestazione con sfondo blu -->
+    <div class="bg-blue-600 text-white p-4 rounded-md mb-6 flex justify-between items-center">
+      <h2 class="text-2xl font-semibold">{{ pageTitle }}</h2>
+      <!-- Nessun pulsante azione qui, i pulsanti sono in fondo al form -->
+    </div>
 
     <div v-if="loadingInitialData" class="text-center py-10">
       <p class="text-gray-600">Caricamento dati template...</p>
@@ -101,15 +105,7 @@ interface TemplateFormData {
   contents: UDATemplateContent[];
 }
 
-// Tipo per il payload da inviare all'API/store
-interface UDATemplateApiPayload {
-  name: string;
-  description?: string | null;
-  subject_id?: number | null;
-  topic_ids?: number[];
-  contents: Omit<UDATemplateContent, 'temp_id'>[];
-}
-
+// Rimosso: interface UDATemplateApiPayload - usiamo direttamente Partial<UDATemplate>
 
 const route = useRoute();
 const router = useRouter();
@@ -208,22 +204,22 @@ const handleSubmit = async () => {
   isSubmitting.value = true;
   submitError.value = null;
 
-  // Prepara il payload, assicurandosi che subject sia null se non selezionato
-  const payload: UDATemplateApiPayload = {
+  // Prepara il payload come Partial<UDATemplate>
+  const payload: Partial<UDATemplate> = {
     name: formData.value.name,
-    description: formData.value.description || undefined, // Invia undefined se null per non sovrascrivere con null se non voluto
-    subject_id: formData.value.subject || undefined,
-    topic_ids: formData.value.topics,
+    description: formData.value.description || undefined,
+    subject: formData.value.subject || undefined, // Usa 'subject' come nel modello UDATemplate
+    topics: formData.value.topics, // Usa 'topics' (array di ID) come nel modello UDATemplate (il serializer gestirà la conversione)
     contents: formData.value.contents.map(c => {
       const { temp_id, ...contentToSave } = c; // Rimuovi temp_id
-      return contentToSave as Omit<UDATemplateContent, 'temp_id'>; // Cast per sicurezza di tipo
+      // Non è necessario il cast Omit, l'oggetto risultante dovrebbe essere assegnabile a UDATemplateContent
+      return contentToSave;
     })
   };
-  
-  // Rimuovi chiavi undefined dal payload per PATCH, così da non sovrascrivere campi non modificati con null/undefined
-  // Per POST (creazione) questo non è strettamente necessario ma non fa male.
+
+  // Rimuovi chiavi undefined dal payload per PATCH
   Object.keys(payload).forEach(keyStr => {
-    const key = keyStr as keyof UDATemplateApiPayload;
+    const key = keyStr as keyof Partial<UDATemplate>; // Usa il tipo corretto qui
     if (payload[key] === undefined) {
       delete payload[key];
     }

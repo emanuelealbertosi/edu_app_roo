@@ -15,16 +15,17 @@
     </div>
 
     <div v-else-if="course" class="bg-white shadow-lg rounded-lg p-6">
-      <div class="flex justify-between items-start mb-4">
+      <!-- Intestazione con sfondo blu -->
+      <div class="bg-blue-600 text-white p-4 rounded-md mb-6 flex justify-between items-center">
         <div>
-          <h1 class="text-3xl font-bold text-gray-800 mb-2">{{ course.name }}</h1>
-          <p class="text-sm text-gray-500">ID Corso: {{ course.id }}</p>
+          <h2 class="text-2xl font-semibold">{{ course.name }}</h2>
+          <p class="text-sm text-blue-100 mt-1">ID Corso: {{ course.id }}</p> <!-- Leggermente più chiaro per contrasto -->
         </div>
+        <!-- Pulsante stile adattato per contrasto -->
         <RouterLink
           :to="{ name: 'course-edit', params: { id: course.id } }"
-          class="bg-green-500 hover:bg-green-600 text-white font-medium py-2 px-4 rounded-md shadow-sm transition duration-150 ease-in-out flex items-center"
+          class="px-4 py-2 bg-white text-blue-600 rounded-md shadow-sm hover:bg-blue-50 transition duration-150 ease-in-out font-medium"
         >
-          <PencilIcon class="h-5 w-5 mr-2" />
           Modifica Corso
         </RouterLink>
       </div>
@@ -36,86 +37,117 @@
 
       <hr class="my-6">
 
-      <div>
-        <h2 class="text-2xl font-semibold text-gray-700 mb-4">Unità Didattiche di Apprendimento (UDA)</h2>
+      <!-- Sezione UDA -->
+      <div class="mt-8">
+        <!-- Intestazione Sezione UDA con sfondo azzurro -->
+        <div class="bg-sky-100 p-4 rounded-md mb-6 flex justify-between items-center border border-sky-200">
+          <h2 class="text-xl font-semibold text-sky-800">Unità Didattiche di Apprendimento (UDA)</h2>
+          <div class="flex space-x-2">
+             <!-- Pulsanti stile adattato per contrasto -->
+            <button
+              @click="openAddUdaFromTemplateModal"
+              class="px-4 py-2 bg-white text-sky-700 border border-sky-300 rounded-md shadow-sm hover:bg-sky-50 transition duration-150 ease-in-out font-medium flex items-center"
+            >
+              <PlusCircleIcon class="h-5 w-5 mr-2" />
+              Aggiungi da Template
+            </button>
+            <button
+              @click="openCreateNewUdaModal"
+              class="px-4 py-2 bg-white text-sky-700 border border-sky-300 rounded-md shadow-sm hover:bg-sky-50 transition duration-150 ease-in-out font-medium flex items-center"
+            >
+              <PlusCircleIcon class="h-5 w-5 mr-2" />
+              Crea Nuova
+            </button>
+          </div>
+        </div>
+
         <div v-if="udasLoading" class="text-center py-6">
           <p class="text-gray-500">Caricamento UDA...</p>
         </div>
-        <div class="mb-4 flex space-x-2">
-          <button
-            @click="openAddUdaFromTemplateModal"
-            class="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-md shadow-sm transition duration-150 ease-in-out flex items-center"
-          >
-            <PlusCircleIcon class="h-5 w-5 mr-2" />
-            Aggiungi UDA da Template
-          </button>
-          <button
-            @click="openCreateNewUdaModal"
-            class="bg-green-500 hover:bg-green-600 text-white font-medium py-2 px-4 rounded-md shadow-sm transition duration-150 ease-in-out flex items-center"
-          >
-            <PlusCircleIcon class="h-5 w-5 mr-2" />
-            Crea Nuova UDA
-          </button>
-        </div>
-        <div v-if="udas.length === 0 && !udasLoading" class="text-center py-6 bg-gray-50 rounded-md">
+        <div v-else-if="udas.length === 0 && !udasLoading" class="text-center py-6 bg-gray-50 rounded-md">
           <p class="text-gray-600">Nessuna UDA associata a questo corso.</p>
         </div>
-        <div v-else-if="!udasLoading">
-          <!-- Lista e riordino delle UDA -->
-          <div v-if="udas.length > 0" class="space-y-4">
-            <div v-for="(uda, index) in udas" :key="uda.id" class="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200 p-4">
-              <div class="flex justify-between items-start">
-                <div>
-                  <h3 class="text-lg font-semibold text-indigo-700 hover:text-indigo-900">
-                    <RouterLink :to="{ name: 'uda-detail', params: { id: uda.id } }">
-                      {{ uda.title }}
-                    </RouterLink>
-                  </h3>
-                  <p class="text-sm text-gray-600 mt-1">{{ uda.description || 'Nessuna descrizione per questa UDA.' }}</p>
-                  <p class="text-xs text-gray-500 mt-2">Stato: <span class="font-medium" :class="getStatusClass(uda.status)">{{ uda.status }}</span></p>
-                  <p class="text-xs text-gray-500 mt-1">Ordine nel corso: {{ uda.order_in_course ?? 'Non specificato' }}</p>
-                </div>
-                <div class="flex space-x-2 flex-shrink-0 ml-4">
-                  <RouterLink
+        <!-- Tabella UDA -->
+        <div v-else class="shadow overflow-hidden border-b border-gray-200 sm:rounded-lg">
+          <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+              <tr>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Titolo</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Descrizione</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stato</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Argomenti</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Materie</th>
+                <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Contenuti</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date (Inizio/Fine)</th>
+                <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Azioni</th>
+              </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+              <tr v-for="(uda, index) in udas" :key="uda.id" class="hover:bg-gray-50">
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-indigo-700 hover:text-indigo-900">
+                  <RouterLink :to="{ name: 'uda-detail', params: { id: uda.id } }">
+                    {{ uda.title }}
+                  </RouterLink>
+                </td>
+                <td class="px-6 py-4 text-sm text-gray-500">
+                  <span :title="uda.description" v-if="uda.description && uda.description.length > 30">
+                    {{ uda.description.substring(0, 30) + '...' }}
+                  </span>
+                  <span v-else>{{ uda.description || '-' }}</span>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm">
+                  <span class="font-medium px-2 py-0.5 rounded-full" :class="getStatusClass(uda.status)">{{ uda.status }}</span>
+                </td>
+                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {{ getTopicNames(uda.topics) || '-' }}
+                </td>
+                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {{ getSubjectNames(uda.subjects) || '-' }}
+                </td>
+                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+                  {{ uda.contents?.length || 0 }}
+                </td>
+                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {{ formatDate(uda.start_date) }} / {{ formatDate(uda.end_date) }}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
+                  <!-- Pulsanti Sposta -->
+                  <button
+                    @click="moveUdaUp(uda.id, index)"
+                    :disabled="index === 0"
+                    class="text-gray-500 hover:text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed p-1 rounded-md hover:bg-gray-100"
+                    title="Sposta Su"
+                  >
+                    <ArrowUpIcon class="h-4 w-4" />
+                  </button>
+                  <button
+                    @click="moveUdaDown(uda.id, index)"
+                    :disabled="index === udas.length - 1"
+                    class="text-gray-500 hover:text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed p-1 rounded-md hover:bg-gray-100"
+                    title="Sposta Giù"
+                  >
+                    <ArrowDownIcon class="h-4 w-4" />
+                  </button>
+                  <!-- Pulsanti Modifica/Elimina -->
+                   <RouterLink
                     :to="{ name: 'uda-edit', params: { id: uda.id } }"
-                    class="text-sm bg-yellow-500 hover:bg-yellow-600 text-white font-medium py-1 px-3 rounded-md shadow-sm transition duration-150 ease-in-out flex items-center"
+                    class="text-yellow-600 hover:text-yellow-900 p-1 rounded-md hover:bg-yellow-50"
                     title="Modifica UDA"
                   >
-                    <PencilIcon class="h-4 w-4" />
+                    <PencilIcon class="h-4 w-4 inline-block" />
                   </RouterLink>
                   <button
                     @click="confirmDeleteUda(uda.id)"
-                    class="text-sm bg-red-500 hover:bg-red-600 text-white font-medium py-1 px-3 rounded-md shadow-sm transition duration-150 ease-in-out flex items-center"
+                    class="text-red-600 hover:text-red-900 p-1 rounded-md hover:bg-red-50"
                     title="Elimina UDA"
                   >
-                    <TrashIcon class="h-4 w-4" />
+                    <TrashIcon class="h-4 w-4 inline-block" />
                   </button>
-                </div>
-              </div>
-              <div class="mt-3 flex justify-end space-x-2">
-                <button
-                  @click="moveUdaUp(uda.id, index)"
-                  :disabled="index === 0"
-                  class="text-sm bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium py-1 px-2 rounded-md shadow-sm transition duration-150 ease-in-out flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Sposta Su"
-                >
-                  <ArrowUpIcon class="h-4 w-4" />
-                </button>
-                <button
-                  @click="moveUdaDown(uda.id, index)"
-                  :disabled="index === udas.length - 1"
-                  class="text-sm bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium py-1 px-2 rounded-md shadow-sm transition duration-150 ease-in-out flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Sposta Giù"
-                >
-                  <ArrowDownIcon class="h-4 w-4" />
-                </button>
-              </div>
-            </div>
-          </div>
-          <p v-if="udas.length > 0" class="mt-4 text-sm text-gray-500">
-            Per riordinare le UDA, utilizzare i bottoni Su/Giù. Il salvataggio dell'ordine avverrà con un apposito pulsante (da implementare) o automaticamente.
-          </p>
-          <!-- TODO: Implementare il drag-and-drop per il riordino o un pulsante "Salva Ordine" se necessario -->
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <!-- Nota sul salvataggio ordine rimossa, dato che i bottoni ora chiamano l'API -->
         </div>
       </div>
        <div class="mt-8 text-right">
@@ -156,6 +188,8 @@ import { PencilIcon, PlusCircleIcon, TrashIcon, ArrowUpIcon, ArrowDownIcon } fro
 import { useUdaStore } from '@/stores/udaStore';
 import { useUdaTemplateStore } from '@/stores/udaTemplateStore';
 import { useUiStore } from '@/stores/ui'; // Importa uiStore per le notifiche/conferme
+import { useTopicStore } from '@/stores/topicStore'; // Importa store argomenti
+import { useSubjectStore } from '@/stores/subjectStore'; // Importa store materie
 import AddUdaFromTemplateModal from '@/components/courses/AddUdaFromTemplateModal.vue';
 import CreateNewUdaModal from '@/components/courses/CreateNewUdaModal.vue';
 // Importa altri tipi o store se necessario
@@ -164,6 +198,8 @@ const courseStore = useCourseStore();
 const udaStore = useUdaStore();
 const udaTemplateStore = useUdaTemplateStore();
 const uiStore = useUiStore();
+const topicStore = useTopicStore(); // Istanzia store argomenti
+const subjectStore = useSubjectStore(); // Istanzia store materie
 const route = useRoute();
 
 const courseId = computed(() => Number(route.params.id));
@@ -295,6 +331,28 @@ const getStatusClass = (status: string) => {
   return 'text-gray-600 bg-gray-100 px-2 py-0.5 rounded-full';
 };
 
+const formatDate = (dateString?: string | null) => {
+  if (!dateString) return 'N/D';
+  try {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('it-IT', { year: 'numeric', month: 'short', day: 'numeric' });
+  } catch (e) {
+    return dateString; // Ritorna la stringa originale se non è una data valida
+  }
+};
+
+const getTopicNames = (topicIds?: number[]): string => {
+  if (!topicIds || topicIds.length === 0) return '';
+  return topicIds.map(id => topicStore.getTopicById(id)?.name || `ID:${id}`).join(', ');
+};
+
+const getSubjectNames = (subjectIds?: number[]): string => {
+  if (!subjectIds || subjectIds.length === 0) return '';
+  // Assumendo che le UDA abbiano un array di ID materia
+  return subjectIds.map(id => subjectStore.getSubjectById(id)?.name || `ID:${id}`).join(', ');
+};
+
+
 onMounted(async () => {
   pageLoading.value = true;
   pageError.value = null;
@@ -302,7 +360,13 @@ onMounted(async () => {
 
   if (courseId.value) {
     try {
-      await courseStore.fetchCourse(courseId.value);
+      // Carica materie e argomenti in parallelo con il corso
+      await Promise.all([
+        courseStore.fetchCourse(courseId.value),
+        subjectStore.fetchSubjects(), // Assicurati che siano caricate
+        topicStore.fetchTopics()      // Assicurati che siano caricate
+      ]);
+
       // Se fetchCourse ha successo e currentCourse è settato, allora carica le UDA
       if (courseStore.currentCourse) {
          await courseStore.fetchUdasForCourse(courseId.value);

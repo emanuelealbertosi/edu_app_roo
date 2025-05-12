@@ -17,6 +17,12 @@
             <textarea id="noteContent" rows="5" v-model="editableContent.content"
                       class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2"></textarea>
           </div>
+          <div>
+            <label for="noteEstimatedHours" class="block text-sm font-medium text-gray-700 mb-1">Tempo Stimato (ore)</label>
+            <input type="number" id="noteEstimatedHours" v-model.number="editableContent.estimated_hours" step="0.1" min="0"
+                   placeholder="Es. 1.5"
+                   class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2">
+          </div>
         </form>
       </div>
       <div class="flex justify-end pt-4 border-t border-gray-200 mt-4 space-x-3">
@@ -42,6 +48,7 @@ import type { NoteUDAContent, NoteTemplateUDAContent, UDAContentType, UDATemplat
 type EditableNoteType = Partial<NoteUDAContent | NoteTemplateUDAContent> & {
   title?: string;
   content?: string;
+  estimated_hours?: number | null; // Aggiunto
 };
 
 const props = defineProps({
@@ -57,7 +64,7 @@ const props = defineProps({
 
 const emit = defineEmits(['update:modelValue', 'save', 'close']);
 
-const editableContent = ref<EditableNoteType>({ title: '', content: '' });
+const editableContent = ref<EditableNoteType>({ title: '', content: '', estimated_hours: null }); // Inizializzato
 
 const isEditing = computed(() => !!(props.modelValue && (props.modelValue.id || props.modelValue.temp_id)));
 
@@ -68,20 +75,23 @@ watch(() => props.modelValue, (newValue) => {
       editableContent.value = {
         ...templateNote,
         title: templateNote.note_template_title || '',
-        content: templateNote.note_template_content || ''
+        content: templateNote.note_template_content || '',
+        estimated_hours: templateNote.estimated_hours // Aggiunto
       };
     } else {
       const udaNote = newValue as NoteUDAContent;
       editableContent.value = {
         ...udaNote,
         title: udaNote.note_title || '',
-        content: udaNote.note_content || ''
+        content: udaNote.note_content || '',
+        estimated_hours: udaNote.estimated_hours // Aggiunto
       };
     }
   } else {
     editableContent.value = {
       title: '',
-      content: ''
+      content: '',
+      estimated_hours: null // Aggiunto reset
     };
   }
 }, { immediate: true, deep: true });
@@ -98,6 +108,7 @@ const saveNote = () => {
       ...(props.modelValue || {}),
       note_template_title: editableContent.value.title,
       note_template_content: editableContent.value.content,
+      estimated_hours: editableContent.value.estimated_hours || null, // Aggiunto
       content_type: 'NOTE_TEMPLATE' as UDATemplateContentType.NOTE_TEMPLATE,
     } as Partial<NoteTemplateUDAContent>;
   } else {
@@ -105,6 +116,7 @@ const saveNote = () => {
       ...(props.modelValue || {}),
       note_title: editableContent.value.title,
       note_content: editableContent.value.content,
+      estimated_hours: editableContent.value.estimated_hours || null, // Aggiunto
       content_type: 'NOTE' as UDAContentType.NOTE,
     } as Partial<NoteUDAContent>;
   }

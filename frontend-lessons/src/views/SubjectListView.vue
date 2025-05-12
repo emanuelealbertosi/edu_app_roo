@@ -4,7 +4,7 @@
     <div class="bg-blue-600 text-white p-4 rounded-md mb-6 flex justify-between items-center">
       <h2 class="text-2xl font-semibold">Gestione Materie</h2>
       <!-- Pulsante stile adattato per contrasto -->
-      <button @click="openAddModalDirectly" class="px-4 py-2 bg-white text-blue-600 rounded-md shadow-sm hover:bg-blue-50 transition duration-150 ease-in-out font-medium">
+      <button @click="openAddModalDirectly" class="px-4 py-2 bg-white text-blue-600 rounded-md shadow-sm hover:bg-blue-100 transition duration-150 ease-in-out font-medium">
         Aggiungi Materia
       </button>
     </div>

@@ -173,6 +173,7 @@ export const useUdaStore = defineStore('uda', {
         }
     },
 
+    // Aggiornata la firma per includere estimated_hours nel tipo contentData (tramite UDAContent)
     async addContentToUda(
       udaId: number,
       contentData: Partial<Omit<UDAContent, 'id' | 'uda_id' | 'created_at' | 'updated_at'>>,
@@ -207,6 +208,7 @@ export const useUdaStore = defineStore('uda', {
       }
     },
 
+    // Aggiornata la firma per includere estimated_hours nel tipo contentData (tramite UDAContent)
     async updateContentInUda(
       udaId: number,
       contentId: number,

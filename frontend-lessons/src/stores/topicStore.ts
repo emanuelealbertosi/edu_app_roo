@@ -45,33 +45,18 @@ export const useTopicStore = defineStore('topic', () => {
     state.value.loading = true;
     state.value.error = null;
     try {
-      // Simula una chiamata API per tutti gli argomenti
-      await new Promise(resolve => setTimeout(resolve, 1200));
-      // const response = await apiClient.get('/topics/'); // Esempio endpoint per tutti gli argomenti
-      // state.value.allTopics = response.data as Topic[];
+      // Esegui la chiamata API reale per ottenere tutti gli argomenti
+      // Assicurati che l'endpoint '/lezioni/topics/' sia corretto e restituisca tutti gli argomenti
+      const response = await apiClient.get('/lezioni/topics/');
+      state.value.allTopics = response.data as Topic[];
       
-      // Dati mock estesi per simulare più argomenti da diverse materie
-      const mockAllTopics: Topic[] = [
-        { id: 101, name: 'Algebra', subject_id: 1 },
-        { id: 102, name: 'Geometria', subject_id: 1 },
-        { id: 103, name: 'Trigonometria', subject_id: 1 },
-        { id: 201, name: 'Storia Antica', subject_id: 2 },
-        { id: 202, name: 'Medioevo', subject_id: 2 },
-        { id: 203, name: 'Rinascimento', subject_id: 2 },
-        { id: 301, name: 'Biologia Cellulare', subject_id: 3 },
-        { id: 302, name: 'Chimica Organica', subject_id: 3 },
-        { id: 401, name: 'Grammatica Italiana', subject_id: 4 },
-        { id: 402, name: 'Letteratura del Novecento', subject_id: 4 },
-        { id: 403, name: 'Poesia Ermetica', subject_id: 4},
-        { id: 501, name: 'Programmazione Python', subject_id: 5 }, // Materia fittizia
-        { id: 502, name: 'Strutture Dati', subject_id: 5 },
-      ];
-      // Unisci i mock topics con quelli esistenti, evitando duplicati basati su ID
-      const existingIds = new Set(state.value.allTopics.map(t => t.id));
-      const newTopics = mockAllTopics.filter(t => !existingIds.has(t.id));
-      state.value.allTopics.push(...newTopics);
+      // Rimuovi o commenta i dati mock e la logica di unione
+      // const mockAllTopics: Topic[] = [ ... ];
+      // const existingIds = new Set(state.value.allTopics.map(t => t.id));
+      // const newTopics = mockAllTopics.filter(t => !existingIds.has(t.id));
+      // state.value.allTopics.push(...newTopics);
 
-      console.log('All topics fetched/updated:', state.value.allTopics);
+      console.log('All topics fetched from API:', state.value.allTopics);
 
     } catch (err) {
       console.error('Error fetching all topics:', err);
@@ -95,12 +80,12 @@ export const useTopicStore = defineStore('topic', () => {
       await new Promise(resolve => setTimeout(resolve, 800));
       const response = await apiClient.get(`/lezioni/topics/?subject_id=${subjectId}`); // Filtra per subject_id
       const fetchedTopics = response.data as Topic[];
-      
       // Rimuove i vecchi argomenti per la stessa materia prima di aggiungere i nuovi
       // per evitare duplicati se questa action viene chiamata più volte per la stessa materia.
-      state.value.allTopics = state.value.allTopics.filter(topic => topic.subject_id !== subjectId);
+      state.value.allTopics = state.value.allTopics.filter(topic => topic.subject !== subjectId); // Corretto subject_id -> subject
       // Aggiunge i nuovi argomenti
       state.value.allTopics.push(...fetchedTopics);
+
       
       console.log(`Topics fetched for subject ID ${subjectId}:`, fetchedTopics);
 
@@ -123,6 +108,8 @@ export const useTopicStore = defineStore('topic', () => {
     // State (esposto tramite computed o getter)
     loading,
     error,
+    // State esposto direttamente (o tramite computed)
+    allTopics: computed(() => state.value.allTopics), // ESPORRE allTopics
     // Getters
     getTopicsForSubject,
     getTopicById,

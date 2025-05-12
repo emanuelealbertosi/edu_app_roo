@@ -4,9 +4,19 @@
     <div class="bg-blue-600 text-white p-4 rounded-md mb-6 flex justify-between items-center">
       <h2 class="text-2xl font-semibold">Le Mie Lezioni</h2>
       <!-- Pulsante stile adattato per contrasto -->
-      <button @click="openAddModalDirectly" class="px-4 py-2 bg-white text-blue-600 rounded-md shadow-sm hover:bg-blue-50 transition duration-150 ease-in-out font-medium">
+      <button @click="openAddModalDirectly" class="px-4 py-2 bg-white text-blue-600 rounded-md shadow-sm hover:bg-blue-100 transition duration-150 ease-in-out font-medium">
         Crea Nuova Lezione
       </button>
+    </div>
+
+    <!-- Campo di Ricerca -->
+    <div class="mb-4">
+      <input
+        type="text"
+        v-model="searchQuery"
+        placeholder="Cerca lezioni per titolo, argomento, materia, stato..."
+        class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+      />
     </div>
 
     <div v-if="lessonStore.isLoading" class="text-center text-gray-500 py-10">
@@ -18,7 +28,8 @@
       <span class="block sm:inline"> {{ lessonStore.error }}</span>
     </div>
 
-    <div v-if="!lessonStore.isLoading && lessons.length > 0" class="bg-white shadow-md rounded-lg overflow-hidden">
+    <!-- Tabella Lezioni Filtrate -->
+    <div v-if="!lessonStore.isLoading && filteredLessons.length > 0" class="bg-white shadow-md rounded-lg overflow-hidden">
       <table class="min-w-full divide-y divide-gray-200">
         <thead class="bg-gray-50">
           <tr>
@@ -31,7 +42,7 @@
           </tr>
         </thead>
         <tbody class="bg-white divide-y divide-gray-200">
-          <tr v-for="lesson in lessons" :key="lesson.id" class="hover:bg-gray-50">
+          <tr v-for="lesson in filteredLessons" :key="lesson.id" class="hover:bg-gray-50">
             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ lesson.title }}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ getTopicName(lesson.topic) }}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ getSubjectNameFromTopic(lesson.topic) }}</td>
@@ -52,8 +63,10 @@
       </table>
     </div>
 
-    <div v-if="!lessonStore.isLoading && lessons.length === 0 && !lessonStore.error" class="text-center text-gray-500 py-10">
-      Non hai ancora creato nessuna lezione.
+    <!-- Messaggio Nessuna Lezione Trovata -->
+    <div v-if="!lessonStore.isLoading && filteredLessons.length === 0 && !lessonStore.error" class="text-center text-gray-500 py-10">
+      <span v-if="searchQuery">Nessuna lezione trovata per "{{ searchQuery }}".</span>
+      <span v-else>Non hai ancora creato nessuna lezione.</span>
     </div>
 
      <LessonEditModal
@@ -73,8 +86,26 @@ import { useRouter } from 'vue-router';
 import { useLessonStore } from '@/stores/lessons';
 import { useTopicStore } from '@/stores/topics';
 import { useSubjectStore } from '@/stores/subjects';
+const searchQuery = ref('');
 import emitter from '@/eventBus'; // Importa l'event bus
 import LessonEditModal from '../components/features/lezioni/LessonEditModal.vue';
+const filteredLessons = computed(() => {
+  const query = searchQuery.value.toLowerCase().trim();
+  if (!query) {
+    return lessons.value;
+  }
+  return lessons.value.filter(lesson => {
+    const topicName = getTopicName(lesson.topic).toLowerCase();
+    const subjectName = getSubjectNameFromTopic(lesson.topic).toLowerCase();
+    const status = (lesson.is_published ? 'pubblicata' : 'bozza').toLowerCase();
+    const title = lesson.title.toLowerCase();
+
+    return title.includes(query) ||
+           topicName.includes(query) ||
+           subjectName.includes(query) ||
+           status.includes(query);
+  });
+});
 import type { Lesson } from '@/types/lezioni'; // Rimossi Topic e Subject non usati qui
 
 

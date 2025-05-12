@@ -1,8 +1,12 @@
 <template>
-  <div class="note-template-content-display">
-    <h6 v-if="content.note_template_title" class="mb-1">{{ content.note_template_title }}</h6>
-    <div v-if="content.note_template_content" v-html="renderedMarkdown" class="note-body"></div>
-    <p v-else class="text-muted">Nessun contenuto per questo template di nota.</p>
+  <div class="note-template-content-display p-3 bg-white rounded-b-md"> <!-- Aggiunto padding e sfondo per coerenza -->
+    <!-- Il titolo è gestito da UdaContentItemRenderer -->
+    <div v-if="props.content.estimated_hours" class="flex text-sm mb-2">
+        <strong class="w-24 flex-shrink-0 text-gray-700">Ore Stimate:</strong>
+        <span class="text-gray-600">{{ props.content.estimated_hours }}h</span>
+    </div>
+    <div v-if="content.note_template_content" v-html="renderedMarkdown" class="note-body prose prose-sm max-w-none"></div>
+    <p v-else class="text-sm text-gray-500">Nessun contenuto per questo template di nota.</p>
   </div>
 </template>
 
@@ -40,12 +44,7 @@ const renderedMarkdown = computed(() => {
 </script>
 
 <style scoped>
-.note-template-content-display {
-  font-size: 0.9rem;
-  background-color: #f8f9fa; /* Leggero sfondo per distinguerlo da una nota normale */
-  padding: 0.75rem;
-  border-radius: .25rem;
-}
+/* Rimosse classi CSS custom, ora gestite da Tailwind e dal padding del div principale */
 .note-body :deep(p:last-child) {
   margin-bottom: 0;
 }

@@ -1,30 +1,31 @@
 <template>
-  <div class="quiz-content-display">
-    <div v-if="isLoading" class="text-muted">
-      <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+  <div class="quiz-content-display p-3 bg-white rounded-b-md"> <!-- Aggiunto padding e sfondo per coerenza -->
+    <div v-if="isLoading" class="text-sm text-gray-500">
       Caricamento dettagli template quiz...
     </div>
-    <div v-else-if="quizTemplate">
-      <p>
-        <strong>Template Quiz: </strong>
-        <span>{{ quizTemplate.title || `ID Template: ${quizTemplate.id}` }}</span>
-      </p>
-      <p v-if="quizTemplate.description" class="text-muted small">
-        <em>{{ quizTemplate.description }}</em>
-      </p>
-      <p v-if="quizTemplate.subject_name">
-        <strong>Materia: </strong> {{ quizTemplate.subject_name }}
-      </p>
-      <p v-if="quizTemplate.topic_name">
-        <strong>Argomento: </strong> {{ quizTemplate.topic_name }}
-      </p>
+    <div v-else-if="quizTemplate" class="space-y-2 text-sm">
+      <!-- Titolo Template Quiz rimosso (già presente nel renderer) -->
+      <!-- Etichetta Descrizione rimossa -->
+      <div v-if="quizTemplate.description" class="italic text-gray-600 truncate">
+        {{ quizTemplate.description }}
+      </div>
+      <div v-if="quizTemplate.subject_name" class="flex">
+        <strong class="w-28 flex-shrink-0 text-gray-700">Materia:</strong>
+        <span class="text-gray-600">{{ quizTemplate.subject_name }}</span>
+      </div>
+      <div v-if="quizTemplate.topic_name" class="flex">
+        <strong class="w-28 flex-shrink-0 text-gray-700">Argomento:</strong>
+        <span class="text-gray-600">{{ quizTemplate.topic_name }}</span>
+      </div>
+       <div v-if="props.content.estimated_hours" class="flex">
+        <strong class="w-28 flex-shrink-0 text-gray-700">Ore Stimate:</strong>
+        <span class="text-gray-600">{{ props.content.estimated_hours }}h</span>
+      </div>
     </div>
-    <!-- Messaggio rimosso: "Nessun ID template quiz specificato per questo contenuto." -->
-    <!-- La condizione !quizTemplate (riga 7) e il successivo v-else gestiscono i casi di errore caricamento -->
-    <p v-else-if="!isLoading && !quizTemplate && props.content.quiz_template" class="text-danger">
+    <p v-else-if="!isLoading && !quizTemplate && props.content.quiz_template" class="text-sm text-red-600">
       Impossibile caricare i dettagli del template quiz (ID: {{ props.content.quiz_template }}).
     </p>
-    <p v-else-if="!isLoading && !props.content.quiz_template" class="text-warning">
+    <p v-else-if="!isLoading && !props.content.quiz_template" class="text-sm text-yellow-600">
       ID del template quiz non fornito nel contenuto.
     </p>
   </div>

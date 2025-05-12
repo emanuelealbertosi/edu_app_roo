@@ -5,7 +5,7 @@
         <h5 class="text-xl font-semibold text-gray-800">Aggiungi Contenuto Esistente</h5>
         <button type="button" class="text-gray-400 hover:text-gray-600 text-2xl leading-none" @click="closeModal" aria-label="Close">&times;</button>
       </div>
-      <div class="overflow-y-auto flex-grow pr-2"> {/* Aggiunto pr-2 per scrollbar */}
+      <div class="overflow-y-auto flex-grow pr-2"> <!-- Aggiunto pr-2 per scrollbar -->
         <div class="border-b border-gray-200 mb-4">
           <nav class="-mb-px flex space-x-6" aria-label="Tabs">
             <a href="#"

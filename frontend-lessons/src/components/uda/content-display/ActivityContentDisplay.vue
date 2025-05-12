@@ -1,31 +1,26 @@
 <template>
-  <div class="activity-content-display">
-    <h6 v-if="content.activity_title" class="mb-1">{{ content.activity_title }}</h6>
-    <div v-if="content.activity_description" v-html="renderedDescription" class="activity-description mb-2"></div>
+  <div class="activity-content-display p-3 bg-white rounded-b-md space-y-3 text-sm">
+    <!-- Il titolo è gestito da UdaContentItemRenderer -->
     
-    <div v-if="content.activity_attachment_url" class="mb-2">
-      <strong>Allegato: </strong>
-      <a :href="content.activity_attachment_url" target="_blank" rel="noopener noreferrer">
+    <div v-if="props.content.estimated_hours" class="flex">
+        <strong class="w-28 flex-shrink-0 text-gray-700">Ore Stimate:</strong>
+        <span class="text-gray-600">{{ props.content.estimated_hours }}h</span>
+    </div>
+
+    <div v-if="content.activity_description">
+      <!-- Etichetta "Descrizione:" rimossa -->
+      <div v-html="renderedDescription" class="prose prose-sm max-w-none text-gray-600"></div>
+    </div>
+    
+    <div v-if="content.activity_attachment_url" class="flex">
+      <strong class="w-28 flex-shrink-0 text-gray-700">Allegato:</strong>
+      <a :href="content.activity_attachment_url" target="_blank" rel="noopener noreferrer" class="text-indigo-600 hover:text-indigo-800 truncate">
         {{ content.activity_attachment_url.split('/').pop() || 'Vedi allegato' }}
       </a>
     </div>
-    <!-- Qui potrebbe andare il FileUpload.vue per caricare un nuovo allegato in fase di modifica -->
-    <!-- Per ora, ci concentriamo sulla visualizzazione e sul completamento -->
 
-    <div class="form-check mt-2">
-      <input 
-        class="form-check-input" 
-        type="checkbox"
-        :id="`activityCompleted-${content.id || content.temp_id}`"
-        :checked="content.activity_completed || false"
-        @change="toggleActivityCompleted"
-        :disabled="isLoadingActivityCompletion"
-      >
-      <label class="form-check-label" :for="`activityCompleted-${content.id || content.temp_id}`">
-        Attività Completata (dallo studente/formalmente)
-      </label>
-    </div>
-    <small v-if="isLoadingActivityCompletion" class="text-muted">Aggiornamento stato attività...</small>
+    <!-- Checkbox "Attività Completata" rimossa -->
+    
   </div>
 </template>
 
@@ -39,14 +34,11 @@ const props = defineProps({
   content: {
     type: Object as PropType<ActivityUDAContent>,
     required: true
-  },
-  isLoadingActivityCompletion: { // Passato dal genitore (UdaContentItemRenderer)
-    type: Boolean,
-    default: false
   }
+  // isLoadingActivityCompletion prop rimossa
 });
 
-const emit = defineEmits(['update:activity-completed']);
+// const emit = defineEmits(['update:activity-completed']); // Evento rimosso
 
 const renderedDescription = computed(() => {
   if (props.content.activity_description) {
@@ -67,10 +59,8 @@ const renderedDescription = computed(() => {
   return '';
 });
 
-const toggleActivityCompleted = (event: Event) => {
-  const target = event.target as HTMLInputElement;
-  emit('update:activity-completed', target.checked);
-};
+// Funzione toggleActivityCompleted rimossa
+
 </script>
 
 <style scoped>

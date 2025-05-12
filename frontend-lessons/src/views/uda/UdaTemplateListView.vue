@@ -1,14 +1,25 @@
 <template>
   <div class="uda-template-list-view p-4 md:p-8">
-    <div class="flex justify-between items-center mb-6">
-      <h1 class="text-3xl font-bold text-gray-800">Elenco Template UDA</h1>
+    <!-- Intestazione con sfondo blu -->
+    <div class="bg-blue-600 text-white p-4 rounded-md mb-6 flex justify-between items-center">
+      <h2 class="text-2xl font-semibold">Elenco Template UDA</h2>
+      <!-- Pulsante stile adattato per contrasto -->
       <RouterLink
         :to="{ name: 'uda-template-new' }"
-        class="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-md shadow-sm transition duration-150 ease-in-out flex items-center"
+        class="px-4 py-2 bg-white text-blue-600 rounded-md shadow-sm hover:bg-blue-100 transition duration-150 ease-in-out font-medium"
       >
-        <PlusCircleIcon class="h-5 w-5 mr-2" />
         Nuovo Template UDA
       </RouterLink>
+    </div>
+
+    <!-- Campo di Ricerca -->
+    <div class="mb-4">
+      <input
+        type="text"
+        v-model="searchQuery"
+        placeholder="Cerca template per nome, descrizione, materia, argomenti..."
+        class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+      />
     </div>
 
     <div v-if="udaTemplateStore.loading" class="text-center py-10">
@@ -21,12 +32,13 @@
       <span class="block sm:inline">{{ udaTemplateStore.error }}</span>
     </div>
 
-    <div v-else-if="templates.length === 0" class="text-center py-10 bg-gray-50 rounded-md">
-      <p class="text-gray-600 text-lg">Nessun template UDA trovato.</p>
-      <p class="text-gray-500 mt-2">Crea il tuo primo template per iniziare a pianificare le tue unità didattiche.</p>
+    <div v-else-if="filteredTemplates.length === 0" class="text-center py-10 bg-gray-50 rounded-md">
+       <p class="text-gray-600 text-lg" v-if="searchQuery">Nessun template UDA trovato per "{{ searchQuery }}".</p>
+       <p class="text-gray-600 text-lg" v-else>Nessun template UDA trovato.</p>
+       <p class="text-gray-500 mt-2" v-if="!searchQuery">Crea il tuo primo template per iniziare a pianificare le tue unità didattiche.</p>
     </div>
 
-    <!-- Tabella Template UDA -->
+    <!-- Tabella Template UDA Filtrati -->
     <div v-else class="shadow-lg overflow-hidden border-b border-gray-200 sm:rounded-lg">
       <table class="min-w-full divide-y divide-gray-200">
         <thead class="bg-gray-50">
@@ -55,7 +67,7 @@
           </tr>
         </thead>
         <tbody class="bg-white divide-y divide-gray-200">
-          <tr v-for="template in templates" :key="template.id" class="hover:bg-gray-50 transition-colors duration-150">
+          <tr v-for="template in filteredTemplates" :key="template.id" class="hover:bg-gray-50 transition-colors duration-150">
           <td class="px-6 py-4 whitespace-nowrap">
             <RouterLink :to="{ name: 'uda-template-edit', params: { id: template.id } }" class="text-sm font-medium text-indigo-700 hover:text-indigo-900">
               {{ template.name }}
@@ -106,7 +118,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue'; // Aggiunto ref
 import { RouterLink } from 'vue-router';
 import { useUdaTemplateStore } from '@/stores/udaTemplateStore';
 import { useUiStore } from '@/stores/ui';
@@ -130,6 +142,7 @@ const udaTemplateStore = useUdaTemplateStore();
 const uiStore = useUiStore();
 const subjectStore = useSubjectStore();
 const topicStore = useTopicStore();
+const searchQuery = ref('');
 
 const templates = computed(() => {
   return udaTemplateStore.udaTemplates.map(template => {
@@ -143,6 +156,25 @@ const templates = computed(() => {
     };
   });
 });
+
+const filteredTemplates = computed(() => {
+  const query = searchQuery.value.toLowerCase().trim();
+  if (!query) {
+    return templates.value;
+  }
+  return templates.value.filter(template => {
+    const name = template.name.toLowerCase();
+    const description = template.description?.toLowerCase() || '';
+    const subjectName = template.subject_details?.name.toLowerCase() || '';
+    const topicNames = template.topics_details?.map(t => t.name.toLowerCase()).join(' ') || '';
+
+    return name.includes(query) ||
+           description.includes(query) ||
+           subjectName.includes(query) ||
+           topicNames.includes(query);
+  });
+});
+
 
 onMounted(async () => {
   // Carica in parallelo per efficienza

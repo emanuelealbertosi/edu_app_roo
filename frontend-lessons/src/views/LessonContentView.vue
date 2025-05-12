@@ -1,6 +1,6 @@
 <template>
   <div class="lesson-content-manager">
-    <button @click="goBack" class="back-button">&larr; Torna alla Lezione</button>
+    <button @click="goBack" class="back-button">&larr; Indietro</button>
 
     <div v-if="lessonStore.isLoading">Caricamento dati lezione...</div>
     <div v-else-if="lessonStore.error && !lesson" class="error-message">
@@ -326,12 +326,7 @@ const getContentTypeTitle = (content: LessonContent): string => {
 
 
 const goBack = () => {
-    if (lessonId.value) {
-        // Torna alla vista dettaglio lezione
-        router.push({ name: 'lesson-detail', params: { id: lessonId.value.toString() } });
-    } else {
-        router.push({ name: 'teacher-lessons' }); // Fallback alla lista lezioni docente
-    }
+    router.back(); // Usa la funzione back del router per tornare indietro nella history
 };
 
 </script>

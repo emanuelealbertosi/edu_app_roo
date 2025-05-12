@@ -1,14 +1,25 @@
 <template>
   <div class="course-list-view p-4 md:p-8">
-    <div class="flex justify-between items-center mb-6">
-      <h1 class="text-3xl font-bold text-gray-800">Lista Corsi</h1>
+    <!-- Intestazione con sfondo blu -->
+    <div class="bg-blue-600 text-white p-4 rounded-md mb-6 flex justify-between items-center">
+      <h2 class="text-2xl font-semibold">Lista Corsi</h2>
+      <!-- Pulsante stile adattato per contrasto -->
       <RouterLink
         :to="{ name: 'course-new' }"
-        class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-md shadow-sm transition duration-150 ease-in-out flex items-center"
+        class="px-4 py-2 bg-white text-blue-600 rounded-md shadow-sm hover:bg-blue-100 transition duration-150 ease-in-out font-medium"
       >
-        <PlusCircleIcon class="h-5 w-5 mr-2" />
         Nuovo Corso
       </RouterLink>
+    </div>
+
+    <!-- Campo di Ricerca -->
+    <div class="mb-4">
+      <input
+        type="text"
+        v-model="searchQuery"
+        placeholder="Cerca corsi per nome o descrizione..."
+        class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+      />
     </div>
 
     <div v-if="loading" class="text-center py-10">
@@ -21,9 +32,10 @@
       <span class="block sm:inline">{{ error }}</span>
     </div>
 
-    <div v-else-if="courses.length === 0" class="text-center py-10">
-      <p class="text-gray-600">Nessun corso trovato.</p>
-      <p class="mt-2 text-sm text-gray-500">
+    <div v-else-if="filteredCourses.length === 0" class="text-center py-10">
+      <p class="text-gray-600" v-if="searchQuery">Nessun corso trovato per "{{ searchQuery }}".</p>
+      <p class="text-gray-600" v-else>Nessun corso trovato.</p>
+      <p class="mt-2 text-sm text-gray-500" v-if="!searchQuery">
         Inizia creando il tuo primo corso!
       </p>
     </div>
@@ -44,7 +56,7 @@
           </tr>
         </thead>
         <tbody class="bg-white divide-y divide-gray-200">
-          <tr v-for="course in courses" :key="course.id" class="hover:bg-gray-50 transition-colors duration-150">
+          <tr v-for="course in filteredCourses" :key="course.id" class="hover:bg-gray-50 transition-colors duration-150">
             <td class="px-6 py-4 whitespace-nowrap">
               <div class="text-sm font-medium text-indigo-700 hover:text-indigo-900">
                 <RouterLink :to="{ name: 'course-detail', params: { id: course.id } }">
@@ -89,7 +101,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, computed } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { RouterLink } from 'vue-router';
 import { useCourseStore } from '@/stores/courseStore';
 import { useUiStore } from '@/stores/ui'; // Importa uiStore
@@ -97,10 +109,23 @@ import { PlusCircleIcon } from '@heroicons/vue/24/outline';
 
 const courseStore = useCourseStore();
 const uiStore = useUiStore(); // Istanzia uiStore
+const searchQuery = ref('');
 
 const courses = computed(() => courseStore.courses);
 const loading = computed(() => courseStore.loading);
 const error = computed(() => courseStore.error);
+
+const filteredCourses = computed(() => {
+  const query = searchQuery.value.toLowerCase().trim();
+  if (!query) {
+    return courses.value;
+  }
+  return courses.value.filter(course => {
+    const name = course.name.toLowerCase();
+    const description = course.description?.toLowerCase() || '';
+    return name.includes(query) || description.includes(query);
+  });
+});
 
 onMounted(() => {
   courseStore.fetchCourses();

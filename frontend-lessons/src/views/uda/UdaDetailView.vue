@@ -1,57 +1,79 @@
 <template>
   <div class="uda-detail-view p-4 md:p-8 bg-neutral-lightest min-h-screen">
-    <div v-if="loading" class="loading-message">Caricamento dati UDA...</div>
-    <div v-if="error" class="error-message">
-      Errore nel caricamento dell'UDA: {{ error }}
+    <div v-if="pageLoading" class="loading-message">Caricamento dati UDA...</div>
+    <div v-if="pageError" class="error-message">
+      Errore nel caricamento dell'UDA: {{ pageError }}
     </div>
 
-    <div v-if="uda && !loading && !error" class="uda-details-container bg-white shadow-lg rounded-lg p-6">
-      <div class="header-actions flex justify-between items-center mb-6 border-b border-neutral-DEFAULT pb-4">
-        <h1 class="text-3xl font-bold text-neutral-darkest bg-accent-DEFAULT p-4 rounded-t-lg shadow-md flex-grow">{{ uda.title }}</h1>
-        <router-link :to="`/udas/${uda.id}/edit`" class="bg-secondary hover:bg-secondary-dark text-white font-medium py-2 px-4 rounded-md shadow-sm">Modifica UDA</router-link>
+    <div v-if="uda && !pageLoading && !pageError" class="uda-details-container bg-white shadow-lg rounded-lg p-6">
+      <!-- Intestazione con sfondo blu -->
+      <div class="bg-blue-600 text-white p-4 rounded-md mb-6 flex justify-between items-center">
+        <h2 class="text-2xl font-semibold">{{ uda.title }}</h2>
+        <!-- Pulsante stile adattato per contrasto -->
+        <router-link :to="`/udas/${uda.id}/edit`" class="px-4 py-2 bg-white text-blue-600 rounded-md shadow-sm hover:bg-blue-100 transition duration-150 ease-in-out font-medium">Modifica UDA</router-link>
       </div>
-      
-      <p v-if="uda.description" class="description text-neutral-dark mb-4">{{ uda.description }}</p>
 
-      <div class="metadata bg-neutral-lightest p-4 rounded-md border border-neutral-DEFAULT mb-6">
-        <p><strong>Stato:</strong> {{ uda.status }}</p>
-        <p v-if="uda.start_date"><strong>Data Inizio:</strong> {{ formatDate(uda.start_date) }}</p>
-        <p v-if="uda.end_date"><strong>Data Fine:</strong> {{ formatDate(uda.end_date) }}</p>
-        
-        <div v-if="uda.subjects && uda.subjects.length > 0">
-          <strong>Materie:</strong>
-          <ul>
-            <!-- TODO: Recuperare e visualizzare i nomi delle materie dagli ID -->
-            <li v-for="subjectId in uda.subjects" :key="subjectId">
-              ID Materia: {{ subjectId }}
-            </li>
-          </ul>
-        </div>
-        
-        <div v-if="uda.topics && uda.topics.length > 0">
-          <strong>Argomenti:</strong>
-          <ul>
-            <!-- TODO: Recuperare e visualizzare i nomi degli argomenti dagli ID -->
-            <li v-for="topicId in uda.topics" :key="topicId">
-              ID Argomento: {{ topicId }}
-            </li>
-          </ul>
-        </div>
+      <!-- Blocco Descrizione -->
+      <div v-if="uda.description" class="mb-6 p-4 border border-gray-200 rounded-md bg-gray-50">
+        <h3 class="text-lg font-semibold text-gray-700 mb-2">Descrizione</h3>
+        <p class="text-gray-600 whitespace-pre-wrap">{{ uda.description }}</p>
+      </div>
 
-        <p v-if="uda.course">
-          <strong>Corso di appartenenza:</strong>
-          <!-- TODO: Recuperare e visualizzare il nome del corso dall'ID -->
-          <router-link :to="`/courses/${uda.course}`">
-            Vedi Corso (ID: {{ uda.course }})
+      <!-- Riga Metadati Compatti -->
+      <div class="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-gray-600 mb-6 border-t border-b py-4">
+        <div>
+          <strong class="text-gray-800">Stato:</strong>
+          <!-- Modificato per usare un select -->
+          <select
+            :value="uda.status"
+            @change="handleStatusChange"
+            :disabled="isStatusUpdating"
+            class="ml-1 px-2 py-0.5 rounded-md border border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-sm font-medium shadow-sm"
+            :class="getStatusSelectClass(uda.status)"
+          >
+            <option value="TODO">TODO</option>
+            <option value="IN_PROGRESS">IN PROGRESS</option>
+            <option value="COMPLETED">COMPLETED</option>
+          </select>
+          <span v-if="isStatusUpdating" class="ml-2 text-xs text-gray-500">Aggiornamento...</span>
+        </div>
+        <div v-if="uda.start_date">
+          <strong class="text-gray-800">Inizio:</strong>
+          <span class="ml-1">{{ formatDate(uda.start_date) }}</span>
+        </div>
+        <div v-if="uda.end_date">
+          <strong class="text-gray-800">Fine:</strong>
+          <span class="ml-1">{{ formatDate(uda.end_date) }}</span>
+        </div>
+        <div v-if="uda.course">
+          <strong class="text-gray-800">Corso:</strong>
+          <router-link :to="`/courses/${uda.course}`" class="text-indigo-600 hover:text-indigo-800 ml-1">
+            {{ courseName || `ID: ${uda.course}` }}
           </router-link>
-        </p>
+        </div>
+         <div v-if="subjectNames">
+          <strong class="text-gray-800">Materie:</strong>
+          <span class="ml-1">{{ subjectNames }}</span>
+        </div>
+         <div v-if="topicNames">
+          <strong class="text-gray-800">Argomenti:</strong>
+          <span class="ml-1">{{ topicNames }}</span>
+        </div>
       </div>
 
-      <div class="contents-section mt-6">
-        <h2 class="text-2xl font-semibold text-neutral-darkest bg-primary-light p-3 rounded-t-md mb-4 shadow-sm">Contenuti dell'UDA</h2>
-        <div v-if="uda.contents && uda.contents.length > 0" class="contents-list">
+       <!-- Rimosso blocco metadata separato per Materie/Argomenti -->
+
+
+      <div class="contents-section mt-8"> <!-- Aggiunto mt-8 per separare dalla riga metadati -->
+        <!-- Intestazione Sezione Contenuti con sfondo azzurro -->
+        <div class="bg-sky-100 p-4 rounded-md mb-6 flex justify-between items-center border border-sky-200">
+          <h2 class="text-xl font-semibold text-sky-800">Contenuti dell'UDA</h2>
+          <!-- Eventuali pulsanti azione per contenuti potrebbero andare qui -->
+        </div>
+        <div v-if="uda.contents && uda.contents.length > 0" class="contents-list space-y-4">
+          <!-- Modificato per usare i contenuti arricchiti -->
           <UdaContentItemRenderer
-            v-for="(content, index) in uda.contents"
+            v-for="(content, index) in enrichedUdaContents"
             :key="content.id || content.temp_id"
             :content="content"
             :uda-id="uda.id"
@@ -63,8 +85,10 @@
             @update:teacher-marked-completed="handleTeacherMarkedCompletedUpdate"
             @update:activity-completed="handleActivityCompletedUpdate"
             @move="handleMoveContent"
-          />
-          <!-- 
+            @assign-lesson="handleAssignLesson"
+            @edit-lesson="handleEditLesson"
+          ></UdaContentItemRenderer> <!-- Modificato in tag di chiusura esplicito -->
+          <!--
             Event handlers (handleEditContent, etc.) and their logic need to be implemented
             if direct manipulation from detail view is desired.
             For now, they are placeholders.
@@ -73,28 +97,138 @@
         <p v-else>Nessun contenuto definito per questa UDA.</p>
       </div>
     </div>
-    <div v-if="!uda && !loading && !error" class="no-data-message">
+    <div v-if="!uda && !pageLoading && pageError" class="no-data-message"> <!-- Mostra se c'è errore e non ci sono dati UDA -->
+      <!-- Il messaggio di errore è già mostrato sopra -->
+    </div>
+     <div v-if="!uda && !pageLoading && !pageError" class="no-data-message"> <!-- Mostra se non c'è loading, non c'è errore, ma non ci sono dati UDA -->
       Nessun dato UDA da visualizzare o UDA non trovata.
     </div>
   </div>
+
+  <!-- Modale Modifica Lezione -->
+  <LessonEditModal
+    v-if="lessonToEdit"
+    :lesson="lessonToEdit"
+    :topics="allTopics"
+    @close="closeEditModal"
+    @save="handleEditSave"
+  ></LessonEditModal> <!-- CORRETTO: Tag di chiusura esplicito -->
 </template>
 
 <script setup lang="ts">
 import { useRoute, useRouter } from 'vue-router';
-import { onMounted, computed } from 'vue';
+import { onMounted, computed, ref } from 'vue';
 import { useUdaStore } from '@/stores/udaStore';
-import type { UDA, UDAContent } from '@/types/uda'; // Aggiunto UDAContent per handleEditContent
+import { useCourseStore } from '@/stores/courseStore';
+import { useSubjectStore } from '@/stores/subjectStore';
+import { useTopicStore } from '@/stores/topicStore';
+import { useLessonStore } from '@/stores/lessons'; // Importa lesson store (CORRETTO PATH)
+import { useQuizStore } from '@/stores/quizStore';   // Importa quiz store
+// Importa tipi separatamente con 'import type'
+import type { UDA, UDAContent, LessonUDAContent, QuizUDAContent, UDAStatus } from '@/types/uda'; // Spostato UDAStatus qui
+// Importa enum come valori
+import { UDAContentType, UDATemplateContentType } from '@/types/uda'; // Rimosso UDAStatus da qui
 import UdaContentItemRenderer from '@/components/uda/UdaContentItemRenderer.vue';
+import LessonEditModal from '@/components/features/lezioni/LessonEditModal.vue'; // IMPORTATO MODALE
+import type { Lesson } from '@/types/lezioni'; // IMPORTATO TIPO Lesson
+import { useUiStore } from '@/stores/ui'; // CORRETTO: Importa da ui.ts
 
 const route = useRoute();
-const router = useRouter(); 
+const router = useRouter();
 const udaStore = useUdaStore();
+const courseStore = useCourseStore(); // Istanzia course store
+const subjectStore = useSubjectStore();
+const topicStore = useTopicStore();
+const lessonStore = useLessonStore(); // Istanzia lesson store (CORRETTO PATH)
+const quizStore = useQuizStore();   // Istanzia quiz store
+const uiStore = useUiStore();       // Istanzia uiStore
 
 const udaId = computed(() => route.params.id as string);
 
 const uda = computed<UDA | null>(() => udaStore.currentUda);
-const loading = computed(() => udaStore.loading);
-const error = computed(() => udaStore.error);
+// Definisci ref locali per lo stato di caricamento e errore della pagina
+const pageLoading = ref(true);
+const pageError = ref<string | null>(null);
+const isStatusUpdating = ref(false); // Ref per lo stato di aggiornamento dello status
+const lessonToEdit = ref<Lesson | null>(null); // Ref per la modale di modifica
+
+// Computed property per accedere ai topics dallo store
+const allTopics = computed(() => topicStore.allTopics || []); // Accede alla proprietà esposta dallo store
+
+
+// Mantieni le computed per i dati, ma non per lo stato di caricamento/errore della pagina
+// const loading = computed(() => udaStore.loading); // Questo è lo loading dello store, non della pagina
+// const error = computed(() => udaStore.error);     // Questo è l'error dello store
+
+const courseName = computed(() => {
+  if (uda.value?.course) {
+    return courseStore.getCourseById(uda.value.course)?.name;
+  }
+  return null;
+});
+
+const subjectNames = computed(() => {
+  if (uda.value?.subjects_display && uda.value.subjects_display.length > 0) {
+    return uda.value.subjects_display.join(', ');
+  }
+  if (!uda.value?.subjects || uda.value.subjects.length === 0) return null;
+  return uda.value.subjects
+    .map(id => subjectStore.getSubjectById(id)?.name || `ID:${id}`)
+    .join(', ');
+});
+
+const topicNames = computed(() => {
+  if (uda.value?.topics_display && uda.value.topics_display.length > 0) {
+    return uda.value.topics_display.join(', ');
+  }
+  if (!uda.value?.topics || uda.value.topics.length === 0) return null;
+  return uda.value.topics
+    .map(id => topicStore.getTopicById(id)?.name || `ID:${id}`)
+    .join(', ');
+});
+// Computed property per arricchire i contenuti UDA con i titoli di lezioni/quiz
+const enrichedUdaContents = computed(() => {
+  if (!uda.value?.contents) return [];
+
+  return uda.value.contents.map(content => {
+    const enrichedContent = { ...content }; // Crea una copia per non mutare lo store
+
+    if (content.content_type === UDAContentType.LESSON || content.content_type === UDATemplateContentType.LESSON) {
+      const lessonId = (content as LessonUDAContent).lesson;
+      const lesson = lessonStore.getLessonById(lessonId);
+      // Usa type assertion 'as any' per aggiungere dinamicamente la proprietà
+      if (lesson && !(enrichedContent as any).lesson_title) {
+        (enrichedContent as any).lesson_title = lesson.title;
+      }
+    } else if (content.content_type === UDAContentType.QUIZ || content.content_type === UDATemplateContentType.QUIZ_TEMPLATE) {
+      const quizTemplateId = (content as QuizUDAContent).quiz_template;
+      const quizTemplate = quizStore.getQuizTemplateById(quizTemplateId);
+       // Usa type assertion 'as any' per aggiungere dinamicamente la proprietà
+      if (quizTemplate && !(enrichedContent as any).quiz_title) {
+        (enrichedContent as any).quiz_title = quizTemplate.title;
+      }
+    }
+    return enrichedContent;
+  });
+});
+
+
+const getStatusClass = (status?: UDA['status']) => {
+  if (!status) return 'text-gray-600 bg-gray-100';
+  if (status === 'COMPLETED') return 'text-green-700 bg-green-100';
+  if (status === 'IN_PROGRESS') return 'text-blue-700 bg-blue-100';
+  if (status === 'TODO') return 'text-yellow-700 bg-yellow-100';
+  return 'text-gray-600 bg-gray-100';
+};
+
+// Funzione per ottenere classi CSS specifiche per il select dello stato
+const getStatusSelectClass = (status?: UDA['status']) => {
+  if (!status) return 'text-gray-700 bg-gray-100 border-gray-300';
+  if (status === 'COMPLETED') return 'text-green-700 bg-green-50 border-green-300';
+  if (status === 'IN_PROGRESS') return 'text-blue-700 bg-blue-50 border-blue-300';
+  if (status === 'TODO') return 'text-yellow-700 bg-yellow-50 border-yellow-300';
+  return 'text-gray-700 bg-gray-100 border-gray-300';
+};
 
 const formatDate = (dateString: string | null | undefined): string => {
   if (!dateString) return 'N/A';
@@ -112,10 +246,43 @@ onMounted(async () => {
   if (udaId.value) {
     const idAsNumber = parseInt(udaId.value, 10);
     if (!isNaN(idAsNumber)) {
-      await udaStore.fetchUda(idAsNumber);
+      pageLoading.value = true;
+      pageError.value = null;
+      try {
+        // 1. Carica i dati di supporto (corsi, materie, argomenti) in parallelo
+        await Promise.all([
+          courseStore.fetchCourses(), // Recupera corsi
+          subjectStore.fetchSubjects(), // Recupera materie
+          topicStore.fetchTopics(),     // Recupera argomenti
+          lessonStore.fetchLessons(),   // Recupera lezioni (CORRETTO PATH)
+          quizStore.fetchQuizTemplates() // Recupera template quiz
+        ]);
+
+        // 2. Solo dopo che i dati di supporto sono caricati, carica l'UDA specifica
+        await udaStore.fetchUda(idAsNumber); // Questo aggiornerà udaStore.currentUda e udaStore.loading/error
+
+        // Verifica se l'UDA è stata effettivamente caricata (potrebbe dare 404 o altro errore gestito dallo store)
+        if (udaStore.error) { // Controlla l'errore dello store dopo il fetch
+            throw new Error(udaStore.error);
+        }
+        if (!uda.value) { // Se non c'è errore ma l'uda è ancora null, consideralo un errore
+            throw new Error(`UDA con ID ${idAsNumber} non trovata.`);
+        }
+
+      } catch (err) {
+         console.error("Errore durante il caricamento dei dati UDA per la vista dettaglio:", err);
+         pageError.value = (err as Error).message || 'Errore sconosciuto durante il caricamento.';
+      } finally {
+         pageLoading.value = false;
+      }
     } else {
       console.error("ID UDA non valido fornito nella route:", udaId.value);
+      pageError.value = "ID UDA non valido.";
+      pageLoading.value = false;
     }
+  } else {
+     pageError.value = "ID UDA non specificato.";
+     pageLoading.value = false;
   }
 });
 
@@ -142,6 +309,30 @@ const handleTeacherMarkedCompletedUpdate = (payload: { contentId: number, comple
 
 const handleActivityCompletedUpdate = (payload: { contentId: number, completed: boolean }) => {
   console.log('Activity completed update:', payload);
+};
+
+// Funzione per gestire il cambio di stato
+const handleStatusChange = async (event: Event) => {
+  if (!uda.value || !uda.value.id) return;
+
+  const target = event.target as HTMLSelectElement;
+  const newStatus = target.value as UDAStatus; // Assicurati che UDAStatus sia importato
+
+  if (newStatus === uda.value.status) return; // Nessun cambiamento
+
+  isStatusUpdating.value = true;
+  try {
+    await udaStore.updateUda(uda.value.id, { status: newStatus });
+    // Lo store dovrebbe aggiornare automaticamente currentUda, quindi la UI si aggiorna.
+    uiStore.addNotification({ message: 'Stato UDA aggiornato con successo!', type: 'success', duration: 3000 }); // Usa addNotification
+  } catch (error) {
+    console.error("Errore durante l'aggiornamento dello stato UDA:", error);
+    uiStore.addNotification({ message: `Errore nell'aggiornamento dello stato: ${(error as Error).message}`, type: 'error', duration: 5000 }); // Usa addNotification
+    // Opzionale: ripristina il valore del select allo stato precedente in caso di errore
+    target.value = uda.value.status;
+  } finally {
+    isStatusUpdating.value = false;
+  }
 };
 
 const handleMoveContent = async (contentToMove: UDAContent, direction: number) => {
@@ -196,6 +387,84 @@ const handleMoveContent = async (contentToMove: UDAContent, direction: number) =
     // e potenzialmente ripristinare l'ordine visivo precedente se necessario.
   }
 };
+
+// Funzione per gestire il click sul bottone "Assegna"
+const handleAssignLesson = (lessonId: number) => {
+  if (!lessonId) {
+    console.error("ID Lezione non valido per l'assegnazione.");
+    uiStore.addNotification({ message: "ID Lezione non valido.", type: 'error' });
+    return;
+  }
+
+  const assignmentUrl = `/lezioni/${lessonId}/assegna`;
+  const lessonTitle = lessonStore.getLessonById(lessonId)?.title || `Lezione ${lessonId}`;
+  const modalTitle = `Assegna ${lessonTitle}`; // Titolo mantenuto per eventuale uso futuro
+
+  // Naviga alla pagina di assegnazione nella stessa scheda usando router.push
+  router.push(assignmentUrl);
+  uiStore.addNotification({ message: `Navigazione alla pagina di assegnazione per '${lessonTitle}'.`, type: 'info', duration: 3000 });
+
+  // Codice commentato per eventuale implementazione futura di una modale (mantenuto per riferimento)
+  /*
+  // Verifica se uiStore ha un metodo per aprire modali generiche o iframe
+  if (typeof uiStore.openModal === 'function') { // Esempio: usare un metodo generico openModal
+    uiStore.openModal({
+      componentName: 'AssignLessonModal', // Un ipotetico componente wrapper per l'iframe o la logica di assegnazione
+      props: { lessonId: lessonId, url: assignmentUrl, title: modalTitle }
+    });
+  } else {
+    console.error("Nessun metodo per aprire modali trovato in uiStore.");
+    uiStore.addNotification({ message: "Impossibile aprire la modale di assegnazione.", type: 'error' });
+    // Fallback di emergenza se window.open fallisce o non è desiderato
+    // alert(`Apri manualmente: ${assignmentUrl}`);
+  }
+  */
+};
+
+// Funzione per gestire il click sul bottone "Modifica" Lezione -> Apre Modale
+const handleEditLesson = (lessonId: number) => {
+  if (!lessonId) {
+    console.error("ID Lezione non valido per la modifica.");
+    uiStore.addNotification({ message: "ID Lezione non valido.", type: 'error' });
+    return;
+  }
+  const lesson = lessonStore.getLessonById(lessonId);
+  if (lesson) {
+    lessonToEdit.value = { ...lesson }; // Imposta la ref per aprire la modale
+  } else {
+    console.error(`Lezione con ID ${lessonId} non trovata nello store.`);
+    uiStore.addNotification({ message: `Lezione con ID ${lessonId} non trovata.`, type: 'error' });
+  }
+};
+
+// Funzione per chiudere la modale di modifica
+const closeEditModal = () => {
+  lessonToEdit.value = null;
+};
+
+// Funzione per salvare le modifiche dalla modale
+const handleEditSave = async (lessonData: { id?: number; title: string; topic: number; description?: string; is_published?: boolean }) => {
+  if (!lessonData.id) {
+      console.error("ID lezione mancante per l'aggiornamento.");
+      uiStore.addNotification({ message: "Errore: ID lezione mancante.", type: 'error' });
+      return;
+  }
+
+  const success = await lessonStore.updateLesson(lessonData.id, lessonData);
+
+  if (success) {
+      closeEditModal();
+      // Non è necessario fetchLessons se lo store è reattivo e aggiorna l'elemento
+      // await lessonStore.fetchLessons(); // Ricarica solo se necessario
+      uiStore.addNotification({ message: 'Lezione aggiornata con successo!', type: 'success' });
+      // Potrebbe essere necessario aggiornare enrichedUdaContents se il titolo è cambiato,
+      // ma la reattività di Pinia dovrebbe gestire questo automaticamente se getLessonById restituisce dati aggiornati.
+  } else {
+       uiStore.addNotification({ message: `Errore durante l'aggiornamento: ${lessonStore.error || 'Errore sconosciuto'}`, type: 'error' });
+       lessonStore.error = null; // Resetta l'errore nello store
+  }
+};
+
 </script>
 
 <style scoped>

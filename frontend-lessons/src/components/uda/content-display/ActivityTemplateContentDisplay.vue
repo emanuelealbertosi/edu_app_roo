@@ -1,8 +1,15 @@
 <template>
-  <div class="activity-template-content-display">
-    <h6 v-if="content.activity_template_title" class="mb-1">{{ content.activity_template_title }}</h6>
-    <div v-if="content.activity_template_description" v-html="renderedDescription" class="activity-description"></div>
-    <p v-else class="text-muted">Nessuna descrizione per questo template di attività.</p>
+  <div class="activity-template-content-display p-3 bg-white rounded-b-md space-y-3 text-sm">
+    <!-- Il titolo è gestito da UdaContentItemRenderer -->
+     <div v-if="props.content.estimated_hours" class="flex">
+        <strong class="w-28 flex-shrink-0 text-gray-700">Ore Stimate:</strong>
+        <span class="text-gray-600">{{ props.content.estimated_hours }}h</span>
+    </div>
+    <div v-if="content.activity_template_description">
+      <strong class="block text-gray-700 mb-1">Descrizione:</strong>
+      <div v-html="renderedDescription" class="prose prose-sm max-w-none text-gray-600"></div>
+    </div>
+    <p v-else class="text-gray-500">Nessuna descrizione per questo template di attività.</p>
     <!-- I template di attività non hanno un URL allegato o uno stato di completamento -->
   </div>
 </template>
@@ -41,12 +48,7 @@ const renderedDescription = computed(() => {
 </script>
 
 <style scoped>
-.activity-template-content-display {
-  font-size: 0.9rem;
-  background-color: #f8f9fa; /* Leggero sfondo per distinguerlo da un'attività normale */
-  padding: 0.75rem;
-  border-radius: .25rem;
-}
+/* Rimosse classi CSS custom, ora gestite da Tailwind e dal padding del div principale */
 .activity-description :deep(p:last-child) {
   margin-bottom: 0;
 }

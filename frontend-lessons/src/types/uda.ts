@@ -21,6 +21,7 @@ interface BaseContent {
   order: number;
   created_at?: string;
   updated_at?: string;
+  estimated_hours?: number | null; // Tempo stimato in ore
 }
 
 // Contenuto di tipo Lezione
@@ -91,6 +92,9 @@ export type UDATemplateContent =
   | ActivityTemplateUDAContent;
 
 
+// Tipo per lo stato dell'UDA
+export type UDAStatus = 'TODO' | 'IN_PROGRESS' | 'COMPLETED';
+
 // Interfaccia per UDA (Unità Didattica di Apprendimento)
 export interface UDA {
   id: number;
@@ -106,7 +110,7 @@ export interface UDA {
   subjects?: number[]; // Array di ID di Subject (usato internamente nel form e per l'invio come subject_ids)
   subjects_display?: string[]; // Array di nomi di Subject (per la visualizzazione, fornito dal backend)
   topics?: number[]; // Array di ID di Topic
-  status: 'TODO' | 'IN_PROGRESS' | 'COMPLETED';
+  status: UDAStatus; // Usa il tipo esportato
   order_in_course?: number | null;
   contents: UDAContent[]; // Array di contenuti specifici dell'UDA
   created_at: string;
@@ -150,6 +154,6 @@ export type RawSelectedContentItem =
 // SelectedContentItem rappresenta ciò che viene emesso DOPO la trasformazione (es. un Quiz concreto)
 // e che verrà usato per creare UDAContent effettivo.
 export type SelectedContentItem =
-  | { type: UDAContentType.LESSON; id: number; title: string; }
+  | { type: UDAContentType.LESSON; id: number; title: string; estimated_hours?: number | null; }
   // Ora riflette che passiamo un riferimento a un QuizTemplate, ma il tipo finale per UDAContent sarà QUIZ
-  | { type: UDAContentType.QUIZ; id: number; title: string; }; // id qui è l'ID del QuizTemplate, ma il content_type per UDAContent sarà QUIZ
+  | { type: UDAContentType.QUIZ; id: number; title: string; estimated_hours?: number | null; }; // id qui è l'ID del QuizTemplate, ma il content_type per UDAContent sarà QUIZ

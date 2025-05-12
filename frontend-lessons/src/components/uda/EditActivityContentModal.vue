@@ -33,6 +33,12 @@
                      class="h-5 w-5 text-indigo-600 border-gray-400 rounded focus:ring-indigo-500 focus:ring-2 focus:ring-offset-0 cursor-pointer">
               <label for="activityCompleted" class="ml-3 block text-sm text-gray-900 select-none cursor-pointer">Attività Completata (dallo studente)</label>
             </div>
+            <div>
+              <label for="activityEstimatedHours" class="block text-sm font-medium text-gray-700 mb-1">Tempo Stimato (ore)</label>
+              <input type="number" id="activityEstimatedHours" v-model.number="editableContent.estimated_hours" step="0.1" min="0"
+                     placeholder="Es. 1.5"
+                     class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2">
+            </div>
           </template>
         </form>
       </div>
@@ -69,6 +75,7 @@ type EditableActivityType = Partial<ActivityUDAContent | ActivityTemplateUDACont
   description?: string;
   attachmentUrl?: string;
   completedByStudent?: boolean;
+  estimated_hours?: number | null; // Aggiunto
 };
 
 const props = defineProps({
@@ -89,7 +96,7 @@ const props = defineProps({
 const emit = defineEmits(['update:modelValue', 'save', 'close']);
 const udaStore = useUdaStore();
 
-const editableContent = ref<EditableActivityType>({ title: '', description: '' });
+const editableContent = ref<EditableActivityType>({ title: '', description: '', estimated_hours: null }); // Inizializzato
 const fileUploadComponent = ref<InstanceType<typeof FileUpload> | null>(null);
 const selectedActivityFileObject = ref<File | null>(null);
 
@@ -102,7 +109,8 @@ watch(() => props.modelValue, (newValue) => {
       editableContent.value = {
         ...templateActivity,
         title: templateActivity.activity_template_title || '',
-        description: templateActivity.activity_template_description || ''
+        description: templateActivity.activity_template_description || '',
+        estimated_hours: templateActivity.estimated_hours // Aggiunto
       };
     } else {
       const udaActivity = newValue as ActivityUDAContent;
@@ -111,7 +119,8 @@ watch(() => props.modelValue, (newValue) => {
         title: udaActivity.activity_title || '',
         description: udaActivity.activity_description || '',
         attachmentUrl: udaActivity.activity_attachment_url || '',
-        completedByStudent: udaActivity.activity_completed || false
+        completedByStudent: udaActivity.activity_completed || false,
+        estimated_hours: udaActivity.estimated_hours // Aggiunto
       };
     }
   } else {
@@ -120,6 +129,7 @@ watch(() => props.modelValue, (newValue) => {
       description: '',
       attachmentUrl: '',
       completedByStudent: false,
+      estimated_hours: null // Aggiunto reset
     };
     selectedActivityFileObject.value = null;
     fileUploadComponent.value?.reset();
@@ -147,6 +157,7 @@ const saveActivity = async () => {
       ...(props.modelValue || {}),
       activity_template_title: editableContent.value.title,
       activity_template_description: editableContent.value.description,
+      estimated_hours: editableContent.value.estimated_hours || null, // Aggiunto
       content_type: UDATemplateContentType.ACTIVITY_TEMPLATE,
     } as Partial<ActivityTemplateUDAContent>;
     emit('save', { activityData: dataToSave, file: undefined });
@@ -159,6 +170,7 @@ const saveActivity = async () => {
       activity_attachment_url: editableContent.value.attachmentUrl,
       activity_completed: editableContent.value.completedByStudent,
       teacher_marked_completed: currentActivityData?.teacher_marked_completed ?? false,
+      estimated_hours: editableContent.value.estimated_hours || null, // Aggiunto
       content_type: UDAContentType.ACTIVITY,
     } as Partial<ActivityUDAContent>;
 

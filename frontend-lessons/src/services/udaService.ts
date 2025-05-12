@@ -67,7 +67,8 @@ export const udaService = {
   },
 
   async updateUda(id: number, udaData: Partial<UDA>): Promise<UDA> {
-    const response = await apiClient.put(`${UDA_BASE_URL}/${id}/`, udaData);
+    // CORRETTO: Usare PATCH per aggiornamenti parziali
+    const response = await apiClient.patch(`${UDA_BASE_URL}/${id}/`, udaData);
     return response.data;
   },
 

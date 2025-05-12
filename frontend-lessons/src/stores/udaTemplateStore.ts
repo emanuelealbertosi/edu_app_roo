@@ -44,12 +44,14 @@ export const useUdaTemplateStore = defineStore('udaTemplate', {
       }
     },
 
-    async createUdaTemplate(templateData: Partial<Omit<UDATemplate, 'id' | 'teacher' | 'created_at' | 'updated_at' | 'contents'>> & { name: string, description?: string | null, subject_id?: number | null, topic_ids?: number[], contents: Omit<UDATemplateContent, 'temp_id'>[] }): Promise<UDATemplate | undefined> {
+    // Semplificata la firma per usare Partial<UDATemplate> come atteso dal servizio
+    async createUdaTemplate(templateData: Partial<UDATemplate>): Promise<UDATemplate | undefined> {
       this.loading = true;
       this.error = null;
       try {
-        // Il payload viene passato direttamente al servizio, che dovrebbe aspettarsi subject_id e topic_ids
-        const newTemplate = await udaService.createUdaTemplate(templateData); // templateData è già del tipo corretto per il servizio
+        // Il servizio dovrebbe gestire correttamente i campi extra o mancanti grazie a Partial
+        // Assicurarsi che subject_id, topic_ids e contents siano gestiti correttamente nel servizio o qui prima della chiamata
+        const newTemplate = await udaService.createUdaTemplate(templateData);
         this.udaTemplates.push(newTemplate);
         // this.currentUdaTemplate = newTemplate; // Opzionale
         return newTemplate;
@@ -62,10 +64,12 @@ export const useUdaTemplateStore = defineStore('udaTemplate', {
       }
     },
 
-    async updateUdaTemplate(templateId: number, templateData: Partial<Omit<UDATemplate, 'id' | 'teacher' | 'created_at' | 'updated_at' | 'contents'>> & { name?: string, description?: string | null, subject_id?: number | null, topic_ids?: number[], contents?: Omit<UDATemplateContent, 'temp_id'>[] }): Promise<UDATemplate | undefined> {
+    // Semplificata la firma per usare Partial<UDATemplate> come atteso dal servizio
+    async updateUdaTemplate(templateId: number, templateData: Partial<UDATemplate>): Promise<UDATemplate | undefined> {
       this.loading = true;
       this.error = null;
       try {
+        // Il servizio dovrebbe gestire correttamente i campi extra o mancanti grazie a Partial
         const updatedTemplate = await udaService.updateUdaTemplate(templateId, templateData);
         const index = this.udaTemplates.findIndex((t: UDATemplate) => t.id === templateId);
         if (index !== -1) {
@@ -128,10 +132,12 @@ export const useUdaTemplateStore = defineStore('udaTemplate', {
         }
     },
 
+    // Aggiornata la firma per includere estimated_hours nel tipo contentData
     async addContentToTemplate(templateId: number, contentData: Partial<Omit<UDATemplateContent, 'id' | 'uda_template_id' | 'created_at' | 'updated_at'>>): Promise<UDATemplateContent | undefined> {
       this.loading = true;
       this.error = null;
       try {
+        // contentData ora può contenere estimated_hours, il servizio API dovrebbe gestirlo
         const newContent = await udaService.addContentToUdaTemplate(templateId, contentData);
         const updateAndSortContents = (contentsArray?: UDATemplateContent[]) => {
             if(!contentsArray) contentsArray = [];
@@ -156,10 +162,12 @@ export const useUdaTemplateStore = defineStore('udaTemplate', {
       }
     },
 
+    // Aggiornata la firma per includere estimated_hours nel tipo contentData
     async updateContentInTemplate(templateId: number, contentId: number, contentData: Partial<Omit<UDATemplateContent, 'id' | 'uda_template_id' | 'created_at' | 'updated_at'>>): Promise<UDATemplateContent | undefined> {
       this.loading = true;
       this.error = null;
       try {
+        // contentData ora può contenere estimated_hours, il servizio API dovrebbe gestirlo
         const updatedContent = await udaService.updateUdaTemplateContent(templateId, contentId, contentData);
         const updateLocalContents = (contentsArray?: UDATemplateContent[]) => {
             if (!contentsArray) return;
