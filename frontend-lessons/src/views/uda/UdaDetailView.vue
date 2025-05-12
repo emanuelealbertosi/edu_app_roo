@@ -1,28 +1,32 @@
 <template>
-  <div class="uda-detail-view">
+  <div class="uda-detail-view p-4 md:p-8 bg-neutral-lightest min-h-screen">
     <div v-if="loading" class="loading-message">Caricamento dati UDA...</div>
     <div v-if="error" class="error-message">
       Errore nel caricamento dell'UDA: {{ error }}
     </div>
 
-    <div v-if="uda && !loading && !error" class="uda-details-container">
-      <div class="header-actions">
-        <h1>{{ uda.title }}</h1>
-        <router-link :to="`/udas/${uda.id}/edit`" class="btn btn-secondary">Modifica UDA</router-link>
+    <div v-if="uda && !loading && !error" class="uda-details-container bg-white shadow-lg rounded-lg p-6">
+      <div class="header-actions flex justify-between items-center mb-6 border-b border-neutral-DEFAULT pb-4">
+        <h1 class="text-3xl font-bold text-neutral-darkest bg-accent-DEFAULT p-4 rounded-t-lg shadow-md flex-grow">{{ uda.title }}</h1>
+        <router-link :to="`/udas/${uda.id}/edit`" class="bg-secondary hover:bg-secondary-dark text-white font-medium py-2 px-4 rounded-md shadow-sm">Modifica UDA</router-link>
       </div>
       
-      <p v-if="uda.description" class="description">{{ uda.description }}</p>
+      <p v-if="uda.description" class="description text-neutral-dark mb-4">{{ uda.description }}</p>
 
-      <div class="metadata">
+      <div class="metadata bg-neutral-lightest p-4 rounded-md border border-neutral-DEFAULT mb-6">
         <p><strong>Stato:</strong> {{ uda.status }}</p>
         <p v-if="uda.start_date"><strong>Data Inizio:</strong> {{ formatDate(uda.start_date) }}</p>
         <p v-if="uda.end_date"><strong>Data Fine:</strong> {{ formatDate(uda.end_date) }}</p>
         
-        <p v-if="uda.subject">
-          <strong>Materia:</strong> 
-          <!-- TODO: Recuperare e visualizzare il nome della materia dall'ID -->
-          ID Materia: {{ uda.subject }}
-        </p>
+        <div v-if="uda.subjects && uda.subjects.length > 0">
+          <strong>Materie:</strong>
+          <ul>
+            <!-- TODO: Recuperare e visualizzare i nomi delle materie dagli ID -->
+            <li v-for="subjectId in uda.subjects" :key="subjectId">
+              ID Materia: {{ subjectId }}
+            </li>
+          </ul>
+        </div>
         
         <div v-if="uda.topics && uda.topics.length > 0">
           <strong>Argomenti:</strong>
@@ -43,8 +47,8 @@
         </p>
       </div>
 
-      <div class="contents-section">
-        <h2>Contenuti dell'UDA</h2>
+      <div class="contents-section mt-6">
+        <h2 class="text-2xl font-semibold text-neutral-darkest bg-primary-light p-3 rounded-t-md mb-4 shadow-sm">Contenuti dell'UDA</h2>
         <div v-if="uda.contents && uda.contents.length > 0" class="contents-list">
           <UdaContentItemRenderer
             v-for="(content, index) in uda.contents"
@@ -56,9 +60,9 @@
             :is-last="index === uda.contents.length - 1"
             @edit="handleEditContent"
             @delete="handleDeleteContent"
-            @move="handleMoveContent"
             @update:teacher-marked-completed="handleTeacherMarkedCompletedUpdate"
             @update:activity-completed="handleActivityCompletedUpdate"
+            @move="handleMoveContent"
           />
           <!-- 
             Event handlers (handleEditContent, etc.) and their logic need to be implemented
@@ -128,10 +132,9 @@ const handleDeleteContent = (contentId: number | string) => {
   alert(`Elimina contenuto (ID: ${contentId}) - Implementare logica e conferma`);
 };
 
-const handleMoveContent = (contentItem: UDAContent, direction: number) => {
-  console.log('Move content:', contentItem, 'direction:', direction);
-  alert(`Sposta contenuto (ID: ${contentItem.id || contentItem.temp_id}, Direzione: ${direction}) - Implementare logica`);
-};
+// Rimossa importazione 'ref' non più necessaria qui
+// Rimossa la funzione handleMoveContent dalla vista dettaglio
+// L'ordinamento verrà gestito nella vista di modifica (UdaFormView.vue)
 
 const handleTeacherMarkedCompletedUpdate = (payload: { contentId: number, completed: boolean }) => {
   console.log('Teacher marked completed update:', payload);
@@ -139,6 +142,59 @@ const handleTeacherMarkedCompletedUpdate = (payload: { contentId: number, comple
 
 const handleActivityCompletedUpdate = (payload: { contentId: number, completed: boolean }) => {
   console.log('Activity completed update:', payload);
+};
+
+const handleMoveContent = async (contentToMove: UDAContent, direction: number) => {
+  if (!uda.value || !uda.value.contents || !uda.value.id) {
+    console.error("UDA o contenuti non disponibili per lo spostamento.");
+    return;
+  }
+
+  const currentIndex = uda.value.contents.findIndex(c => (c.id || c.temp_id) === (contentToMove.id || contentToMove.temp_id));
+  if (currentIndex === -1) {
+    console.error("Contenuto da spostare non trovato nell'array.");
+    return;
+  }
+
+  const newIndex = currentIndex + direction;
+
+  // Verifica se il nuovo indice è valido
+  if (newIndex < 0 || newIndex >= uda.value.contents.length) {
+    console.warn("Spostamento non valido (fuori dai limiti).");
+    return;
+  }
+
+  // Crea una copia dell'array dei contenuti
+  const newContentsOrder = [...uda.value.contents];
+
+  // Rimuovi l'elemento dalla posizione corrente
+  const [movedItem] = newContentsOrder.splice(currentIndex, 1);
+
+  // Inserisci l'elemento nella nuova posizione
+  newContentsOrder.splice(newIndex, 0, movedItem);
+
+  // Estrai gli ID nel nuovo ordine (assicurati che tutti abbiano un ID valido)
+  const orderedContentIds = newContentsOrder.map(c => c.id).filter((id): id is number => id !== undefined && id !== null);
+
+  // Verifica se tutti i contenuti hanno un ID valido prima di chiamare l'API
+  if (orderedContentIds.length !== newContentsOrder.length) {
+      console.error("Errore: alcuni contenuti mancano di ID validi. Impossibile riordinare.");
+      // Potresti mostrare un messaggio all'utente qui
+      return;
+  }
+
+
+  try {
+    // Chiama l'azione dello store per aggiornare il backend
+    await udaStore.reorderUdaContents(uda.value.id, orderedContentIds);
+    // Lo store aggiornerà automaticamente this.currentUda.contents,
+    // quindi la UI si aggiornerà reattivamente.
+    console.log('Contenuti riordinati con successo.');
+  } catch (error) {
+    console.error("Errore durante il riordino dei contenuti:", error);
+    // Potrebbe essere utile mostrare un messaggio di errore all'utente
+    // e potenzialmente ripristinare l'ordine visivo precedente se necessario.
+  }
 };
 </script>
 
@@ -175,12 +231,10 @@ const handleActivityCompletedUpdate = (payload: { contentId: number, completed: 
   margin-bottom: 20px;
 }
 
-.header-actions h1 {
-  margin: 0;
-  color: #333;
-}
+/* Rimosse regole CSS scoped che confliggono con Tailwind */
+/* .header-actions h1 { ... } */
 
-.btn {
+.btn { /* Mantenuto se usato altrove, ma il bottone Modifica ora usa classi Tailwind */
   padding: 8px 15px;
   border-radius: 4px;
   text-decoration: none;

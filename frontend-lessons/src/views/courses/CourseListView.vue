@@ -28,39 +28,62 @@
       </p>
     </div>
 
-    <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      <div
-        v-for="course in courses"
-        :key="course.id"
-        class="bg-white shadow-lg rounded-lg overflow-hidden hover:shadow-xl transition-shadow duration-300 ease-in-out"
-      >
-        <div class="p-6">
-          <h2 class="text-xl font-semibold text-gray-800 mb-2">{{ course.name }}</h2>
-          <p class="text-gray-600 text-sm mb-4 h-20 overflow-y-auto">
-            {{ course.description || 'Nessuna descrizione fornita.' }}
-          </p>
-          <div class="flex justify-end space-x-3">
-            <RouterLink
-              :to="{ name: 'course-detail', params: { id: course.id } }"
-              class="text-sm text-indigo-600 hover:text-indigo-800 font-medium transition-colors"
-            >
-              Dettagli
-            </RouterLink>
-            <RouterLink
-              :to="{ name: 'course-edit', params: { id: course.id } }"
-              class="text-sm text-green-600 hover:text-green-800 font-medium transition-colors"
-            >
-              Modifica
-            </RouterLink>
-            <button
-              @click="handleDeleteCourse(course.id)"
-              class="text-sm text-red-600 hover:text-red-800 font-medium transition-colors"
-            >
-              Elimina
-            </button>
-          </div>
-        </div>
-      </div>
+    <div v-else class="shadow-lg overflow-hidden border-b border-gray-200 sm:rounded-lg">
+      <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+          <tr>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Nome
+            </th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Descrizione
+            </th>
+            <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Azioni
+            </th>
+          </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-gray-200">
+          <tr v-for="course in courses" :key="course.id" class="hover:bg-gray-50 transition-colors duration-150">
+            <td class="px-6 py-4 whitespace-nowrap">
+              <div class="text-sm font-medium text-indigo-700 hover:text-indigo-900">
+                <RouterLink :to="{ name: 'course-detail', params: { id: course.id } }">
+                  {{ course.name }}
+                </RouterLink>
+              </div>
+            </td>
+            <td class="px-6 py-4 text-sm text-gray-500">
+              <span :title="course.description" v-if="course.description && course.description.length > 30">
+                {{ course.description.substring(0, 30) + '...' }}
+              </span>
+              <span v-else>{{ course.description || 'Nessuna descrizione fornita.' }}</span>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
+              <RouterLink
+                :to="{ name: 'course-detail', params: { id: course.id } }"
+                class="text-blue-600 hover:text-blue-900 transition duration-150 ease-in-out"
+                title="Vedi Dettagli"
+              >
+                Dettagli
+              </RouterLink>
+              <RouterLink
+                :to="{ name: 'course-edit', params: { id: course.id } }"
+                class="text-yellow-600 hover:text-yellow-900 transition duration-150 ease-in-out"
+                title="Modifica Corso"
+              >
+                Modifica
+              </RouterLink>
+              <button
+                @click="handleDeleteCourse(course.id)"
+                class="text-red-600 hover:text-red-900 transition duration-150 ease-in-out"
+                title="Elimina Corso"
+              >
+                Elimina
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </div>
   </div>
 </template>

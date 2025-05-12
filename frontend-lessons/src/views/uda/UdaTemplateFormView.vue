@@ -17,54 +17,60 @@
     </div>
 
     <form v-else @submit.prevent="handleSubmit" class="space-y-6 bg-white shadow-lg rounded-lg p-6">
-      <div>
-        <label for="templateName" class="block text-sm font-medium text-gray-700 mb-1">Nome Template</label>
-        <input type="text" id="templateName" v-model="formData.name" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2">
-      </div>
+      <!-- Sezione Dati Principali del Template -->
+      <div class="bg-gray-50 border border-gray-300 rounded-lg p-6 space-y-6 shadow-sm">
+        <h2 class="text-xl font-semibold text-gray-700 mb-4">Dati Principali del Template</h2>
+        <div>
+          <label for="templateName" class="block text-sm font-medium text-gray-700 mb-1">Nome Template</label>
+          <input type="text" id="templateName" v-model="formData.name" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2">
+        </div>
 
-      <div>
-        <label for="templateDescription" class="block text-sm font-medium text-gray-700 mb-1">Descrizione</label>
-        <textarea id="templateDescription" v-model="formData.description" rows="4" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2"></textarea>
-      </div>
+        <div>
+          <label for="templateDescription" class="block text-sm font-medium text-gray-700 mb-1">Descrizione</label>
+          <textarea id="templateDescription" v-model="formData.description" rows="4" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2"></textarea>
+        </div>
 
-      <div>
-        <label for="subject" class="block text-sm font-medium text-gray-700 mb-1">Materia (Opzionale)</label>
-        <select id="subject" v-model="formData.subject" @change="handleSubjectChange" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2">
-          <option :value="null">Nessuna materia selezionata</option>
-          <option v-for="subject in availableSubjects" :key="subject.id" :value="subject.id">
-            {{ subject.name }}
-          </option>
-        </select>
-      </div>
+        <div>
+          <label for="subject" class="block text-sm font-medium text-gray-700 mb-1">Materia (Opzionale)</label>
+          <select id="subject" v-model="formData.subject" @change="handleSubjectChange" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2">
+            <option :value="null">Nessuna materia selezionata</option>
+            <option v-for="subject_item in availableSubjects" :key="subject_item.id" :value="subject_item.id">
+              {{ subject_item.name }}
+            </option>
+          </select>
+        </div>
 
-      <div v-if="formData.subject">
-        <label for="topics" class="block text-sm font-medium text-gray-700 mb-1">Argomenti (Opzionale)</label>
-        <div v-if="topicStore.loading" class="text-sm text-gray-500">Caricamento argomenti...</div>
-        <div v-else-if="availableTopicsForSelectedSubject.length === 0" class="text-sm text-gray-500">Nessun argomento disponibile per la materia selezionata.</div>
-        <div v-else class="max-h-40 overflow-y-auto border border-gray-300 rounded-md p-2 space-y-1">
-          <div v-for="topic in availableTopicsForSelectedSubject" :key="topic.id" class="flex items-center">
-            <input type="checkbox" :id="`topic-${topic.id}`" :value="topic.id" v-model="selectedTopicIds" class="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
-            <label :for="`topic-${topic.id}`" class="ml-2 block text-sm text-gray-900">{{ topic.name }}</label>
+        <div v-if="formData.subject">
+          <label for="topics" class="block text-sm font-medium text-gray-700 mb-1">Argomenti (Opzionale)</label>
+          <div v-if="topicStore.loading" class="text-sm text-gray-500">Caricamento argomenti...</div>
+          <div v-else-if="availableTopicsForSelectedSubject.length === 0" class="text-sm text-gray-500">Nessun argomento disponibile per la materia selezionata.</div>
+          <div v-else class="max-h-40 overflow-y-auto border border-gray-300 rounded-md p-2 space-y-1 bg-white">
+            <div v-for="topic_item in availableTopicsForSelectedSubject" :key="topic_item.id" class="flex items-center cursor-pointer px-2">
+              <input type="checkbox" :id="`topic-${topic_item.id}`" :value="topic_item.id" v-model="selectedTopicIds" class="h-5 w-5 text-indigo-600 border-gray-400 rounded focus:ring-indigo-500 focus:ring-2 focus:ring-offset-0 cursor-pointer">
+              <label :for="`topic-${topic_item.id}`" class="ml-3 block text-sm text-gray-900 select-none cursor-pointer">{{ topic_item.name }}</label>
+            </div>
           </div>
         </div>
       </div>
       
-      <hr class="my-6">
-      <h2 class="text-xl font-semibold text-gray-700 mb-3">Contenuti del Template</h2>
-      <UdaContentEditor
-        v-model="formData.contents"
-        context="template"
-        :uda-id="undefined"
-      />
+      <!-- Sezione Contenuti del Template -->
+      <div class="bg-gray-50 border border-gray-300 rounded-lg p-6 shadow-sm">
+        <h2 class="text-2xl font-semibold text-gray-700 mb-4">Contenuti del Template</h2>
+        <UdaContentEditor
+          v-model="formData.contents"
+          context="template"
+          :uda-id="undefined"
+        />
+      </div>
 
       <div class="flex justify-end space-x-3 pt-4">
-        <RouterLink :to="{ name: 'uda-template-list' }" class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium py-2 px-4 rounded-md shadow-sm">
+        <RouterLink :to="{ name: 'uda-template-list' }" class="border border-gray-300 hover:bg-gray-100 text-gray-700 font-medium py-2 px-4 rounded-md shadow-sm">
           Annulla
         </RouterLink>
         <button
           type="submit"
           :disabled="isSubmitting"
-          class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-md shadow-sm disabled:opacity-50"
+          class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-md shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <span v-if="isSubmitting">Salvataggio...</span>
           <span v-else>{{ submitButtonText }}</span>
@@ -84,8 +90,8 @@ import { useTopicStore } from '@/stores/topicStore';
 import { useUiStore } from '@/stores/ui';
 import UdaContentEditor from '@/components/uda/UdaContentEditor.vue';
 import type { UDATemplate, UDATemplateContent } from '@/types/uda';
-import type { Subject } from '@/types/subject';
-import type { Topic } from '@/types/topic';
+import type { Subject as SubjectType } from '@/types/subject'; // Rinominato per evitare conflitto con variabile 'subject'
+import type { Topic as TopicType } from '@/types/topic'; // Rinominato per evitare conflitto
 
 interface TemplateFormData {
   name: string;
@@ -134,10 +140,10 @@ const formData = ref<TemplateFormData>({
 // Per la checkbox list degli argomenti
 const selectedTopicIds = ref<number[]>([]);
 
-const availableSubjects = computed(() => subjectStore.subjects);
+const availableSubjects = computed(() => subjectStore.subjects as SubjectType[]); // Cast a SubjectType[]
 const availableTopicsForSelectedSubject = computed(() => {
   if (formData.value.subject) {
-    return topicStore.getTopicsForSubject(formData.value.subject);
+    return topicStore.getTopicsForSubject(formData.value.subject) as TopicType[]; // Cast a TopicType[]
   }
   return [];
 });

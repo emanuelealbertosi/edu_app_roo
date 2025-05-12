@@ -164,5 +164,9 @@ export const udaService = {
     return response.data;
   },
 
+async reorderUdaContents(udaId: number, contentIds: number[]): Promise<UDAContent[]> {
+    const response = await apiClient.post(`${UDA_BASE_URL}/${udaId}/contents/reorder/`, { content_ids: contentIds });
+    return response.data; // L'API restituisce i contenuti riordinati
+  },
   // La funzione uploadActivityAttachment è stata integrata in updateUdaContent
 };

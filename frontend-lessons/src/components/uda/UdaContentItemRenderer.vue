@@ -1,30 +1,40 @@
 <template>
-  <div class="uda-content-item-renderer card mb-3">
-    <div class="card-body">
-      <div class="d-flex justify-content-between align-items-start">
+  <div class="bg-white shadow rounded-lg mb-4 border border-gray-200">
+    <div class="p-4">
+      <div class="flex justify-between items-start mb-3">
         <div>
-          <h6 class="card-title mb-1">{{ contentTitle }}</h6>
-          <small class="text-muted">Tipo: {{ मानविकीकरणContentType(content.content_type) }} | Ordine: {{ content.order }}</small>
+          <h6 class="text-lg font-semibold text-neutral-darkest bg-neutral-light p-2 rounded-md mb-1">{{ contentTitle }}</h6>
+          <small class="text-gray-500 text-xs">Tipo: {{ मानविकीकरणContentType(content.content_type) }} | Ordine: {{ content.order }}</small>
         </div>
-        <div class="form-check form-switch" v-if="isUDAContext && content.content_type !== 'ACTIVITY_TEMPLATE' && content.content_type !== 'NOTE_TEMPLATE'">
-          <input 
-            class="form-check-input" 
-            type="checkbox" 
-            role="switch"
-            :id="`teacherMarkedCompleted-${content.id || content.temp_id}`"
-            :checked="isTeacherMarkedCompleted"
-            @change="toggleTeacherMarkedCompleted"
+        <!-- Switch Personalizzato con Tailwind -->
+        <div v-if="isUDAContext && content.content_type !== 'ACTIVITY_TEMPLATE' && content.content_type !== 'NOTE_TEMPLATE'" class="flex items-center space-x-2">
+           <label :for="`teacherMarkedCompleted-${content.id || content.temp_id}`" class="text-sm text-gray-600 select-none">Completato Docente:</label>
+          <button
+            type="button"
+            @click="toggleTeacherMarkedCompleted"
             :disabled="isLoadingCompletion"
+            :class="[
+              isTeacherMarkedCompleted ? 'bg-indigo-600' : 'bg-gray-200',
+              'relative inline-flex flex-shrink-0 h-6 w-11 border-2 border-transparent rounded-full cursor-pointer transition-colors ease-in-out duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed'
+            ]"
+            role="switch"
+            :aria-checked="isTeacherMarkedCompleted"
           >
-          <label class="form-check-label" :for="`teacherMarkedCompleted-${content.id || content.temp_id}`">
-            Completato dal Docente
-          </label>
+            <span class="sr-only">Completato dal Docente</span>
+            <span
+              aria-hidden="true"
+              :class="[
+                isTeacherMarkedCompleted ? 'translate-x-5' : 'translate-x-0',
+                'pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transform ring-0 transition ease-in-out duration-200'
+              ]"
+            ></span>
+          </button>
         </div>
       </div>
-      <hr />
+      <hr class="my-3 border-gray-200" />
 
       <!-- Visualizzazione specifica per tipo di contenuto -->
-      <div v-if="content.content_type === UDAContentType.LESSON || content.content_type === UDATemplateContentType.LESSON">
+      <div class="mt-3" v-if="content.content_type === UDAContentType.LESSON || content.content_type === UDATemplateContentType.LESSON">
         <LessonContentDisplay :content="content as LessonUDAContent" />
       </div>
       <div v-else-if="content.content_type === UDAContentType.QUIZ || content.content_type === UDATemplateContentType.QUIZ_TEMPLATE">
@@ -48,19 +58,39 @@
       </div>
 
       <!-- Azioni sull'item (Modifica, Elimina, Sposta) -->
-      <div class="mt-3 pt-2 border-top">
-        <button class="btn btn-sm btn-outline-primary me-2" @click="$emit('edit', content)" :disabled="isLoadingCompletion || isLoadingActivityCompletion">
-          <i class="bi bi-pencil"></i> Modifica
+      <div class="mt-4 pt-3 border-t border-gray-200 flex space-x-2">
+        <!-- TODO: Sostituire con icone Heroicons -->
+        <button type="button"
+                class="text-sm border border-indigo-500 text-indigo-500 hover:bg-indigo-50 font-medium py-1 px-3 rounded-md shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                @click="$emit('edit', content)"
+                :disabled="isLoadingCompletion || isLoadingActivityCompletion">
+          Modifica
         </button>
-        <button class="btn btn-sm btn-outline-danger me-2" @click="$emit('delete', content.temp_id || content.id)" :disabled="isLoadingCompletion || isLoadingActivityCompletion">
-          <i class="bi bi-trash"></i> Elimina
+        <button type="button"
+                class="text-sm border border-red-500 text-red-500 hover:bg-red-50 font-medium py-1 px-3 rounded-md shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                @click="$emit('delete', content.temp_id || content.id)"
+                :disabled="isLoadingCompletion || isLoadingActivityCompletion">
+          Elimina
         </button>
-        <button class="btn btn-sm btn-outline-secondary me-1" @click="$emit('move', content, -1)" :disabled="isFirst || isLoadingCompletion || isLoadingActivityCompletion">
-          <i class="bi bi-arrow-up"></i>
-        </button>
-        <button class="btn btn-sm btn-outline-secondary" @click="$emit('move', content, 1)" :disabled="isLast || isLoadingCompletion || isLoadingActivityCompletion">
-          <i class="bi bi-arrow-down"></i>
-        </button>
+        <!-- Mostra i bottoni di spostamento solo se siamo nel contesto 'uda' -->
+        <template v-if="context === 'uda'">
+          <button type="button"
+                  class="text-sm border border-gray-300 text-gray-600 hover:bg-gray-100 font-medium py-1 px-3 rounded-md shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  @click="$emit('move', content, -1)"
+                  :disabled="isFirst || isLoadingCompletion || isLoadingActivityCompletion">
+            <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+              <path fill-rule="evenodd" d="M3.293 9.707a1 1 0 011.414 0L10 5.414l5.293 4.293a1 1 0 011.414-1.414l-6-4.879a1 1 0 01-1.414 0l-6 4.879a1 1 0 010 1.414z" clip-rule="evenodd" />
+            </svg>
+          </button>
+          <button type="button"
+                  class="text-sm border border-gray-300 text-gray-600 hover:bg-gray-100 font-medium py-1 px-3 rounded-md shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  @click="$emit('move', content, 1)"
+                  :disabled="isLast || isLoadingCompletion || isLoadingActivityCompletion">
+            <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+              <path fill-rule="evenodd" d="M16.707 10.293a1 1 0 01-1.414 0L10 14.586l-5.293-4.293a1 1 0 01-1.414 1.414l6 4.879a1 1 0 011.414 0l6-4.879a1 1 0 010-1.414z" clip-rule="evenodd" />
+            </svg>
+          </button>
+        </template>
       </div>
     </div>
   </div>
@@ -200,14 +230,9 @@ const handleActivityCompletedUpdate = async (completed: boolean) => {
 </script>
 
 <style scoped>
-.uda-content-item-renderer {
-  border: 1px solid #dee2e6;
-  border-radius: .375rem;
-}
-.card-title {
-  font-size: 1.1rem;
-}
-.form-check-input {
-  cursor: pointer;
+/* Gli stili principali sono ora gestiti da classi Tailwind. */
+/* Eventuali stili specifici aggiuntivi possono rimanere qui. */
+.form-check-input { /* Mantenuto per lo switch se necessario, ma lo switch Tailwind è self-contained */
+  /* cursor: pointer; */ /* Già gestito da Tailwind sullo switch button */
 }
 </style>

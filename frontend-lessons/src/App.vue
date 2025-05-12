@@ -359,6 +359,8 @@ const handleLogout = () => {
                          <a @click="goToSubjects" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer">Materia</a>
                          <a @click="goToTopics" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer">Argomento</a>
                          <a @click="goToTeacherLessons" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer">Lezione</a>
+                         <RouterLink :to="{ name: 'course-new' }" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer">Corso</RouterLink>
+                         <RouterLink :to="{ name: 'uda-template-new' }" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer">Template UDA</RouterLink>
                      </div>
                  </div>
 

@@ -48,53 +48,110 @@
       <p class="text-gray-500 mt-2" v-if="selectedStatus === '' && selectedCourseId === null">Crea la tua prima UDA per iniziare.</p>
     </div>
 
-    <div v-else class="space-y-4">
-      <div
-        v-for="uda in filteredUdas"
-        :key="uda.id"
-        class="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-lg transition-shadow duration-200 p-5"
-      >
-        <div class="flex justify-between items-start">
-          <div>
-            <h2 class="text-xl font-semibold text-indigo-700 mb-1">
-              <RouterLink :to="{ name: 'uda-detail', params: { id: uda.id } }" class="hover:underline">
+    <!-- Tabella UDA -->
+    <div v-else class="shadow-lg overflow-hidden border-b border-gray-200 sm:rounded-lg">
+      <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+          <tr>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Titolo
+            </th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Descrizione
+            </th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Stato
+            </th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Corso
+            </th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Creato da (Corso)
+            </th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Argomenti
+            </th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Materie
+            </th>
+            <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Contenuti
+            </th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Date (Inizio/Fine)
+            </th>
+            <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Azioni
+            </th>
+          </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-gray-200">
+          <tr v-for="uda in filteredUdas" :key="uda.id" class="hover:bg-gray-50 transition-colors duration-150">
+            <td class="px-6 py-4 whitespace-nowrap">
+              <RouterLink :to="{ name: 'uda-detail', params: { id: uda.id } }" class="text-sm font-medium text-indigo-700 hover:text-indigo-900">
                 {{ uda.title }}
               </RouterLink>
-            </h2>
-            <p class="text-gray-600 text-sm mb-2 h-16 overflow-y-auto custom-scrollbar">{{ uda.description || 'Nessuna descrizione.' }}</p>
-            <div class="text-xs text-gray-500 space-y-0.5">
-              <p>Stato: <span class="font-medium px-1.5 py-0.5 rounded-full" :class="getStatusClass(uda.status)">{{ uda.status }}</span></p>
-              <p v-if="getCourseName(uda.course)">Corso: <span class="font-medium text-gray-700">{{ getCourseName(uda.course) }}</span></p>
-              <p v-if="uda.subject_details">Materia: <span class="font-medium text-gray-700">{{ uda.subject_details.name }}</span></p>
-              <p>Contenuti: {{ uda.contents?.length || 0 }}</p>
-              <p>Dal: {{ formatDate(uda.start_date) }} Al: {{ formatDate(uda.end_date) }}</p>
-            </div>
-          </div>
-          <div class="flex flex-col space-y-2 flex-shrink-0 ml-4">
-            <RouterLink
-              :to="{ name: 'uda-detail', params: { id: uda.id } }"
-              class="text-sm bg-blue-500 hover:bg-blue-600 text-white font-medium py-1.5 px-3 rounded-md shadow-sm transition duration-150 ease-in-out flex items-center justify-center"
-              title="Vedi Dettagli"
-            >
-              <EyeIcon class="h-4 w-4 mr-1" /> Vedi
-            </RouterLink>
-            <RouterLink
-              :to="{ name: 'uda-edit', params: { id: uda.id } }"
-              class="text-sm bg-yellow-500 hover:bg-yellow-600 text-white font-medium py-1.5 px-3 rounded-md shadow-sm transition duration-150 ease-in-out flex items-center justify-center"
-              title="Modifica UDA"
-            >
-              <PencilIcon class="h-4 w-4 mr-1" /> Modifica
-            </RouterLink>
-            <button
-              @click="confirmDeleteSingleUda(uda.id, uda.title)"
-              class="text-sm bg-red-500 hover:bg-red-600 text-white font-medium py-1.5 px-3 rounded-md shadow-sm transition duration-150 ease-in-out flex items-center justify-center"
-              title="Elimina UDA"
-            >
-              <TrashIcon class="h-4 w-4 mr-1" /> Elimina
-            </button>
-          </div>
-        </div>
-      </div>
+            </td>
+            <td class="px-6 py-4 text-sm text-gray-500">
+              <span :title="uda.description" v-if="uda.description && uda.description.length > 20">
+                {{ uda.description.substring(0, 20) + '...' }}
+              </span>
+              <span v-else>{{ uda.description || 'Nessuna descrizione.' }}</span>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">
+              <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full" :class="getStatusClass(uda.status)">
+                {{ uda.status }}
+              </span>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+              <!-- Mostra il nome del corso pulito -->
+              {{ uda.course_name || '-' }}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+              <!-- Mostra l'autore del corso -->
+              {{ uda.course_teacher_username || '-' }}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+              <!-- Mostra i nomi degli argomenti -->
+              {{ uda.topics_display?.join(', ') || '-' }}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+              <!-- Mostra il nome della prima materia, o '-' -->
+              {{ uda.subjects_display?.[0] || '-' }}
+              <!-- Potremmo aggiungere un tooltip o indicatore se ci sono più materie -->
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 text-center">
+              {{ uda.contents?.length || 0 }}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+              {{ formatDate(uda.start_date) }} / {{ formatDate(uda.end_date) }}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
+              <RouterLink
+                :to="{ name: 'uda-detail', params: { id: uda.id } }"
+                class="text-blue-600 hover:text-blue-900 transition duration-150 ease-in-out"
+                title="Vedi Dettagli"
+              >
+                <EyeIcon class="h-5 w-5 inline-block" />
+              </RouterLink>
+              <RouterLink
+                :to="{ name: 'uda-edit', params: { id: uda.id } }"
+                class="text-yellow-600 hover:text-yellow-900 transition duration-150 ease-in-out"
+                title="Modifica UDA"
+              >
+                <PencilIcon class="h-5 w-5 inline-block" />
+              </RouterLink>
+              <button
+                @click="confirmDeleteSingleUda(uda.id, uda.title)"
+                class="text-red-600 hover:text-red-900 transition duration-150 ease-in-out"
+                title="Elimina UDA"
+              >
+                <TrashIcon class="h-5 w-5 inline-block" />
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </div>
   </div>
 </template>
@@ -121,11 +178,14 @@ const selectedCourseId = ref<number | null>(null);
 // Arricchisce le UDA con dettagli (es. nome corso, nome materia)
 const enrichedUdas = computed(() => {
   return udaStore.udas.map(uda => {
-    const course = uda.course ? courseStore.getCourseById(uda.course) : null;
-    const subject = uda.subject ? subjectStore.getSubjectById(uda.subject) : null;
+    // Accedi direttamente a courseStore.courses per migliorare il tracciamento della reattività
+    const course = uda.course ? courseStore.courses.find(c => c.id === uda.course) : null;
+    // Prendi la prima materia dall'array subjects, se esiste
+    const firstSubjectId = uda.subjects && uda.subjects.length > 0 ? uda.subjects[0] : null;
+    const subject = firstSubjectId ? subjectStore.getSubjectById(firstSubjectId) : null;
     return {
+      ...uda, // Copia tutte le proprietà esistenti di uda
       ...uda,
-      course_name: course?.name,
       subject_details: subject,
     };
   });
@@ -133,9 +193,18 @@ const enrichedUdas = computed(() => {
 
 // Filtra le UDA in base ai filtri selezionati
 const filteredUdas = computed(() => {
+  // Aggiungi dipendenza esplicita e log per debug
+  const courses = courseStore.courses;
+  console.log(`[UdaListView] Ricalcolo filteredUdas. Numero corsi nello store: ${courses.length}`);
+
   return enrichedUdas.value.filter(uda => {
     const statusMatch = selectedStatus.value ? uda.status === selectedStatus.value : true;
-    const courseMatch = selectedCourseId.value !== null ? uda.course === selectedCourseId.value : true;
+    // Confronto tra ID numerici (selectedCourseId.value e uda.course)
+    const courseIdFilter = selectedCourseId.value;
+    const udaCourseId = uda.course;
+    const courseMatch = courseIdFilter !== null ? udaCourseId === courseIdFilter : true;
+    // Log per debug
+    console.log(`Filtering UDA ${uda.id}: courseIdFilter=${courseIdFilter}(${typeof courseIdFilter}), udaCourseId=${udaCourseId}(${typeof udaCourseId}), match=${courseMatch}`);
     return statusMatch && courseMatch;
   });
 });

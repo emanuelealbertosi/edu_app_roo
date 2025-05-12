@@ -1,8 +1,9 @@
 <template>
   <div class="uda-content-editor">
-    <h5>Contenuti dell'UDA</h5>
-    <div class="content-list mb-3">
-      <div v-if="!localContents || localContents.length === 0" class="empty-state p-3 text-center text-muted border rounded">
+    <!-- Il titolo è già presente nel componente genitore (UdaFormView/UdaTemplateFormView) -->
+    <!-- <h3 class="text-xl font-semibold text-gray-700 mb-4">Contenuti</h3> -->
+    <div class="content-list mb-6">
+      <div v-if="!localContents || localContents.length === 0" class="empty-state p-6 text-center text-gray-500 border border-dashed border-gray-300 rounded-lg bg-gray-50">
         Nessun contenuto aggiunto. Clicca sui bottoni qui sotto per aggiungere contenuti.
       </div>
       <div v-else>
@@ -24,16 +25,26 @@
       </div>
     </div>
 
-    <div class="actions">
-      <button type="button" class="btn btn-sm btn-primary me-2" @click.stop="openAddExistingContentModal">
-        <i class="bi bi-journal-plus"></i> Aggiungi Lezione/Quiz Esistente
-      </button>
-      <button type="button" class="btn btn-sm btn-info me-2" @click.stop="openAddNoteModal">
-        <i class="bi bi-file-earmark-text"></i> Aggiungi Nota
-      </button>
-      <button type="button" class="btn btn-sm btn-info" @click.stop="openAddActivityModal">
-        <i class="bi bi-clipboard-check"></i> Aggiungi Attività
-      </button>
+    <div class="actions p-4 border-t border-gray-200 mt-6">
+       <h4 class="text-md font-semibold text-gray-600 mb-3">Aggiungi Nuovo Elemento Didattico</h4>
+       <div class="flex flex-wrap gap-2">
+          <!-- TODO: Aggiungere icone Heroicons -->
+          <button type="button"
+                  class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-md shadow-sm text-sm"
+                  @click.stop="openAddExistingContentModal">
+            Aggiungi Lezione/Quiz Esistente
+          </button>
+          <button type="button"
+                  class="border border-gray-300 hover:bg-gray-100 text-gray-700 font-medium py-2 px-4 rounded-md shadow-sm text-sm"
+                  @click.stop="openAddNoteModal">
+            Aggiungi Nota
+          </button>
+          <button type="button"
+                  class="border border-gray-300 hover:bg-gray-100 text-gray-700 font-medium py-2 px-4 rounded-md shadow-sm text-sm"
+                  @click.stop="openAddActivityModal">
+            Aggiungi Attività
+          </button>
+       </div>
     </div>
 
     <!-- Modale per selezionare Lezioni/Quiz esistenti -->
@@ -74,9 +85,10 @@ import UdaContentItemRenderer from './UdaContentItemRenderer.vue';
 import {
   type UDAContent, type UDATemplateContent,
   UDAContentType, UDATemplateContentType,
-  type LessonUDAContent, type QuizTemplateUDAContent, type NoteUDAContent, type ActivityUDAContent, // Modificato QuizUDAContent
+  type LessonUDAContent, type NoteUDAContent, type ActivityUDAContent, // Rimosso QuizTemplateUDAContent, QuizUDAContent è già in UDAContent
   type NoteTemplateUDAContent, type ActivityTemplateUDAContent,
-  type SelectedContentItem
+  type SelectedContentItem,
+  type QuizUDAContent // Importato esplicitamente se serve per cast specifici, anche se già in UDAContent
 } from '@/types/uda';
 // import type { Lesson } from '@/types/lezioni'; // Già importato in SelectExistingContentModal se serve lì
 // import type { Quiz } from '@/types/quiz'; // Già importato in SelectExistingContentModal se serve lì
@@ -126,6 +138,7 @@ const showEditNoteModal = ref(false);
 const editingNoteContent = ref<NoteUDAContent | NoteTemplateUDAContent | null>(null);
 const showEditActivityModal = ref(false); // Per la modale di modifica/aggiunta attività
 const editingActivityContent = ref<ActivityUDAContent | ActivityTemplateUDAContent | null>(null); // Contenuto attività in modifica/creazione
+const editingLessonOrQuizContentId = ref<string | number | null>(null); // Per tracciare l'item Lezione/Quiz da sostituire
 
 // AGGIUNGI QUESTO WATCHER
 watch(showSelectExistingContentModal, (newValue, oldValue) => { // Modificato per tracciamento più dettagliato
@@ -168,6 +181,7 @@ const closeSelectExistingContentModal = () => {
   // console.log('[UdaContentEditor] FN closeSelectExistingContentModal: Inizio esecuzione.');
   // console.log('[UdaContentEditor] FN closeSelectExistingContentModal: Valore di showSelectExistingContentModal PRIMA: ', showSelectExistingContentModal.value);
   showSelectExistingContentModal.value = false;
+  editingLessonOrQuizContentId.value = null; // Resetta l'ID di modifica quando la modale si chiude
   // console.log('[UdaContentEditor] FN closeSelectExistingContentModal: Valore di showSelectExistingContentModal DOPO: ', showSelectExistingContentModal.value);
 };
 
@@ -180,32 +194,99 @@ const recalculateOrder = () => {
 };
 
 const handleExistingContentSelected = async (selectedItems: SelectedContentItem[]) => {
-  // console.log('[UdaContentEditor] FN handleExistingContentSelected: Inizio esecuzione. Elementi selezionati:', selectedItems);
-  for (const item of selectedItems) {
-    // Aggiorna il tipo per includere QuizTemplateUDAContent
-    let newContentItem: Partial<LessonUDAContent | QuizTemplateUDAContent> = {
-      temp_id: generateTempId(),
-      content_type: item.type, // item.type sarà UDAContentType.LESSON o UDAContentType.QUIZ_TEMPLATE
-      order: 0 // Verrà ricalcolato
-    };
+  if (editingLessonOrQuizContentId.value) {
+    // Siamo in modalità MODIFICA
+    if (selectedItems.length === 1) {
+      const newItemData = selectedItems[0]; // newItemData.type può essere UDAContentType.LESSON o UDAContentType.QUIZ (da SelectedContentItem)
+      const indexToReplace = localContents.value.findIndex(
+        content => (content.temp_id === editingLessonOrQuizContentId.value) || (content.id === editingLessonOrQuizContentId.value)
+      );
 
-    if (item.type === UDAContentType.LESSON) {
-      if (item.id === undefined) {
-        console.error("Nessun ID lezione specificato per questo contenuto.", item);
-        continue; // Salta questo item se l'ID non è valido
+      if (indexToReplace > -1) {
+        const originalContent = localContents.value[indexToReplace];
+        
+        const updatedContentBase: Partial<ContentItem> & { order: number; id?: number | string; temp_id?: string } = {
+          id: originalContent.id,
+          temp_id: originalContent.temp_id,
+          order: originalContent.order,
+          // newItemData.type è già corretto per UDAContent (LESSON o QUIZ)
+                          // o per UDATemplateContent (LESSON o QUIZ_TEMPLATE) a seconda di come SelectExistingContentModal emette
+                          // Ma SelectedContentItem emette UDAContentType.QUIZ per i quiz.
+          content_type: newItemData.type,
+        };
+        
+        if (newItemData.type === UDAContentType.LESSON) {
+          (updatedContentBase as LessonUDAContent).lesson = newItemData.id;
+          (updatedContentBase as LessonUDAContent).lesson_title = newItemData.title;
+        } else if (newItemData.type === UDAContentType.QUIZ) { // item.type da SelectedContentItem è UDAContentType.QUIZ
+          // newItemData.id è l'ID del QuizTemplate
+          if (props.context === 'uda') {
+            updatedContentBase.content_type = UDAContentType.QUIZ; // Conferma tipo per UDAContent
+            (updatedContentBase as QuizUDAContent).quiz_template = newItemData.id;
+            (updatedContentBase as QuizUDAContent).quiz_title = newItemData.title;
+          } else { // template context
+            // Se stiamo modificando un template UDA, il tipo deve essere QUIZ_TEMPLATE
+            updatedContentBase.content_type = UDATemplateContentType.QUIZ_TEMPLATE;
+            (updatedContentBase as QuizUDAContent).quiz_template = newItemData.id; // QuizUDAContent gestisce quiz_template
+            (updatedContentBase as QuizUDAContent).quiz_title = newItemData.title;
+          }
+        }
+
+        if (props.context === 'uda' && 'teacher_marked_completed' in originalContent) {
+          (updatedContentBase as UDAContent).teacher_marked_completed = (originalContent as UDAContent).teacher_marked_completed;
+          if (originalContent.content_type === UDAContentType.ACTIVITY && updatedContentBase.content_type === UDAContentType.ACTIVITY) {
+            (updatedContentBase as ActivityUDAContent).activity_completed = (originalContent as ActivityUDAContent).activity_completed;
+          }
+        }
+        localContents.value.splice(indexToReplace, 1, updatedContentBase as ContentItem);
       }
-      (newContentItem as Partial<LessonUDAContent>).lesson = item.id;
-      (newContentItem as Partial<LessonUDAContent>).lesson_title = item.title;
-    } else if (item.type === UDAContentType.QUIZ_TEMPLATE) { // Condizione aggiornata
-      // Controllo per item.id rimosso come da richiesta, assumendo che l'ID sia sempre presente e valido.
-      // Assegna a quiz_template e usa il tipo corretto
-      (newContentItem as Partial<QuizTemplateUDAContent>).quiz_template = item.id;
-      (newContentItem as Partial<QuizTemplateUDAContent>).quiz_title = item.title;
+    } else if (selectedItems.length > 1) {
+      console.warn("Selezionati più item durante la modifica di un contenuto Lezione/Quiz. Sostituzione non eseguita.");
     }
-    localContents.value.push(newContentItem as ContentItem);
+    // editingLessonOrQuizContentId.value è resettato in closeSelectExistingContentModal
+  } else {
+    // Siamo in modalità AGGIUNTA
+    for (const item of selectedItems) {
+      const baseNewContent: Partial<UDAContent | UDATemplateContent> & { order: number; temp_id: string } = {
+        temp_id: generateTempId(),
+        // item.type da SelectedContentItem è UDAContentType.LESSON o UDAContentType.QUIZ
+        content_type: item.type,
+        order: 0 // Verrà ricalcolato
+      };
+
+      if (item.type === UDAContentType.LESSON) {
+        if (item.id === undefined) {
+          console.error("Nessun ID lezione specificato per questo contenuto.", item);
+          continue;
+        }
+        (baseNewContent as LessonUDAContent).lesson = item.id;
+        (baseNewContent as LessonUDAContent).lesson_title = item.title;
+      } else if (item.type === UDAContentType.QUIZ) { // item.type da SelectedContentItem è UDAContentType.QUIZ
+        // item.id è l'ID del QuizTemplate
+        if (props.context === 'uda') {
+          baseNewContent.content_type = UDAContentType.QUIZ; // Conferma tipo per UDAContent
+          (baseNewContent as QuizUDAContent).quiz_template = item.id;
+          (baseNewContent as QuizUDAContent).quiz_title = item.title;
+        } else { // template context
+          // Se stiamo aggiungendo a un template UDA, il tipo deve essere QUIZ_TEMPLATE
+          baseNewContent.content_type = UDATemplateContentType.QUIZ_TEMPLATE;
+          (baseNewContent as QuizUDAContent).quiz_template = item.id; // QuizUDAContent gestisce quiz_template
+          (baseNewContent as QuizUDAContent).quiz_title = item.title;
+        }
+      }
+      
+      if (props.context === 'uda') {
+        (baseNewContent as UDAContent).teacher_marked_completed = false;
+        if (baseNewContent.content_type === UDAContentType.ACTIVITY) {
+          (baseNewContent as ActivityUDAContent).activity_completed = false;
+          (baseNewContent as ActivityUDAContent).activity_attachment_url = ''; // Default per nuova attività
+        }
+      }
+      localContents.value.push(baseNewContent as ContentItem);
+    }
+    recalculateOrder();
   }
-  recalculateOrder();
-  closeSelectExistingContentModal();
+  closeSelectExistingContentModal(); // Chiude la modale in ogni caso
 };
 
 const openAddNoteModal = () => {
@@ -358,6 +439,17 @@ const handleEditContent = (contentToEdit: ContentItem) => {
   ) {
     editingActivityContent.value = JSON.parse(JSON.stringify(contentToEdit));
     showEditActivityModal.value = true;
+  } else if (
+    (props.context === 'uda' && (contentToEdit.content_type === UDAContentType.LESSON || contentToEdit.content_type === UDAContentType.QUIZ)) ||
+    (props.context === 'template' && (contentToEdit.content_type === UDATemplateContentType.LESSON || contentToEdit.content_type === UDATemplateContentType.QUIZ_TEMPLATE))
+  ) {
+    const contentId = contentToEdit.temp_id || contentToEdit.id;
+    if (contentId === undefined) {
+        console.error("Impossibile modificare contenuto Lezione/Quiz: ID o temp_id mancante.", contentToEdit);
+        return;
+    }
+    editingLessonOrQuizContentId.value = contentId;
+    showSelectExistingContentModal.value = true; // Apre la modale di selezione per sostituire
   } else {
     console.warn('Tipo di contenuto non gestito per la modifica:', contentToEdit.content_type, contentToEdit);
   }
@@ -401,25 +493,11 @@ const handleActivityCompletedUpdate = (update: { contentId: number; completed: b
 </script>
 
 <style scoped>
-.uda-content-editor {
-  border: 1px solid #e0e0e0;
-  padding: 1.5rem;
-  border-radius: 8px;
-  background-color: #f9f9f9;
-}
-.empty-state {
-  font-style: italic;
-}
-.content-item .card-title {
-  font-size: 1rem;
-  font-weight: 500;
-}
-.content-item pre {
-  max-height: 100px;
-  overflow-y: auto;
-  background-color: #f1f1f1;
-  padding: 0.5rem;
-  border-radius: 4px;
-  font-size: 0.8rem;
-}
+/* Rimosse classi CSS dirette, ora si usa Tailwind */
+/* .uda-content-editor { ... } */
+/* .empty-state { ... } */
+/* .content-item .card-title { ... } */
+/* .content-item pre { ... } */
+
+/* Stili aggiuntivi se necessari */
 </style>

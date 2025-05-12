@@ -1,6 +1,6 @@
 <template>
   <div class="uda-form-view p-4 md:p-8">
-    <h1 class="text-3xl font-bold text-gray-800 mb-6">{{ pageTitle }}</h1>
+    <h1 class="text-3xl font-bold text-white bg-accent-DEFAULT p-4 rounded-t-lg mb-6 shadow-md">{{ pageTitle }}</h1>
 
     <div v-if="loadingInitialData" class="text-center py-10">
       <p class="text-gray-600">Caricamento dati UDA...</p>
@@ -16,109 +16,111 @@
     </div>
 
     <form v-else @submit.prevent="handleSubmit" class="space-y-6 bg-white shadow-lg rounded-lg p-6">
-      <!-- Sezione Selezione Template (solo in creazione) -->
-      <div v-if="!isEditMode" class="mb-4 p-3 bg-gray-50 rounded-md border">
-        <label for="sourceTemplate" class="block text-sm font-medium text-gray-700 mb-1">Parti da un Template (Opzionale)</label>
-        <select id="sourceTemplate" v-model="selectedSourceTemplateId" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2">
-          <option :value="null">Nessun template (crea da zero)</option>
-          <option v-for="template in availableUdaTemplates" :key="template.id" :value="template.id">
-            {{ template.name }}
-          </option>
-        </select>
-        <div v-if="udaTemplateStore.loading" class="text-xs text-gray-500 mt-1">Caricamento template...</div>
-      </div>
+      <div class="bg-gray-50 border border-gray-300 rounded-lg p-6 space-y-6 shadow-sm">
+        <h2 class="text-xl font-semibold text-neutral-darkest bg-primary-light p-3 rounded-t-md mb-4 shadow-sm">Dati Principali UDA</h2>
 
-      <div>
-        <label for="udaTitle" class="block text-sm font-medium text-gray-700 mb-1">Titolo UDA</label>
-        <input type="text" id="udaTitle" v-model="formData.title" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2">
-      </div>
-
-      <div>
-        <label for="udaDescription" class="block text-sm font-medium text-gray-700 mb-1">Descrizione</label>
-        <textarea id="udaDescription" v-model="formData.description" rows="4" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2"></textarea>
-      </div>
-
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label for="startDate" class="block text-sm font-medium text-gray-700 mb-1">Data Inizio (Opzionale)</label>
-          <input type="date" id="startDate" v-model="formData.start_date" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2">
+        <div v-if="!isEditMode" class="mb-4 p-6 bg-white rounded-md border border-gray-300">
+          <label for="sourceTemplate" class="block text-sm font-medium text-gray-700 mb-1">Parti da un Template (Opzionale)</label>
+          <select id="sourceTemplate" v-model="selectedSourceTemplateId" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2">
+            <option :value="null">Nessun template (crea da zero)</option>
+            <option v-for="template_item in availableUdaTemplates" :key="template_item.id" :value="template_item.id">
+              {{ template_item.name }}
+            </option>
+          </select>
+          <div v-if="udaTemplateStore.loading" class="text-xs text-gray-500 mt-1">Caricamento template...</div>
         </div>
+
         <div>
-          <label for="endDate" class="block text-sm font-medium text-gray-700 mb-1">Data Fine (Opzionale)</label>
-          <input type="date" id="endDate" v-model="formData.end_date" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2">
+          <label for="udaTitle" class="block text-sm font-medium text-gray-700 mb-1">Titolo UDA</label>
+          <input type="text" id="udaTitle" v-model="formData.title" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2">
         </div>
-      </div>
 
-      <div>
-        <label for="status" class="block text-sm font-medium text-gray-700 mb-1">Stato</label>
-        <select id="status" v-model="formData.status" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2">
-          <option value="TODO">Da Fare</option>
-          <option value="IN_PROGRESS">In Corso</option>
-          <option value="COMPLETED">Completata</option>
-        </select>
-      </div>
-      
-      <div>
-        <label for="course" class="block text-sm font-medium text-gray-700 mb-1">Corso di Appartenenza (Opzionale)</label>
-        <select id="course" v-model="formData.course" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2">
-          <option :value="null">Nessun corso</option>
-          <option v-for="course in availableCourses" :key="course.id" :value="course.id">
-            {{ course.name }}
-          </option>
-        </select>
-         <div v-if="courseStore.loading" class="text-xs text-gray-500 mt-1">Caricamento corsi...</div>
-      </div>
-       <!-- TODO: Gestione order_in_course se necessario (potrebbe essere automatico o richiedere UI specifica se manuale e complesso) -->
+        <div>
+          <label for="udaDescription" class="block text-sm font-medium text-gray-700 mb-1">Descrizione</label>
+          <textarea id="udaDescription" v-model="formData.description" rows="4" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2"></textarea>
+        </div>
 
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label for="startDate" class="block text-sm font-medium text-gray-700 mb-1">Data Inizio (Opzionale)</label>
+            <input type="date" id="startDate" v-model="formData.start_date" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2">
+          </div>
+          <div>
+            <label for="endDate" class="block text-sm font-medium text-gray-700 mb-1">Data Fine (Opzionale)</label>
+            <input type="date" id="endDate" v-model="formData.end_date" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2">
+          </div>
+        </div>
 
-      <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">Materie (Opzionale)</label>
-        <div v-if="subjectStore.loading" class="text-sm text-gray-500">Caricamento materie...</div>
-        <div v-else-if="availableSubjects.length === 0" class="text-sm text-gray-500">Nessuna materia disponibile.</div>
-        <div v-else class="max-h-60 overflow-y-auto border border-gray-300 rounded-md p-3 space-y-2 bg-white">
-          <div v-for="subject in availableSubjects" :key="subject.id" class="flex items-center">
-            <input
-              type="checkbox"
-              :id="`subject-uda-${subject.id}`"
-              :value="subject.id"
-              v-model="selectedSubjectIds"
-              class="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
-            >
-            <label :for="`subject-uda-${subject.id}`" class="ml-2 block text-sm text-gray-900">{{ subject.name }}</label>
+        <div>
+          <label for="status" class="block text-sm font-medium text-gray-700 mb-1">Stato</label>
+          <select id="status" v-model="formData.status" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2">
+            <option value="TODO">Da Fare</option>
+            <option value="IN_PROGRESS">In Corso</option>
+            <option value="COMPLETED">Completata</option>
+          </select>
+        </div>
+        
+        <div>
+          <label for="course" class="block text-sm font-medium text-gray-700 mb-1">Corso di Appartenenza (Opzionale)</label>
+          <select id="course" v-model="formData.course" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2">
+            <option :value="null">Nessun corso</option>
+            <option v-for="course_item in availableCourses" :key="course_item.id" :value="course_item.id">
+              {{ course_item.name }}
+            </option>
+          </select>
+           <div v-if="courseStore.loading" class="text-xs text-gray-500 mt-1">Caricamento corsi...</div>
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Materie (Opzionale)</label>
+          <div v-if="subjectStore.loading" class="text-sm text-gray-500">Caricamento materie...</div>
+          <div v-else-if="availableSubjects.length === 0" class="text-sm text-gray-500">Nessuna materia disponibile.</div>
+          <div v-else class="max-h-60 overflow-y-auto border border-gray-300 rounded-md p-3 space-y-2 bg-white">
+            <div v-for="subject_item in availableSubjects" :key="subject_item.id" class="flex items-center cursor-pointer px-2">
+              <input
+                type="checkbox"
+                :id="`subject-uda-${subject_item.id}`"
+                :value="subject_item.id"
+                v-model="selectedSubjectIds"
+                class="h-5 w-5 text-indigo-600 border-gray-400 rounded focus:ring-indigo-500 focus:ring-2 focus:ring-offset-0 cursor-pointer"
+              >
+              <label :for="`subject-uda-${subject_item.id}`" class="ml-3 block text-sm text-gray-900 select-none cursor-pointer">{{ subject_item.name }}</label>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="selectedSubjectIds.length > 0">
+          <label for="topics" class="block text-sm font-medium text-gray-700 mb-1">Argomenti (Opzionale - relativi alla prima materia selezionata)</label>
+          <div v-if="topicStore.loading" class="text-sm text-gray-500">Caricamento argomenti...</div>
+          <div v-else-if="availableTopicsForSelectedSubject.length === 0" class="text-sm text-gray-500">
+            Nessun argomento disponibile per la materia selezionata o seleziona una materia per vedere gli argomenti.
+          </div>
+          <div v-else class="max-h-40 overflow-y-auto border border-gray-300 rounded-md p-2 space-y-1 bg-white">
+            <div v-for="topic_item in availableTopicsForSelectedSubject" :key="topic_item.id" class="flex items-center cursor-pointer px-2">
+              <input type="checkbox" :id="`topic-uda-${topic_item.id}`" :value="topic_item.id" v-model="selectedTopicIds" class="h-5 w-5 text-indigo-600 border-gray-400 rounded focus:ring-indigo-500 focus:ring-2 focus:ring-offset-0 cursor-pointer">
+              <label :for="`topic-uda-${topic_item.id}`" class="ml-3 block text-sm text-gray-900 select-none cursor-pointer">{{ topic_item.name }}</label>
+            </div>
           </div>
         </div>
       </div>
-
-      <div v-if="selectedSubjectIds.length > 0">
-        <label for="topics" class="block text-sm font-medium text-gray-700 mb-1">Argomenti (Opzionale - relativi alla prima materia selezionata)</label>
-        <div v-if="topicStore.loading" class="text-sm text-gray-500">Caricamento argomenti...</div>
-        <div v-else-if="availableTopicsForSelectedSubject.length === 0" class="text-sm text-gray-500">
-          Nessun argomento disponibile per la materia selezionata o seleziona una materia per vedere gli argomenti.
-        </div>
-        <div v-else class="max-h-40 overflow-y-auto border border-gray-300 rounded-md p-2 space-y-1">
-          <div v-for="topic in availableTopicsForSelectedSubject" :key="topic.id" class="flex items-center">
-            <input type="checkbox" :id="`topic-uda-${topic.id}`" :value="topic.id" v-model="selectedTopicIds" class="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
-            <label :for="`topic-uda-${topic.id}`" class="ml-2 block text-sm text-gray-900">{{ topic.name }}</label>
-          </div>
-        </div>
-      </div>
       
-      <hr class="my-6">
-      <h2 class="text-xl font-semibold text-gray-700 mb-3">Contenuti dell'UDA</h2>
-      <UdaContentEditor
-        v-model="formData.contents"
-        context="uda"
-        :uda-id="isEditMode && udaId ? udaId : undefined"
-      />
+      <div class="bg-gray-50 border border-gray-300 rounded-lg p-6 shadow-sm">
+        <h2 class="text-2xl font-semibold text-neutral-darkest bg-primary-light p-3 rounded-t-md mb-4 shadow-sm">Contenuti dell'UDA</h2>
+        <UdaContentEditor
+          v-model="formData.contents"
+          context="uda"
+          :uda-id="isEditMode && udaId ? udaId : undefined"
+        />
+      </div>
 
       <div class="flex justify-end space-x-3 pt-4">
-        <RouterLink :to="{ name: 'uda-list' }" class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium py-2 px-4 rounded-md shadow-sm">
+        <RouterLink :to="{ name: 'uda-list' }" class="border border-gray-300 hover:bg-gray-100 text-gray-700 font-medium py-2 px-4 rounded-md shadow-sm">
           Annulla
         </RouterLink>
         <button
           type="submit"
           :disabled="isSubmitting"
-          class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-md shadow-sm disabled:opacity-50"
+          class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-md shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <span v-if="isSubmitting">Salvataggio...</span>
           <span v-else>{{ submitButtonText }}</span>
@@ -130,7 +132,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, watch } from 'vue';
+import { ref, onMounted, computed, watch, nextTick } from 'vue'; // Importa nextTick
 import { useRoute, useRouter, RouterLink } from 'vue-router';
 import { useUdaStore } from '@/stores/udaStore';
 import { useUdaTemplateStore } from '@/stores/udaTemplateStore';
@@ -140,9 +142,9 @@ import { useTopicStore } from '@/stores/topicStore';
 import { useUiStore } from '@/stores/ui';
 import UdaContentEditor from '@/components/uda/UdaContentEditor.vue';
 import { UDAContentType, UDATemplateContentType, type UDA, type UDAContent, type UDATemplate, type UDATemplateContent } from '@/types/uda'; // Importa gli enum come valori
-import type { Course } from '@/types/uda'; // Course è in uda.ts
-import type { Subject } from '@/types/subject';
-import type { Topic } from '@/types/topic';
+import type { Course as CourseType } from '@/types/uda'; // Course è in uda.ts, rinominato per evitare conflitto
+import type { Subject as SubjectType } from '@/types/subject'; // Rinominato
+import type { Topic as TopicType } from '@/types/topic'; // Rinominato
 
 interface UdaFormData {
   title: string;
@@ -150,27 +152,26 @@ interface UdaFormData {
   start_date: string | null;
   end_date: string | null;
   status: UDA['status'];
-  subjects: number[]; // Modificato da subject a subjects
+  subjects: number[]; 
   topics: number[];
   course: number | null;
-  order_in_course: number | null; // Da gestire
+  order_in_course: number | null; 
   source_template: number | null;
   contents: UDAContent[];
 }
 
-// Tipo per il payload API
 interface UdaApiPayload {
   title: string;
   description?: string | null;
   start_date?: string | null;
   end_date?: string | null;
   status: UDA['status'];
-  subject_ids?: number[]; // Modificato da subject_id a subject_ids
+  subject_ids?: number[]; 
   topic_ids?: number[];
   course_id?: number | null;
   order_in_course?: number | null;
   source_template_id?: number | null;
-  contents: Omit<UDAContent, 'temp_id' | 'lesson_title' | 'quiz_title'>[]; // Rimuovi campi solo FE
+  contents: Omit<UDAContent, 'temp_id' | 'lesson_title' | 'quiz_title'>[]; 
 }
 
 
@@ -184,7 +185,6 @@ const topicStore = useTopicStore();
 const uiStore = useUiStore();
 
 const udaId = computed(() => route.params.id ? Number(route.params.id) : null);
-// sourceTemplateId può arrivare da query params se si clicca "crea UDA da questo template"
 const queryTemplateId = computed(() => route.query.templateId ? Number(route.query.templateId) : null);
 
 
@@ -197,7 +197,6 @@ const initialError = ref<string | null>(null);
 const isSubmitting = ref(false);
 const submitError = ref<string | null>(null);
 
-// AGGIUNGI QUESTO WATCHER
 watch(initialError, (newValue, oldValue) => {
   console.log(`[UdaFormView] initialError cambiato da '${oldValue}' a '${newValue}'`);
   if (newValue !== null) {
@@ -213,37 +212,32 @@ const formData = ref<UdaFormData>({
   start_date: null,
   end_date: null,
   status: 'TODO',
-  subjects: [], // Modificato da subject a subjects
+  subjects: [], 
   topics: [],
   course: null,
   order_in_course: null,
-  source_template: queryTemplateId.value, // Imposta da query se presente
+  source_template: queryTemplateId.value, 
   contents: []
 });
 
 const selectedTopicIds = ref<number[]>([]);
-const selectedSubjectIds = ref<number[]>([]); // Aggiunto per le materie multiple
+const selectedSubjectIds = ref<number[]>([]); 
 
 const availableUdaTemplates = computed(() => udaTemplateStore.udaTemplates);
-const availableCourses = computed(() => courseStore.courses);
-const availableSubjects = computed(() => subjectStore.subjects);
+const availableCourses = computed(() => courseStore.courses as CourseType[]); 
+const availableSubjects = computed(() => subjectStore.subjects as SubjectType[]); 
 const availableTopicsForSelectedSubject = computed(() => {
-  // Mostra argomenti per la prima materia selezionata, se presente
   if (selectedSubjectIds.value.length > 0) {
     const firstSelectedSubjectId = selectedSubjectIds.value[0];
-    return topicStore.getTopicsForSubject(firstSelectedSubjectId);
+    return topicStore.getTopicsForSubject(firstSelectedSubjectId) as TopicType[]; 
   }
   return [];
 });
 
-// Watcher per le materie selezionate dall'utente (selectedSubjectIds)
 watch(selectedSubjectIds, (newSelectedSubjectIds, oldSelectedSubjectIds) => {
-  // Aggiorna formData.subjects solo se c'è una reale differenza per evitare cicli.
   if (JSON.stringify(newSelectedSubjectIds) !== JSON.stringify(formData.value.subjects)) {
     formData.value.subjects = [...newSelectedSubjectIds];
   }
-  // Resetta gli argomenti e carica quelli nuovi solo se le materie sono effettivamente cambiate.
-  // Confronta new e old per capire se è un cambiamento "reale" da questa fonte.
   if (JSON.stringify(newSelectedSubjectIds) !== JSON.stringify(oldSelectedSubjectIds)) {
     selectedTopicIds.value = [];
     if (newSelectedSubjectIds.length > 0) {
@@ -252,47 +246,35 @@ watch(selectedSubjectIds, (newSelectedSubjectIds, oldSelectedSubjectIds) => {
   }
 }, { deep: true });
 
-// Watcher per quando formData.subjects cambia programmaticamente (es. caricamento UDA/template)
 watch(() => formData.value.subjects, (newFormSubjects) => {
-  // Aggiorna selectedSubjectIds solo se c'è una reale differenza.
   if (JSON.stringify(newFormSubjects) !== JSON.stringify(selectedSubjectIds.value)) {
     selectedSubjectIds.value = [...newFormSubjects];
-    // Non è necessario chiamare fetchTopicsBySubject qui, perché il watcher di selectedSubjectIds
-    // (sopra) lo gestirà se selectedSubjectIds cambia effettivamente.
   }
 }, { deep: true });
 
 
-// Watcher per gli argomenti selezionati dall'utente (selectedTopicIds)
 watch(selectedTopicIds, (newSelectedTopicIds) => {
-  // Aggiorna formData.topics solo se c'è una reale differenza.
   if (JSON.stringify(newSelectedTopicIds) !== JSON.stringify(formData.value.topics)) {
     formData.value.topics = [...newSelectedTopicIds];
   }
 }, { deep: true });
 
-// Watcher per quando formData.topics cambia programmaticamente
 watch(() => formData.value.topics, (newFormTopics) => {
-  // Aggiorna selectedTopicIds solo se c'è una reale differenza.
   if (JSON.stringify(newFormTopics) !== JSON.stringify(selectedTopicIds.value)) {
     selectedTopicIds.value = [...newFormTopics];
   }
 }, { deep: true });
 
 
-const loadTemplateData = (template: UDATemplate) => {
-  formData.value.title = formData.value.title || `Copia di ${template.name}`;
-  formData.value.description = template.description || null;
+const loadTemplateData = (template_item: UDATemplate) => {
+  formData.value.title = formData.value.title || `Copia di ${template_item.name}`;
+  formData.value.description = template_item.description || null;
   
-  // Imposta formData.value.subjects. I watcher si occuperanno di aggiornare
-  // selectedSubjectIds e di chiamare fetchTopicsBySubject.
-  formData.value.subjects = template.subject ? [template.subject] : [];
+  formData.value.subjects = template_item.subject ? [template_item.subject] : [];
 
-  // Imposta formData.value.topics. I watcher si occuperanno di aggiornare selectedTopicIds.
-  formData.value.topics = template.topics ? [...template.topics] : [];
+  formData.value.topics = template_item.topics ? [...template_item.topics] : [];
 
-  // Trasforma UDATemplateContent in UDAContent
-  formData.value.contents = template.contents.map(tc => {
+  formData.value.contents = template_item.contents.map(tc => {
     const baseContent: any = {
       temp_id: `temp_${Date.now()}_${Math.random().toString(36).substring(2,9)}`,
       order: tc.order,
@@ -301,10 +283,10 @@ const loadTemplateData = (template: UDATemplate) => {
       baseContent.content_type = UDAContentType.LESSON;
       baseContent.lesson = (tc as any).lesson;
       baseContent.lesson_title = (tc as any).lesson_title;
-    } else if (tc.content_type === UDATemplateContentType.QUIZ_TEMPLATE) { // CORRETTO: usa QUIZ_TEMPLATE per il check
-      baseContent.content_type = UDAContentType.QUIZ; // CORRETTO: imposta QUIZ per UDAContent
-      baseContent.quiz_template = (tc as any).quiz_template; // CORRETTO: usa quiz_template e assegna a quiz_template
-      baseContent.quiz_title = (tc as any).quiz_title; // Mantiene quiz_title per il frontend se disponibile
+    } else if (tc.content_type === UDATemplateContentType.QUIZ_TEMPLATE) { 
+      baseContent.content_type = UDAContentType.QUIZ; 
+      baseContent.quiz_template = (tc as any).quiz_template; 
+      baseContent.quiz_title = (tc as any).quiz_title; 
     } else if (tc.content_type === UDATemplateContentType.NOTE_TEMPLATE) {
       baseContent.content_type = UDAContentType.NOTE;
       baseContent.note_title = (tc as any).note_template_title;
@@ -317,18 +299,15 @@ const loadTemplateData = (template: UDATemplate) => {
     }
     return baseContent as UDAContent;
   });
-  // La chiamata a topicStore.fetchTopicsBySubject è stata rimossa.
-  // Verrà gestita dal watcher su selectedSubjectIds quando formData.value.subjects lo aggiorna.
 };
 
 watch(selectedSourceTemplateId, async (newTemplateId, oldTemplateId) => {
   if (newTemplateId && newTemplateId !== oldTemplateId) {
     formData.value.source_template = newTemplateId;
-    const template = udaTemplateStore.getUdaTemplateById(newTemplateId);
-    if (template) {
-      loadTemplateData(template);
+    const template_item = udaTemplateStore.getUdaTemplateById(newTemplateId);
+    if (template_item) {
+      loadTemplateData(template_item);
     } else {
-      // Se il template non è nello store, caricalo
       try {
         loadingInitialData.value = true;
         await udaTemplateStore.fetchUdaTemplate(newTemplateId);
@@ -345,9 +324,7 @@ watch(selectedSourceTemplateId, async (newTemplateId, oldTemplateId) => {
       }
     }
   } else if (newTemplateId === null) {
-    // L'utente ha deselezionato il template, opzionalmente resettare i campi o lasciare che li modifichi
     formData.value.source_template = null;
-    // Potrebbe essere utile chiedere conferma prima di resettare i campi se già compilati
   }
 });
 
@@ -359,7 +336,7 @@ onMounted(async () => {
     const promises = [
       subjectStore.fetchSubjects(),
       courseStore.fetchCourses(),
-      udaTemplateStore.fetchUdaTemplates() // Carica tutti i template per la select
+      udaTemplateStore.fetchUdaTemplates() 
     ];
     await Promise.all(promises);
 
@@ -367,32 +344,34 @@ onMounted(async () => {
       await udaStore.fetchUda(udaId.value);
       const udaToEdit = udaStore.currentUda;
       if (udaToEdit) {
+        // Attendi il prossimo ciclo di aggiornamento DOM prima di popolare il form
+        // per dare tempo alle opzioni del select (es. corsi) di essere renderizzate.
+        await nextTick();
+
         formData.value.title = udaToEdit.title;
         formData.value.description = udaToEdit.description || null;
         formData.value.start_date = udaToEdit.start_date || null;
         formData.value.end_date = udaToEdit.end_date || null;
         formData.value.status = udaToEdit.status;
-        formData.value.subjects = udaToEdit.subjects ? [...udaToEdit.subjects] : []; // Modificato
+        formData.value.subjects = udaToEdit.subjects ? [...udaToEdit.subjects] : []; 
         formData.value.topics = udaToEdit.topics ? [...udaToEdit.topics] : [];
         formData.value.course = udaToEdit.course || null;
         formData.value.order_in_course = udaToEdit.order_in_course || null;
         formData.value.source_template = udaToEdit.source_template || null;
         formData.value.contents = udaToEdit.contents ? JSON.parse(JSON.stringify(udaToEdit.contents)) : [];
         
-        selectedSourceTemplateId.value = udaToEdit.source_template || null; // Sincronizza la select del template
-        selectedSubjectIds.value = [...formData.value.subjects]; // Aggiunto
+        selectedSourceTemplateId.value = udaToEdit.source_template || null; 
+        selectedSubjectIds.value = [...formData.value.subjects]; 
         
         if (formData.value.subjects.length > 0) {
-          // Carica argomenti per la prima materia, se presente
           await topicStore.fetchTopicsBySubject(formData.value.subjects[0]);
         }
         selectedTopicIds.value = [...formData.value.topics];
       } else {
         initialError.value = `UDA con ID ${udaId.value} non trovata.`;
       }
-    } else if (queryTemplateId.value) { // Se stiamo creando da un template passato via query
-        selectedSourceTemplateId.value = queryTemplateId.value; // Questo triggererà il watcher
-        // Il watcher caricherà i dati del template
+    } else if (queryTemplateId.value) { 
+        selectedSourceTemplateId.value = queryTemplateId.value; 
     }
 
   } catch (error) {
@@ -413,13 +392,13 @@ const handleSubmit = async () => {
     start_date: formData.value.start_date || undefined,
     end_date: formData.value.end_date || undefined,
     status: formData.value.status,
-    subject_ids: selectedSubjectIds.value.length > 0 ? selectedSubjectIds.value : undefined, // Modificato
+    subject_ids: selectedSubjectIds.value.length > 0 ? selectedSubjectIds.value : undefined, 
     topic_ids: formData.value.topics,
     course_id: formData.value.course || undefined,
     order_in_course: formData.value.order_in_course || undefined,
     source_template_id: formData.value.source_template || undefined,
     contents: formData.value.contents.map(c => {
-      const { temp_id, lesson_title, quiz_title, ...contentToSave } = c as any; // Rimuovi campi solo FE
+      const { temp_id, lesson_title, quiz_title, ...contentToSave } = c as any; 
       return contentToSave;
     })
   };

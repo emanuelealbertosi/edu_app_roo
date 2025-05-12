@@ -1,23 +1,25 @@
 <template>
-  <div class="modal-overlay" @click.self="closeModal">
-    <div class="modal-content edit-activity-modal-content">
-      <div class="modal-header-custom">
-        <h5 class="modal-title-custom">{{ isEditing ? 'Modifica Attività' : 'Aggiungi Nuova Attività' }}</h5>
-        <button type="button" class="button-close-custom" @click="closeModal" aria-label="Close">&times;</button>
+  <div class="fixed inset-0 bg-gray-800 bg-opacity-75 flex justify-center items-center z-50" @click.self="closeModal">
+    <div class="bg-white rounded-lg shadow-xl p-6 mx-4 sm:mx-auto w-full max-w-lg flex flex-col max-h-[90vh]">
+      <div class="flex justify-between items-center pb-4 border-b border-gray-200 mb-4">
+        <h5 class="text-xl font-semibold text-gray-800">{{ isEditing ? 'Modifica Attività' : 'Aggiungi Nuova Attività' }}</h5>
+        <button type="button" class="text-gray-400 hover:text-gray-600 text-2xl leading-none" @click="closeModal" aria-label="Close">&times;</button>
       </div>
-      <div class="modal-body-custom">
-        <form @submit.prevent="saveActivity">
-          <div class="form-group">
-            <label for="activityTitle" class="form-label">Titolo Attività</label>
-            <input type="text" class="form-control" id="activityTitle" v-model="editableContent.title" required>
+      <div class="overflow-y-auto flex-grow pr-2 space-y-4">
+        <form @submit.prevent="saveActivity" class="space-y-4">
+          <div>
+            <label for="activityTitle" class="block text-sm font-medium text-gray-700 mb-1">Titolo Attività</label>
+            <input type="text" id="activityTitle" v-model="editableContent.title" required
+                   class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2">
           </div>
-          <div class="form-group">
-            <label for="activityDescription" class="form-label">Descrizione Attività</label>
-            <textarea class="form-control" id="activityDescription" rows="5" v-model="editableContent.description"></textarea>
+          <div>
+            <label for="activityDescription" class="block text-sm font-medium text-gray-700 mb-1">Descrizione Attività</label>
+            <textarea id="activityDescription" rows="5" v-model="editableContent.description"
+                      class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2"></textarea>
           </div>
           <template v-if="props.context === 'uda'">
-            <div class="form-group">
-              <label for="activityAttachment" class="form-label">Allegato Attività</label>
+            <div>
+              <label for="activityAttachment" class="block text-sm font-medium text-gray-700 mb-1">Allegato Attività</label>
               <FileUpload
                 ref="fileUploadComponent"
                 :current-file-url="editableContent.attachmentUrl"
@@ -26,16 +28,25 @@
               />
               <!-- <small class="form-text text-muted">L'upload effettivo del file avverrà al salvataggio.</small> -->
             </div>
-            <div class="form-group form-check">
-              <input type="checkbox" class="form-check-input" id="activityCompleted" v-model="editableContent.completedByStudent">
-              <label class="form-check-label" for="activityCompleted">Attività Completata (dallo studente)</label>
+            <div class="flex items-center mt-2 cursor-pointer">
+              <input type="checkbox" id="activityCompleted" v-model="editableContent.completedByStudent"
+                     class="h-5 w-5 text-indigo-600 border-gray-400 rounded focus:ring-indigo-500 focus:ring-2 focus:ring-offset-0 cursor-pointer">
+              <label for="activityCompleted" class="ml-3 block text-sm text-gray-900 select-none cursor-pointer">Attività Completata (dallo studente)</label>
             </div>
           </template>
         </form>
       </div>
-      <div class="modal-footer-custom">
-        <button type="button" class="button-cancel" @click="closeModal">Annulla</button>
-        <button type="button" class="button-save" @click="saveActivity">Salva Attività</button>
+      <div class="flex justify-end pt-4 border-t border-gray-200 mt-4 space-x-3">
+        <button type="button"
+                class="border border-gray-300 hover:bg-gray-100 text-gray-700 font-medium py-2 px-4 rounded-md shadow-sm text-sm"
+                @click="closeModal">
+          Annulla
+        </button>
+        <button type="button"
+                class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-md shadow-sm text-sm"
+                @click="saveActivity">
+          Salva Attività
+        </button>
       </div>
     </div>
   </div>
@@ -176,60 +187,5 @@ const saveActivity = async () => {
 </script>
 
 <style scoped>
-.modal-overlay {
-  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-  background-color: rgba(0, 0, 0, 0.6); display: flex;
-  justify-content: center; align-items: center; z-index: 1000;
-}
-.edit-activity-modal-content { /* Classe specifica */
-  background-color: white; padding: 1.5rem; border-radius: 8px;
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
-  min-width: 400px; max-width: 600px;
-  display: flex; flex-direction: column;
-  max-height: 90vh;
-}
-
-.modal-header-custom {
-  display: flex; justify-content: space-between; align-items: center;
-  padding-bottom: 1rem; border-bottom: 1px solid #eee; margin-bottom: 1rem;
-}
-.modal-title-custom {
-  font-size: 1.25rem; font-weight: 600; margin: 0;
-}
-.button-close-custom {
-  background: none; border: none; font-size: 1.5rem; cursor: pointer;
-  padding: 0.5rem; line-height: 1;
-}
-
-.modal-body-custom {
-  overflow-y: auto; /* Abilita scroll per il corpo se necessario */
-  padding-right: 0.5rem; /* Spazio per la scrollbar se appare */
-  flex-grow: 1;
-}
-
-.form-group { margin-bottom: 1rem; }
-.form-label { display: block; margin-bottom: 0.5rem; font-weight: 500; }
-.form-control {
-  width: 100%; padding: 0.75rem; border: 1px solid #ccc;
-  border-radius: 4px; box-sizing: border-box;
-}
-textarea.form-control { resize: vertical; }
-.form-check { display: flex; align-items: center; }
-.form-check-input { margin-right: 0.5rem; }
-.form-check-label { margin-bottom: 0; }
-
-
-.modal-footer-custom {
-  display: flex; justify-content: flex-end;
-  padding-top: 1rem; border-top: 1px solid #eee; margin-top: 1rem;
-}
-.modal-footer-custom button {
-  padding: 0.6rem 1.2rem; border-radius: 4px; cursor: pointer;
-  font-size: 0.9rem; margin-left: 0.5rem; border: none;
-}
-.button-cancel { background-color: #6c757d; color: white; }
-.button-cancel:hover { background-color: #5a6268; }
-.button-save { background-color: #007bff; color: white; }
-.button-save:hover:not(:disabled) { background-color: #0056b3; }
-.button-save:disabled { background-color: #ccc; cursor: not-allowed; }
+/* Tutti gli stili sono ora gestiti da classi Tailwind nel template */
 </style>

@@ -14,8 +14,14 @@ export const useUdaStore = defineStore('uda', {
       this.loading = true;
       this.error = null;
       try {
-        const data = await udaService.getUdas(filters);
-        this.udas = data;
+        const rawData: any[] = await udaService.getUdas(filters); // Ricevi come any[]
+        // Mappa i dati ricevuti all'interfaccia UDA, conservando i nuovi campi
+        this.udas = rawData.map((udaData: any) => ({
+          ...udaData, // Copia tutti i campi ricevuti
+          course: udaData.course_id, // Salva l'ID del corso nel campo 'course'
+          course_name: udaData.course_name, // Salva il nome del corso
+          course_teacher_username: udaData.course_teacher_username // Salva l'username dell'autore
+        })) as UDA[]; // Asserisci il tipo finale a UDA[]
       } catch (err) {
         this.error = (err as Error).message || 'Failed to fetch UDAs';
         this.udas = [];
@@ -29,8 +35,14 @@ export const useUdaStore = defineStore('uda', {
       this.loading = true;
       this.error = null;
       try {
-        const data = await udaService.getUda(udaId);
-        this.currentUda = data;
+        const rawData: any = await udaService.getUda(udaId); // Ricevi come any
+        // Mappa i dati ricevuti all'interfaccia UDA, conservando i nuovi campi
+        this.currentUda = {
+          ...rawData, // Copia tutti i campi ricevuti
+          course: rawData.course_id, // Salva l'ID del corso nel campo 'course'
+          course_name: rawData.course_name, // Salva il nome del corso
+          course_teacher_username: rawData.course_teacher_username // Salva l'username dell'autore
+        } as UDA; // Asserisci il tipo finale a UDA
         // Carica i contenuti se non sono già presenti o sono vuoti
         if (this.currentUda && (!this.currentUda.contents || this.currentUda.contents.length === 0)) {
            await this.fetchUdaContents(udaId);
@@ -310,7 +322,33 @@ export const useUdaStore = defineStore('uda', {
       } finally {
         this.loading = false;
       }
-    }
+    }, // <-- Aggiunta virgola qui
+    async reorderUdaContents(udaId: number, contentIds: number[]): Promise<void> {
+      // Ottimisticamente, potremmo aggiornare l'ordine locale prima della chiamata API,
+      // ma per semplicità e consistenza, aggiorniamo dopo la risposta positiva.
+      this.loading = true;
+      this.error = null;
+      try {
+        const reorderedContents = await udaService.reorderUdaContents(udaId, contentIds);
+        // Aggiorna i contenuti nell'UDA corrente se corrisponde
+        if (this.currentUda?.id === udaId) {
+          this.currentUda.contents = reorderedContents;
+        }
+        // Aggiorna anche i contenuti nell'array 'udas' se l'UDA è presente
+        const udaInList = this.udas.find((u: UDA) => u.id === udaId);
+        if (udaInList) {
+          udaInList.contents = reorderedContents;
+        }
+      } catch (err) {
+        this.error = (err as Error).message || `Failed to reorder contents for UDA ${udaId}`;
+        console.error(err);
+        // In caso di errore, potremmo voler ricaricare i contenuti originali
+        // o notificare l'utente in modo più specifico.
+        throw err; // Rilancia l'errore per gestirlo nel componente se necessario
+      } finally {
+        this.loading = false;
+      }
+    },
   },
   getters: {
     getUdaById: (state) => (id: number): UDA | undefined => {

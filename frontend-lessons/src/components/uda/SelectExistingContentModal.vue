@@ -1,79 +1,114 @@
 <template>
-  <div class="modal-overlay" @click.self="closeModal">
-    <div class="modal-content select-existing-content-modal-content">
-      <div class="modal-header-custom">
-        <h5 class="modal-title-custom">Aggiungi Contenuto Esistente</h5>
-        <button type="button" class="button-close-custom" @click="closeModal" aria-label="Close">&times;</button>
+  <div class="fixed inset-0 bg-gray-800 bg-opacity-75 flex justify-center items-center z-50" @click.self="closeModal">
+    <div class="bg-white rounded-lg shadow-xl p-6 mx-4 sm:mx-auto w-full max-w-2xl flex flex-col max-h-[90vh]">
+      <div class="flex justify-between items-center pb-4 border-b border-gray-200 mb-4">
+        <h5 class="text-xl font-semibold text-gray-800">Aggiungi Contenuto Esistente</h5>
+        <button type="button" class="text-gray-400 hover:text-gray-600 text-2xl leading-none" @click="closeModal" aria-label="Close">&times;</button>
       </div>
-      <div class="modal-body-custom">
-        <ul class="nav nav-tabs mb-3">
-          <li class="nav-item">
-            <a class="nav-link" :class="{ active: activeTab === 'lessons' }" href="#" @click.prevent="activeTab = 'lessons'">Lezioni</a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link" :class="{ active: activeTab === 'quizzes' }" href="#" @click.prevent="activeTab = 'quizzes'">Quiz</a>
-          </li>
-        </ul>
-
-        <div v-if="loading" class="text-center">
-          <div class="spinner-border" role="status">
-            <span class="visually-hidden">Caricamento...</span>
-          </div>
+      <div class="overflow-y-auto flex-grow pr-2"> {/* Aggiunto pr-2 per scrollbar */}
+        <div class="border-b border-gray-200 mb-4">
+          <nav class="-mb-px flex space-x-6" aria-label="Tabs">
+            <a href="#"
+               @click.prevent="activeTab = 'lessons'"
+               :class="[
+                 activeTab === 'lessons'
+                   ? 'border-indigo-500 text-indigo-600'
+                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300',
+                 'whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm'
+               ]">
+              Lezioni
+            </a>
+            <a href="#"
+               @click.prevent="activeTab = 'quizzes'"
+               :class="[
+                 activeTab === 'quizzes'
+                   ? 'border-indigo-500 text-indigo-600'
+                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300',
+                 'whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm'
+               ]">
+              Quiz Templates
+            </a>
+          </nav>
         </div>
 
-        <div v-else-if="errorLoadingContent" class="alert alert-danger">
-          {{ errorLoadingContent }}
+        <div v-if="loading" class="text-center py-6">
+          <svg class="animate-spin mx-auto h-8 w-8 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <p class="text-sm text-gray-500 mt-2">Caricamento...</p>
+        </div>
+
+        <div v-else-if="errorLoadingContent" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+          <strong class="font-bold">Errore!</strong>
+          <span class="block sm:inline"> {{ errorLoadingContent }}</span>
         </div>
         <div v-else>
           <!-- Tab Lezioni -->
           <div v-show="activeTab === 'lessons'">
-            <h6>Seleziona Lezioni</h6>
-            <div v-if="!lessons.length" class="alert alert-info">Nessuna lezione disponibile.</div>
-            <ul v-else class="list-group content-selection-list">
-              <li v-for="lesson in lessons" :key="lesson.id" class="list-group-item">
+            <h6 class="text-md font-semibold text-gray-700 mb-2">Seleziona Lezioni</h6>
+            <div v-if="!lessons.length" class="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded relative" role="alert">
+              Nessuna lezione disponibile.
+            </div>
+            <ul v-else class="max-h-[40vh] overflow-y-auto border border-gray-300 rounded-md bg-white divide-y divide-gray-200">
+              <li v-for="lesson in lessons" :key="lesson.id" class="px-4 py-3 hover:bg-gray-50 flex items-center cursor-pointer">
                 <input
                   type="checkbox"
+                  :id="`lesson-${lesson.id}`"
                   :value="{ type: UDAContentType.LESSON, id: lesson.id, title: lesson.title }"
                   v-model="selectedItems"
-                  class="form-check-input me-2"
+                  class="h-5 w-5 text-indigo-600 border-gray-400 rounded focus:ring-indigo-500 focus:ring-2 focus:ring-offset-0 cursor-pointer mr-3"
                 />
-                {{ lesson.title }}
-                <small v-if="lesson.subject_name" class="text-muted ms-2">({{ lesson.subject_name }})</small>
+                <label :for="`lesson-${lesson.id}`" class="flex-grow cursor-pointer">
+                  <span class="select-none text-sm text-gray-900">{{ lesson.title }}</span>
+                  <small v-if="lesson.subject_name" class="text-gray-500 ml-2">({{ lesson.subject_name }})</small>
+                </label>
               </li>
             </ul>
           </div>
 
           <!-- Tab Quiz -->
           <div v-show="activeTab === 'quizzes'">
-            <h6>Seleziona Template Quiz</h6>
-            <div v-if="!quizTemplates.length" class="alert alert-info">Nessun template di quiz disponibile.</div>
-            <ul v-else class="list-group content-selection-list">
-              <li v-for="template in quizTemplates" :key="template.id" class="list-group-item">
-                <!-- Log dell'oggetto template completo -->
-                <!-- {{ console.log('[SelectExistingContentModal] Template Quiz in loop:', JSON.parse(JSON.stringify(template))) }} -->
+            <h6 class="text-md font-semibold text-gray-700 mb-2">Seleziona Template Quiz</h6>
+            <div v-if="!quizTemplates.length" class="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded relative" role="alert">
+              Nessun template di quiz disponibile.
+            </div>
+            <ul v-else class="max-h-[40vh] overflow-y-auto border border-gray-300 rounded-md bg-white divide-y divide-gray-200">
+              <li v-for="template in quizTemplates" :key="template.id" class="px-4 py-3 hover:bg-gray-50 flex items-center cursor-pointer">
                 <input
                   type="checkbox"
+                  :id="`quiz-${template.id}`"
                   :value="{ type: 'QUIZ_TEMPLATE', id: template.id, title: template.title }"
                   v-model="selectedItems"
-                  class="form-check-input me-2"
+                  class="h-5 w-5 text-indigo-600 border-gray-400 rounded focus:ring-indigo-500 focus:ring-2 focus:ring-offset-0 cursor-pointer mr-3"
                 />
-                {{ template.title }}
-                <small v-if="template.subject_name" class="text-muted ms-2">({{ template.subject_name }})</small>
-                 <small v-if="template.questions_count !== undefined" class="text-muted ms-1">[{{ template.questions_count }}q]</small>
-              </li>
+                <label :for="`quiz-${template.id}`" class="flex-grow cursor-pointer">
+                  <span class="select-none text-sm text-gray-900">{{ template.title }}</span>
+                  <small v-if="template.subject_name" class="text-gray-500 ml-2">({{ template.subject_name }})</small>
+                  <small v-if="template.questions_count !== undefined" class="text-gray-500 ml-1">[{{ template.questions_count }}q]</small>
+                </label>
+          </li>
             </ul>
           </div>
         </div>
       </div>
-      <div class="modal-footer-custom">
-        <button type="button" class="button-cancel" @click="closeModal" :disabled="isConfirming">Annulla</button>
+      <div class="flex justify-end pt-4 border-t border-gray-200 mt-4 space-x-3">
+        <button type="button"
+                class="border border-gray-300 hover:bg-gray-100 text-gray-700 font-medium py-2 px-4 rounded-md shadow-sm text-sm"
+                @click="closeModal"
+                :disabled="isConfirming">
+          Annulla
+        </button>
         <button
           type="button"
-          class="button-save"
+          class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-md shadow-sm text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
           @click="confirmSelection"
           :disabled="selectedItems.length === 0 || isConfirming"
         >
-          <span v-if="isConfirming" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+          <svg v-if="isConfirming" class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
           {{ isConfirming ? 'Aggiungendo...' : `Aggiungi Selezionati (${selectedItems.length})` }}
         </button>
       </div>
@@ -182,8 +217,8 @@ const confirmSelection = async () => {
         // Sarà compito del componente ricevente (es. UdaContentEditor tramite udaStore)
         // gestire l'eventuale creazione dell'istanza Quiz se necessario prima del salvataggio dell'UDA.
         finalSelectedItems.push({
-          type: UDAContentType.QUIZ_TEMPLATE, // Modificato per usare il tipo corretto
-          id: item.id, // id qui è l'ID del QuizTemplate
+          type: UDAContentType.QUIZ, // Il tipo finale per UDAContent sarà QUIZ
+          id: item.id, // id qui è l'ID del QuizTemplate sorgente
           title: item.title || `Quiz da template ${item.id}`,
         });
       } catch (error) { // Questo blocco catch potrebbe non essere più necessario se non ci sono operazioni asincrone rischiose qui
@@ -211,140 +246,4 @@ const confirmSelection = async () => {
 </script>
 
 <style scoped>
-.modal-overlay {
-  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-  background-color: rgba(0, 0, 0, 0.6); display: flex;
-  justify-content: center; align-items: center; z-index: 1000;
-}
-.select-existing-content-modal-content { /* Classe specifica per evitare conflitti */
-  background-color: white; padding: 1.5rem; border-radius: 8px;
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
-  min-width: 500px; max-width: 800px; /* Adattato per contenuto più ampio */
-  display: flex; flex-direction: column;
-  max-height: 90vh; /* Limita altezza massima */
-}
-
-.modal-header-custom {
-  display: flex; justify-content: space-between; align-items: center;
-  padding-bottom: 1rem; border-bottom: 1px solid #eee; margin-bottom: 1rem;
-}
-.modal-title-custom {
-  font-size: 1.25rem; font-weight: 600; margin: 0;
-}
-.button-close-custom {
-  background: none; border: none; font-size: 1.5rem; cursor: pointer;
-  padding: 0.5rem; line-height: 1;
-}
-
-.modal-body-custom {
-  overflow-y: auto; /* Abilita scroll per il corpo se necessario */
-  padding-right: 0.5rem; /* Spazio per la scrollbar se appare */
-  flex-grow: 1;
-}
-
-.content-selection-list {
-  max-height: 40vh; /* Limita altezza delle liste */
-  overflow-y: auto;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  padding: 0.5rem;
-}
-
-.list-group-item {
-  padding: 0.5rem 0.75rem;
-}
-.list-group-item:hover {
-  background-color: #f8f9fa;
-}
-.form-check-input {
-  margin-top: 0.1em; /* Allineamento verticale migliore */
-}
-
-.modal-footer-custom {
-  display: flex; justify-content: flex-end;
-  padding-top: 1rem; border-top: 1px solid #eee; margin-top: 1rem;
-}
-.modal-footer-custom button {
-  padding: 0.6rem 1.2rem; border-radius: 4px; cursor: pointer;
-  font-size: 0.9rem; margin-left: 0.5rem; border: none;
-}
-.button-cancel { background-color: #6c757d; color: white; }
-.button-cancel:hover { background-color: #5a6268; }
-.button-save { background-color: #007bff; color: white; }
-.button-save:hover:not(:disabled) { background-color: #0056b3; }
-.button-save:disabled { background-color: #ccc; cursor: not-allowed; }
-
-/* Stili per nav-tabs (Bootstrap-like ma custom) */
-.nav-tabs {
-  display: flex;
-  flex-wrap: wrap;
-  padding-left: 0;
-  margin-bottom: 1rem;
-  list-style: none;
-  border-bottom: 1px solid #dee2e6;
-}
-.nav-item {
-  margin-bottom: -1px; /* Per allineare con il border-bottom */
-}
-.nav-link {
-  display: block;
-  padding: 0.5rem 1rem;
-  color: #007bff;
-  text-decoration: none;
-  background: 0 0;
-  border: 1px solid transparent;
-  border-top-left-radius: .25rem;
-  border-top-right-radius: .25rem;
-}
-.nav-link:hover, .nav-link:focus {
-  border-color: #e9ecef #e9ecef #dee2e6;
-  isolation: isolate;
-}
-.nav-link.active {
-  color: #495057;
-  background-color: #fff;
-  border-color: #dee2e6 #dee2e6 #fff;
-}
-.alert { /* Stili base per alert */
-  padding: 0.75rem 1.25rem;
-  margin-bottom: 1rem;
-  border: 1px solid transparent;
-  border-radius: .25rem;
-}
-.alert-danger {
-  color: #721c24;
-  background-color: #f8d7da;
-  border-color: #f5c6cb;
-}
-.alert-info {
-  color: #0c5460;
-  background-color: #d1ecf1;
-  border-color: #bee5eb;
-}
-.text-center { text-align: center; }
-.visually-hidden {
-  position: absolute !important;
-  width: 1px !important;
-  height: 1px !important;
-  padding: 0 !important;
-  margin: -1px !important;
-  overflow: hidden !important;
-  clip: rect(0,0,0,0) !important;
-  white-space: nowrap !important;
-  border: 0 !important;
-}
-.spinner-border { /* Stile base per spinner */
-    display: inline-block;
-    width: 2rem;
-    height: 2rem;
-    vertical-align: text-bottom;
-    border: .25em solid currentColor;
-    border-right-color: transparent;
-    border-radius: 50%;
-    -webkit-animation: spinner-border .75s linear infinite;
-    animation: spinner-border .75s linear infinite;
-}
-@keyframes spinner-border {
-  to { transform: rotate(360deg); }
-}
 </style>

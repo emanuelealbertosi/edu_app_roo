@@ -26,50 +26,81 @@
       <p class="text-gray-500 mt-2">Crea il tuo primo template per iniziare a pianificare le tue unità didattiche.</p>
     </div>
 
-    <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      <div
-        v-for="template in templates"
-        :key="template.id"
-        class="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-lg transition-shadow duration-200 overflow-hidden flex flex-col"
-      >
-        <div class="p-5 flex-grow">
-          <h2 class="text-xl font-semibold text-indigo-700 mb-2">{{ template.name }}</h2>
-          <p class="text-gray-600 text-sm mb-3 h-20 overflow-y-auto custom-scrollbar">
-            {{ template.description || 'Nessuna descrizione.' }}
-          </p>
-          <div class="text-xs text-gray-500">
-            <p v-if="template.subject_details">Materia: <span class="font-medium text-gray-700">{{ template.subject_details.name }}</span></p>
-            <p v-if="template.topics_details && template.topics_details.length">
-              Argomenti:
-              <span
-                v-for="(topic, index) in template.topics_details"
-                :key="topic.id"
-                class="inline-block bg-gray-200 rounded-full px-2 py-0.5 text-xs font-semibold text-gray-700 mr-1 mb-1"
-              >
-                {{ topic.name }}
+    <!-- Tabella Template UDA -->
+    <div v-else class="shadow-lg overflow-hidden border-b border-gray-200 sm:rounded-lg">
+      <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+          <tr>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Nome Template
+            </th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Descrizione
+            </th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Materia
+            </th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Argomenti
+            </th>
+            <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Contenuti
+            </th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Data Creazione
+            </th>
+            <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Azioni
+            </th>
+          </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-gray-200">
+          <tr v-for="template in templates" :key="template.id" class="hover:bg-gray-50 transition-colors duration-150">
+          <td class="px-6 py-4 whitespace-nowrap">
+            <RouterLink :to="{ name: 'uda-template-edit', params: { id: template.id } }" class="text-sm font-medium text-indigo-700 hover:text-indigo-900">
+              {{ template.name }}
+            </RouterLink>
+          </td>
+          <td class="px-6 py-4 text-sm text-gray-500">
+            <span :title="template.description" v-if="template.description && template.description.length > 20">
+              {{ template.description.substring(0, 20) + '...' }}
+            </span>
+            <span v-else>{{ template.description || 'Nessuna descrizione.' }}</span>
+          </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+              {{ template.subject_details?.name || '-' }}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+              <span v-if="template.topics_details && template.topics_details.length">
+                {{ template.topics_details.map(t => t.name).join(', ') }}
               </span>
-            </p>
-            <p>Contenuti: {{ template.contents?.length || 0 }}</p>
-            <p>Creato il: {{ formatDate(template.created_at) }}</p>
-          </div>
-        </div>
-        <div class="bg-gray-50 p-4 border-t border-gray-200 flex justify-end space-x-2">
-          <RouterLink
-            :to="{ name: 'uda-template-edit', params: { id: template.id } }"
-            class="text-sm bg-yellow-500 hover:bg-yellow-600 text-white font-medium py-1.5 px-3 rounded-md shadow-sm transition duration-150 ease-in-out flex items-center"
-            title="Modifica Template"
-          >
-            <PencilIcon class="h-4 w-4 mr-1" /> Modifica
-          </RouterLink>
-          <button
-            @click="confirmDeleteTemplate(template.id)"
-            class="text-sm bg-red-500 hover:bg-red-600 text-white font-medium py-1.5 px-3 rounded-md shadow-sm transition duration-150 ease-in-out flex items-center"
-            title="Elimina Template"
-          >
-            <TrashIcon class="h-4 w-4 mr-1" /> Elimina
-          </button>
-        </div>
-      </div>
+              <span v-else>-</span>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 text-center">
+              {{ template.contents?.length || 0 }}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+              {{ formatDate(template.created_at) }}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
+              <RouterLink
+                :to="{ name: 'uda-template-edit', params: { id: template.id } }"
+                class="text-yellow-600 hover:text-yellow-900 transition duration-150 ease-in-out"
+                title="Modifica Template"
+              >
+                <PencilIcon class="h-5 w-5 inline-block" />
+              </RouterLink>
+              <button
+                @click="confirmDeleteTemplate(template.id)"
+                class="text-red-600 hover:text-red-900 transition duration-150 ease-in-out"
+                title="Elimina Template"
+              >
+                <TrashIcon class="h-5 w-5 inline-block" />
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </div>
   </div>
 </template>

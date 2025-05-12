@@ -95,7 +95,9 @@ export type UDATemplateContent =
 export interface UDA {
   id: number;
   teacher: number; // FK a User
-  course?: number | null; // FK a Course
+  course?: number | null; // FK a Course (ID)
+  course_name?: string | null; // Nome del corso (dal backend)
+  course_teacher_username?: string | null; // Username dell'autore del corso (dal backend)
   source_template?: number | null; // FK a UDATemplate
   title: string;
   description?: string | null;
@@ -109,6 +111,7 @@ export interface UDA {
   contents: UDAContent[]; // Array di contenuti specifici dell'UDA
   created_at: string;
   updated_at: string;
+  topics_display?: string[];
 }
 
 // Interfaccia per Course
