@@ -110,7 +110,8 @@
           v-model="formData.contents"
           context="uda"
           :uda-id="isEditMode && udaId ? udaId : undefined"
-        />
+          :is-editing="true"
+        /> <!-- Aggiunto is-editing per mostrare i controlli di modifica/eliminazione -->
       </div>
 
       <div class="flex justify-end space-x-3 pt-4">

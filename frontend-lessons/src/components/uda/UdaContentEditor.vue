@@ -7,6 +7,7 @@
         Nessun contenuto aggiunto. Clicca sui bottoni qui sotto per aggiungere contenuti.
       </div>
       <div v-else>
+        <!-- Passa la prop isEditing -->
         <UdaContentItemRenderer
           v-for="(content, index) in localContents"
           :key="content.temp_id || content.id"
@@ -15,13 +16,14 @@
           :is-last="index === localContents.length - 1"
           :uda-id="props.context === 'uda' ? props.udaId : undefined"
           :context="props.context"
+          :is-editing="isEditing"
           @edit="handleEditContent"
           @delete="handleDeleteContent"
           @move="handleMoveContent"
           @update:teacher-marked-completed="handleTeacherMarkedCompletedUpdate"
           @update:activity-completed="handleActivityCompletedUpdate"
           class="mb-3"
-        />
+        ></UdaContentItemRenderer>
       </div>
     </div>
 
@@ -125,6 +127,10 @@ const props = defineProps({
   udaId: { // ID dell'UDA, necessario se context è 'uda' per le operazioni di update sullo store
     type: Number,
     required: false
+  },
+  isEditing: { // NUOVA PROP: Indica se siamo in modalità modifica
+    type: Boolean,
+    default: false
   }
 });
 
