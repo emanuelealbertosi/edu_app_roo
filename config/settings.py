@@ -189,6 +189,7 @@ STORAGES = {
     },
 }
 
+
 # Media Files (User Uploaded Files)
 # https://docs.djangoproject.com/en/5.1/topics/files/
 MEDIA_URL = '/media/'

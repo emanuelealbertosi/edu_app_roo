@@ -10,7 +10,7 @@ export const courseService = {
   },
 
   async getCourse(id: number): Promise<Course> {
-    const response = await apiClient.get(`${BASE_URL}/${id}`);
+    const response = await apiClient.get(`${BASE_URL}${id}`);
     return response.data;
   },
 
@@ -20,20 +20,20 @@ export const courseService = {
   },
 
   async updateCourse(id: number, courseData: Partial<Course>): Promise<Course> {
-    const response = await apiClient.put(`${BASE_URL}/${id}`, courseData);
+    const response = await apiClient.put(`${BASE_URL}${id}`, courseData);
     return response.data;
   },
 
   async deleteCourse(id: number): Promise<void> {
-    await apiClient.delete(`${BASE_URL}${id}/`);
+    await apiClient.delete(`${BASE_URL}${id}`);
   },
 
   async getUdasForCourse(courseId: number): Promise<UDA[]> {
-    const response = await apiClient.get(`${BASE_URL}/${courseId}/udas/`);
+    const response = await apiClient.get(`${BASE_URL}${courseId}/udas/`);
     return response.data;
   },
 
   async reorderUdasInCourse(courseId: number, udaIds: number[]): Promise<void> {
-    await apiClient.post(`${BASE_URL}/${courseId}/udas/reorder/`, { uda_ids: udaIds });
+    await apiClient.post(`${BASE_URL}${courseId}/udas/reorder/`, { uda_ids: udaIds });
   }
 };
