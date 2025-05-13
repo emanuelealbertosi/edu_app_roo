@@ -104,6 +104,10 @@ class UDATemplateContent(models.Model):
     activity_template_title = models.CharField(max_length=255, blank=True, null=True)
     activity_template_description = models.TextField(blank=True, null=True)
     order = models.PositiveIntegerField()
+    estimated_hours = models.DecimalField( # Aggiunto campo estimated_hours
+        max_digits=4, decimal_places=1, null=True, blank=True,
+        help_text="Tempo stimato in ore (es. 1.5 per 1 ora e mezza)"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -232,6 +236,10 @@ class UDAContent(models.Model):
     activity_completed = models.BooleanField(default=False) # Specifico per ACTIVITY
     teacher_marked_completed = models.BooleanField(default=False) # Per tutti i tipi, marcato dal docente
     order = models.PositiveIntegerField()
+    estimated_hours = models.DecimalField(
+        max_digits=4, decimal_places=1, null=True, blank=True,
+        help_text="Tempo stimato in ore (es. 1.5 per 1 ora e mezza)"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

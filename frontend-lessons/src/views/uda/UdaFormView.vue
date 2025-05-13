@@ -142,7 +142,7 @@ import { useSubjectStore } from '@/stores/subjectStore';
 import { useTopicStore } from '@/stores/topicStore';
 import { useUiStore } from '@/stores/ui';
 import UdaContentEditor from '@/components/uda/UdaContentEditor.vue';
-import { UDAContentType, UDATemplateContentType, type UDA, type UDAContent, type UDATemplate, type UDATemplateContent } from '@/types/uda'; // Importa gli enum come valori
+import { UDAContentType, UDATemplateContentType, type UDA, type UDAContent, type UDATemplate } from '@/types/uda'; // Importa gli enum come valori, rimosso UDATemplateContent non utilizzato
 import type { Course as CourseType } from '@/types/uda'; // Course è in uda.ts, rinominato per evitare conflitto
 import type { Subject as SubjectType } from '@/types/subject'; // Rinominato
 import type { Topic as TopicType } from '@/types/topic'; // Rinominato

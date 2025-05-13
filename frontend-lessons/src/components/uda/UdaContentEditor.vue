@@ -77,8 +77,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, type PropType, nextTick } from 'vue'; // Assicurati che watch sia importato
-import { useQuizStore } from '@/stores/quizStore'; // Importa quizStore
+import { ref, watch, type PropType } from 'vue'; // Assicurati che watch sia importato, rimosso nextTick
+// import { useQuizStore } from '@/stores/quizStore'; // Rimosso import quizStore
 import { useUdaStore } from '@/stores/udaStore'; // Importa lo store UDA
 import SelectExistingContentModal from './SelectExistingContentModal.vue';
 import EditNoteContentModal from './EditNoteContentModal.vue';
@@ -136,7 +136,7 @@ const props = defineProps({
 
 const emit = defineEmits(['update:modelValue']);
 const udaStore = useUdaStore(); // Istanza dello store
-const quizStore = useQuizStore(); // Istanza di quizStore
+// const quizStore = useQuizStore(); // Rimosso perché non utilizzato
 
 const localContents = ref<ContentItem[]>([]);
 const showSelectExistingContentModal = ref(false);

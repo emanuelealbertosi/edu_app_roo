@@ -122,16 +122,12 @@ import { ref, computed, onMounted } from 'vue'; // Aggiunto ref
 import { RouterLink } from 'vue-router';
 import { useUdaTemplateStore } from '@/stores/udaTemplateStore';
 import { useUiStore } from '@/stores/ui';
-import { PlusCircleIcon, PencilIcon, TrashIcon } from '@heroicons/vue/24/outline';
-import type { UDATemplate } from '@/types/uda';
+import { PencilIcon, TrashIcon } from '@heroicons/vue/24/outline'; // Rimosso PlusCircleIcon
+// import type { UDATemplate } from '@/types/uda'; // Rimosso UDATemplate non utilizzato
 import { useSubjectStore } from '@/stores/subjectStore'; // Importa lo store delle materie
 import { useTopicStore } from '@/stores/topicStore';   // Importa lo store degli argomenti
 
-// TODO: Verificare se questi tipi esistono già e sono più completi in @/types/subject o @/types/topic
-interface Subject {
-  id: number;
-  name: string;
-}
+// Rimosse interfacce locali Subject/Topic non utilizzate o duplicate
 interface Topic {
   id: number;
   name: string;

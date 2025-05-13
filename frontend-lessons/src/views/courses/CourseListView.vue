@@ -105,7 +105,7 @@ import { ref, onMounted, computed } from 'vue';
 import { RouterLink } from 'vue-router';
 import { useCourseStore } from '@/stores/courseStore';
 import { useUiStore } from '@/stores/ui'; // Importa uiStore
-import { PlusCircleIcon } from '@heroicons/vue/24/outline';
+// import { PlusCircleIcon } from '@heroicons/vue/24/outline'; // Rimosso perché non utilizzato
 
 const courseStore = useCourseStore();
 const uiStore = useUiStore(); // Istanzia uiStore

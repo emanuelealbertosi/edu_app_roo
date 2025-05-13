@@ -256,3 +256,58 @@ class UDAViewSet(viewsets.ModelViewSet):
         content.save(update_fields=['teacher_marked_completed'])
         serializer = UDAContentSerializer(content)
         return Response(serializer.data)
+    @action(detail=True, methods=['post'], url_path='contents/reorder')
+    def reorder_contents(self, request, pk=None):
+        """
+        Riordina i contenuti (UDAContent) di una specifica UDA.
+        Si aspetta una lista di ID di contenuti nell'ordine desiderato nel body della richiesta:
+        { "content_ids": [3, 1, 2] }
+        """
+        uda = self.get_object() # Ottiene l'UDA, il permesso IsOwnerOrReadOnly è già applicato
+        content_ids = request.data.get('content_ids', [])
+
+        if not isinstance(content_ids, list):
+            return Response({'error': 'content_ids must be a list.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Verifica che tutti gli ID siano interi
+        try:
+            content_ids = [int(cid) for cid in content_ids]
+        except (ValueError, TypeError):
+            return Response({'error': 'All content_ids must be valid integers.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Recupera tutti i contenuti attuali dell'UDA per verifica
+        current_contents = uda.contents.all()
+        current_content_map = {content.id: content for content in current_contents}
+        current_content_ids_set = set(current_content_map.keys())
+        provided_content_ids_set = set(content_ids)
+
+        # Verifica che tutti gli ID forniti appartengano effettivamente a questa UDA
+        if not provided_content_ids_set.issubset(current_content_ids_set):
+            invalid_ids = list(provided_content_ids_set - current_content_ids_set)
+            return Response({'error': f'Invalid or non-existent content IDs for this UDA: {invalid_ids}'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        # Verifica che tutti i contenuti dell'UDA siano presenti nella lista fornita
+        if current_content_ids_set != provided_content_ids_set:
+            missing_ids = list(current_content_ids_set - provided_content_ids_set)
+            return Response({'error': f'Missing content IDs in the provided list: {missing_ids}'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        # Aggiorna l'ordine
+        # Usiamo un ciclo per aggiornare l'ordine. Per performance su liste molto grandi,
+        # si potrebbero considerare strategie diverse, ma per un numero tipico di contenuti UDA
+        # questo approccio è generalmente accettabile.
+        updated_count = 0
+        for index, content_id in enumerate(content_ids):
+            content_to_update = current_content_map[content_id]
+            new_order = index + 1 # L'ordine è 1-based
+            if content_to_update.order != new_order:
+                content_to_update.order = new_order
+                content_to_update.save(update_fields=['order'])
+                updated_count += 1
+
+        # Restituisce i contenuti riordinati
+        # Ricarica i contenuti dall'UDA per assicurarsi che l'ordine sia corretto
+        reordered_contents = uda.contents.order_by('order')
+        serializer = UDAContentSerializer(reordered_contents, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)

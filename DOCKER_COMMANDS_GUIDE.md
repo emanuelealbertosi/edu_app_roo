@@ -81,9 +81,15 @@ Se la direttiva `image:` non è presente o non corrisponde al tag che hai usato 
 Una volta che il file `docker-compose.local-prod-test.yml` è stato aggiornato per puntare alle immagini corrette:
 
 ### Avvio di Tutti i Servizi
+
+docker compose -f docker-compose.local-prod-test.yml --env-file .env.localprod build
+
+docker compose -f docker-compose.local-prod-test.yml --env-file .env.localprod up -d --build
+
 *   In background (detached mode):
     ```bash
     docker compose -f docker-compose.local-prod-test.yml --env-file .env.localprod up -d
+	
     ```
 *   In foreground (per visualizzare i log in tempo reale):
     ```bash

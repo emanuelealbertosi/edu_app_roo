@@ -40,7 +40,7 @@ class UDATemplateContentSerializer(serializers.ModelSerializer):
             'id', 'content_type', 'lesson', 'quiz_template', # Modificato da quiz
             'note_template_title', 'note_template_content',
             'activity_template_title', 'activity_template_description',
-            'order'
+            'order', 'estimated_hours' # Aggiunto
         ]
         # read_only_fields = ['id'] # L'ID è implicitamente read-only alla creazione
 
@@ -168,7 +168,7 @@ class UDAContentSerializer(serializers.ModelSerializer):
             'note_title', 'note_content',
             'activity_title', 'activity_description', 'activity_attachment_url', 'activity_completed',
             'teacher_marked_completed', # Aggiunto come da piano
-            'order'
+            'order', 'estimated_hours' # Aggiunto
         ]
         # read_only_fields = ['id']
 
@@ -227,19 +227,18 @@ class UDASerializer(serializers.ModelSerializer):
    course_id = serializers.PrimaryKeyRelatedField(
        queryset=Course.objects.all(),
        source='course', # Mappa al campo 'course' del modello UDA
-       write_only=True,
+       # write_only=True, # Rimosso per includerlo nella lettura
        required=False, # Come da modello UDA, course è opzionale
        allow_null=True
    )
-   # Per la lettura, potremmo voler serializzare l'intero oggetto Course o solo alcuni campi.
-   # Per ora, usiamo StringRelatedField per una rappresentazione semplice.
-   # In alternativa, si potrebbe usare un CourseSerializer nested (read_only=True).
-   course_display = serializers.StringRelatedField(source='course', read_only=True)
+   # Forniamo campi separati per nome corso e autore per la lettura
+   course_name = serializers.CharField(source='course.name', read_only=True, allow_null=True)
+   course_teacher_username = serializers.CharField(source='course.teacher.username', read_only=True, allow_null=True)
 
    subject_ids = serializers.PrimaryKeyRelatedField(
        queryset=Subject.objects.all(),
        many=True,
-       write_only=True,
+       # write_only=True, # Rimosso per includerlo nella lettura
        source='subjects', # Mappa a subjects nel modello UDA
        required=False
    )
@@ -252,7 +251,7 @@ class UDASerializer(serializers.ModelSerializer):
            'id', 'teacher', 'source_template_id', 'title', 'description',
            'start_date', 'end_date',
            'subjects_display', 'subject_ids', # Sostituisce 'subject'
-           'course_id', 'course_display', 'order_in_course',
+           'course_id', 'course_name', 'course_teacher_username', 'order_in_course', # Modificato da course_display
            'topics_display', 'topic_ids', 'status', 'contents',
            'created_at', 'updated_at'
        ]
@@ -292,6 +291,7 @@ class UDASerializer(serializers.ModelSerializer):
                    'activity_title': template_content.activity_template_title,
                    'activity_description': template_content.activity_template_description,
                    'order': template_content.order,
+                   'estimated_hours': template_content.estimated_hours, # Aggiunto
                    # teacher_marked_completed di default è False per i nuovi UDAContent
                    # activity_attachment_url e activity_completed non vengono copiati di default
                }

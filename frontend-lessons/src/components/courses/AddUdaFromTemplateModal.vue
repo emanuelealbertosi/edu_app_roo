@@ -96,7 +96,6 @@ import { Dialog, DialogPanel, DialogTitle, TransitionChild, TransitionRoot } fro
 import { useUdaTemplateStore } from '@/stores/udaTemplateStore';
 import { useUdaStore } from '@/stores/udaStore';
 import { useCourseStore } from '@/stores/courseStore';
-import type { UdaTemplate } from '@/types/uda';
 import { useUiStore } from '@/stores/ui';
 
 
@@ -161,8 +160,8 @@ const handleAddUdaFromTemplate = async () => {
   const udaData = {
     title: newUdaTitle.value || template.name, // Usa il titolo del template se non specificato
     description: template.description,
-    subject_id: template.subject?.id || null,
-    topics: template.topics?.map(t => t.id) || [],
+    subject_id: template.subject || null, // Usa direttamente l'ID numerico
+    topics: template.topics || [], // Usa direttamente l'array di ID numerici
     source_template_id: template.id,
     course_id: props.courseId,
     order_in_course: orderInCourse,

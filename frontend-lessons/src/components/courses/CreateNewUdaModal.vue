@@ -140,9 +140,9 @@ import { useCourseStore } from '@/stores/courseStore';
 import { useUiStore } from '@/stores/ui';
 import { useSubjectStore } from '@/stores/subjectStore'; // Assumendo esista
 import { useTopicStore } from '@/stores/topicStore';   // Assumendo esista
-import type { Uda } from '@/types/uda';
-import type { Subject } from '@/types/subject'; // Assumendo esista
-import type { Topic } from '@/types/topic';     // Assumendo esista
+import type { UDA } from '@/types/uda';
+// import type { Subject } from '@/types/subject'; // Rimosso perché non utilizzato
+// import type { Topic } from '@/types/topic';     // Rimosso perché non utilizzato
 
 const props = defineProps<{
   open: boolean;
@@ -170,7 +170,7 @@ const initialFormState = {
   topic_ids: [] as number[], // Sarà da implementare la selezione
   start_date: '' as string | null,
   end_date: '' as string | null,
-  status: 'TODO' as Uda['status'],
+  status: 'TODO' as UDA['status'],
 };
 
 const newUdaForm = reactive({ ...initialFormState });

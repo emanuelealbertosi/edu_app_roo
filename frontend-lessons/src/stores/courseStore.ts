@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { courseService } from '@/services/courseService';
-import type { Course, Uda } from '@/types/uda';
+import type { Course, UDA } from '@/types/uda';
 
 interface CourseState {
   courses: Course[];
@@ -104,7 +104,7 @@ export const useCourseStore = defineStore('course', {
       }
     },
 
-    async fetchUdasForCourse(courseId: number): Promise<Uda[]> {
+    async fetchUdasForCourse(courseId: number): Promise<UDA[]> {
       this.loading = true; // Potrebbe essere un loading specifico per le UDA del corso
       this.error = null;
       try {
@@ -147,7 +147,7 @@ export const useCourseStore = defineStore('course', {
       return state.courses.find(course => course.id === id);
     },
     // Altri getters utili, es. udasForCurrentCourse
-    udasForCurrentCourse: (state): Uda[] => {
+    udasForCurrentCourse: (state): UDA[] => {
         return state.currentCourse?.udas || [];
     }
   },

@@ -153,9 +153,9 @@ import { useCourseStore } from '@/stores/courseStore';
 import { useSubjectStore } from '@/stores/subjectStore';
 import { useTopicStore } from '@/stores/topicStore'; // Importa topicStore
 import { useUiStore } from '@/stores/ui';
-import { PlusCircleIcon, PencilIcon, TrashIcon, EyeIcon } from '@heroicons/vue/24/outline';
-import type { UDA, Course } from '@/types/uda';
-import type { Subject } from '@/types/subject';
+import { PencilIcon, TrashIcon, EyeIcon } from '@heroicons/vue/24/outline'; // Rimosso PlusCircleIcon
+import type { UDA } from '@/types/uda'; // Rimosso Course
+// import type { Subject } from '@/types/subject'; // Rimosso Subject
 import type { Topic } from '@/types/topic'; // Importa Topic type
 
 const udaStore = useUdaStore();
@@ -257,12 +257,7 @@ const getStatusClass = (status?: UDA['status']) => {
   return 'text-gray-600 bg-gray-100';
 };
 
-// getCourseName non è più strettamente necessario se usiamo enrichedUdas, ma lo lascio se serve altrove
-const getCourseName = (courseId?: number | null): string | undefined => {
-  if (!courseId) return undefined;
-  const course = courseStore.getCourseById(courseId);
-  return course?.name;
-};
+// Rimosso getCourseName perché non utilizzato (il nome del corso è in enrichedUdas)
 
 const formatDate = (dateString?: string | null) => {
   if (!dateString) return 'N/D';

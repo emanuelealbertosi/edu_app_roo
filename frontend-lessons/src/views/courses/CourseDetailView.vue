@@ -113,7 +113,7 @@
                 <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
                   <!-- Pulsanti Sposta -->
                   <button
-                    @click="moveUdaUp(uda.id, index)"
+                    @click="moveUdaUp(index)"
                     :disabled="index === 0"
                     class="text-gray-500 hover:text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed p-1 rounded-md hover:bg-gray-100"
                     title="Sposta Su"
@@ -121,7 +121,7 @@
                     <ArrowUpIcon class="h-4 w-4" />
                   </button>
                   <button
-                    @click="moveUdaDown(uda.id, index)"
+                    @click="moveUdaDown(index)"
                     :disabled="index === udas.length - 1"
                     class="text-gray-500 hover:text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed p-1 rounded-md hover:bg-gray-100"
                     title="Sposta Giù"
@@ -277,7 +277,7 @@ const confirmDeleteUda = async (udaIdToDelete: number) => {
   }
 };
 
-const moveUdaUp = async (udaId: number, currentIndex: number) => {
+const moveUdaUp = async (currentIndex: number) => { // Rimosso udaId non utilizzato
   if (currentIndex === 0 || !courseId.value) return;
 
   const currentUdas = [...udas.value];
@@ -302,7 +302,7 @@ const moveUdaUp = async (udaId: number, currentIndex: number) => {
   }
 };
 
-const moveUdaDown = async (udaId: number, currentIndex: number) => {
+const moveUdaDown = async (currentIndex: number) => { // Rimosso udaId non utilizzato
   if (currentIndex === udas.value.length - 1 || !courseId.value) return;
 
   const currentUdas = [...udas.value];

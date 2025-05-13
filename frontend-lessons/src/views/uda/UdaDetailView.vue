@@ -213,13 +213,7 @@ const enrichedUdaContents = computed(() => {
 });
 
 
-const getStatusClass = (status?: UDA['status']) => {
-  if (!status) return 'text-gray-600 bg-gray-100';
-  if (status === 'COMPLETED') return 'text-green-700 bg-green-100';
-  if (status === 'IN_PROGRESS') return 'text-blue-700 bg-blue-100';
-  if (status === 'TODO') return 'text-yellow-700 bg-yellow-100';
-  return 'text-gray-600 bg-gray-100';
-};
+// Rimosso getStatusClass perché non utilizzata
 
 // Funzione per ottenere classi CSS specifiche per il select dello stato
 const getStatusSelectClass = (status?: UDA['status']) => {
@@ -398,7 +392,7 @@ const handleAssignLesson = (lessonId: number) => {
 
   const assignmentUrl = `/lezioni/${lessonId}/assegna`;
   const lessonTitle = lessonStore.getLessonById(lessonId)?.title || `Lezione ${lessonId}`;
-  const modalTitle = `Assegna ${lessonTitle}`; // Titolo mantenuto per eventuale uso futuro
+  // const modalTitle = `Assegna ${lessonTitle}`; // Rimosso perché non utilizzato
 
   // Naviga alla pagina di assegnazione nella stessa scheda usando router.push
   router.push(assignmentUrl);

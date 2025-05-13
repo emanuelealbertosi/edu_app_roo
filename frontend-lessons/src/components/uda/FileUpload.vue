@@ -23,9 +23,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, type PropType } from 'vue';
+import { ref } from 'vue';
 
-const props = defineProps({
+defineProps({ // Chiamata diretta senza assegnare a 'props'
   accept: {
     type: String,
     default: '*' // Accetta tutti i tipi di file di default
