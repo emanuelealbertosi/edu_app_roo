@@ -18,8 +18,7 @@
     <form v-else @submit.prevent="handleSubmit" class="space-y-6 bg-white shadow-lg rounded-lg p-6">
       <div class="bg-gray-50 border border-gray-300 rounded-lg p-6 space-y-6 shadow-sm">
         <h2 class="text-xl font-semibold text-neutral-darkest bg-primary-light p-3 rounded-t-md mb-4 shadow-sm">Dati Principali UDA</h2>
-
-        <div v-if="!isEditMode" class="mb-4 p-6 bg-white rounded-md border border-gray-300">
+        <div v-if="!isEditMode" class="mb-6 p-4 bg-white rounded-md border border-gray-200 shadow-sm">
           <label for="sourceTemplate" class="block text-sm font-medium text-gray-700 mb-1">Parti da un Template (Opzionale)</label>
           <select id="sourceTemplate" v-model="selectedSourceTemplateId" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2">
             <option :value="null">Nessun template (crea da zero)</option>
@@ -30,17 +29,16 @@
           <div v-if="udaTemplateStore.loading" class="text-xs text-gray-500 mt-1">Caricamento template...</div>
         </div>
 
-        <div>
-          <label for="udaTitle" class="block text-sm font-medium text-gray-700 mb-1">Titolo UDA</label>
-          <input type="text" id="udaTitle" v-model="formData.title" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2">
-        </div>
-
-        <div>
-          <label for="udaDescription" class="block text-sm font-medium text-gray-700 mb-1">Descrizione</label>
-          <textarea id="udaDescription" v-model="formData.description" rows="4" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2"></textarea>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- Riga 1: Titolo, Descrizione, Data Inizio, Data Fine -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 mb-4">
+          <div class="md:col-span-1">
+            <label for="udaTitle" class="block text-sm font-medium text-gray-700 mb-1">Titolo UDA</label>
+            <input type="text" id="udaTitle" v-model="formData.title" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2">
+          </div>
+          <div class="md:col-span-1">
+            <label for="udaDescription" class="block text-sm font-medium text-gray-700 mb-1">Descrizione</label>
+            <textarea id="udaDescription" v-model="formData.description" rows="3" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2"></textarea>
+          </div>
           <div>
             <label for="startDate" class="block text-sm font-medium text-gray-700 mb-1">Data Inizio (Opzionale)</label>
             <input type="date" id="startDate" v-model="formData.start_date" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2">
@@ -51,54 +49,57 @@
           </div>
         </div>
 
-        <div>
-          <label for="status" class="block text-sm font-medium text-gray-700 mb-1">Stato</label>
-          <select id="status" v-model="formData.status" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2">
-            <option value="TODO">Da Fare</option>
-            <option value="IN_PROGRESS">In Corso</option>
-            <option value="COMPLETED">Completata</option>
-          </select>
-        </div>
-        
-        <div>
-          <label for="course" class="block text-sm font-medium text-gray-700 mb-1">Corso di Appartenenza (Opzionale)</label>
-          <select id="course" v-model="formData.course" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2">
-            <option :value="null">Nessun corso</option>
-            <option v-for="course_item in availableCourses" :key="course_item.id" :value="course_item.id">
-              {{ course_item.name }}
-            </option>
-          </select>
-           <div v-if="courseStore.loading" class="text-xs text-gray-500 mt-1">Caricamento corsi...</div>
-        </div>
-        
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Materie (Opzionale)</label>
-          <div v-if="subjectStore.loading" class="text-sm text-gray-500">Caricamento materie...</div>
-          <div v-else-if="availableSubjects.length === 0" class="text-sm text-gray-500">Nessuna materia disponibile.</div>
-          <div v-else class="max-h-60 overflow-y-auto border border-gray-300 rounded-md p-3 space-y-2 bg-white">
-            <div v-for="subject_item in availableSubjects" :key="subject_item.id" class="flex items-center cursor-pointer px-2">
-              <input
-                type="checkbox"
-                :id="`subject-uda-${subject_item.id}`"
-                :value="subject_item.id"
-                v-model="formData.subjects"
-                class="h-5 w-5 text-indigo-600 border-gray-400 rounded focus:ring-indigo-500 focus:ring-2 focus:ring-offset-0 cursor-pointer"
-              >
-              <label :for="`subject-uda-${subject_item.id}`" class="ml-3 block text-sm text-gray-900 select-none cursor-pointer">{{ subject_item.name }}</label>
+        <!-- Riga 2: Stato, Corso, Materie, Argomenti -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-4">
+          <div>
+            <label for="status" class="block text-sm font-medium text-gray-700 mb-1">Stato</label>
+            <select id="status" v-model="formData.status" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2">
+              <option value="TODO">Da Fare</option>
+              <option value="IN_PROGRESS">In Corso</option>
+              <option value="COMPLETED">Completata</option>
+            </select>
+          </div>
+          
+          <div>
+            <label for="course" class="block text-sm font-medium text-gray-700 mb-1">Corso di Appartenenza (Opzionale)</label>
+            <select id="course" v-model="formData.course" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2">
+              <option :value="null">Nessun corso</option>
+              <option v-for="course_item in availableCourses" :key="course_item.id" :value="course_item.id">
+                {{ course_item.name }}
+              </option>
+            </select>
+            <div v-if="courseStore.loading" class="text-xs text-gray-500 mt-1">Caricamento corsi...</div>
+          </div>
+          
+          <div class="lg:col-span-1">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Materie (Opzionale)</label>
+            <div v-if="subjectStore.loading" class="text-sm text-gray-500">Caricamento materie...</div>
+            <div v-else-if="availableSubjects.length === 0" class="text-sm text-gray-500">Nessuna materia disponibile.</div>
+            <div v-else class="max-h-40 overflow-y-auto border border-gray-300 rounded-md p-2 space-y-1 bg-white">
+              <div v-for="subject_item in availableSubjects" :key="subject_item.id" class="flex items-center cursor-pointer px-1 py-0.5">
+                <input
+                  type="checkbox"
+                  :id="`subject-uda-${subject_item.id}`"
+                  :value="subject_item.id"
+                  v-model="formData.subjects"
+                  class="h-4 w-4 text-indigo-600 border-gray-400 rounded focus:ring-indigo-500 focus:ring-1 focus:ring-offset-0 cursor-pointer"
+                >
+                <label :for="`subject-uda-${subject_item.id}`" class="ml-2 block text-sm text-gray-800 select-none cursor-pointer">{{ subject_item.name }}</label>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div v-if="formData.subjects.length > 0">
-          <label for="topics" class="block text-sm font-medium text-gray-700 mb-1">Argomenti (Opzionale - relativi alla prima materia selezionata)</label>
-          <div v-if="topicStore.loading" class="text-sm text-gray-500">Caricamento argomenti...</div>
-          <div v-else-if="availableTopicsForSelectedSubject.length === 0" class="text-sm text-gray-500">
-            Nessun argomento disponibile per la materia selezionata o seleziona una materia per vedere gli argomenti.
-          </div>
-          <div v-else class="max-h-40 overflow-y-auto border border-gray-300 rounded-md p-2 space-y-1 bg-white">
-            <div v-for="topic_item in availableTopicsForSelectedSubject" :key="topic_item.id" class="flex items-center cursor-pointer px-2">
-              <input type="checkbox" :id="`topic-uda-${topic_item.id}`" :value="topic_item.id" v-model="formData.topics" class="h-5 w-5 text-indigo-600 border-gray-400 rounded focus:ring-indigo-500 focus:ring-2 focus:ring-offset-0 cursor-pointer">
-              <label :for="`topic-uda-${topic_item.id}`" class="ml-3 block text-sm text-gray-900 select-none cursor-pointer">{{ topic_item.name }}</label>
+          <div v-if="formData.subjects.length > 0" class="lg:col-span-1">
+            <label for="topics" class="block text-sm font-medium text-gray-700 mb-1">Argomenti (Opzionale)</label>
+            <div v-if="topicStore.loading" class="text-sm text-gray-500">Caricamento argomenti...</div>
+            <div v-else-if="availableTopicsForSelectedSubject.length === 0" class="text-sm text-gray-500">
+              Nessun argomento per la materia.
+            </div>
+            <div v-else class="max-h-40 overflow-y-auto border border-gray-300 rounded-md p-2 space-y-1 bg-white">
+              <div v-for="topic_item in availableTopicsForSelectedSubject" :key="topic_item.id" class="flex items-center cursor-pointer px-1 py-0.5">
+                <input type="checkbox" :id="`topic-uda-${topic_item.id}`" :value="topic_item.id" v-model="formData.topics" class="h-4 w-4 text-indigo-600 border-gray-400 rounded focus:ring-indigo-500 focus:ring-1 focus:ring-offset-0 cursor-pointer">
+                <label :for="`topic-uda-${topic_item.id}`" class="ml-2 block text-sm text-gray-800 select-none cursor-pointer">{{ topic_item.name }}</label>
+              </div>
             </div>
           </div>
         </div>

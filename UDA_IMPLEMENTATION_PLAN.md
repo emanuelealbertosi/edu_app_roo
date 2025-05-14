@@ -188,7 +188,11 @@ Sviluppare i seguenti componenti Vue.js in `frontend-lessons/src/views/` e `fron
     *   [RIMANDATO] Valutare l'implementazione del drag-and-drop per il riordino delle UDA in `CourseDetailView.vue`.
     *   [COMPLETATO] Continuare lo sviluppo e il raffinamento degli altri componenti UI per UDA e Template UDA.
     *   [COMPLETATO] Completare `UdaDetailView.vue` per la visualizzazione dettagliata dei contenuti UDA:
-        *   [COMPLETATO] Implementare il recupero e la visualizzazione dei nomi per Materia (ora potenzialmente multiple), Argomenti e Corso.
+        *   [COMPLETATO] Implementare il recupero e la visualizzazione dei dati principali dell'UDA, con la seguente disposizione compattata:
+            *   **Dati Principali UDA (Layout Compattato):**
+                *   Riga 1: Titolo, Descrizione (breve), Data Inizio, Data Fine.
+                *   Riga 2: Stato, Corso, Materie (potenzialmente multiple), Argomenti.
+            *   Visualizzazione dettagliata dei nomi per Materia (ora potenzialmente multiple), Argomenti e Corso, se non già inclusi in modo esauriente nel layout compattato.
         *   [COMPLETATO] Definire/Implementare la logica per gli handler degli eventi.
     *   [COMPLETATO, DA AGGIORNARE] Raffinare i componenti display specifici per contenuto (per visualizzare `estimated_hours`).
     *   [COMPLETATO] Implementare le modali di modifica per Note e Attività.
