@@ -81,7 +81,7 @@
                 type="checkbox"
                 :id="`subject-uda-${subject_item.id}`"
                 :value="subject_item.id"
-                v-model="selectedSubjectIds"
+                v-model="formData.subjects"
                 class="h-5 w-5 text-indigo-600 border-gray-400 rounded focus:ring-indigo-500 focus:ring-2 focus:ring-offset-0 cursor-pointer"
               >
               <label :for="`subject-uda-${subject_item.id}`" class="ml-3 block text-sm text-gray-900 select-none cursor-pointer">{{ subject_item.name }}</label>
@@ -89,7 +89,7 @@
           </div>
         </div>
 
-        <div v-if="selectedSubjectIds.length > 0">
+        <div v-if="formData.subjects.length > 0">
           <label for="topics" class="block text-sm font-medium text-gray-700 mb-1">Argomenti (Opzionale - relativi alla prima materia selezionata)</label>
           <div v-if="topicStore.loading" class="text-sm text-gray-500">Caricamento argomenti...</div>
           <div v-else-if="availableTopicsForSelectedSubject.length === 0" class="text-sm text-gray-500">
@@ -97,7 +97,7 @@
           </div>
           <div v-else class="max-h-40 overflow-y-auto border border-gray-300 rounded-md p-2 space-y-1 bg-white">
             <div v-for="topic_item in availableTopicsForSelectedSubject" :key="topic_item.id" class="flex items-center cursor-pointer px-2">
-              <input type="checkbox" :id="`topic-uda-${topic_item.id}`" :value="topic_item.id" v-model="selectedTopicIds" class="h-5 w-5 text-indigo-600 border-gray-400 rounded focus:ring-indigo-500 focus:ring-2 focus:ring-offset-0 cursor-pointer">
+              <input type="checkbox" :id="`topic-uda-${topic_item.id}`" :value="topic_item.id" v-model="formData.topics" class="h-5 w-5 text-indigo-600 border-gray-400 rounded focus:ring-indigo-500 focus:ring-2 focus:ring-offset-0 cursor-pointer">
               <label :for="`topic-uda-${topic_item.id}`" class="ml-3 block text-sm text-gray-900 select-none cursor-pointer">{{ topic_item.name }}</label>
             </div>
           </div>
@@ -133,7 +133,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, watch, nextTick } from 'vue'; // Importa nextTick
+import { ref, onMounted, computed, watch, nextTick } from 'vue';
 import { useRoute, useRouter, RouterLink } from 'vue-router';
 import { useUdaStore } from '@/stores/udaStore';
 import { useUdaTemplateStore } from '@/stores/udaTemplateStore';
@@ -196,6 +196,7 @@ const submitButtonText = computed(() => isEditMode.value ? 'Salva Modifiche' : '
 const loadingInitialData = ref(false);
 const initialError = ref<string | null>(null);
 const isSubmitting = ref(false);
+// const initialLoadComplete = ref(false); // Rimosso completamente
 const submitError = ref<string | null>(null);
 
 watch(initialError, (newValue, oldValue) => {
@@ -221,51 +222,45 @@ const formData = ref<UdaFormData>({
   contents: []
 });
 
-const selectedTopicIds = ref<number[]>([]);
-const selectedSubjectIds = ref<number[]>([]); 
+// Rimossi selectedTopicIds e selectedSubjectIds, useremo formData.topics e formData.subjects direttamente
+// const selectedTopicIds = ref<number[]>([]);
+// const selectedSubjectIds = ref<number[]>([]);
 
 const availableUdaTemplates = computed(() => udaTemplateStore.udaTemplates);
 const availableCourses = computed(() => courseStore.courses as CourseType[]); 
 const availableSubjects = computed(() => subjectStore.subjects as SubjectType[]); 
 const availableTopicsForSelectedSubject = computed(() => {
-  if (selectedSubjectIds.value.length > 0) {
-    const firstSelectedSubjectId = selectedSubjectIds.value[0];
+  if (formData.value.subjects.length > 0) {
+    const firstSelectedSubjectId = formData.value.subjects[0];
     return topicStore.getTopicsForSubject(firstSelectedSubjectId) as TopicType[]; 
   }
   return [];
 });
 
-watch(selectedSubjectIds, (newSelectedSubjectIds, oldSelectedSubjectIds) => {
-  if (JSON.stringify(newSelectedSubjectIds) !== JSON.stringify(formData.value.subjects)) {
-    formData.value.subjects = [...newSelectedSubjectIds];
-  }
-  if (JSON.stringify(newSelectedSubjectIds) !== JSON.stringify(oldSelectedSubjectIds)) {
-    selectedTopicIds.value = [];
-    if (newSelectedSubjectIds.length > 0) {
-      topicStore.fetchTopicsBySubject(newSelectedSubjectIds[0]);
+// Watchers per selectedSubjectIds e selectedTopicIds rimossi.
+// La logica per caricare i topic in base alla materia selezionata
+// ora osserverà formData.subjects.
+watch(() => formData.value.subjects, (newSubjects, oldSubjects) => {
+  if (JSON.stringify(newSubjects) !== JSON.stringify(oldSubjects)) {
+    // Questo reset è intenzionale quando l'utente cambia le materie.
+    // Durante onMounted, questo verrà eseguito, ma formData.topics sarà ripopolato correttamente dopo.
+    formData.value.topics = [];
+    if (newSubjects && newSubjects.length > 0) {
+      topicStore.fetchTopicsBySubject(newSubjects[0]);
     }
   }
 }, { deep: true });
 
-watch(() => formData.value.subjects, (newFormSubjects) => {
-  if (JSON.stringify(newFormSubjects) !== JSON.stringify(selectedSubjectIds.value)) {
-    selectedSubjectIds.value = [...newFormSubjects];
+// Non sono più necessari i watch per sincronizzare formData.topics/subjects con selectedTopicIds/selectedSubjectIds
+// perché usiamo formData.topics/subjects direttamente come v-model.
+
+watch(() => udaStore.currentUda?.contents, (newContents) => {
+  if (isEditMode.value && udaId.value && udaStore.currentUda && udaStore.currentUda.id === udaId.value) {
+    if (newContents && JSON.stringify(newContents) !== JSON.stringify(formData.value.contents)) {
+      formData.value.contents = JSON.parse(JSON.stringify(newContents));
+    }
   }
 }, { deep: true });
-
-
-watch(selectedTopicIds, (newSelectedTopicIds) => {
-  if (JSON.stringify(newSelectedTopicIds) !== JSON.stringify(formData.value.topics)) {
-    formData.value.topics = [...newSelectedTopicIds];
-  }
-}, { deep: true });
-
-watch(() => formData.value.topics, (newFormTopics) => {
-  if (JSON.stringify(newFormTopics) !== JSON.stringify(selectedTopicIds.value)) {
-    selectedTopicIds.value = [...newFormTopics];
-  }
-}, { deep: true });
-
 
 const loadTemplateData = (template_item: UDATemplate) => {
   formData.value.title = formData.value.title || `Copia di ${template_item.name}`;
@@ -347,27 +342,33 @@ onMounted(async () => {
       if (udaToEdit) {
         // Attendi il prossimo ciclo di aggiornamento DOM prima di popolare il form
         // per dare tempo alle opzioni del select (es. corsi) di essere renderizzate.
-        await nextTick();
-
         formData.value.title = udaToEdit.title;
         formData.value.description = udaToEdit.description || null;
         formData.value.start_date = udaToEdit.start_date || null;
         formData.value.end_date = udaToEdit.end_date || null;
         formData.value.status = udaToEdit.status;
-        formData.value.subjects = udaToEdit.subjects ? [...udaToEdit.subjects] : []; 
-        formData.value.topics = udaToEdit.topics ? [...udaToEdit.topics] : [];
+        // Popola prima subjects
+        formData.value.subjects = udaToEdit.subjects ? [...udaToEdit.subjects] : [];
+        
         formData.value.course = udaToEdit.course || null;
         formData.value.order_in_course = udaToEdit.order_in_course || null;
         formData.value.source_template = udaToEdit.source_template || null;
         formData.value.contents = udaToEdit.contents ? JSON.parse(JSON.stringify(udaToEdit.contents)) : [];
+        selectedSourceTemplateId.value = udaToEdit.source_template || null;
         
-        selectedSourceTemplateId.value = udaToEdit.source_template || null; 
-        selectedSubjectIds.value = [...formData.value.subjects]; 
-        
-        if (formData.value.subjects.length > 0) {
+        // Se ci sono materie, attendi il caricamento dei relativi argomenti disponibili
+        // Il watch su formData.subjects si occuperà di chiamare fetchTopicsBySubject
+        // e resetterà formData.topics temporaneamente.
+        if (formData.value.subjects && formData.value.subjects.length > 0) {
           await topicStore.fetchTopicsBySubject(formData.value.subjects[0]);
         }
-        selectedTopicIds.value = [...formData.value.topics];
+        
+        // Attendi che Vue processi gli aggiornamenti DOM e i watch
+        await nextTick();
+        
+        // Ora ripopola formData.topics con i valori corretti dell'UDA.
+        // Questo sovrascriverà il reset fatto dal watch se necessario.
+        formData.value.topics = udaToEdit.topics ? [...udaToEdit.topics] : [];
       } else {
         initialError.value = `UDA con ID ${udaId.value} non trovata.`;
       }
@@ -393,7 +394,7 @@ const handleSubmit = async () => {
     start_date: formData.value.start_date || undefined,
     end_date: formData.value.end_date || undefined,
     status: formData.value.status,
-    subject_ids: selectedSubjectIds.value.length > 0 ? selectedSubjectIds.value : undefined, 
+    subject_ids: formData.value.subjects,
     topic_ids: formData.value.topics,
     course_id: formData.value.course || undefined,
     order_in_course: formData.value.order_in_course || undefined,

@@ -20,7 +20,9 @@ export const useUdaStore = defineStore('uda', {
           ...udaData, // Copia tutti i campi ricevuti
           course: udaData.course_id, // Salva l'ID del corso nel campo 'course'
           course_name: udaData.course_name, // Salva il nome del corso
-          course_teacher_username: udaData.course_teacher_username // Salva l'username dell'autore
+          course_teacher_username: udaData.course_teacher_username, // Salva l'username dell'autore
+          subjects: udaData.subject_ids || [], // Mappa subject_ids a subjects (per il form)
+          topics: udaData.topic_ids || []      // Mappa topic_ids a topics (per il form)
         })) as UDA[]; // Asserisci il tipo finale a UDA[]
       } catch (err) {
         this.error = (err as Error).message || 'Failed to fetch UDAs';
@@ -41,7 +43,9 @@ export const useUdaStore = defineStore('uda', {
           ...rawData, // Copia tutti i campi ricevuti
           course: rawData.course_id, // Salva l'ID del corso nel campo 'course'
           course_name: rawData.course_name, // Salva il nome del corso
-          course_teacher_username: rawData.course_teacher_username // Salva l'username dell'autore
+          course_teacher_username: rawData.course_teacher_username, // Salva l'username dell'autore
+          subjects: rawData.subject_ids || [], // Mappa subject_ids a subjects (per il form)
+          topics: rawData.topic_ids || []      // Mappa topic_ids a topics (per il form)
         } as UDA; // Asserisci il tipo finale a UDA
         // Carica i contenuti se non sono già presenti o sono vuoti
         if (this.currentUda && (!this.currentUda.contents || this.currentUda.contents.length === 0)) {
@@ -97,15 +101,33 @@ export const useUdaStore = defineStore('uda', {
       this.error = null;
       try {
         const payload = { ...udaData } as any; // Usiamo 'any' temporaneamente
-         if (payload.topics && Array.isArray(payload.topics) && payload.topics.length > 0 && typeof payload.topics[0] === 'object' && payload.topics[0] !== null && 'id' in payload.topics[0]) {
-            payload.topics = payload.topics.map((t: any) => t.id);
+        
+        // Gestione di topics: se presente in udaData, lo processiamo.
+        // Se udaData.topics è un array (anche vuoto), lo usiamo.
+        // Se è un array di oggetti, mappiamo a ID.
+        // Se è undefined, non lo includiamo nel payload per PATCH parziali.
+        if (udaData.topics !== undefined) {
+            if (Array.isArray(udaData.topics) && udaData.topics.length > 0 && typeof udaData.topics[0] === 'object' && udaData.topics[0] !== null && 'id' in udaData.topics[0]) {
+                payload.topics = udaData.topics.map((t: any) => t.id);
+            } else {
+                payload.topics = udaData.topics; // Sarà un array di ID o un array vuoto
+            }
+        } else {
+            delete payload.topics; // Assicurati che non venga inviato se non fornito
         }
 
-        // Assicuriamoci che subject_ids sia un array se fornito, altrimenti non lo includiamo per PATCH parziali
-        if (payload.subject_ids !== undefined && !Array.isArray(payload.subject_ids)) {
-            // Potrebbe essere un errore, gestirlo o loggarlo
-            console.warn('subject_ids is defined but not an array in updateUda, setting to empty array.');
-            payload.subject_ids = [];
+        // Gestione di subject_ids: se presente in udaData, lo processiamo.
+        // Se udaData.subject_ids è un array (anche vuoto), lo usiamo.
+        // Se è undefined, non lo includiamo nel payload per PATCH parziali.
+        if (udaData.subject_ids !== undefined) {
+             if (!Array.isArray(udaData.subject_ids)) {
+                console.warn('subject_ids is defined but not an array in updateUda, setting to empty array.');
+                payload.subject_ids = [];
+            } else {
+                payload.subject_ids = udaData.subject_ids;
+            }
+        } else {
+            delete payload.subject_ids; // Assicurati che non venga inviato se non fornito
         }
         
         // Rimuoviamo il vecchio subject_id se presente per errore

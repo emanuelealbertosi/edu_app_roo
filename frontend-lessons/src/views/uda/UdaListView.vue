@@ -156,7 +156,7 @@ import { useUiStore } from '@/stores/ui';
 import { PencilIcon, TrashIcon, EyeIcon } from '@heroicons/vue/24/outline'; // Rimosso PlusCircleIcon
 import type { UDA } from '@/types/uda'; // Rimosso Course
 // import type { Subject } from '@/types/subject'; // Rimosso Subject
-import type { Topic } from '@/types/topic'; // Importa Topic type
+// import type { Topic } from '@/types/topic'; // Importa Topic type - Non più utilizzato dopo aver commentato la riga 175
 
 const udaStore = useUdaStore();
 const courseStore = useCourseStore();
@@ -170,9 +170,9 @@ const enrichedUdas = computed(() => {
   return udaStore.udas.map(uda => {
     const course = uda.course ? courseStore.getCourseById(uda.course) : null;
     // Gestisce uda.subjects come array di ID, prendendo il primo per la materia principale
-    const firstSubjectId = uda.subjects && uda.subjects.length > 0 ? uda.subjects[0] : null;
-    const subject = firstSubjectId ? subjectStore.getSubjectById(firstSubjectId) : null;
-    const topics = uda.topics?.map(id => topicStore.getTopicById(id)).filter(Boolean) as Topic[] | undefined;
+    // const firstSubjectId = uda.subjects && uda.subjects.length > 0 ? uda.subjects[0] : null; // Non usato
+    // const subject = firstSubjectId ? subjectStore.getSubjectById(firstSubjectId) : null; // Non usato
+    // const topics = uda.topics?.map(id => topicStore.getTopicById(id)).filter(Boolean) as Topic[] | undefined; // Non usato
 
     // Cerca il nome utente del docente. Assumiamo che courseStore.getCourseById restituisca dettagli del docente
     // o che ci sia un modo per ottenerli (es. uno store utenti). Adattare se necessario.
@@ -185,8 +185,11 @@ const enrichedUdas = computed(() => {
       ...uda,
       course_name: course?.name,
       course_teacher_username: teacherUsername,
-      subjects_display: subject ? [subject.name] : [], // Mostra solo la prima materia per semplicità
-      topics_display: topics?.map(t => t.name),
+      // subjects_display e topics_display sono già forniti dal backend
+      // e sono presenti in '...uda'. Non è necessario ricalcolarli qui
+      // se l'obiettivo è solo visualizzare ciò che il backend invia.
+      // Se si volesse una logica di fallback o di arricchimento diversa,
+      // andrebbe gestita con più attenzione. Per ora, usiamo quelli del backend.
     };
   });
 });

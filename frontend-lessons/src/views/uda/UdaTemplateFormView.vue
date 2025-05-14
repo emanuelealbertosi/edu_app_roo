@@ -64,6 +64,7 @@
           v-model="formData.contents"
           context="template"
           :uda-id="undefined"
+          :is-editing="true"
         />
       </div>
 

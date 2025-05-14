@@ -129,10 +129,37 @@
       </div>
 
       <!-- Azioni sull'item originali (modifica/elimina) - Visibili solo in modalità modifica -->
-      <div v-if="isEditing" class="mt-4 pt-3 border-t border-gray-200 flex justify-end space-x-2">
-        <!-- Bottone Modifica (Generico) -->
-        <button
-          @click="emit('edit', content)"
+      <div v-if="isEditing" class="mt-4 pt-3 border-t border-gray-200 flex justify-between items-center"> <!-- Modificato per justify-between -->
+        <!-- Bottoni Spostamento -->
+        <div class="flex space-x-2">
+          <button
+            @click="emit('move', content, -1)"
+            :disabled="props.isFirst"
+            type="button"
+            class="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Sposta Su"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7" />
+            </svg>
+          </button>
+          <button
+            @click="emit('move', content, 1)"
+            :disabled="props.isLast"
+            type="button"
+            class="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Sposta Giù"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+        </div>
+        <!-- Bottoni Modifica ed Elimina -->
+        <div class="flex space-x-2">
+          <!-- Bottone Modifica (Generico) -->
+          <button
+            @click="emit('edit', content)"
           type="button"
           class="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
           title="Modifica questo contenuto"
@@ -154,6 +181,7 @@
            </svg>
           Elimina
         </button>
+        </div>
       </div>
     </div>
   </div>

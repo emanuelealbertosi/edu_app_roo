@@ -465,10 +465,35 @@ const handleEditContent = (contentToEdit: ContentItem) => {
   }
 };
 
-const handleDeleteContent = (contentIdentifier: number | string) => {
-  localContents.value = localContents.value.filter(content =>
-    (content.id && content.id === contentIdentifier) || (content.temp_id && content.temp_id === contentIdentifier) ? false : true
-  );
+const handleDeleteContent = async (contentToDelete: ContentItem) => {
+  const contentId = contentToDelete.id;
+  const tempId = contentToDelete.temp_id;
+
+  if (props.context === 'uda' && props.udaId && contentId) {
+    // Contenuto UDA esistente, chiama lo store per eliminarlo dal backend
+    try {
+      // Assumiamo che udaStore.removeContentFromUda gestisca l'aggiornamento
+      // di udaStore.currentUda.contents o che il componente genitore (UdaFormView)
+      // ricarichi i dati o che la modifica a localContents sia sufficiente
+      // se il modelValue viene aggiornato correttamente e il genitore reagisce.
+      await udaStore.removeContentFromUda(props.udaId, contentId);
+      // Se l'eliminazione dal backend ha successo, rimuovi dall'array locale
+      localContents.value = localContents.value.filter(content => content.id !== contentId);
+      // uiStore.addNotification({ message: 'Contenuto eliminato con successo.', type: 'success' }); // Opzionale
+    } catch (error) {
+      console.error("Errore durante l'eliminazione del contenuto UDA:", error);
+      // uiStore.addNotification({ message: `Errore eliminazione: ${(error as Error).message}`, type: 'error' }); // Opzionale
+      return; // Interrompi se l'eliminazione dal backend fallisce
+    }
+  } else {
+    // Contenuto template o contenuto UDA non ancora salvato (solo temp_id)
+    // Rimuovi solo dall'array locale
+    localContents.value = localContents.value.filter(content => {
+      if (contentId) return content.id !== contentId; // Per template con ID
+      if (tempId) return content.temp_id !== tempId; // Per item con solo temp_id
+      return true; // Non dovrebbe accadere se contentToDelete è valido
+    });
+  }
   recalculateOrder();
 };
 

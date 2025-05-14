@@ -7,6 +7,39 @@ from lezioni.models import Topic, Subject # Importa i modelli Topic e Subject
 # Potrebbe essere necessario importare serializer da altre app se si fa nesting profondo
 # from lezioni.serializers import TopicSerializer, LessonSerializer, SubjectSerializer # Esempio
 # from apps.education.serializers import QuizSerializer # Esempio
+from django.core.files.uploadedfile import UploadedFile
+import logging
+
+logger = logging.getLogger(__name__)
+
+class LenientFileField(serializers.FileField):
+    def to_internal_value(self, data):
+        # Gestisce i valori comuni "vuoti" o "cancellati" da form/richieste:
+        # None, stringa vuota, o il booleano False (da ClearableFileInput).
+        if data is None or data == '' or data is False:
+            if self.allow_empty_file:
+                return None
+            else:
+                self.fail('empty')
+
+        # Se 'data' non è un'istanza di UploadedFile (cioè non è un file caricato valido),
+        # e non è uno dei casi "vuoti" gestiti sopra, ma permettiamo file vuoti,
+        # allora lo trattiamo come un "nessun file fornito".
+        if not isinstance(data, UploadedFile):
+            if self.allow_empty_file:
+                logger.warning(
+                    f"LenientFileField received non-UploadedFile data for an optional file field: "
+                    f"Type: {type(data)}, Value: '{str(data)[:100]}'. Treating as None."
+                )
+                return None
+            else:
+                # Se non è un UploadedFile e i file vuoti non sono permessi,
+                # questo è un dato non valido per un campo File.
+                self.fail('invalid') # DRF usa 'invalid_file' o 'invalid'
+
+        # Se è un UploadedFile (o è stato convertito a None sopra),
+        # delega alla classe base per la gestione standard.
+        return super().to_internal_value(data)
 
 class CourseSerializer(serializers.ModelSerializer):
    # uda_count = serializers.IntegerField(read_only=True) # Esempio per contare le UDA associate
@@ -161,6 +194,9 @@ class UDATopicSerializer(serializers.ModelSerializer):
         fields = ['topic']
 
 class UDAContentSerializer(serializers.ModelSerializer):
+    # Usa il LenientFileField personalizzato
+    activity_attachment_url = LenientFileField(required=False, allow_null=True, use_url=True, allow_empty_file=True)
+
     class Meta:
         model = UDAContent
         fields = [
@@ -179,12 +215,15 @@ class UDAContentSerializer(serializers.ModelSerializer):
         note_title = data.get('note_title')
         activity_title = data.get('activity_title')
 
+        # La gestione di activity_attachment_url vuoto è ora delegata al FileField
+        # con allow_empty_file=True, quindi la normalizzazione esplicita qui non è più necessaria.
+
         # Validazione simile a UDATemplateContentSerializer, adattata per UDAContent
         if content_type == 'LESSON' and not lesson:
             raise serializers.ValidationError({'lesson': "Lesson is required for content type LESSON."})
-        # content_type nel modello è stato aggiornato a QUIZ_TEMPLATE
-        if content_type == 'QUIZ' and not quiz_template: # MODIFICATO QUIZ_TEMPLATE a QUIZ
-            raise serializers.ValidationError({'quiz_template': "Quiz template is required for content type QUIZ."}) # MODIFICATO
+        # Validazione per UDAContent di tipo QUIZ
+        if content_type == 'QUIZ' and not quiz_template:
+            raise serializers.ValidationError({'quiz_template': "Quiz template is required for content type QUIZ."})
         if content_type == 'NOTE' and not note_title:
             raise serializers.ValidationError({'note_title': "Note title is required for content type NOTE."})
         if content_type == 'ACTIVITY' and not activity_title:
@@ -193,8 +232,8 @@ class UDAContentSerializer(serializers.ModelSerializer):
         # Assicurarsi che solo i campi rilevanti per il content_type siano forniti
         if content_type != 'LESSON':
             data.pop('lesson', None)
-        if content_type != 'QUIZ': # MODIFICATO QUIZ_TEMPLATE a QUIZ
-            data.pop('quiz_template', None) # Modificato
+        if content_type != 'QUIZ': # Coerente con il content_type 'QUIZ' per UDAContent
+            data.pop('quiz_template', None)
         if content_type != 'NOTE':
             data.pop('note_title', None)
             data.pop('note_content', None)
@@ -213,7 +252,7 @@ class UDASerializer(serializers.ModelSerializer):
    topic_ids = serializers.PrimaryKeyRelatedField(
        queryset=Topic.objects.all(),
        many=True,
-       write_only=True,
+       # write_only=True, # Rimosso per includere nella lettura
        source='topics',
        required=False
    )
@@ -238,7 +277,7 @@ class UDASerializer(serializers.ModelSerializer):
    subject_ids = serializers.PrimaryKeyRelatedField(
        queryset=Subject.objects.all(),
        many=True,
-       # write_only=True, # Rimosso per includerlo nella lettura
+       # write_only=True, # Rimosso per includere nella lettura
        source='subjects', # Mappa a subjects nel modello UDA
        required=False
    )
