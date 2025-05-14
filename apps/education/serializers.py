@@ -8,6 +8,7 @@ import markdown as md_parser # Rinominato per evitare conflitti
 from rest_framework import serializers, status
 from rest_framework.exceptions import ValidationError
 from django.db import transaction
+from django.http import QueryDict # Aggiunto per il logging
 from django.utils import timezone
 from django.core.files.uploadedfile import UploadedFile
 
@@ -68,6 +69,43 @@ class QuestionTemplateSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['quiz_template']
 
+    def to_internal_value(self, data):
+        logger.info(f"[QuestionTemplateSerializer] to_internal_value START. Raw data type: {type(data)}")
+        if isinstance(data, QueryDict):
+            logger.info(f"[QuestionTemplateSerializer] Raw data (QueryDict): {data.dict()}")
+            data_to_process = data.dict()
+        else:
+            data_to_process = data
+
+        logger.info(f"[QuestionTemplateSerializer] Data to process: {data_to_process}")
+        
+        original_qt_value = data_to_process.get('question_type')
+        original_qt_type = type(original_qt_value)
+        logger.info(f"[QuestionTemplateSerializer] Original question_type: '{original_qt_value}' (Type: {original_qt_type})")
+
+        copied_data = data_to_process.copy()
+        
+        if 'question_type' in copied_data and isinstance(copied_data['question_type'], str):
+            normalized_qt = copied_data['question_type'].lower()
+            copied_data['question_type'] = normalized_qt
+            logger.info(f"[QuestionTemplateSerializer] Normalized question_type: '{normalized_qt}'")
+        elif 'question_type' in copied_data:
+            logger.warning(f"[QuestionTemplateSerializer] question_type is in data but not a string. Value: '{copied_data['question_type']}', Type: {type(copied_data['question_type'])}")
+        else:
+            logger.warning("[QuestionTemplateSerializer] question_type not found in data.")
+            
+        try:
+            internal_value = super().to_internal_value(copied_data)
+            logger.info(f"[QuestionTemplateSerializer] super().to_internal_value successful. Resulting internal_value['question_type']: {internal_value.get('question_type')}")
+            return internal_value
+        except ValidationError as e:
+            logger.error(f"[QuestionTemplateSerializer] ValidationError during super().to_internal_value. Details: {e.detail}")
+            if 'question_type' in e.detail:
+                logger.error(f"[QuestionTemplateSerializer] ValidationError for question_type. Value passed to ChoiceField was likely: '{copied_data.get('question_type')}'")
+            raise e
+        except Exception as e:
+            logger.error(f"[QuestionTemplateSerializer] Unexpected error during super().to_internal_value: {e}", exc_info=True)
+            raise e
 
 class QuizTemplateSerializer(serializers.ModelSerializer):
     admin_username = serializers.CharField(source='admin.username', read_only=True, allow_null=True)
@@ -121,6 +159,10 @@ class AnswerOptionSerializer(serializers.ModelSerializer):
 
 
 class QuestionSerializer(serializers.ModelSerializer):
+    # Definizione esplicita del campo question_type per maggiore chiarezza
+    # e per assicurare che le choices corrette siano usate.
+    question_type = serializers.ChoiceField(choices=QuestionType.choices)
+
     answer_options = AnswerOptionSerializer(
         many=True,
         read_only=True
@@ -135,19 +177,76 @@ class QuestionSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['quiz']
 
+    def to_internal_value(self, data):
+        logger.info(f"[QuestionSerializer] to_internal_value START. Raw data type: {type(data)}")
+        if isinstance(data, QueryDict): # DRF usa QueryDict per form data, ma JSON è dict
+            logger.info(f"[QuestionSerializer] Raw data (QueryDict): {data.dict()}")
+            data_to_process = data.dict() # Lavora con un dict normale se QueryDict
+        else:
+            data_to_process = data
+
+        logger.info(f"[QuestionSerializer] Data to process: {data_to_process}")
+        
+        original_qt_value = data_to_process.get('question_type')
+        original_qt_type = type(original_qt_value)
+        logger.info(f"[QuestionSerializer] Original question_type: '{original_qt_value}' (Type: {original_qt_type})")
+
+        copied_data = data_to_process.copy()
+        
+        if 'question_type' in copied_data and isinstance(copied_data['question_type'], str):
+            normalized_qt = copied_data['question_type'].lower()
+            copied_data['question_type'] = normalized_qt
+            logger.info(f"[QuestionSerializer] Normalized question_type: '{normalized_qt}'")
+        elif 'question_type' in copied_data:
+            logger.warning(f"[QuestionSerializer] question_type is in data but not a string. Value: '{copied_data['question_type']}', Type: {type(copied_data['question_type'])}")
+        else:
+            logger.warning("[QuestionSerializer] question_type not found in data.")
+            
+        try:
+            internal_value = super().to_internal_value(copied_data)
+            logger.info(f"[QuestionSerializer] super().to_internal_value successful. Resulting internal_value['question_type']: {internal_value.get('question_type')}")
+            return internal_value
+        except ValidationError as e:
+            logger.error(f"[QuestionSerializer] ValidationError during super().to_internal_value. Details: {e.detail}")
+            # Logga specificamente se l'errore è per question_type
+            if 'question_type' in e.detail:
+                logger.error(f"[QuestionSerializer] ValidationError for question_type. Value passed to ChoiceField was likely: '{copied_data.get('question_type')}'")
+            raise e
+        except Exception as e:
+            logger.error(f"[QuestionSerializer] Unexpected error during super().to_internal_value: {e}", exc_info=True)
+            raise e
+
     def validate_metadata(self, value):
         """
         Valida la struttura dei metadati per i diversi tipi di domanda,
         in particolare per FILL_BLANK.
         """
-        # self.initial_data contiene i dati grezzi inviati nella richiesta
-        question_type = self.initial_data.get('question_type')
+        question_type_to_check = None
+        # Prova a ottenere question_type da validated_data se già processato,
+        # altrimenti da initial_data (normalizzato), o dall'istanza.
+        if hasattr(self, 'validated_data') and 'question_type' in self.validated_data:
+            question_type_to_check = self.validated_data['question_type']
+        elif 'question_type' in self.initial_data:
+            raw_qt = self.initial_data['question_type']
+            if isinstance(raw_qt, str):
+                question_type_to_check = raw_qt.lower()
+            else: # Potrebbe essere già un valore enum o corretto
+                question_type_to_check = raw_qt
+        elif self.instance:
+            question_type_to_check = self.instance.question_type
         
-        # Se stiamo aggiornando e question_type non è fornito, prendilo dall'istanza
-        if self.instance and not question_type:
-            question_type = self.instance.question_type
+        # logger.debug(f"validate_metadata - Determined question_type_to_check: {question_type_to_check}")
 
-        if question_type == QuestionType.FILL_BLANK:
+        if not question_type_to_check:
+            # Se non possiamo determinare il tipo, non possiamo validare i metadati specifici.
+            # La validazione del campo 'question_type' (se required) dovrebbe aver già fallito.
+            return value
+
+        # Assicurati che question_type_to_check sia la stringa del valore, non il membro dell'enum
+        if hasattr(question_type_to_check, 'value'): # Se è un membro di TextChoices
+            question_type_to_check = question_type_to_check.value
+
+        if question_type_to_check == QuestionType.FILL_BLANK.value: # Confronta con .value
             if not isinstance(value, dict):
                 raise serializers.ValidationError("I metadati per FILL_BLANK devono essere un dizionario.")
 

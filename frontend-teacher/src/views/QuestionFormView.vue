@@ -240,7 +240,7 @@ const saveQuestion = async () => {
 
     const payload: QuestionPayload = {
         text: questionData.text,
-        question_type: questionData.question_type,
+        question_type: questionData.question_type ? questionData.question_type.toLowerCase() : '',
         order: questionData.order,
         metadata: questionData.metadata && Object.keys(questionData.metadata).length > 0 ? questionData.metadata : {},
     };
