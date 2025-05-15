@@ -1,6 +1,6 @@
 <template>
   <div class="fixed inset-0 bg-gray-800 bg-opacity-75 flex justify-center items-center z-50" @click.self="closeModal">
-    <div class="bg-white rounded-lg shadow-xl p-6 mx-4 sm:mx-auto w-full max-w-lg flex flex-col max-h-[90vh]">
+    <div class="bg-white rounded-lg shadow-xl p-6 mx-4 sm:mx-auto w-[60vw] min-h-[50vh] flex flex-col">
       <div class="flex justify-between items-center pb-4 border-b border-gray-200 mb-4">
         <h5 class="text-xl font-semibold text-gray-800">{{ isEditing ? 'Modifica Attività' : 'Aggiungi Nuova Attività' }}</h5>
         <button type="button" class="text-gray-400 hover:text-gray-600 text-2xl leading-none" @click="closeModal" aria-label="Close">&times;</button>
@@ -32,11 +32,6 @@
               />
               <!-- <small class="form-text text-muted">L'upload effettivo del file avverrà al salvataggio.</small> -->
             </div>
-            <div class="flex items-center mt-2 cursor-pointer">
-              <input type="checkbox" id="activityCompleted" v-model="editableContent.completedByStudent"
-                     class="h-5 w-5 text-indigo-600 border-gray-400 rounded focus:ring-indigo-500 focus:ring-2 focus:ring-offset-0 cursor-pointer">
-              <label for="activityCompleted" class="ml-3 block text-sm text-gray-900 select-none cursor-pointer">Attività Completata (dallo studente)</label>
-            </div>
             <div>
               <label for="activityEstimatedHours" class="block text-sm font-medium text-gray-700 mb-1">Tempo Stimato (ore)</label>
               <input type="number" id="activityEstimatedHours" v-model.number="editableContent.estimated_hours" step="0.1" min="0"
@@ -65,7 +60,7 @@
 <script setup lang="ts">
 import { ref, watch, type PropType, computed } from 'vue';
 import FileUpload from './FileUpload.vue';
-import WysiwygEditor from '@/components/common/WysiwygEditor.vue'; // Import WysiwygEditor
+import WysiwygEditor from '@/components/WysiwygEditor.vue'; // Import WysiwygEditor
 import { useUdaStore } from '@/stores/udaStore';
 import {
   type ActivityUDAContent,
@@ -79,7 +74,6 @@ type EditableActivityType = Partial<ActivityUDAContent | ActivityTemplateUDACont
   title?: string;
   description?: string;
   attachmentUrl?: string;
-  completedByStudent?: boolean;
   estimated_hours?: number | null; // Aggiunto
 };
 
@@ -124,7 +118,6 @@ watch(() => props.modelValue, (newValue) => {
         title: udaActivity.activity_title || '',
         description: udaActivity.activity_description || '',
         attachmentUrl: udaActivity.activity_attachment_url || '',
-        completedByStudent: udaActivity.activity_completed || false,
         estimated_hours: udaActivity.estimated_hours // Aggiunto
       };
     }
@@ -133,7 +126,6 @@ watch(() => props.modelValue, (newValue) => {
       title: '',
       description: '',
       attachmentUrl: '',
-      completedByStudent: false,
       estimated_hours: null // Aggiunto reset
     };
     selectedActivityFileObject.value = null;
@@ -173,7 +165,6 @@ const saveActivity = async () => {
       activity_title: editableContent.value.title,
       activity_description: editableContent.value.description,
       activity_attachment_url: editableContent.value.attachmentUrl,
-      activity_completed: editableContent.value.completedByStudent,
       teacher_marked_completed: currentActivityData?.teacher_marked_completed ?? false,
       estimated_hours: editableContent.value.estimated_hours || null, // Aggiunto
       content_type: UDAContentType.ACTIVITY,

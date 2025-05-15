@@ -13,10 +13,13 @@
     <div v-else>
       <WysiwygEditor
         v-model="editableContent"
-        @blur="handleBlur"
         :editable="true"
       />
-      <!-- Potremmo aggiungere un piccolo spinner/messaggio di salvataggio qui -->
+      <div class="mt-2 flex justify-start space-x-2">
+        <button @click="cancelEditing" class="px-3 py-1 text-sm bg-gray-200 hover:bg-gray-300 rounded">Annulla</button>
+        <button @click="saveChanges" class="px-3 py-1 text-sm bg-blue-500 hover:bg-blue-600 text-white rounded">Salva</button>
+      </div>
+      <!-- Potremmo aggiungere un piccolo spinner/messaggio di salvataggio qui durante il saveChanges -->
     </div>
   </div>
 </template>
@@ -24,7 +27,7 @@
 <script setup lang="ts">
 import { ref, watch, type PropType } from 'vue';
 import type { NoteUDAContent, UDAContent } from '@/types/uda'; // Assicurati che UDAContent sia importato se necessario per lo store
-import WysiwygEditor from '@/components/common/WysiwygEditor.vue';
+import WysiwygEditor from '@/components/WysiwygEditor.vue';
 import { useUdaStore } from '@/stores/udaStore';
 
 const props = defineProps({
@@ -59,17 +62,14 @@ const startEditing = () => {
   // Non è necessario focus programmatico qui perché WysiwygEditor dovrebbe gestirlo
 };
 
-const handleBlur = async () => {
-  console.log('[NoteContentDisplay] handleBlur called. editableContent:', editableContent.value, 'originalContent:', originalContent.value);
-  // Salva il valore di originalContent all'inizio del blur, che riflette lo stato prima dell'editing corrente.
-  const initialOriginalContent = originalContent.value;
+const saveChanges = async () => {
+  console.log('[NoteContentDisplay] saveChanges called. editableContent:', editableContent.value, 'originalContent:', originalContent.value);
 
-  if (editableContent.value !== initialOriginalContent) {
+  if (editableContent.value !== originalContent.value) {
     console.log('Content changed, attempting to save...');
     if (typeof props.content.id === 'undefined') {
       console.error('Cannot update content: content ID is undefined.');
-      editableContent.value = initialOriginalContent; // Revert all'originale prima dell'editing
-      isEditing.value = false;
+      // Non revertire qui, l'utente potrebbe voler correggere. Mostrare errore.
       // TODO: Mostrare un messaggio di errore all'utente
       return;
     }
@@ -81,26 +81,32 @@ const handleBlur = async () => {
       console.log(`[NoteContentDisplay] About to update. uda_id: ${props.content.uda_id}, content_id: ${props.content.id}`);
       if (typeof props.content.uda_id === 'undefined') {
         console.error('[NoteContentDisplay] CRITICAL: props.content.uda_id is undefined before calling store action!');
-        editableContent.value = initialOriginalContent; // Revert
-        isEditing.value = false;
+        // TODO: Mostrare un messaggio di errore all'utente
         return;
       }
 
       await udaStore.updateContentInUda(props.content.uda_id, props.content.id, updatedData as UDAContent);
       console.log('Content saved successfully. Waiting for prop update.');
-      // Non modificare editableContent o originalContent qui.
-      // Il watch su props.content.note_content dovrebbe sincronizzarli.
+      originalContent.value = editableContent.value; // Aggiorna originalContent dopo il salvataggio
+      isEditing.value = false;
+      // Il watch su props.content.note_content dovrebbe sincronizzare editableContent se il backend risponde con il dato aggiornato
     } catch (error) {
       console.error('Failed to save note content:', error);
-      editableContent.value = initialOriginalContent; // Revert all'originale prima dell'editing
+      // Non revertire automaticamente, l'utente potrebbe voler riprovare.
       // Potrebbe essere utile notificare l'utente dell'errore
-    } finally {
-      isEditing.value = false;
+      // TODO: Gestire lo stato di errore per l'UI (es. non chiudere l'editor, mostrare messaggio)
     }
+    // Non mettere isEditing.value = false nel finally se vogliamo che l'editor rimanga aperto in caso di errore
   } else {
     console.log('Content not changed.');
     isEditing.value = false;
   }
+};
+
+const cancelEditing = () => {
+  console.log('[NoteContentDisplay] cancelEditing called.');
+  editableContent.value = originalContent.value; // Ripristina il contenuto originale
+  isEditing.value = false;
 };
 
 </script>

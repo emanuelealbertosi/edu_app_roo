@@ -1,6 +1,6 @@
 <template>
   <div class="fixed inset-0 bg-gray-800 bg-opacity-75 flex justify-center items-center z-50" @click.self="closeModal">
-    <div class="bg-white rounded-lg shadow-xl p-6 mx-4 sm:mx-auto w-full max-w-lg flex flex-col max-h-[90vh]">
+    <div class="bg-white rounded-lg shadow-xl p-6 mx-4 sm:mx-auto w-[60vw] min-h-[50vh] flex flex-col">
       <div class="flex justify-between items-center pb-4 border-b border-gray-200 mb-4">
         <h5 class="text-xl font-semibold text-gray-800">{{ isEditing ? 'Modifica Nota' : 'Aggiungi Nuova Nota' }}</h5>
         <button type="button" class="text-gray-400 hover:text-gray-600 text-2xl leading-none" @click="closeModal" aria-label="Close">&times;</button>
@@ -48,7 +48,7 @@
 <script setup lang="ts">
 import { ref, watch, type PropType, computed } from 'vue';
 import type { NoteUDAContent, NoteTemplateUDAContent, UDAContentType, UDATemplateContentType } from '@/types/uda';
-import WysiwygEditor from '@/components/common/WysiwygEditor.vue';
+import WysiwygEditor from '@/components/WysiwygEditor.vue';
 
 type EditableNoteType = Partial<NoteUDAContent | NoteTemplateUDAContent> & {
   title?: string;

@@ -14,9 +14,12 @@
     <div v-else>
       <WysiwygEditor
         v-model="editableDescription"
-        @blur="handleDescriptionBlur"
         :editable="true"
       />
+      <div class="mt-2 flex justify-start space-x-2">
+        <button @click="cancelDescriptionEditing" class="px-3 py-1 text-sm bg-gray-200 hover:bg-gray-300 rounded">Annulla</button>
+        <button @click="saveDescriptionChanges" class="px-3 py-1 text-sm bg-blue-500 hover:bg-blue-600 text-white rounded">Salva</button>
+      </div>
     </div>
     
     <div v-if="content.activity_attachment_url" class="flex">
@@ -32,7 +35,7 @@
 <script setup lang="ts">
 import { ref, watch, type PropType } from 'vue';
 import type { ActivityUDAContent, UDAContent } from '@/types/uda';
-import WysiwygEditor from '@/components/common/WysiwygEditor.vue';
+import WysiwygEditor from '@/components/WysiwygEditor.vue';
 import { useUdaStore } from '@/stores/udaStore';
 
 const props = defineProps({
@@ -61,16 +64,13 @@ const startEditingDescription = () => {
   isEditingDescription.value = true;
 };
 
-const handleDescriptionBlur = async () => {
-  // Salva il valore di originalDescription all'inizio del blur
-  const initialOriginalDescription = originalDescription.value;
+const saveDescriptionChanges = async () => {
+  console.log('[ActivityContentDisplay] saveDescriptionChanges called. editableDescription:', editableDescription.value, 'originalDescription:', originalDescription.value);
 
-  if (editableDescription.value !== initialOriginalDescription) {
+  if (editableDescription.value !== originalDescription.value) {
     console.log('Activity description changed, attempting to save...');
     if (typeof props.content.id === 'undefined') {
       console.error('Cannot update activity description: content ID is undefined.');
-      editableDescription.value = initialOriginalDescription; // Revert
-      isEditingDescription.value = false;
       // TODO: Mostrare un messaggio di errore all'utente
       return;
     }
@@ -82,27 +82,28 @@ const handleDescriptionBlur = async () => {
       console.log(`[ActivityContentDisplay] About to update. uda_id: ${props.content.uda_id}, content_id: ${props.content.id}`);
       if (typeof props.content.uda_id === 'undefined') {
         console.error('[ActivityContentDisplay] CRITICAL: props.content.uda_id is undefined before calling store action!');
-        // Potremmo voler mostrare un errore all'utente qui o gestire diversamente.
-        // Per ora, revertiamo e usciamo per evitare la chiamata API errata.
-        editableDescription.value = initialOriginalDescription;
-        isEditingDescription.value = false;
+        // TODO: Mostrare un messaggio di errore all'utente
         return;
       }
 
       await udaStore.updateContentInUda(props.content.uda_id, props.content.id, updatedData as UDAContent);
       console.log('Activity description saved successfully. Waiting for prop update.');
-      // Non modificare editableDescription o originalDescription qui.
-      // Il watch su props.content.activity_description dovrebbe sincronizzarli.
+      originalDescription.value = editableDescription.value; // Aggiorna originalDescription dopo il salvataggio
+      isEditingDescription.value = false;
     } catch (error) {
       console.error('Failed to save activity description:', error);
-      editableDescription.value = initialOriginalDescription; // Revert
-    } finally {
-      isEditingDescription.value = false;
+      // TODO: Gestire lo stato di errore per l'UI
     }
   } else {
     console.log('Activity description not changed.');
     isEditingDescription.value = false;
   }
+};
+
+const cancelDescriptionEditing = () => {
+  console.log('[ActivityContentDisplay] cancelDescriptionEditing called.');
+  editableDescription.value = originalDescription.value; // Ripristina il contenuto originale
+  isEditingDescription.value = false;
 };
 
 </script>

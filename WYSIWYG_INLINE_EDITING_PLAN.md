@@ -12,7 +12,7 @@ Le funzionalità chiave includono:
 *   **Editor WYSIWYG:** Basato su TipTap.
 *   **Formattazione Testo:** Grassetto, corsivo, sottolineato, hyperlink, elenchi puntati e numerati.
 *   **Colore Testo:** Selezione da una palette predefinita di 8-10 colori.
-*   **Modifica Inline:** Attivazione tramite click sul testo, salvataggio automatico "on blur" (perdita del focus).
+*   **Modifica Inline:** Attivazione tramite click sul testo. Appariranno i pulsanti "Salva" e "Annulla" sotto l'area di modifica per confermare o scartare le modifiche.
 *   **Sicurezza:** Sanitizzazione dell'HTML nel backend.
 
 ## 2. Impatto sul Backend (Django & Django REST Framework)
@@ -25,7 +25,7 @@ Le modifiche principali riguardano la gestione sicura dell'HTML generato dall'ed
     *   Implementare la sanitizzazione dell'HTML sul backend prima di salvare qualsiasi contenuto proveniente dall'editor WYSIWYG.
     *   Utilizzare una libreria Python come `bleach`.
     *   Configurare `bleach` per permettere:
-        *   Tag di base per la formattazione (es. `<strong>`, `<em>`, `<u>`, `<a>`, `<ul>`, `<ol>`, `<li>`).
+        *   Tag di base per la formattazione (es. `<strong>`, `<em>`, `<u>`, `<s>`, `<a>`, `<ul>`, `<ol>`, `<li>`). (Aggiunto `<s>` per il barrato)
         *   Attributi necessari (es. `href` per `<a>`, `target="_blank"`).
         *   Tag `<span>` con l'attributo `style`.
         *   Limitare le proprietà CSS permesse nell'attributo `style` esclusivamente a `color` (es. `style="color: #RRGGBB;"`) per i colori della palette predefinita.
@@ -81,11 +81,15 @@ Questa sezione vedrà le modifiche più significative.
             *   Impostare `isEditing` a `true`.
             *   Il template mostrerà ora il componente `WysiwygEditor.vue` invece del `div` con `v-html`.
             *   Passare il contenuto HTML corrente al `WysiwygEditor.vue` tramite `v-model`.
-        4.  Quando `WysiwygEditor.vue` emette l'evento `blur`:
-            *   Recuperare il nuovo contenuto HTML dal `WysiwygEditor.vue`.
-            *   Chiamare l'azione Pinia appropriata (es. `udaStore.updateContentInUda()`) per inviare il nuovo contenuto al backend.
-            *   Dopo la conferma del salvataggio (o anche in caso di errore, gestendo il feedback utente), impostare `isEditing` a `false`.
-            *   Il componente tornerà a visualizzare il contenuto aggiornato tramite `v-html`.
+        4.  Sotto il componente `WysiwygEditor.vue` (visibile solo quando `isEditing` è `true`), mostrare due pulsanti: "Salva" e "Annulla".
+            *   **Pulsante "Salva":**
+                *   Recuperare il nuovo contenuto HTML dal `WysiwygEditor.vue`.
+                *   Chiamare l'azione Pinia appropriata (es. `udaStore.updateContentInUda()`) per inviare il nuovo contenuto al backend.
+                *   Dopo la conferma del salvataggio (o anche in caso di errore, gestendo il feedback utente), impostare `isEditing` a `false`.
+                *   Il componente tornerà a visualizzare il contenuto aggiornato (o precedente in caso di errore non gestito a livello di UI) tramite `v-html`.
+            *   **Pulsante "Annulla":**
+                *   Impostare `isEditing` a `false`.
+                *   Il contenuto dell'editor non viene salvato e il display torna a mostrare il contenuto originale (quello prima dell'attivazione della modifica). Potrebbe essere necessario assicurarsi che il `v-model` del `WysiwygEditor.vue` non abbia modificato una variabile che viene poi usata per ripristinare lo stato, o ricaricare il dato originale se necessario.
 
 *   **Aggiornamento Componenti di Editing Esistenti (Modali e Form):**
     *   Componenti interessati: `UdaContentEditor.vue` (in `frontend-lessons/src/components/uda/`), `EditNoteContentModal.vue` (in `frontend-lessons/src/components/uda/`), `EditActivityContentModal.vue` (in `frontend-lessons/src/components/uda/`).
@@ -105,19 +109,19 @@ Questa sezione vedrà le modifiche più significative.
 ### 4.1. Backend (Django)
 *   **Test Unitari:**
     *   Testare approfonditamente la logica di sanitizzazione dell'HTML:
-        *   Verificare che i tag e gli attributi permessi siano conservati.
+        *   Verificare che i tag (incluso `<s>` per il barrato) e gli attributi permessi siano conservati.
         *   Verificare che i tag e gli attributi non permessi siano rimossi o resi innocui.
         *   Verificare specificamente la gestione degli stili `color` (permettendo solo quelli validi) e bloccando altre proprietà CSS.
 
 ### 4.2. Frontend (Vue.js - Vitest/Jest & Playwright/Cypress)
 *   **Test Unitari:**
-    *   Testare il componente `WysiwygEditor.vue`: interazioni con la toolbar, corretta emissione di eventi `update:modelValue` e `blur`, inizializzazione con contenuto.
-    *   Testare la logica di attivazione/disattivazione dell'editing inline nei componenti di visualizzazione (`*Display.vue`).
+    *   Testare il componente `WysiwygEditor.vue`: interazioni con la toolbar, corretta emissione di evento `update:modelValue`, inizializzazione con contenuto.
+    *   Testare la logica di attivazione/disattivazione dell'editing inline nei componenti di visualizzazione (`*Display.vue`), inclusa l'interazione con i pulsanti "Salva" e "Annulla".
     *   Verificare che le chiamate allo store Pinia vengano effettuate con il contenuto HTML corretto al momento del salvataggio (sia da inline editing che da modali).
 *   **Test E2E (End-to-End):**
     *   Simulare flussi utente completi:
-        *   Creazione di una nota/attività utilizzando tutte le funzionalità di formattazione WYSIWYG (bold, italic, underline, link, liste, colori).
-        *   Modifica inline di una nota/attività: attivazione, applicazione di varie formattazioni, salvataggio "on blur".
+        *   Creazione di una nota/attività utilizzando tutte le funzionalità di formattazione WYSIWYG (bold, italic, underline, strike-through, link, liste, colori).
+        *   Modifica inline di una nota/attività: attivazione, applicazione di varie formattazioni, salvataggio tramite pulsante "Salva", annullamento tramite pulsante "Annulla".
         *   Verificare la corretta visualizzazione del contenuto formattato in tutte le viste rilevanti.
         *   Testare l'inserimento di HTML potenzialmente dannoso per assicurarsi che la sanitizzazione (frontend e backend) funzioni.
 
