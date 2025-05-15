@@ -145,7 +145,7 @@ export const udaService = {
       headers = { 'Content-Type': 'multipart/form-data' };
     }
 
-    const response = await apiClient.put(`${UDA_BASE_URL}/${udaId}/contents/${contentId}/`, dataToSend, { headers });
+    const response = await apiClient.patch(`${UDA_BASE_URL}/${udaId}/contents/${contentId}/`, dataToSend, { headers });
     return response.data;
   },
 

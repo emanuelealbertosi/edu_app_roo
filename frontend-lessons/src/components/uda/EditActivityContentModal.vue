@@ -14,8 +14,12 @@
           </div>
           <div>
             <label for="activityDescription" class="block text-sm font-medium text-gray-700 mb-1">Descrizione Attività</label>
-            <textarea id="activityDescription" rows="5" v-model="editableContent.description"
-                      class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2"></textarea>
+            <WysiwygEditor
+              id="activityDescription"
+              v-model="editableContent.description"
+              :editable="true"
+              class="mt-1"
+            />
           </div>
           <template v-if="props.context === 'uda'">
             <div>
@@ -61,6 +65,7 @@
 <script setup lang="ts">
 import { ref, watch, type PropType, computed } from 'vue';
 import FileUpload from './FileUpload.vue';
+import WysiwygEditor from '@/components/common/WysiwygEditor.vue'; // Import WysiwygEditor
 import { useUdaStore } from '@/stores/udaStore';
 import {
   type ActivityUDAContent,

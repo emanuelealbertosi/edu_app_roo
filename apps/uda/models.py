@@ -1,11 +1,69 @@
 from django.db import models
 from django.conf import settings # Per AUTH_USER_MODEL
+import re # Import per espressioni regolari
+import bleach # Import bleach per la sanitizzazione HTML
+import logging
+
+logger = logging.getLogger(__name__)
 # Assumiamo che i modelli Subject, Topic, Lesson, Quiz siano definiti altrove
 # e importabili. Ad esempio:
 # from apps.education.models import Subject, Topic, Lesson, Quiz
 # Per ora, useremo stringhe per le relazioni ForeignKey e ManyToManyField
 # se i modelli non sono ancora definiti o per evitare import circolari.
 # Sarà necessario sostituirli con i riferimenti corretti ai modelli.
+
+# Configurazione per Bleach
+
+# Funzione per validare che l'attributo 'style' contenga solo la proprietà 'color'
+def is_safe_css_color_property(tag, name, value):
+    """
+    Verifica se la stringa CSS per l'attributo 'style' rappresenta solo la proprietà 'color'.
+    Esempio: "color: #FF0000", "color: red", "   color  : blue ;  "
+    Non permette altre proprietà: "color: red; font-weight: bold" -> False
+    """
+    # Dividi le dichiarazioni CSS per ';'
+    # Ignora dichiarazioni vuote risultanti da ';;' o ';' finale.
+    declarations = [d.strip() for d in value.split(';') if d.strip()]
+
+    if not declarations:
+        # Stile vuoto o solo spazi/punti e virgola. Non contiene 'color'.
+        return False
+
+    if len(declarations) > 1: # Più di una proprietà CSS definita
+        return False
+        
+    declaration = declarations[0]
+    
+    # Verifica che la singola dichiarazione sia 'color: valore'
+    # Il valore del colore può essere complesso (es. rgb(), nomi, hex).
+    # Non validiamo il *valore* del colore qui, solo la *proprietà*.
+    match = re.fullmatch(r'color\s*:[^;]+', declaration, re.IGNORECASE)
+    return bool(match)
+
+ALLOWED_TAGS = [
+    'p', 'strong', 'em', 'u', 'a', 'ul', 'ol', 'li', 'br',
+    'span', # Per il colore del testo
+]
+ALLOWED_ATTRIBUTES = {
+    'a': ['href', 'title', 'target'],
+    'span': {'style': is_safe_css_color_property}, # Permette solo 'color' in style
+}
+# ALLOWED_STYLES non è più necessario con bleach >= 5.0 e la callback per 'style'
+
+def sanitize_html(html_content):
+    logger.debug(f"Sanitizing HTML (input type: {type(html_content)}): '{str(html_content)[:200]}'")
+    if html_content is None:
+        logger.debug("Sanitize HTML: input is None, returning None.")
+        return None
+    
+    sanitized = bleach.clean(
+        str(html_content), # Assicura che l'input sia una stringa
+        tags=ALLOWED_TAGS,
+        attributes=ALLOWED_ATTRIBUTES, # Usa la callback per validare gli stili
+        strip=True # Rimuove i tag non permessi invece di renderli innocui
+    )
+    logger.debug(f"Sanitizing HTML (output type: {type(sanitized)}): '{str(sanitized)[:200]}'")
+    return sanitized
 
 class Course(models.Model):
    teacher = models.ForeignKey(
@@ -115,6 +173,17 @@ class UDATemplateContent(models.Model):
         ordering = ['order']
         verbose_name = "UDA Template Content"
         verbose_name_plural = "UDA Template Contents"
+
+    def save(self, *args, **kwargs):
+        logger.debug(f"UDATemplateContent save called for ID {self.pk}. Original note_template_content: '{str(self.note_template_content)[:100]}', activity_template_description: '{str(self.activity_template_description)[:100]}'")
+        if self.note_template_content:
+            self.note_template_content = sanitize_html(self.note_template_content)
+            logger.debug(f"UDATemplateContent ID {self.pk} after sanitizing note_template_content: '{str(self.note_template_content)[:100]}'")
+        if self.activity_template_description:
+            self.activity_template_description = sanitize_html(self.activity_template_description)
+            logger.debug(f"UDATemplateContent ID {self.pk} after sanitizing activity_template_description: '{str(self.activity_template_description)[:100]}'")
+        super().save(*args, **kwargs)
+        logger.debug(f"UDATemplateContent ID {self.pk} save completed.")
 
     def __str__(self):
         return f"{self.get_content_type_display()} in {self.uda_template.name} (Order: {self.order})"
@@ -247,6 +316,27 @@ class UDAContent(models.Model):
         ordering = ['order']
         verbose_name = "UDA Content"
         verbose_name_plural = "UDA Contents"
+
+    def save(self, *args, **kwargs):
+        # Log aggiunto per vedere lo stato dell'istanza come arriva a save()
+        try:
+            logger.debug(f"UDAContent instance __dict__ at start of save for ID {self.pk}: {self.__dict__}")
+        except Exception as e:
+            logger.error(f"Error logging __dict__ for UDAContent ID {self.pk}: {e}")
+
+        logger.debug(f"UDAContent save called for ID {self.pk}. Current self.note_content: '{str(self.note_content)[:200]}', current self.activity_description: '{str(self.activity_description)[:200]}'")
+        if self.note_content is not None: # Controlla esplicitamente per None per permettere stringhe vuote intenzionali
+            # Se il campo è una stringa vuota dopo la modifica dell'utente, non dovrebbe essere sanitizzato a None se non è questo il comportamento desiderato.
+            # La sanitizzazione di una stringa vuota "" dovrebbe restituire ""
+            self.note_content = sanitize_html(self.note_content)
+            logger.debug(f"UDAContent ID {self.pk} after sanitizing note_content: '{str(self.note_content)[:200]}'")
+        
+        if self.activity_description is not None: # Controlla esplicitamente per None
+            self.activity_description = sanitize_html(self.activity_description)
+            logger.debug(f"UDAContent ID {self.pk} after sanitizing activity_description: '{str(self.activity_description)[:200]}'")
+        
+        super().save(*args, **kwargs)
+        logger.debug(f"UDAContent ID {self.pk} save completed. Final note_content: '{str(self.note_content)[:200]}', final activity_description: '{str(self.activity_description)[:200]}'")
 
     def __str__(self):
         return f"{self.get_content_type_display()} in {self.uda.title} (Order: {self.order})"

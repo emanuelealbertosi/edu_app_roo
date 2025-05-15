@@ -7,9 +7,16 @@
         <span class="text-gray-600">{{ props.content.estimated_hours }}h</span>
     </div>
 
-    <div v-if="content.activity_description">
-      <!-- Etichetta "Descrizione:" rimossa -->
-      <div v-html="renderedDescription" class="prose prose-sm max-w-none text-gray-600"></div>
+    <div v-if="!isEditingDescription" @click="startEditingDescription" class="activity-description prose prose-sm max-w-none cursor-pointer min-h-[50px]">
+      <div v-if="content.activity_description" v-html="content.activity_description"></div>
+      <p v-else class="text-sm text-gray-500 italic">Clicca per aggiungere una descrizione all'attività.</p>
+    </div>
+    <div v-else>
+      <WysiwygEditor
+        v-model="editableDescription"
+        @blur="handleDescriptionBlur"
+        :editable="true"
+      />
     </div>
     
     <div v-if="content.activity_attachment_url" class="flex">
@@ -18,48 +25,85 @@
         {{ content.activity_attachment_url.split('/').pop() || 'Vedi allegato' }}
       </a>
     </div>
-
-    <!-- Checkbox "Attività Completata" rimossa -->
     
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, type PropType } from 'vue';
-import type { ActivityUDAContent } from '@/types/uda';
-import { marked } from 'marked';
-import DOMPurify from 'dompurify';
+import { ref, watch, type PropType } from 'vue';
+import type { ActivityUDAContent, UDAContent } from '@/types/uda';
+import WysiwygEditor from '@/components/common/WysiwygEditor.vue';
+import { useUdaStore } from '@/stores/udaStore';
 
 const props = defineProps({
   content: {
-    type: Object as PropType<ActivityUDAContent>,
+    type: Object as PropType<ActivityUDAContent & { uda_id: number }>, // Aggiunto uda_id per l'update
     required: true
   }
-  // isLoadingActivityCompletion prop rimossa
 });
 
-// const emit = defineEmits(['update:activity-completed']); // Evento rimosso
+const udaStore = useUdaStore();
 
-const renderedDescription = computed(() => {
-  if (props.content.activity_description) {
-    marked.setOptions({
-      gfm: true,
-      breaks: true,
-    });
-    const renderer = new marked.Renderer();
-    renderer.link = (data: { href: string | null; title?: string | null; text: string; }) => {
-      const { href, title, text } = data;
-      const localHref = href || '#'; // Fallback per href nullo
-      const localTitle = title || '';
-      return `<a href="${localHref}" title="${localTitle}" target="_blank" rel="noopener noreferrer">${text}</a>`;
-    };
-    const rawHtml = marked(props.content.activity_description, { renderer });
-    return DOMPurify.sanitize(rawHtml as string);
+const isEditingDescription = ref(false);
+const editableDescription = ref(props.content.activity_description || '');
+const originalDescription = ref(props.content.activity_description || '');
+
+watch(() => props.content.activity_description, (newVal) => {
+  if (!isEditingDescription.value) {
+    editableDescription.value = newVal || '';
+    originalDescription.value = newVal || '';
   }
-  return '';
 });
 
-// Funzione toggleActivityCompleted rimossa
+const startEditingDescription = () => {
+  originalDescription.value = props.content.activity_description || '';
+  editableDescription.value = props.content.activity_description || '';
+  isEditingDescription.value = true;
+};
+
+const handleDescriptionBlur = async () => {
+  // Salva il valore di originalDescription all'inizio del blur
+  const initialOriginalDescription = originalDescription.value;
+
+  if (editableDescription.value !== initialOriginalDescription) {
+    console.log('Activity description changed, attempting to save...');
+    if (typeof props.content.id === 'undefined') {
+      console.error('Cannot update activity description: content ID is undefined.');
+      editableDescription.value = initialOriginalDescription; // Revert
+      isEditingDescription.value = false;
+      // TODO: Mostrare un messaggio di errore all'utente
+      return;
+    }
+    try {
+      const updatedData: Partial<ActivityUDAContent> = {
+        activity_description: editableDescription.value,
+      };
+
+      console.log(`[ActivityContentDisplay] About to update. uda_id: ${props.content.uda_id}, content_id: ${props.content.id}`);
+      if (typeof props.content.uda_id === 'undefined') {
+        console.error('[ActivityContentDisplay] CRITICAL: props.content.uda_id is undefined before calling store action!');
+        // Potremmo voler mostrare un errore all'utente qui o gestire diversamente.
+        // Per ora, revertiamo e usciamo per evitare la chiamata API errata.
+        editableDescription.value = initialOriginalDescription;
+        isEditingDescription.value = false;
+        return;
+      }
+
+      await udaStore.updateContentInUda(props.content.uda_id, props.content.id, updatedData as UDAContent);
+      console.log('Activity description saved successfully. Waiting for prop update.');
+      // Non modificare editableDescription o originalDescription qui.
+      // Il watch su props.content.activity_description dovrebbe sincronizzarli.
+    } catch (error) {
+      console.error('Failed to save activity description:', error);
+      editableDescription.value = initialOriginalDescription; // Revert
+    } finally {
+      isEditingDescription.value = false;
+    }
+  } else {
+    console.log('Activity description not changed.');
+    isEditingDescription.value = false;
+  }
+};
 
 </script>
 
@@ -67,7 +111,5 @@ const renderedDescription = computed(() => {
 .activity-content-display {
   font-size: 0.9rem;
 }
-.activity-description :deep(p:last-child) {
-  margin-bottom: 0;
-}
+/* Stili specifici per .activity-description :deep(p:last-child) rimossi per coerenza con NoteContentDisplay */
 </style>

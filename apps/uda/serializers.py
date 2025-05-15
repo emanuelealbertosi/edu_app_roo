@@ -247,6 +247,10 @@ class UDATopicSerializer(serializers.ModelSerializer):
         fields = ['topic']
 
 class UDAContentSerializer(serializers.ModelSerializer):
+    # Logger specifico per questo serializer, se non già definito a livello di modulo
+    # import logging # Assicurati sia importato
+    # logger = logging.getLogger(__name__) # Assicurati sia definito
+
     lesson = LessonIdField(allow_null=True, required=False, queryset=Lesson.objects.all()) # LessonIdField è definito prima
     quiz_template = QuizTemplateIdField(allow_null=True, required=False) # QuizTemplateIdField è definito prima
     # Usa il LenientFileField personalizzato
@@ -264,7 +268,13 @@ class UDAContentSerializer(serializers.ModelSerializer):
         # read_only_fields = ['id']
 
     def validate(self, data):
+        # Assicurati che logger sia accessibile qui
+        logger.info(f"[UDAContentSerializer.validate] Input data to validate: {data}")
+
         content_type = data.get('content_type')
+        if self.instance and 'content_type' not in data and hasattr(self.instance, 'content_type'):
+            content_type = self.instance.content_type
+        
         lesson = data.get('lesson')
         quiz_template = data.get('quiz_template') # Modificato da quiz
         note_title = data.get('note_title')
@@ -279,10 +289,19 @@ class UDAContentSerializer(serializers.ModelSerializer):
         # Validazione per UDAContent di tipo QUIZ
         if content_type == 'QUIZ' and not quiz_template:
             raise serializers.ValidationError({'quiz_template': "Quiz template is required for content type QUIZ."})
-        if content_type == 'NOTE' and not note_title:
-            raise serializers.ValidationError({'note_title': "Note title is required for content type NOTE."})
-        if content_type == 'ACTIVITY' and not activity_title:
-            raise serializers.ValidationError({'activity_title': "Activity title is required for content type ACTIVITY."})
+        if content_type == 'NOTE':
+            # Richiesto in creazione o se si tenta di svuotarlo in aggiornamento
+            if not self.instance and not data.get('note_title'):
+                raise serializers.ValidationError({'note_title': "Note title is required for content type NOTE."})
+            elif self.instance and 'note_title' in data and not data.get('note_title'):
+                raise serializers.ValidationError({'note_title': "Note title cannot be empty if provided for content type NOTE."})
+
+        if content_type == 'ACTIVITY':
+            # Richiesto in creazione o se si tenta di svuotarlo in aggiornamento
+            if not self.instance and not data.get('activity_title'):
+                raise serializers.ValidationError({'activity_title': "Activity title is required for content type ACTIVITY."})
+            elif self.instance and 'activity_title' in data and not data.get('activity_title'):
+                raise serializers.ValidationError({'activity_title': "Activity title cannot be empty if provided for content type ACTIVITY."})
 
         # Assicurarsi che solo i campi rilevanti per il content_type siano forniti
         if content_type != 'LESSON':
@@ -292,13 +311,25 @@ class UDAContentSerializer(serializers.ModelSerializer):
         if content_type != 'NOTE':
             data.pop('note_title', None)
             data.pop('note_content', None)
+        # Log specifico prima del blocco condizionale per i campi ACTIVITY
+        logger.info(f"[UDAContentSerializer.validate] Checking condition for ACTIVITY fields. Current content_type: '{content_type}'. 'activity_description' in data: {'activity_description' in data}")
+
         if content_type != 'ACTIVITY':
+            logger.info(f"[UDAContentSerializer.validate] Condition content_type != 'ACTIVITY' is TRUE. Popping ACTIVITY fields.")
             data.pop('activity_title', None)
-            data.pop('activity_description', None)
+            if 'activity_description' in data:
+                logger.info(f"[UDAContentSerializer.validate] Popping 'activity_description'. Current data: {data}")
+                data.pop('activity_description', None)
+                logger.info(f"[UDAContentSerializer.validate] Data after popping 'activity_description': {data}")
+            else:
+                logger.info(f"[UDAContentSerializer.validate] 'activity_description' not in data to pop for ACTIVITY block.")
             data.pop('activity_attachment_url', None)
             data.pop('activity_completed', None)
+        else:
+            logger.info(f"[UDAContentSerializer.validate] Condition content_type != 'ACTIVITY' is FALSE. Skipping pop for ACTIVITY fields.")
             # teacher_marked_completed è applicabile a tutti i tipi di UDAContent, quindi non lo rimuoviamo qui.
-            
+        
+        logger.info(f"[UDAContentSerializer.validate] Output data after validation logic: {data}")
         return data
 
     def validate_activity_attachment_url(self, value):
@@ -427,6 +458,20 @@ class UDAContentSerializer(serializers.ModelSerializer):
         
         logger.info(f"-------------------- [validate_activity_attachment_url] END (value not a string or already returned) --------------------")
         return value # Per UploadedFile, None, False (valori che LenientFileField potrebbe passare direttamente)
+
+    def update(self, instance, validated_data):
+        # Assicurati che logger sia accessibile qui. Se definito a livello di modulo, è ok.
+        # Se no: import logging; logger = logging.getLogger(__name__)
+        logger.info(f"[UDAContentSerializer.update] Called for instance ID: {instance.pk if instance else 'None'}")
+        logger.info(f"[UDAContentSerializer.update] Instance activity_description BEFORE super().update: '{instance.activity_description if instance else 'N/A'}'")
+        logger.info(f"[UDAContentSerializer.update] Validated_data: {validated_data}")
+
+        # Chiamata al metodo update della classe base (ModelSerializer)
+        updated_instance = super().update(instance, validated_data)
+
+        logger.info(f"[UDAContentSerializer.update] Instance activity_description AFTER super().update: '{updated_instance.activity_description if updated_instance else 'N/A'}'")
+        logger.info(f"[UDAContentSerializer.update] Update complete for instance ID: {updated_instance.pk if updated_instance else 'None'}")
+        return updated_instance
 
 class UDASerializer(serializers.ModelSerializer):
    contents = UDAContentSerializer(many=True, required=False)

@@ -38,16 +38,29 @@ export const useUdaStore = defineStore('uda', {
       this.error = null;
       try {
         const rawData: any = await udaService.getUda(udaId); // Ricevi come any
+
+        // Mappa i contenuti esistenti, se presenti in rawData, per aggiungere uda_id
+        let processedContents = rawData.contents;
+        if (rawData.contents && Array.isArray(rawData.contents)) {
+          processedContents = rawData.contents.map((content: any) => ({
+            ...content,
+            uda_id: udaId // Assicura che uda_id sia presente per ogni contenuto
+          }));
+        }
+
         // Mappa i dati ricevuti all'interfaccia UDA, conservando i nuovi campi
         this.currentUda = {
           ...rawData, // Copia tutti i campi ricevuti
+          contents: processedContents, // Usa i contenuti processati (o originali se non c'erano)
           course: rawData.course_id, // Salva l'ID del corso nel campo 'course'
           course_name: rawData.course_name, // Salva il nome del corso
           course_teacher_username: rawData.course_teacher_username, // Salva l'username dell'autore
           subjects: rawData.subject_ids || [], // Mappa subject_ids a subjects (per il form)
           topics: rawData.topic_ids || []      // Mappa topic_ids a topics (per il form)
         } as UDA; // Asserisci il tipo finale a UDA
-        // Carica i contenuti se non sono già presenti o sono vuoti
+        
+        // Se i contenuti non erano presenti in rawData o erano vuoti (anche dopo il tentativo di processarli),
+        // fetchUdaContents li caricherà (e li processerà con uda_id grazie alla modifica precedente in fetchUdaContents)
         if (this.currentUda && (!this.currentUda.contents || this.currentUda.contents.length === 0)) {
            await this.fetchUdaContents(udaId);
         }
@@ -173,8 +186,12 @@ export const useUdaStore = defineStore('uda', {
         this.loading = true;
         this.error = null;
         try {
-            const contents = await udaService.getUdaContents(udaId);
-            const sortedContents = contents.sort((a, b) => a.order - b.order);
+            const contentsFromService = await udaService.getUdaContents(udaId);
+            const contentsWithUdaId = contentsFromService.map(content => ({
+                ...content,
+                uda_id: udaId // Assicura che uda_id sia presente
+            }));
+            const sortedContents = contentsWithUdaId.sort((a, b) => a.order - b.order);
             if (this.currentUda?.id === udaId) {
                 this.currentUda.contents = sortedContents;
             }
@@ -205,7 +222,11 @@ export const useUdaStore = defineStore('uda', {
       this.error = null;
       try {
         // Passa il file al servizio se presente
-        const newContent = await udaService.addContentToUda(udaId, contentData, file);
+        const newContentFromService = await udaService.addContentToUda(udaId, contentData, file);
+        const newContent = {
+            ...newContentFromService,
+            uda_id: udaId // Assicura che uda_id sia presente
+        };
         const updateAndSortContents = (contentsArray?: UDAContent[]) => {
             if (!contentsArray) contentsArray = [];
             contentsArray.push(newContent);
@@ -241,7 +262,11 @@ export const useUdaStore = defineStore('uda', {
       this.error = null;
       try {
         // Passa il file al servizio se presente
-        const updatedContent = await udaService.updateUdaContent(udaId, contentId, contentData, file);
+        const updatedContentFromService = await udaService.updateUdaContent(udaId, contentId, contentData, file);
+        const updatedContent = {
+            ...updatedContentFromService,
+            uda_id: udaId // Assicura che uda_id sia presente
+        };
         const updateLocalContents = (contentsArray?: UDAContent[]) => {
             if (!contentsArray) return;
             const contentIndex = contentsArray.findIndex(c => c.id === contentId);
