@@ -3,6 +3,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated # Permesso base, da affinare
 from rest_framework import permissions # Per IsOwnerOrReadOnly
+from django.db import transaction # Per operazioni atomiche
 
 from .models import Course, UDATemplate, UDA, UDAContent, UDATemplateContent # Aggiunto Course
 from .serializers import (
@@ -311,3 +312,54 @@ class UDAViewSet(viewsets.ModelViewSet):
         reordered_contents = uda.contents.order_by('order')
         serializer = UDAContentSerializer(reordered_contents, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['post'], url_path='copy')
+    @transaction.atomic # Assicura che l'intera operazione di copia sia atomica
+    def copy_uda(self, request, pk=None):
+        """
+        Crea una copia di una UDA esistente, inclusi i suoi contenuti.
+        La nuova UDA non sarà associata a nessun corso.
+        """
+        original_uda = self.get_object() # Ottiene l'UDA originale, permessi già controllati
+
+        # Crea la nuova UDA
+        new_uda = UDA.objects.create(
+            teacher=request.user,
+            title=f"Copia di {original_uda.title}",
+            description=original_uda.description,
+            start_date=original_uda.start_date,
+            end_date=original_uda.end_date,
+            status='TODO',  # O lo stato originale, o uno di default come 'TODO'
+            course=None, # Non associata a un corso inizialmente
+            order_in_course=None,
+            source_template=None # Non deriva da un template
+        )
+
+        # Copia le relazioni ManyToMany (subjects e topics)
+        new_uda.subjects.set(original_uda.subjects.all())
+        new_uda.topics.set(original_uda.topics.all())
+
+        # Copia i contenuti
+        original_contents = original_uda.contents.all().order_by('order')
+        for original_content in original_contents:
+            UDAContent.objects.create(
+                uda=new_uda,
+                content_type=original_content.content_type,
+                lesson=original_content.lesson,
+                quiz_template=original_content.quiz_template,
+                note_title=original_content.note_title,
+                note_content=original_content.note_content,
+                activity_title=original_content.activity_title,
+                activity_description=original_content.activity_description,
+                activity_attachment_url=original_content.activity_attachment_url, # Assicurati che la gestione del file sia appropriata (potrebbe richiedere la copia del file fisico se non è solo un URL)
+                activity_completed=False, # Reset per la nuova UDA
+                teacher_marked_completed=False, # Reset per la nuova UDA
+                order=original_content.order,
+                estimated_hours=original_content.estimated_hours
+            )
+        
+        # Serializza e restituisci la nuova UDA
+        # È importante ricaricare la new_uda per includere i contenuti appena creati se il serializer li gestisce come nested
+        new_uda.refresh_from_db()
+        serializer = UDASerializer(new_uda, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_201_CREATED)

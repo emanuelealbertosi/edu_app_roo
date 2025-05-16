@@ -123,25 +123,6 @@ const router = createRouter({
 
     // --- Route per Unità Didattiche di Apprendimento (UDA) ---
     {
-      path: '/uda-templates',
-      name: 'uda-template-list',
-      component: () => import('../views/uda/UdaTemplateListView.vue'),
-      meta: { requiresAuth: true, roles: ['Docente', 'Teacher', 'TEACHER'] }
-    },
-    {
-      path: '/uda-templates/new',
-      name: 'uda-template-new',
-      component: () => import('../views/uda/UdaTemplateFormView.vue'),
-      meta: { requiresAuth: true, roles: ['Docente', 'Teacher', 'TEACHER'] }
-    },
-    {
-      path: '/uda-templates/:id(\\d+)/edit',
-      name: 'uda-template-edit',
-      component: () => import('../views/uda/UdaTemplateFormView.vue'),
-      props: true,
-      meta: { requiresAuth: true, roles: ['Docente', 'Teacher', 'TEACHER'] }
-    },
-    {
       path: '/udas',
       name: 'uda-list',
       component: () => import('../views/uda/UdaListView.vue'),

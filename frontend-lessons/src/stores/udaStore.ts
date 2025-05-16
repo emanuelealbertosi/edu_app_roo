@@ -398,6 +398,27 @@ export const useUdaStore = defineStore('uda', {
         this.loading = false;
       }
     },
+
+    async copyUda(udaIdToCopy: number): Promise<UDA | undefined> {
+      this.loading = true;
+      this.error = null;
+      try {
+        const newUda = await udaService.copyUda(udaIdToCopy);
+        // Aggiungi la nuova UDA alla lista (potrebbe essere necessario un fetchUdas per aggiornare completamente se l'ordinamento è importante qui)
+        // O, se la risposta include l'UDA completa, possiamo aggiungerla direttamente.
+        // Per ora, assumiamo che il servizio restituisca l'UDA copiata.
+        this.udas.push(newUda);
+        // Potremmo voler impostare la nuova UDA come currentUda se l'utente viene reindirizzato alla sua modifica
+        // this.currentUda = newUda;
+        return newUda;
+      } catch (err) {
+        this.error = (err as Error).message || `Failed to copy UDA ${udaIdToCopy}`;
+        console.error(err);
+        throw err;
+      } finally {
+        this.loading = false;
+      }
+    },
   },
   getters: {
     getUdaById: (state) => (id: number): UDA | undefined => {

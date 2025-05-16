@@ -18,16 +18,6 @@
     <form v-else @submit.prevent="handleSubmit" class="space-y-6 bg-white shadow-lg rounded-lg p-6">
       <div class="bg-gray-50 border border-gray-300 rounded-lg p-6 space-y-6 shadow-sm">
         <h2 class="text-xl font-semibold text-neutral-darkest bg-primary-light p-3 rounded-t-md mb-4 shadow-sm">Dati Principali UDA</h2>
-        <div v-if="!isEditMode" class="mb-6 p-4 bg-white rounded-md border border-gray-200 shadow-sm">
-          <label for="sourceTemplate" class="block text-sm font-medium text-gray-700 mb-1">Parti da un Template (Opzionale)</label>
-          <select id="sourceTemplate" v-model="selectedSourceTemplateId" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2">
-            <option :value="null">Nessun template (crea da zero)</option>
-            <option v-for="template_item in availableUdaTemplates" :key="template_item.id" :value="template_item.id">
-              {{ template_item.name }}
-            </option>
-          </select>
-          <div v-if="udaTemplateStore.loading" class="text-xs text-gray-500 mt-1">Caricamento template...</div>
-        </div>
 
         <!-- Riga 1: Titolo, Descrizione, Data Inizio, Data Fine -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 mb-4">
@@ -137,7 +127,6 @@
 import { ref, onMounted, computed, watch, nextTick } from 'vue';
 import { useRoute, useRouter, RouterLink } from 'vue-router';
 import { useUdaStore } from '@/stores/udaStore';
-import { useUdaTemplateStore } from '@/stores/udaTemplateStore';
 import { useCourseStore } from '@/stores/courseStore';
 import { useSubjectStore } from '@/stores/subjectStore';
 import { useTopicStore } from '@/stores/topicStore';
@@ -157,8 +146,7 @@ interface UdaFormData {
   subjects: number[]; 
   topics: number[];
   course: number | null;
-  order_in_course: number | null; 
-  source_template: number | null;
+  order_in_course: number | null;
   contents: UDAContent[];
 }
 
@@ -172,22 +160,19 @@ interface UdaApiPayload {
   topic_ids?: number[];
   course_id?: number | null;
   order_in_course?: number | null;
-  source_template_id?: number | null;
-  contents: Omit<UDAContent, 'temp_id' | 'lesson_title' | 'quiz_title'>[]; 
+  contents: Omit<UDAContent, 'temp_id' | 'lesson_title' | 'quiz_title'>[];
 }
 
 
 const route = useRoute();
 const router = useRouter();
 const udaStore = useUdaStore();
-const udaTemplateStore = useUdaTemplateStore();
 const courseStore = useCourseStore();
 const subjectStore = useSubjectStore();
 const topicStore = useTopicStore();
 const uiStore = useUiStore();
 
 const udaId = computed(() => route.params.id ? Number(route.params.id) : null);
-const queryTemplateId = computed(() => route.query.templateId ? Number(route.query.templateId) : null);
 
 
 const isEditMode = computed(() => udaId.value !== null);
@@ -207,19 +192,16 @@ watch(initialError, (newValue, oldValue) => {
   }
 });
 
-const selectedSourceTemplateId = ref<number | null>(queryTemplateId.value);
-
 const formData = ref<UdaFormData>({
   title: '',
   description: null,
   start_date: null,
   end_date: null,
   status: 'TODO',
-  subjects: [], 
+  subjects: [],
   topics: [],
   course: null,
   order_in_course: null,
-  source_template: queryTemplateId.value, 
   contents: []
 });
 
@@ -227,8 +209,7 @@ const formData = ref<UdaFormData>({
 // const selectedTopicIds = ref<number[]>([]);
 // const selectedSubjectIds = ref<number[]>([]);
 
-const availableUdaTemplates = computed(() => udaTemplateStore.udaTemplates);
-const availableCourses = computed(() => courseStore.courses as CourseType[]); 
+const availableCourses = computed(() => courseStore.courses as CourseType[]);
 const availableSubjects = computed(() => subjectStore.subjects as SubjectType[]); 
 const availableTopicsForSelectedSubject = computed(() => {
   if (formData.value.subjects.length > 0) {
@@ -263,68 +244,6 @@ watch(() => udaStore.currentUda?.contents, (newContents) => {
   }
 }, { deep: true });
 
-const loadTemplateData = (template_item: UDATemplate) => {
-  formData.value.title = formData.value.title || `Copia di ${template_item.name}`;
-  formData.value.description = template_item.description || null;
-  
-  formData.value.subjects = template_item.subject ? [template_item.subject] : [];
-
-  formData.value.topics = template_item.topics ? [...template_item.topics] : [];
-
-  formData.value.contents = template_item.contents.map(tc => {
-    const baseContent: any = {
-      temp_id: `temp_${Date.now()}_${Math.random().toString(36).substring(2,9)}`,
-      order: tc.order,
-    };
-    if (tc.content_type === UDATemplateContentType.LESSON) {
-      baseContent.content_type = UDAContentType.LESSON;
-      baseContent.lesson = (tc as any).lesson;
-      baseContent.lesson_title = (tc as any).lesson_title;
-    } else if (tc.content_type === UDATemplateContentType.QUIZ_TEMPLATE) { 
-      baseContent.content_type = UDAContentType.QUIZ; 
-      baseContent.quiz_template = (tc as any).quiz_template; 
-      baseContent.quiz_title = (tc as any).quiz_title; 
-    } else if (tc.content_type === UDATemplateContentType.NOTE_TEMPLATE) {
-      baseContent.content_type = UDAContentType.NOTE;
-      baseContent.note_title = (tc as any).note_template_title;
-      baseContent.note_content = (tc as any).note_template_content;
-    } else if (tc.content_type === UDATemplateContentType.ACTIVITY_TEMPLATE) {
-      baseContent.content_type = UDAContentType.ACTIVITY;
-      baseContent.activity_title = (tc as any).activity_template_title;
-      baseContent.activity_description = (tc as any).activity_template_description;
-      baseContent.activity_completed = false;
-    }
-    return baseContent as UDAContent;
-  });
-};
-
-watch(selectedSourceTemplateId, async (newTemplateId, oldTemplateId) => {
-  if (newTemplateId && newTemplateId !== oldTemplateId) {
-    formData.value.source_template = newTemplateId;
-    const template_item = udaTemplateStore.getUdaTemplateById(newTemplateId);
-    if (template_item) {
-      loadTemplateData(template_item);
-    } else {
-      try {
-        loadingInitialData.value = true;
-        await udaTemplateStore.fetchUdaTemplate(newTemplateId);
-        const fetchedTemplate = udaTemplateStore.currentUdaTemplate;
-        if (fetchedTemplate) {
-          loadTemplateData(fetchedTemplate);
-        } else {
-          uiStore.addNotification({message: `Template con ID ${newTemplateId} non trovato.`, type: 'warning'});
-        }
-      } catch (e) {
-        uiStore.addNotification({message: `Errore caricamento template: ${(e as Error).message}`, type: 'error'});
-      } finally {
-        loadingInitialData.value = false;
-      }
-    }
-  } else if (newTemplateId === null) {
-    formData.value.source_template = null;
-  }
-});
-
 
 onMounted(async () => {
   loadingInitialData.value = true;
@@ -332,8 +251,7 @@ onMounted(async () => {
   try {
     const promises = [
       subjectStore.fetchSubjects(),
-      courseStore.fetchCourses(),
-      udaTemplateStore.fetchUdaTemplates() 
+      courseStore.fetchCourses()
     ];
     await Promise.all(promises);
 
@@ -353,9 +271,7 @@ onMounted(async () => {
         
         formData.value.course = udaToEdit.course || null;
         formData.value.order_in_course = udaToEdit.order_in_course || null;
-        formData.value.source_template = udaToEdit.source_template || null;
         formData.value.contents = udaToEdit.contents ? JSON.parse(JSON.stringify(udaToEdit.contents)) : [];
-        selectedSourceTemplateId.value = udaToEdit.source_template || null;
         
         // Se ci sono materie, attendi il caricamento dei relativi argomenti disponibili
         // Il watch su formData.subjects si occuperà di chiamare fetchTopicsBySubject
@@ -373,8 +289,6 @@ onMounted(async () => {
       } else {
         initialError.value = `UDA con ID ${udaId.value} non trovata.`;
       }
-    } else if (queryTemplateId.value) { 
-        selectedSourceTemplateId.value = queryTemplateId.value; 
     }
 
   } catch (error) {
@@ -399,7 +313,6 @@ const handleSubmit = async () => {
     topic_ids: formData.value.topics,
     course_id: formData.value.course || undefined,
     order_in_course: formData.value.order_in_course || undefined,
-    source_template_id: formData.value.source_template || undefined,
     contents: formData.value.contents.map(c => {
       const { temp_id, lesson_title, quiz_title, ...contentToSave } = c as any; 
       return contentToSave;

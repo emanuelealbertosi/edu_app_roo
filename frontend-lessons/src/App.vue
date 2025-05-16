@@ -20,7 +20,6 @@ import {
   Bars3Icon, // Hamburger
   XMarkIcon, // Close
   ClipboardDocumentListIcon, // Icona per UDA
-DocumentDuplicateIcon, // Icona per Template UDA
   FolderIcon // Icona per Corsi
 } from '@heroicons/vue/24/outline';
 
@@ -187,13 +186,6 @@ const handleLogout = () => {
               <span class="ml-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Unità Didattiche</span>
             </router-link>
           </li>
-          <!-- Template UDA (Teacher) -->
-          <li v-if="sharedAuth.userRole === 'TEACHER' || sharedAuth.userRole === 'ADMIN'" class="mb-3">
-            <router-link :to="{ name: 'uda-template-list' }" class="flex items-center p-2 rounded hover:bg-indigo-700">
-              <DocumentDuplicateIcon class="h-6 w-6 flex-shrink-0" />
-              <span class="ml-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Template UDA</span>
-            </router-link>
-          </li>
           <!-- Lezioni Assegnate (Studente) -->
           <li v-if="sharedAuth.userRole === 'STUDENT'" class="mb-3"> <!-- Corretto case 'STUDENT' -->
              <router-link :to="{ name: 'assigned-lessons' }" class="flex items-center p-2 rounded hover:bg-indigo-700">
@@ -289,13 +281,6 @@ const handleLogout = () => {
                  <span class="ml-3">Unità Didattiche</span>
                </router-link>
              </li>
-             <!-- Template UDA (Teacher) -->
-             <li v-if="sharedAuth.userRole === 'TEACHER' || sharedAuth.userRole === 'ADMIN'" class="mb-3">
-               <router-link :to="{ name: 'uda-template-list' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-indigo-700">
-                 <DocumentDuplicateIcon class="h-6 w-6 flex-shrink-0" />
-                 <span class="ml-3">Template UDA</span>
-               </router-link>
-             </li>
              <!-- Lezioni Assegnate (Studente) -->
              <li v-if="sharedAuth.userRole === 'STUDENT'" class="mb-3"> <!-- Corretto case 'STUDENT' -->
                <router-link :to="{ name: 'assigned-lessons' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-indigo-700">
@@ -360,7 +345,6 @@ const handleLogout = () => {
                          <a @click="goToTopics" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer">Argomento</a>
                          <a @click="goToTeacherLessons" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer">Lezione</a>
                          <RouterLink :to="{ name: 'course-new' }" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer">Corso</RouterLink>
-                         <RouterLink :to="{ name: 'uda-template-new' }" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer">Template UDA</RouterLink>
                      </div>
                  </div>
 

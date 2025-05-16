@@ -45,11 +45,11 @@
           <div class="flex space-x-2">
              <!-- Pulsanti stile adattato per contrasto -->
             <button
-              @click="openAddUdaFromTemplateModal"
-              class="px-4 py-2 bg-white text-sky-700 border border-sky-300 rounded-md shadow-sm hover:bg-sky-50 transition duration-150 ease-in-out font-medium flex items-center"
+              @click="openAssignExistingUdaModal"
+              class="px-4 py-2 bg-white text-teal-700 border border-teal-300 rounded-md shadow-sm hover:bg-teal-50 transition duration-150 ease-in-out font-medium flex items-center"
             >
-              <PlusCircleIcon class="h-5 w-5 mr-2" />
-              Aggiungi da Template
+              <LinkIcon class="h-5 w-5 mr-2" /> <!-- Icona da cambiare, es. LinkIcon -->
+              Associa Esistente
             </button>
             <button
               @click="openCreateNewUdaModal"
@@ -137,6 +137,13 @@
                     <PencilIcon class="h-4 w-4 inline-block" />
                   </RouterLink>
                   <button
+                    @click="handleCopyUda(uda.id, uda.title)"
+                    class="text-green-600 hover:text-green-900 p-1 rounded-md hover:bg-green-50"
+                    title="Copia UDA"
+                  >
+                    <DocumentDuplicateIcon class="h-4 w-4 inline-block" />
+                  </button>
+                  <button
                     @click="confirmDeleteUda(uda.id)"
                     class="text-red-600 hover:text-red-900 p-1 rounded-md hover:bg-red-50"
                     title="Elimina UDA"
@@ -163,13 +170,6 @@
         </RouterLink>
     </div>
 
-    <AddUdaFromTemplateModal
-      :open="showAddUdaFromTemplateModal"
-      :course-id="courseId"
-      @close="showAddUdaFromTemplateModal = false"
-      @uda-created="handleUdaCreated"
-    />
-
     <CreateNewUdaModal
       :open="showCreateNewUdaModal"
       :course-id="courseId"
@@ -177,30 +177,35 @@
       @uda-created="handleUdaCreated"
     />
 
+    <AssignExistingUdaModal
+      :open="showAssignExistingUdaModal"
+      :course-id="courseId"
+      @close="showAssignExistingUdaModal = false"
+      @uda-associated="handleUdaCreated"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
-import { useRoute, RouterLink } from 'vue-router';
+import { useRoute, RouterLink, useRouter } from 'vue-router'; // Aggiunto useRouter
 import { useCourseStore } from '@/stores/courseStore';
-import { PencilIcon, PlusCircleIcon, TrashIcon, ArrowUpIcon, ArrowDownIcon } from '@heroicons/vue/24/outline';
+import { PencilIcon, PlusCircleIcon, TrashIcon, ArrowUpIcon, ArrowDownIcon, DocumentDuplicateIcon, LinkIcon } from '@heroicons/vue/24/outline'; // Aggiunto DocumentDuplicateIcon, LinkIcon
 import { useUdaStore } from '@/stores/udaStore';
-import { useUdaTemplateStore } from '@/stores/udaTemplateStore';
 import { useUiStore } from '@/stores/ui'; // Importa uiStore per le notifiche/conferme
 import { useTopicStore } from '@/stores/topicStore'; // Importa store argomenti
 import { useSubjectStore } from '@/stores/subjectStore'; // Importa store materie
-import AddUdaFromTemplateModal from '@/components/courses/AddUdaFromTemplateModal.vue';
 import CreateNewUdaModal from '@/components/courses/CreateNewUdaModal.vue';
+import AssignExistingUdaModal from '@/components/courses/AssignExistingUdaModal.vue'; // Nuovo Import
 // Importa altri tipi o store se necessario
 
 const courseStore = useCourseStore();
 const udaStore = useUdaStore();
-const udaTemplateStore = useUdaTemplateStore();
 const uiStore = useUiStore();
 const topicStore = useTopicStore(); // Istanzia store argomenti
 const subjectStore = useSubjectStore(); // Istanzia store materie
 const route = useRoute();
+const router = useRouter(); // Istanza del router
 
 const courseId = computed(() => Number(route.params.id));
 
@@ -212,22 +217,18 @@ const course = computed(() => courseStore.currentCourse);
 const udas = computed(() => courseStore.udasForCurrentCourse); // Queste sono le UDA già filtrate per il corso dallo store
 
 // Stati per le modali
-const showAddUdaFromTemplateModal = ref(false);
 const showCreateNewUdaModal = ref(false);
+const showAssignExistingUdaModal = ref(false); // Nuovo stato per la modale
 
 // TODO: Implementare queste funzioni
-const openAddUdaFromTemplateModal = () => {
-  // Caricare i template UDA se non già presenti
-  if (udaTemplateStore.udaTemplates.length === 0) {
-    udaTemplateStore.fetchUdaTemplates();
-  }
-  showAddUdaFromTemplateModal.value = true;
-  console.log("Apri modale per aggiungere UDA da template");
-};
-
 const openCreateNewUdaModal = () => {
   showCreateNewUdaModal.value = true;
   console.log("Apri modale per creare nuova UDA");
+};
+
+const openAssignExistingUdaModal = () => {
+  showAssignExistingUdaModal.value = true;
+  console.log("Apri modale per associare UDA esistente");
 };
 
 const handleUdaCreated = async () => {
@@ -352,6 +353,24 @@ const getSubjectNames = (subjectIds?: number[]): string => {
   return subjectIds.map(id => subjectStore.getSubjectById(id)?.name || `ID:${id}`).join(', ');
 };
 
+const handleCopyUda = async (udaIdToCopy: number, udaTitle: string) => {
+  uiStore.addNotification({ message: `Copia dell'UDA "${udaTitle}" in corso...`, type: 'info' });
+  try {
+    const newUda = await udaStore.copyUda(udaIdToCopy);
+    if (newUda && newUda.id) {
+      uiStore.addNotification({ message: `UDA "${udaTitle}" copiata con successo come "${newUda.title}". Puoi modificarla e associarla a un corso.`, type: 'success', duration: 5000 });
+      // Dopo la copia, la nuova UDA non è associata a questo corso.
+      // Reindirizziamo l'utente al form di modifica della nuova UDA.
+      router.push({ name: 'uda-edit', params: { id: newUda.id } });
+      // Non è necessario ricaricare le UDA di questo corso, perché la nuova UDA non ne fa parte (ancora).
+    } else {
+      throw new Error('ID della nuova UDA non ricevuto dopo la copia.');
+    }
+  } catch (error) {
+    console.error(`Errore durante la copia dell'UDA ID ${udaIdToCopy}:`, error);
+    uiStore.addNotification({ message: `Errore durante la copia dell'UDA: ${(error as Error).message}`, type: 'error' });
+  }
+};
 
 onMounted(async () => {
   pageLoading.value = true;

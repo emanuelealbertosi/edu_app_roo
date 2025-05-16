@@ -46,6 +46,7 @@ export interface NoteUDAContent extends BaseContent {
   note_title: string | null;
   note_content: string | null;
   teacher_marked_completed?: boolean;
+  uda_id: number;
 }
 
 // Contenuto di tipo Nota Template (per UDATemplate)
@@ -53,6 +54,7 @@ export interface NoteTemplateUDAContent extends BaseContent {
   content_type: UDATemplateContentType.NOTE_TEMPLATE;
   note_template_title: string | null;
   note_template_content: string | null;
+  uda_template_id: number;
 }
 
 // Contenuto di tipo Attività (per UDA)
@@ -64,6 +66,7 @@ export interface ActivityUDAContent extends BaseContent {
   activity_attachment_file?: File | null; // Per gestire il file selezionato nel frontend
   activity_completed?: boolean; // Completamento specifico dell'attività
   teacher_marked_completed?: boolean; // Completamento marcato dal docente
+  uda_id: number;
 }
 
 // Contenuto di tipo Attività Template (per UDATemplate)
@@ -71,6 +74,7 @@ export interface ActivityTemplateUDAContent extends BaseContent {
   content_type: UDATemplateContentType.ACTIVITY_TEMPLATE;
   activity_template_title: string | null;
   activity_template_description: string | null;
+  uda_template_id: number;
 }
 
 // Unione dei tipi per UDAContent

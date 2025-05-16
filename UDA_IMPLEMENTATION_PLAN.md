@@ -1,12 +1,13 @@
-# Piano di Implementazione: Unità Didattiche di Apprendimento (UDA)
+# Piano di Implementazione: Unità Didattiche di Apprendimento (UDA) e Funzionalità di Copia
 
-**Versione:** 1.0
-**Data:** 11 Maggio 2025
+**Versione:** 1.1
+**Data:** 16 Maggio 2025
 **Riferimento Documento di Progettazione:** [`design_document.md`](design_document.md:1) (Sezione 12 e relativi aggiornamenti)
+**Modifiche Recenti:** Rimozione concetto "Template UDA", introduzione funzionalità "Copia UDA".
 
 ## 1. Introduzione
 
-Questo documento descrive il piano di implementazione per la funzionalità "Unità Didattiche di Apprendimento (UDA)" e i relativi "Template UDA" per l'applicazione educativa. L'obiettivo è fornire ai docenti uno strumento per pianificare, organizzare e tracciare sequenze di contenuti didattici.
+Questo documento descrive il piano di implementazione per la funzionalità "Unità Didattiche di Apprendimento (UDA)" e l'introduzione della possibilità di copiare UDA esistenti per l'applicazione educativa. L'obiettivo è fornire ai docenti uno strumento per pianificare, organizzare e tracciare sequenze di contenuti didattici in modo efficiente. Il concetto di "Template UDA" è stato rimosso.
 
 ## 2. Backend (Django & Django REST Framework) [COMPLETATO]
 
@@ -20,14 +21,11 @@ Verranno creati i seguenti modelli nel file `uda/models.py` (o, se più appropri
 
 *   **`Course`**: NUOVO MODELLO [COMPLETATO]
     *   Campi: `teacher` (FK a User), `name` (CharField, univoco per docente), `description` (TextField, opzionale), `created_at`, `updated_at`.
-*   **`UDATemplate`**: [ESISTENTE - VERIFICATO]
-    *   Campi: `teacher` (FK a User), `name`, `description`, `subject` (FK a Subject, opzionale), `topics` (M2M con Topic tramite `UDATemplateTopic`), `created_at`, `updated_at`.
-*   **`UDATemplateTopic`**: [ESISTENTE - VERIFICATO] Tabella di join per `UDATemplate` e `Topic`.
-    *   Campi: `udatemplate` (FK), `topic` (FK).
-*   **`UDATemplateContent`**: [MODIFICATO]
-    *   Campi: `uda_template` (FK), `content_type` (CharField con choices: LESSON, QUIZ_TEMPLATE, NOTE_TEMPLATE, ACTIVITY_TEMPLATE), `lesson` (FK a Lesson, opzionale), `quiz_template` (FK a QuizTemplate, opzionale, per riferirsi a un template di quiz), `note_template_title`, `note_template_content`, `activity_template_title`, `activity_template_description`, `order` (PositiveIntegerField), `estimated_hours` (DecimalField, opzionale, `null=True`, `blank=True`, `max_digits=4`, `decimal_places=1`), `created_at`, `updated_at`.
+*   **`UDATemplate`**: [RIMOSSO]
+*   **`UDATemplateTopic`**: [RIMOSSO]
+*   **`UDATemplateContent`**: [RIMOSSO]
 *   **`UDA`**: MODIFICATO [COMPLETATO]
-    *   Campi: `teacher` (FK a User), `course` (FK a Course, opzionale, `null=True`, `blank=True`), `source_template` (FK a UDATemplate, opzionale), `title`, `description`, `start_date`, `end_date`, `subjects` (M2M con Subject tramite `UDASubject`, opzionale) [IMPLEMENTATO], `topics` (M2M con Topic tramite `UDATopic`), `status` (CharField con choices: TODO, IN_PROGRESS, COMPLETED), `order_in_course` (PositiveIntegerField, opzionale, per l'ordinamento manuale nel corso), `created_at`, `updated_at`.
+    *   Campi: `teacher` (FK a User), `course` (FK a Course, opzionale, `null=True`, `blank=True`), `title`, `description`, `start_date`, `end_date`, `subjects` (M2M con Subject tramite `UDASubject`, opzionale) [IMPLEMENTATO], `topics` (M2M con Topic tramite `UDATopic`), `status` (CharField con choices: TODO, IN_PROGRESS, COMPLETED), `order_in_course` (PositiveIntegerField, opzionale, per l'ordinamento manuale nel corso), `created_at`, `updated_at`. (Campo `source_template` rimosso).
   *   **`UDATopic`**: [ESISTENTE - VERIFICATO] Tabella di join per `UDA` e `Topic`.
     *   Campi: `uda` (FK), `topic` (FK).
   *   **`UDASubject`**: NUOVO MODELLO [COMPLETATO] Tabella di join per `UDA` e `Subject`.
@@ -36,18 +34,18 @@ Verranno creati i seguenti modelli nel file `uda/models.py` (o, se più appropri
     *   Campi: `uda` (FK), `content_type` (CharField con choices: LESSON, QUIZ_TEMPLATE, NOTE, ACTIVITY), `lesson` (FK a Lesson, opzionale), `quiz_template` (FK a QuizTemplate, opzionale, per riferirsi a un template di quiz da cui istanziare un quiz concreto in un secondo momento), `note_title`, `note_content`, `activity_title`, `activity_description`, `activity_attachment_url` (FileField/CharField, opzionale), `activity_completed` (BooleanField, specifico per `ACTIVITY`), `teacher_marked_completed` (BooleanField, default `False`, per tutti i tipi), `order` (PositiveIntegerField), `estimated_hours` (DecimalField, opzionale, `null=True`, `blank=True`, `max_digits=4`, `decimal_places=1`), `created_at`, `updated_at`.
 
 *   **Azioni:**
-    *   Definire i modelli (incluso il nuovo `Course`, il nuovo `UDASubject` [COMPLETATO] e le modifiche a `UDA` [COMPLETATO PER SUBJECTS], `UDATemplateContent` e `UDAContent` per aggiungere `estimated_hours`).
-    *   Creare e applicare le migrazioni Django (`makemigrations uda`, `migrate` - o per la nuova app se `Course` è separato). [COMPLETATO]
+    *   Definire i modelli (incluso il nuovo `Course`, il nuovo `UDASubject` [COMPLETATO] e le modifiche a `UDA` [COMPLETATO PER SUBJECTS E RIMOZIONE `source_template`], e `UDAContent` per aggiungere `estimated_hours`).
+    *   Creare e applicare le migrazioni Django (`makemigrations uda`, `migrate` - o per la nuova app se `Course` è separato). [COMPLETATO, DA VERIFICARE MIGRAZIONE PER RIMOZIONE MODELLI TEMPLATE E CAMPO `source_template`]
 
 ### 2.3. Serializer (DRF) [COMPLETATO]
 Verranno creati i serializer in `uda/serializers.py` (o file appropriati):
 
 *   **`CourseSerializer`**: NUOVO SERIALIZER. [COMPLETATO]
-*   `UDATemplateContentSerializer` (MODIFICATO - gestirà `quiz_template` invece di `quiz`, aggiungerà `estimated_hours`).
-*   `UDATemplateSerializer` (includerà `UDATemplateContentSerializer` come nested o gestirà la creazione/aggiornamento dei contenuti tramite metodi `create`/`update`). [ESISTENTE - VERIFICATO, MODIFICATO]
+*   `UDATemplateContentSerializer` [RIMOSSO]
+*   `UDATemplateSerializer` [RIMOSSO]
 *   `UDAContentSerializer` (MODIFICATO - gestirà `quiz_template` invece di `quiz`, upload/link allegati per `ACTIVITY`, lo stato `activity_completed`, `teacher_marked_completed` e `estimated_hours`).
-*   `UDASerializer` (MODIFICATO - includerà `UDAContentSerializer` o gestirà i contenuti in modo simile al template, gestirà i campi `course_id` e `order_in_course` per la scrittura, `course` (nested o ID) per la lettura, e il campo `subjects` M2M). [COMPLETATO PER `subjects`]
-*   Serializer per `UDATemplateTopic`, `UDATopic`. `UDASubjectSerializer` non necessario, gestito implicitamente. [ESISTENTI - VERIFICATI, `UDASubjectSerializer` NON NECESSARIO]
+*   `UDASerializer` (MODIFICATO - includerà `UDAContentSerializer`, gestirà i campi `course_id` e `order_in_course` per la scrittura, `course` (nested o ID) per la lettura, e il campo `subjects` M2M. Rimosso riferimento a `source_template`). [COMPLETATO PER `subjects`]
+*   Serializer per `UDATopic`. `UDASubjectSerializer` non necessario, gestito implicitamente. `UDATemplateTopicSerializer` [RIMOSSO].
 
 *   **Azioni:**
     *   Implementare i serializer, prestando attenzione alla validazione e alla gestione dei campi relazionati e dei contenuti nested/dinamici, inclusa la relazione UDA-Corso, l'ordinamento UDA nel corso, il completamento dei contenuti UDA e il nuovo campo `estimated_hours`. [COMPLETATO, DA AGGIORNARE PER `estimated_hours`]
@@ -58,15 +56,15 @@ Verranno implementate le view in `uda/views.py` (o file appropriati, probabilmen
 *   **`CourseViewSet`**: NUOVO VIEWSET per CRUD su `Course`. [COMPLETATO]
     *   Endpoint custom per listare le UDA di un corso: `GET /api/courses/{course_id}/udas/` (rispetterà `order_in_course`). [COMPLETATO]
     *   Endpoint custom per riordinare le UDA in un corso: `POST /api/courses/{course_id}/udas/reorder/`. [COMPLETATO]
-*   `UDATemplateViewSet`: Per CRUD su `UDATemplate`. [ESISTENTE - VERIFICATO]
-*   Endpoint custom per la gestione dei `UDATemplateContent` (es. `/api/uda-templates/{template_id}/contents/`). [ESISTENTE - VERIFICATO]
+*   `UDATemplateViewSet`: [RIMOSSO]
 *   `UDAViewSet`: Per CRUD su `UDA`. (MODIFICATO per gestire l'associazione con `Course`, `order_in_course` e il campo `subjects` M2M). [COMPLETATO PER `subjects` TRAMITE SERIALIZER]
+    *   NUOVO Endpoint custom per copiare una UDA: `POST /api/udas/{uda_id}/copy/`. [IMPLEMENTATO]
 *   Endpoint custom per la gestione dei `UDAContent` (es. `/api/udas/{uda_id}/contents/`). [ESISTENTE - VERIFICATO]
 *   Endpoint custom per marcare un'`ACTIVITY` come completata (`activity_completed`): `PATCH /api/udas/{uda_id}/contents/{content_id}/complete-activity/`. [ESISTENTE - VERIFICATO]
     *   Endpoint custom per marcare `teacher_marked_completed` su un `UDAContent`: `PATCH /api/udas/{uda_id}/contents/{content_id}/update-teacher-completion/`. [COMPLETATO]
 
 *   **Permessi:**
-    *   Utilizzare permessi custom (es. `IsOwnerOrReadOnly` modificato o nuovo permesso `IsOwner`) per assicurare che solo il docente proprietario possa modificare/eliminare i propri Corsi, UDA e Template UDA. [COMPLETATO con `IsOwner`]
+    *   Utilizzare permessi custom (es. `IsOwnerOrReadOnly` modificato o nuovo permesso `IsOwner`) per assicurare che solo il docente proprietario possa modificare/eliminare i propri Corsi e UDA. [COMPLETATO con `IsOwner`]
 *   **Azioni:**
     *   Implementare i ViewSet (incluso `CourseViewSet`) e le azioni custom. [COMPLETATO]
     *   Configurare i permessi. [COMPLETATO]
@@ -74,7 +72,7 @@ Verranno implementate le view in `uda/views.py` (o file appropriati, probabilmen
 ### 2.5. URL Configuration [COMPLETATO]
 Verranno configurati gli URL in `uda/urls.py` (o file appropriati) e inclusi nel file `config/urls.py` principale:
 
-*   Registrare i router per i ViewSet (`CourseViewSet`, `UDATemplateViewSet`, `UDAViewSet`). [COMPLETATO]
+*   Registrare i router per i ViewSet (`CourseViewSet`, `UDAViewSet`). `UDATemplateViewSet` [RIMOSSO]. [COMPLETATO]
 *   Mappare le azioni custom (inclusi gli endpoint per le UDA di un corso, riordino UDA, e aggiornamento `teacher_marked_completed`). [COMPLETATO tramite router]
 
 *   **Azioni:**
@@ -86,30 +84,28 @@ Verranno configurati gli URL in `uda/urls.py` (o file appropriati) e inclusi nel
 *   **`courseStore.ts`**: NUOVO STORE [COMPLETATO]
     *   State: `courses`, `currentCourse`, `loading`, `error`.
     *   Actions: `fetchCourses`, `fetchCourse`, `createCourse`, `updateCourse`, `deleteCourse`, `fetchUdasForCourse`, `reorderUdasInCourse`.
-*   **`udaTemplateStore.ts`**: [COMPLETATO]
-    *   State: `udaTemplates`, `currentUdaTemplate`, `loading`, `error`.
-    *   Actions: `fetchUdaTemplates`, `fetchUdaTemplate`, `createUdaTemplate`, `updateUdaTemplate`, `deleteUdaTemplate`, `addContentToTemplate` (gestirà `estimated_hours`), `updateContentInTemplate` (gestirà `estimated_hours`), `removeContentFromTemplate`.
-*   **`udaStore.ts`**: [COMPLETATO]
+*   **`udaTemplateStore.ts`**: [RIMOSSO]
+*   **`udaStore.ts`**: [MODIFICATO]
     *   State: `udas`, `currentUda`, `loading`, `error`.
-    *   Actions: `fetchUdas` (con filtri per status, e opzionalmente per `courseId`), `fetchUda`, `createUda` (da zero o da template, gestendo `courseId`, `orderInCourse` e `subjectIds` [COMPLETATO]), `updateUda` (gestendo `courseId`, `orderInCourse` e `subjectIds` [COMPLETATO]), `deleteUda`, `addContentToUda` (gestirà `estimated_hours`), `updateContentInUda` (inclusa `teacher_marked_completed`, gestirà `estimated_hours`), `removeContentFromUda`, `completeActivityInUda` (per `activity_completed`), `updateUdaContentTeacherCompletion`.
+    *   Actions: `fetchUdas` (con filtri per status, e opzionalmente per `courseId`), `fetchUda`, `createUda` (da zero, gestendo `courseId`, `orderInCourse` e `subjectIds` [COMPLETATO]), `updateUda` (gestendo `courseId`, `orderInCourse` e `subjectIds` [COMPLETATO]), `deleteUda`, `addContentToUda` (gestirà `estimated_hours`), `updateContentInUda` (inclusa `teacher_marked_completed`, gestirà `estimated_hours`), `removeContentFromUda`, `completeActivityInUda` (per `activity_completed`), `updateUdaContentTeacherCompletion`, `copyUda` (NUOVA ACTION).
 *   **`quizStore.ts`**: [MODIFICATO - VEDI NOTA SEZ. 3.4]
     *   Aggiunto state per `quizTemplates`, `currentQuizTemplate`.
     *   Aggiunta action `fetchQuizTemplates` per recuperare i template quiz (endpoint `/api/education/teacher/quiz-templates/`).
     *   Aggiunta action `createQuizFromTemplate` per creare un quiz da un template (endpoint `/api/quizzes/create-from-template/`).
 
 *   **Azioni:**
-    *   [COMPLETATO] Creare i file store (`udaTemplateStore.ts`, `udaStore.ts`) e implementare la struttura base di state e actions.
+    *   [MODIFICATO] Creare il file store `udaStore.ts` e implementare la struttura base di state e actions. `udaTemplateStore.ts` [RIMOSSO].
     *   [COMPLETATO] Creare il nuovo store `courseStore.ts` e implementare la struttura base (includendo action per riordinare UDA).
-    *   [COMPLETATO] Aggiornare `udaStore.ts` per gestire l'associazione con i corsi, l'ordinamento, il completamento dei contenuti e il campo `estimated_hours`.
-    *   [COMPLETATO] Aggiornare `udaTemplateStore.ts` per gestire il campo `estimated_hours` nei contenuti.
+    *   [MODIFICATO] Aggiornare `udaStore.ts` per gestire l'associazione con i corsi, l'ordinamento, il completamento dei contenuti, il campo `estimated_hours` e la nuova action `copyUda`.
+    *   `udaTemplateStore.ts` [RIMOSSO].
     *   [COMPLETATO] _Nota: Creato `uiStore.ts` per gestire richieste modali e successivamente esteso per notifiche globali._
     ### 3.2. Servizi API [COMPLETATO]
     Creare un modulo `services/udaService.ts` (o simile, potrebbe essere utile un `services/courseService.ts`): [COMPLETATO]
     
     *   Funzioni per ogni endpoint API definito nel backend:
         *   Per Corsi: `getCourses()`, `getCourse(id)`, `createCourse(data)`, `updateCourse(id, data)`, `deleteCourse(id)`, `getUdasForCourse(courseId)`, `reorderUdasInCourse(courseId, udaIds)`.
-        *   Per Template UDA: (es. `getUdaTemplates()`, `createUdaTemplate(data)`, `addContentToTemplate(templateId, data)`, `updateContentInTemplate(templateId, contentId, data)`).
-        *   Per UDA: (es. `getUdas()`, `createUda(data)` - modificata per includere `courseId`, `orderInCourse` e `subjectIds` [VERIFICATO - GESTITO DA STORE], `getUdaContents(udaId)`, `addContentToUda(udaId, data)`, `updateContentInUda(udaId, contentId, data)`).
+        *   Per Template UDA: [RIMOSSE]
+        *   Per UDA: (es. `getUdas()`, `createUda(data)` - modificata per includere `courseId`, `orderInCourse` e `subjectIds` [VERIFICATO - GESTITO DA STORE], `getUdaContents(udaId)`, `addContentToUda(udaId, data)`, `updateContentInUda(udaId, contentId, data)`, `copyUda(udaId)` [NUOVA]).
         *   Per Contenuti UDA: (es. `uploadActivityAttachment(udaContentId, file)`, `updateUdaContentTeacherCompletion(udaContentId, completed)`). Le funzioni di creazione/aggiornamento contenuto (`addContentTo...`, `updateContentIn...`) dovranno accettare e inviare il campo `estimated_hours`.
     
     *   **Azioni:**
@@ -123,11 +119,11 @@ Aggiungere nuove route in `router/index.ts` per `frontend-lessons`: [COMPLETATO]
 *   `/courses/new`: Creazione Corso (`CourseFormView`). NUOVA [COMPLETATO]
 *   `/courses/:id`: Dettaglio Corso (`CourseDetailView`). NUOVA (mostrerà UDA associate) [COMPLETATO]
 *   `/courses/:id/edit`: Modifica Corso (`CourseFormView`). NUOVA [COMPLETATO]
-*   `/uda-templates`: Lista dei Template UDA (`UdaTemplateListView`). [COMPLETATO]
-*   `/uda-templates/new`: Creazione Template UDA (`UdaTemplateFormView`). [COMPLETATO]
-*   `/uda-templates/:id/edit`: Modifica Template UDA (`UdaTemplateFormView`). [COMPLETATO]
+*   `/uda-templates`: [RIMOSSA]
+*   `/uda-templates/new`: [RIMOSSA]
+*   `/uda-templates/:id/edit`: [RIMOSSA]
 *   `/udas`: Lista UDA (`UdaListView`). [COMPLETATO]
-*   `/udas/new`: Creazione UDA (`UdaFormView`). [COMPLETATO]
+*   `/udas/new`: Creazione UDA (`UdaFormView`). [MODIFICATO - rimossa opzione template]
 *   `/udas/:id`: Dettaglio UDA (`UdaDetailView`). [COMPLETATO]
 *   `/udas/:id/edit`: Modifica UDA (`UdaFormView`). [COMPLETATO]
 
@@ -142,10 +138,10 @@ Sviluppare i seguenti componenti Vue.js in `frontend-lessons/src/views/` e `fron
     *   `CourseListView.vue`: NUOVA. [COMPLETATO]
     *   `CourseFormView.vue`: NUOVA. [COMPLETATO]
     *   `CourseDetailView.vue`: NUOVA. [COMPLETATO]
-    *   `UdaTemplateListView.vue`: [COMPLETATO]
-    *   `UdaTemplateFormView.vue`: [COMPLETATO]
-    *   `UdaListView.vue`: MODIFICATA. [COMPLETATO]
-    *   `UdaFormView.vue`: MODIFICATA (per gestire selezione multipla materie). [COMPLETATO]
+    *   `UdaTemplateListView.vue`: [RIMOSSO]
+    *   `UdaTemplateFormView.vue`: [RIMOSSO]
+    *   `UdaListView.vue`: MODIFICATA (aggiunto pulsante "Copia UDA"). [COMPLETATO]
+    *   `UdaFormView.vue`: MODIFICATA (per gestire selezione multipla materie, rimossa sezione "Parti da Template"). [COMPLETATO]
     *   `UdaDetailView.vue`: [COMPLETATO]
 *   **Componenti Specifici per Contenuti:**
     *   `UdaContentItemRenderer.vue`: MODIFICATO (per visualizzare `estimated_hours`). [COMPLETATO, DA AGGIORNARE]
@@ -153,32 +149,32 @@ Sviluppare i seguenti componenti Vue.js in `frontend-lessons/src/views/` e `fron
     *   `UdaContentQuizDisplay.vue`: [COMPLETATO] (da aggiornare per visualizzare `estimated_hours`)
     *   `UdaContentNoteDisplay.vue`: [COMPLETATO] (da aggiornare per visualizzare `estimated_hours`)
     *   `UdaContentActivityDisplay.vue`: [COMPLETATO] (da aggiornare per visualizzare `estimated_hours`)
-    *   `NoteTemplateContentDisplay.vue`: NUOVO. [COMPLETATO] (da aggiornare per visualizzare `estimated_hours`)
-    *   `ActivityTemplateContentDisplay.vue`: NUOVO. [COMPLETATO] (da aggiornare per visualizzare `estimated_hours`)
+    *   `NoteTemplateContentDisplay.vue`: [RIMOSSO] (se specifico per template)
+    *   `ActivityTemplateContentDisplay.vue`: [RIMOSSO] (se specifico per template)
 *   **Componenti di Supporto:**
     *   `UdaContentEditor.vue`: [COMPLETATO] (da aggiornare per includere input per `estimated_hours`)
     *   Modal per selezionare Lezioni/Quiz esistenti da aggiungere ai contenuti. [`SelectExistingContentModal.vue` - COMPLETATO]
     *   Componente per upload file per `activity_attachment_url`. [`FileUpload.vue` - COMPLETATO]
     *   _Nota: Creato `GlobalNotificationDisplay.vue` per visualizzare notifiche globali._ [COMPLETATO]
-*   **Menu:** [COMPLETATO]
+*   **Menu:** [MODIFICATO - rimossa voce "Template UDA"]
 
 *   **Azioni:**
     *   [COMPLETATO] Creare i file base per i componenti delle viste principali UDA.
     *   [COMPLETATO] Creare i file base per i nuovi componenti dei Corsi.
-    *   [COMPLETATO] Aggiungere la voce di menu per UDA. Modificarla/Aggiungere voce per Corsi.
-    *   [COMPLETATO] Sviluppare i componenti Vue.js, integrando gli store Pinia e i servizi API.
-    *   [COMPLETATO] Curare l'UI/UX per la gestione dei Corsi, l'ordinamento delle UDA nei corsi, l'associazione UDA-Corso, la marcatura del completamento dei contenuti UDA e l'inserimento/visualizzazione del tempo stimato (`estimated_hours`).
-    *   [COMPLETATO] Implementare l'aggiunta di UDA (da template o nuove) direttamente da `CourseDetailView.vue`.
-        *   [COMPLETATO] Questo include la creazione di eventuali modali necessari.
-        *   [COMPLETATO] Aggiornamento di `udaStore.ts`.
-        *   [COMPLETATO] Aggiornamento di `udaTemplateStore.ts`.
+    *   [MODIFICATO] Aggiungere la voce di menu per UDA. Modificarla/Aggiungere voce per Corsi. Rimuovere voce "Template UDA".
+    *   [MODIFICATO] Sviluppare i componenti Vue.js, integrando gli store Pinia e i servizi API (rimosso `udaTemplateStore`).
+    *   [MODIFICATO] Curare l'UI/UX per la gestione dei Corsi, l'ordinamento delle UDA nei corsi, l'associazione UDA-Corso, la marcatura del completamento dei contenuti UDA, l'inserimento/visualizzazione del tempo stimato (`estimated_hours`) e la nuova funzionalità di copia UDA.
+    *   [MODIFICATO] Implementare l'aggiunta di UDA (nuove) e la copia di UDA esistenti direttamente da `CourseDetailView.vue`. Rimossa aggiunta da template.
+        *   [COMPLETATO] Questo include la creazione di eventuali modali necessari (es. `CreateNewUdaModal`).
+        *   [MODIFICATO] Aggiornamento di `udaStore.ts` (rimossa logica template, aggiunta `copyUda`).
+        *   `udaTemplateStore.ts` [RIMOSSO].
     *   [COMPLETATO] Implementare la visualizzazione e il riordino delle UDA associate in `CourseDetailView.vue`.
     *   [COMPLETATO] Completare il form in `CreateNewUdaModal.vue`.
     *   [COMPLETATO] Implementare la logica per l'effettivo riordino delle UDA.
     *   [MODIFICATO E CORRETTO] Implementare la modale per selezionare Lezioni/Quiz esistenti ([`SelectExistingContentModal.vue`](frontend-lessons/src/components/uda/SelectExistingContentModal.vue:1)):
         *   Corretta la logica per la selezione dei Quiz: ora la modale carica e visualizza i `QuizTemplate` (tramite `quizStore.fetchQuizTemplates` dall'endpoint `/api/education/teacher/quiz-templates/`).
         *   Alla conferma della selezione di un `QuizTemplate`, l'ID del `QuizTemplate` viene passato al componente genitore.
-        *   Per i **Template UDA**, questo ID di `QuizTemplate` viene salvato direttamente nel `UDATemplateContent.quiz_template`.
+        *   Per i **Template UDA**, [RIMOSSO - non più applicabile].
         *   Per le **UDA Concrete**, questo ID di `QuizTemplate` viene salvato nel `UDAContent.quiz_template`. L'istanza concreta di `Quiz` verrà generata in un secondo momento (es. all'avvio del quiz).
         *   Aggiornati i tipi `RawSelectedContentItem` e `SelectedContentItem` in [`frontend-lessons/src/types/uda.ts`](frontend-lessons/src/types/uda.ts:1) e creato [`frontend-lessons/src/types/quizTemplate.ts`](frontend-lessons/src/types/quizTemplate.ts:1).
     *   [COMPLETATO] Implementare il componente per l'upload dei file per `activity_attachment_url`.
@@ -186,7 +182,7 @@ Sviluppare i seguenti componenti Vue.js in `frontend-lessons/src/views/` e `fron
     *   [COMPLETATO, DA AGGIORNARE] Migliorare/Completare `UdaContentEditor.vue` (per aggiungere input `estimated_hours`).
     *   [COMPLETATO] Implementare la logica di eliminazione UDA in `CourseDetailView.vue`.
     *   [RIMANDATO] Valutare l'implementazione del drag-and-drop per il riordino delle UDA in `CourseDetailView.vue`.
-    *   [COMPLETATO] Continuare lo sviluppo e il raffinamento degli altri componenti UI per UDA e Template UDA.
+    *   [MODIFICATO] Continuare lo sviluppo e il raffinamento degli altri componenti UI per UDA.
     *   [COMPLETATO] Completare `UdaDetailView.vue` per la visualizzazione dettagliata dei contenuti UDA:
         *   [COMPLETATO] Implementare il recupero e la visualizzazione dei dati principali dell'UDA, con la seguente disposizione compattata:
             *   **Dati Principali UDA (Layout Compattato):**
@@ -215,23 +211,24 @@ Sviluppare i seguenti componenti Vue.js in `frontend-lessons/src/views/` e `fron
     ### 4.2. Frontend (Vue.js)
     *   **Test Unitari:**
         *   Testare la logica dei componenti (props, computed properties, methods), inclusi i nuovi componenti per i Corsi, le modifiche ai componenti UDA (`UdaFormView.vue`) per la selezione di materie multiple, e l'aggiornamento di `UdaContentEditor.vue` e dei componenti display per `estimated_hours`. [DA FARE]
-        *   Testare le actions e mutations/getters degli store Pinia, inclusi `courseStore` e le modifiche a `udaStore` e `udaTemplateStore` (per gestione `subjectIds` e `estimated_hours`). [DA FARE]
+        *   Testare le actions e mutations/getters degli store Pinia, inclusi `courseStore` e le modifiche a `udaStore` (per gestione `subjectIds`, `estimated_hours` e `copyUda`). `udaTemplateStore` [RIMOSSO]. [DA FARE]
     *   **Test E2E (End-to-End):**
         *   Simulare i flussi utente completi:
             *   Creazione/Modifica/Eliminazione di un Corso.
             *   Riordinamento delle UDA all'interno di un Corso.
-            *   Creazione di un Template UDA.
-            *   Creazione di una UDA (da zero e da template) con una o più materie e sua associazione a un Corso (con ordine). [DA TESTARE SPECIFICATAMENTE]
+            *   Creazione di un Template UDA. [RIMOSSO]
+            *   Creazione di una UDA (da zero) con una o più materie e sua associazione a un Corso (con ordine). [DA TESTARE SPECIFICATAMENTE]
+            *   Copia di una UDA esistente e successiva modifica. [NUOVO DA TESTARE]
             *   Visualizzazione delle UDA all'interno di un Corso (rispettando l'ordine).
             *   Visualizzazione delle materie multiple in `UdaDetailView.vue`. [DA TESTARE]
-            *   Aggiunta di una UDA (da template o nuova) dalla pagina di un Corso.
+            *   Aggiunta di una UDA (nuova o copiata) dalla pagina di un Corso o dalla lista UDA.
             *   Aggiunta/modifica/rimozione di contenuti in una UDA, includendo l'inserimento e la visualizzazione di `estimated_hours`. [DA TESTARE SPECIFICATAMENTE]
             *   Marcatura di `teacher_marked_completed` per Lezioni, Quiz, Note e Attività all'interno di una UDA.
             *   Completamento di un'attività (`activity_completed`) in una UDA.
             *   Filtro delle UDA per stato, per Corso e (se implementato e funzionante con materie multiple) per materia. [DA VERIFICARE/TESTARE]
     *   **Strumenti:** Vitest/Jest per unit test, Playwright/Cypress per E2E test.
     *   **Azioni:**
-        *   Scrivere e eseguire i test frontend, coprendo le nuove funzionalità dei Corsi, l'ordinamento, il completamento esteso, la gestione di materie multiple per UDA e il campo `estimated_hours`. [DA FARE]
+        *   Scrivere e eseguire i test frontend, coprendo le nuove funzionalità dei Corsi, l'ordinamento, il completamento esteso, la gestione di materie multiple per UDA, il campo `estimated_hours` e la funzionalità di copia UDA. [DA FARE]
 
 ## 5. Considerazioni Aggiuntive
 
@@ -239,14 +236,14 @@ Sviluppare i seguenti componenti Vue.js in `frontend-lessons/src/views/` e `fron
     *   Decidere la strategia di storage (es. `django-storages` con S3, o file system locale per sviluppo). [DECISO: File system locale con `FileField`]
     *   Implementare la logica di upload/delete sicuro dei file. [COMPLETATO]
 *   **UI/UX per Ordinamento Contenuti:** [COMPLETATO]
-    *   Implementare una soluzione drag-and-drop o bottoni "su/giù" per l'ordinamento dei `UDAContent` e `UDATemplateContent`. [COMPLETATO con bottoni]
+    *   Implementare una soluzione drag-and-drop o bottoni "su/giù" per l'ordinamento dei `UDAContent`. `UDATemplateContent` [RIMOSSO]. [COMPLETATO con bottoni]
     *   Implementare una soluzione simile (drag-and-drop o bottoni) per l'ordinamento delle `UDA` all'interno di un `Course`. [COMPLETATO con bottoni]
 *   **UI/UX per Completamento Contenuti UDA:** [COMPLETATO]
     *   Prevedere checkbox o controlli simili per marcare `teacher_marked_completed` per ogni `UDAContent` nella vista di dettaglio e modifica dell'UDA. [COMPLETATO]
 *   **Performance:**
     *   Considerare l'ottimizzazione delle query per il recupero di UDA/Template UDA con molti contenuti, e per i corsi con molte UDA.
 *   **Traduzioni/Localizzazione:** Se l'applicazione supporta più lingue, assicurarsi che tutti i nuovi testi UI siano traducibili.
-*   **Visualizzazione Tempo Stimato Totale:** Valutare l'aggiunta della visualizzazione del tempo totale stimato per un'intera UDA o Template UDA (somma degli `estimated_hours` dei suoi contenuti) nelle viste di dettaglio e lista.
+*   **Visualizzazione Tempo Stimato Totale:** Valutare l'aggiunta della visualizzazione del tempo totale stimato per un'intera UDA (somma degli `estimated_hours` dei suoi contenuti) nelle viste di dettaglio e lista. Riferimento a Template UDA [RIMOSSO].
 
 ## 6. Stima di Sviluppo (Indicativa)
 
@@ -260,7 +257,7 @@ Sviluppare i seguenti componenti Vue.js in `frontend-lessons/src/views/` e `fron
 
 *   **Fase 1 (MVP):** [COMPLETATO]
     *   Funzionalità base CRUD per Corsi.
-    *   Funzionalità base CRUD per UDA e Template UDA, con associazione ai Corsi.
+    *   Funzionalità base CRUD per UDA, con associazione ai Corsi. Template UDA [RIMOSSO].
     *   Supporto per contenuti Lezione, Quiz, Nota, Attività in UDA.
     *   Gestione stato UDA.
     *   Visualizzazione UDA per Corso.
@@ -270,6 +267,6 @@ Sviluppare i seguenti componenti Vue.js in `frontend-lessons/src/views/` e `fron
     *   Ordinamento manuale delle UDA all'interno di un Corso.
     *   Ordinamento avanzato dei contenuti UDA (all'interno di una UDA).
     *   Filtri avanzati per le liste UDA (per stato, corso, ecc.).
-    *   Possibilità di aggiungere UDA (da template o nuova) direttamente dalla vista di un Corso.
+    *   Possibilità di aggiungere UDA (nuova o copiata) direttamente dalla vista di un Corso o dalla lista UDA.
 
-Questo piano di implementazione fornisce una roadmap per lo sviluppo della funzionalità UDA e Corsi. La fase di sviluppo per l'aggiunta di materie multiple alle UDA è considerata conclusa. Il prossimo passo è il testing completo di tutte le funzionalità.
+Questo piano di implementazione fornisce una roadmap per lo sviluppo della funzionalità UDA e Corsi, con la rimozione dei Template UDA e l'introduzione della copia UDA. La fase di sviluppo per l'aggiunta di materie multiple alle UDA è considerata conclusa. Il prossimo passo è il testing completo di tutte le funzionalità.

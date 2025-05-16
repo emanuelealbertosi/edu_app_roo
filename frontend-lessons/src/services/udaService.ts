@@ -76,6 +76,11 @@ export const udaService = {
     await apiClient.delete(`${UDA_BASE_URL}/${id}/`);
   },
 
+  async copyUda(udaIdToCopy: number): Promise<UDA> {
+    const response = await apiClient.post(`${UDA_BASE_URL}/${udaIdToCopy}/copy/`);
+    return response.data;
+  },
+
   async getUdaContents(udaId: number): Promise<UDAContent[]> {
     const response = await apiClient.get(`${UDA_BASE_URL}/${udaId}/contents/`);
     return response.data;

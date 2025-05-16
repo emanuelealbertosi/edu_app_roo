@@ -131,6 +131,13 @@
                 <PencilIcon class="h-5 w-5 inline-block" />
               </RouterLink>
               <button
+                @click="handleCopyUda(uda.id, uda.title)"
+                class="text-green-600 hover:text-green-900 transition duration-150 ease-in-out"
+                title="Copia UDA"
+              >
+                <DocumentDuplicateIcon class="h-5 w-5 inline-block" />
+              </button>
+              <button
                 @click="confirmDeleteSingleUda(uda.id, uda.title)"
                 class="text-red-600 hover:text-red-900 transition duration-150 ease-in-out"
                 title="Elimina UDA"
@@ -147,13 +154,13 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'; // Rimosso watch
-import { RouterLink } from 'vue-router';
+import { RouterLink, useRouter } from 'vue-router'; // Aggiunto useRouter
 import { useUdaStore } from '@/stores/udaStore';
 import { useCourseStore } from '@/stores/courseStore';
 import { useSubjectStore } from '@/stores/subjectStore';
 import { useTopicStore } from '@/stores/topicStore'; // Importa topicStore
 import { useUiStore } from '@/stores/ui';
-import { PencilIcon, TrashIcon, EyeIcon } from '@heroicons/vue/24/outline'; // Rimosso PlusCircleIcon
+import { PencilIcon, TrashIcon, EyeIcon, DocumentDuplicateIcon } from '@heroicons/vue/24/outline'; // Aggiunto DocumentDuplicateIcon
 import type { UDA } from '@/types/uda'; // Rimosso Course
 // import type { Subject } from '@/types/subject'; // Rimosso Subject
 // import type { Topic } from '@/types/topic'; // Importa Topic type - Non più utilizzato dopo aver commentato la riga 175
@@ -163,6 +170,7 @@ const courseStore = useCourseStore();
 const subjectStore = useSubjectStore();
 const topicStore = useTopicStore(); // Istanzia topicStore
 const uiStore = useUiStore();
+const router = useRouter(); // Istanza del router
 const searchQuery = ref('');
 
 // Arricchisce le UDA con dettagli (es. nome corso, nome materia, nomi argomenti)
@@ -249,6 +257,22 @@ const confirmDeleteSingleUda = async (udaId: number, udaTitle: string) => {
     }
   } else {
     uiStore.addNotification({ message: 'Eliminazione UDA annullata.', type: 'info', duration: 2000 });
+  }
+};
+
+const handleCopyUda = async (udaId: number, udaTitle: string) => {
+  uiStore.addNotification({ message: `Copia dell'UDA "${udaTitle}" in corso...`, type: 'info' });
+  try {
+    const newUda = await udaStore.copyUda(udaId);
+    if (newUda && newUda.id) {
+      uiStore.addNotification({ message: `UDA "${udaTitle}" copiata con successo come "${newUda.title}".`, type: 'success', duration: 4000 });
+      router.push({ name: 'uda-edit', params: { id: newUda.id } });
+    } else {
+      throw new Error('ID della nuova UDA non ricevuto.');
+    }
+  } catch (error) {
+    console.error(`Errore durante la copia dell'UDA ID ${udaId}:`, error);
+    uiStore.addNotification({ message: `Errore durante la copia dell'UDA: ${(error as Error).message}`, type: 'error' });
   }
 };
 
