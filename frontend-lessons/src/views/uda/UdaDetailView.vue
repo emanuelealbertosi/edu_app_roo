@@ -10,7 +10,10 @@
       <div class="bg-blue-600 text-white p-4 rounded-md mb-6 flex justify-between items-center">
         <h2 class="text-2xl font-semibold">{{ uda.title }}</h2>
         <!-- Pulsante stile adattato per contrasto -->
-        <router-link :to="`/udas/${uda.id}/edit`" class="px-4 py-2 bg-white text-blue-600 rounded-md shadow-sm hover:bg-blue-100 transition duration-150 ease-in-out font-medium">Modifica UDA</router-link>
+        <router-link :to="`/udas/${uda.id}/edit`" class="flex items-center px-3 py-2 bg-white text-blue-600 rounded-md shadow-sm hover:bg-blue-100 transition duration-150 ease-in-out font-medium">
+          <PencilIcon class="h-5 w-5 sm:mr-2" />
+          <span class="hidden sm:inline">Modifica UDA</span>
+        </router-link>
       </div>
 
       <!-- Blocco Descrizione -->
@@ -132,6 +135,7 @@ import UdaContentItemRenderer from '@/components/uda/UdaContentItemRenderer.vue'
 import LessonEditModal from '@/components/features/lezioni/LessonEditModal.vue'; // IMPORTATO MODALE
 import type { Lesson } from '@/types/lezioni'; // IMPORTATO TIPO Lesson
 import { useUiStore } from '@/stores/ui'; // CORRETTO: Importa da ui.ts
+import { PencilIcon } from '@heroicons/vue/24/outline';
 
 const route = useRoute();
 const router = useRouter();

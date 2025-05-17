@@ -4,8 +4,9 @@
     <div class="bg-blue-600 text-white p-4 rounded-md mb-6 flex justify-between items-center">
       <h2 class="text-2xl font-semibold">Le Mie Lezioni</h2>
       <!-- Pulsante stile adattato per contrasto -->
-      <button @click="openAddModalDirectly" class="px-4 py-2 bg-white text-blue-600 rounded-md shadow-sm hover:bg-blue-100 transition duration-150 ease-in-out font-medium">
-        Crea Nuova Lezione
+      <button @click="openAddModalDirectly" class="flex items-center px-3 py-2 bg-white text-blue-600 rounded-md shadow-sm hover:bg-blue-100 transition duration-150 ease-in-out font-medium">
+        <PlusCircleIcon class="h-5 w-5 sm:mr-2" />
+        <span class="hidden sm:inline">Crea Nuova Lezione</span>
       </button>
     </div>
 
@@ -53,10 +54,18 @@
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ formatDate(lesson.created_at) }}</td>
             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
-              <button @click="editLesson(lesson as Lesson)" class="text-yellow-600 hover:text-yellow-900">Modifica</button>
-              <button @click="gotoContents(lesson.id)" class="text-purple-600 hover:text-purple-900">Contenuti</button>
-              <button @click="gotoAssign(lesson.id)" class="text-cyan-600 hover:text-cyan-900">Assegna</button>
-              <button @click="confirmDelete(lesson as Lesson)" class="text-red-600 hover:text-red-900">Elimina</button>
+              <button @click="editLesson(lesson as Lesson)" class="text-yellow-600 hover:text-yellow-900 transition duration-150 ease-in-out" title="Modifica Lezione">
+                <PencilIcon class="h-5 w-5 inline-block" />
+              </button>
+              <button @click="gotoContents(lesson.id)" class="text-purple-600 hover:text-purple-900 transition duration-150 ease-in-out" title="Gestisci Contenuti">
+                <DocumentTextIcon class="h-5 w-5 inline-block" />
+              </button>
+              <button @click="gotoAssign(lesson.id)" class="text-cyan-600 hover:text-cyan-900 transition duration-150 ease-in-out" title="Assegna Lezione">
+                <UserPlusIcon class="h-5 w-5 inline-block" />
+              </button>
+              <button @click="confirmDelete(lesson as Lesson)" class="text-red-600 hover:text-red-900 transition duration-150 ease-in-out" title="Elimina Lezione">
+                <TrashIcon class="h-5 w-5 inline-block" />
+              </button>
             </td>
           </tr>
         </tbody>
@@ -107,6 +116,7 @@ const filteredLessons = computed(() => {
   });
 });
 import type { Lesson } from '@/types/lezioni'; // Rimossi Topic e Subject non usati qui
+import { PlusCircleIcon, PencilIcon, TrashIcon, DocumentTextIcon, UserPlusIcon } from '@heroicons/vue/24/outline';
 
 
 const lessonStore = useLessonStore();

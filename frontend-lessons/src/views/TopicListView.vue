@@ -15,8 +15,9 @@
             </select>
          </div>
          <!-- Pulsante stile adattato per contrasto -->
-         <button @click="openAddModalDirectly" class="px-4 py-2 bg-white text-blue-600 rounded-md shadow-sm hover:bg-blue-50 transition duration-150 ease-in-out font-medium disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap" :disabled="!selectedSubjectId">
-           Aggiungi Argomento
+         <button @click="openAddModalDirectly" class="flex items-center px-3 py-2 bg-white text-blue-600 rounded-md shadow-sm hover:bg-blue-50 transition duration-150 ease-in-out font-medium disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap" :disabled="!selectedSubjectId">
+           <PlusCircleIcon class="h-5 w-5 sm:mr-2" />
+           <span class="hidden sm:inline">Aggiungi Argomento</span>
          </button>
          <span v-if="!selectedSubjectId" class="text-xs text-blue-200 mt-1 sm:mt-0">(Seleziona una materia)</span> <!-- Colore testo -->
       </div>
@@ -48,8 +49,12 @@
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ getSubjectName(topic.subject) }}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ topic.description || '-' }}</td>
             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
-              <button @click="editTopic(topic as Topic)" class="text-yellow-600 hover:text-yellow-900">Modifica</button>
-              <button @click="confirmDelete(topic as Topic)" class="text-red-600 hover:text-red-900">Elimina</button>
+              <button @click="editTopic(topic as Topic)" class="text-yellow-600 hover:text-yellow-900 transition duration-150 ease-in-out" title="Modifica Argomento">
+                <PencilIcon class="h-5 w-5 inline-block" />
+              </button>
+              <button @click="confirmDelete(topic as Topic)" class="text-red-600 hover:text-red-900 transition duration-150 ease-in-out" title="Elimina Argomento">
+                <TrashIcon class="h-5 w-5 inline-block" />
+              </button>
             </td>
           </tr>
         </tbody>
@@ -79,6 +84,7 @@ import { useSubjectStore } from '@/stores/subjects';
 import emitter from '@/eventBus'; // Importa l'event bus
 import TopicEditModal from '../components/features/lezioni/TopicEditModal.vue';
 import type { Topic } from '@/types/lezioni'; // Rimosso Subject non usato qui
+import { PlusCircleIcon, PencilIcon, TrashIcon } from '@heroicons/vue/24/outline';
 
 const topicStore = useTopicStore();
 const subjectStore = useSubjectStore();

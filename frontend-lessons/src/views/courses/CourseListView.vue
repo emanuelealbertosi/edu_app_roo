@@ -6,9 +6,10 @@
       <!-- Pulsante stile adattato per contrasto -->
       <RouterLink
         :to="{ name: 'course-new' }"
-        class="px-4 py-2 bg-white text-blue-600 rounded-md shadow-sm hover:bg-blue-100 transition duration-150 ease-in-out font-medium"
+        class="flex items-center px-3 py-2 bg-white text-blue-600 rounded-md shadow-sm hover:bg-blue-100 transition duration-150 ease-in-out font-medium"
       >
-        Nuovo Corso
+        <PlusCircleIcon class="h-5 w-5 sm:mr-2" />
+        <span class="hidden sm:inline">Nuovo Corso</span>
       </RouterLink>
     </div>
 
@@ -74,23 +75,23 @@
               <RouterLink
                 :to="{ name: 'course-detail', params: { id: course.id } }"
                 class="text-blue-600 hover:text-blue-900 transition duration-150 ease-in-out"
-                title="Vedi Dettagli"
+                title="Vedi Dettagli Corso"
               >
-                Dettagli
+                <EyeIcon class="h-5 w-5 inline-block" />
               </RouterLink>
               <RouterLink
                 :to="{ name: 'course-edit', params: { id: course.id } }"
                 class="text-yellow-600 hover:text-yellow-900 transition duration-150 ease-in-out"
                 title="Modifica Corso"
               >
-                Modifica
+                <PencilIcon class="h-5 w-5 inline-block" />
               </RouterLink>
               <button
                 @click="handleDeleteCourse(course.id)"
                 class="text-red-600 hover:text-red-900 transition duration-150 ease-in-out"
                 title="Elimina Corso"
               >
-                Elimina
+                <TrashIcon class="h-5 w-5 inline-block" />
               </button>
             </td>
           </tr>
@@ -105,7 +106,7 @@ import { ref, onMounted, computed } from 'vue';
 import { RouterLink } from 'vue-router';
 import { useCourseStore } from '@/stores/courseStore';
 import { useUiStore } from '@/stores/ui'; // Importa uiStore
-// import { PlusCircleIcon } from '@heroicons/vue/24/outline'; // Rimosso perché non utilizzato
+import { PlusCircleIcon, EyeIcon, PencilIcon, TrashIcon } from '@heroicons/vue/24/outline';
 
 const courseStore = useCourseStore();
 const uiStore = useUiStore(); // Istanzia uiStore

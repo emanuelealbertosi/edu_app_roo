@@ -6,9 +6,10 @@
       <!-- Pulsante stile adattato per contrasto -->
       <RouterLink
         :to="{ name: 'uda-template-new' }"
-        class="px-4 py-2 bg-white text-blue-600 rounded-md shadow-sm hover:bg-blue-100 transition duration-150 ease-in-out font-medium"
+        class="flex items-center px-3 py-2 bg-white text-blue-600 rounded-md shadow-sm hover:bg-blue-100 transition duration-150 ease-in-out font-medium"
       >
-        Nuovo Template UDA
+        <PlusCircleIcon class="h-5 w-5 sm:mr-2" />
+        <span class="hidden sm:inline">Nuovo Template UDA</span>
       </RouterLink>
     </div>
 
@@ -122,7 +123,7 @@ import { ref, computed, onMounted } from 'vue'; // Aggiunto ref
 import { RouterLink } from 'vue-router';
 import { useUdaTemplateStore } from '@/stores/udaTemplateStore';
 import { useUiStore } from '@/stores/ui';
-import { PencilIcon, TrashIcon } from '@heroicons/vue/24/outline'; // Rimosso PlusCircleIcon
+import { PencilIcon, TrashIcon, PlusCircleIcon } from '@heroicons/vue/24/outline';
 // import type { UDATemplate } from '@/types/uda'; // Rimosso UDATemplate non utilizzato
 import { useSubjectStore } from '@/stores/subjectStore'; // Importa lo store delle materie
 import { useTopicStore } from '@/stores/topicStore';   // Importa lo store degli argomenti

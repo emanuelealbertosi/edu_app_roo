@@ -4,8 +4,9 @@
     <div class="bg-blue-600 text-white p-4 rounded-md mb-6 flex justify-between items-center">
       <h2 class="text-2xl font-semibold">Gestione Materie</h2>
       <!-- Pulsante stile adattato per contrasto -->
-      <button @click="openAddModalDirectly" class="px-4 py-2 bg-white text-blue-600 rounded-md shadow-sm hover:bg-blue-100 transition duration-150 ease-in-out font-medium">
-        Aggiungi Materia
+      <button @click="openAddModalDirectly" class="flex items-center px-3 py-2 bg-white text-blue-600 rounded-md shadow-sm hover:bg-blue-100 transition duration-150 ease-in-out font-medium">
+        <PlusCircleIcon class="h-5 w-5 sm:mr-2" />
+        <span class="hidden sm:inline">Aggiungi Materia</span>
       </button>
     </div>
 
@@ -32,8 +33,12 @@
             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ subject.name }}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ subject.description || '-' }}</td>
             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
-              <button @click="editSubject(subject as Subject)" class="text-yellow-600 hover:text-yellow-900">Modifica</button>
-              <button @click="confirmDelete(subject as Subject)" class="text-red-600 hover:text-red-900">Elimina</button>
+              <button @click="editSubject(subject as Subject)" class="text-yellow-600 hover:text-yellow-900 transition duration-150 ease-in-out" title="Modifica Materia">
+                <PencilIcon class="h-5 w-5 inline-block" />
+              </button>
+              <button @click="confirmDelete(subject as Subject)" class="text-red-600 hover:text-red-900 transition duration-150 ease-in-out" title="Elimina Materia">
+                <TrashIcon class="h-5 w-5 inline-block" />
+              </button>
             </td>
           </tr>
         </tbody>
@@ -61,6 +66,7 @@ import { useSubjectStore } from '@/stores/subjects';
 import emitter from '@/eventBus'; // Importa l'event bus
 import SubjectEditModal from '../components/features/lezioni/SubjectEditModal.vue';
 import type { Subject } from '@/types/lezioni';
+import { PlusCircleIcon, PencilIcon, TrashIcon } from '@heroicons/vue/24/outline';
 
 const subjectStore = useSubjectStore();
 const subjects = computed(() => subjectStore.subjects);

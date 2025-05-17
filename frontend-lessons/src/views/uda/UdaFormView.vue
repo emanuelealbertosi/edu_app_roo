@@ -106,16 +106,19 @@
       </div>
 
       <div class="flex justify-end space-x-3 pt-4">
-        <RouterLink :to="{ name: 'uda-list' }" class="border border-gray-300 hover:bg-gray-100 text-gray-700 font-medium py-2 px-4 rounded-md shadow-sm">
-          Annulla
+        <RouterLink :to="{ name: 'uda-list' }" class="flex items-center border border-gray-300 hover:bg-gray-100 text-gray-700 font-medium py-2 px-4 rounded-md shadow-sm">
+          <XMarkIcon class="h-5 w-5 sm:mr-2" />
+          <span class="hidden sm:inline">Annulla</span>
         </RouterLink>
         <button
           type="submit"
           :disabled="isSubmitting"
-          class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-md shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+          class="flex items-center bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-md shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
         >
+          <CheckCircleIcon class="h-5 w-5 sm:mr-2" v-if="!isSubmitting" />
           <span v-if="isSubmitting">Salvataggio...</span>
-          <span v-else>{{ submitButtonText }}</span>
+          <span v-else class="hidden sm:inline">{{ submitButtonText }}</span>
+          <span v-else class="sm:hidden inline">{{ isEditMode ? 'Salva' : 'Crea' }}</span>
         </button>
       </div>
       <div v-if="submitError" class="text-red-600 mt-2 text-sm">{{ submitError }}</div>
@@ -136,6 +139,7 @@ import { type UDA, type UDAContent } from '@/types/uda';
 import type { Course as CourseType } from '@/types/uda'; // Course è in uda.ts, rinominato per evitare conflitto
 import type { Subject as SubjectType } from '@/types/subject'; // Rinominato
 import type { Topic as TopicType } from '@/types/topic'; // Rinominato
+import { XMarkIcon, CheckCircleIcon } from '@heroicons/vue/24/outline';
 
 interface UdaFormData {
   title: string;
