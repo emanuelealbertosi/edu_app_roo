@@ -1,6 +1,8 @@
 from django.conf import settings
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+from django.core.validators import FileExtensionValidator
+import os
 
 # Import Student model safely using AUTH_USER_MODEL setting's app label
 # This avoids circular imports if rewards models were needed in users app later.
@@ -347,6 +349,11 @@ class Badge(models.Model):
     """
     Definizione di un badge/traguardo che gli studenti possono ottenere.
     """
+    class MediaType(models.TextChoices):
+        IMAGE_STATIC = 'IMAGE_STATIC', _('Static Image (JPEG, PNG, SVG)')
+        IMAGE_GIF = 'IMAGE_GIF', _('Animated GIF')
+        VIDEO_MP4 = 'VIDEO_MP4', _('Video (MP4)')
+
     class TriggerType(models.TextChoices):
         QUIZ_COMPLETED = 'QUIZ_COMPLETED', _('Quiz Completed')
         PATHWAY_COMPLETED = 'PATHWAY_COMPLETED', _('Pathway Completed')
@@ -356,13 +363,30 @@ class Badge(models.Model):
 
     name = models.CharField(_('Badge Name'), max_length=100, unique=True)
     description = models.TextField(_('Description'), help_text=_('Spiega come ottenere questo badge.'))
-    # Cambiato da URLField a ImageField per permettere l'upload
-    image = models.ImageField(
-        _('Image'),
-        upload_to='badges/', # Salva le immagini in MEDIA_ROOT/badges/
+    
+    file = models.FileField(
+        _('File'),
+        upload_to='badges/files/',
         blank=True,
         null=True,
-        help_text=_('Immagine del badge (verrà caricata).')
+        help_text=_('File principale del badge (immagine JPG/PNG/SVG, GIF, o video MP4).'),
+        validators=[FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'svg', 'gif', 'mp4'])]
+    )
+    media_type = models.CharField(
+        _('Media Type'),
+        max_length=20,
+        choices=MediaType.choices,
+        editable=False,
+        blank=True, # Sarà popolato da save()
+        help_text=_('Tipo di media, impostato automaticamente.')
+    )
+    thumbnail = models.ImageField(
+        _('Thumbnail'),
+        upload_to='badges/thumbnails/',
+        null=True,
+        blank=True,
+        help_text=_('Anteprima statica opzionale per video o GIF animate, mostrata se il badge non è guadagnato.'),
+        validators=[FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'svg'])]
     )
     trigger_type = models.CharField(
         _('Trigger Type'),
@@ -405,6 +429,23 @@ class Badge(models.Model):
 
     def __str__(self):
         return self.name
+
+    def save(self, *args, **kwargs):
+        if self.file:
+            filename, extension = os.path.splitext(self.file.name)
+            extension = extension.lower()
+            if extension == '.gif':
+                self.media_type = self.MediaType.IMAGE_GIF
+            elif extension == '.mp4':
+                self.media_type = self.MediaType.VIDEO_MP4
+            elif extension in ['.jpg', '.jpeg', '.png', '.svg']:
+                self.media_type = self.MediaType.IMAGE_STATIC
+            else:
+                # Potrebbe essere utile un tipo 'UNKNOWN' o lasciare blank e validare altrove
+                self.media_type = '' # o None se il campo lo permette e si gestisce
+        else:
+            self.media_type = '' # o None
+        super().save(*args, **kwargs)
 
 
 class EarnedBadge(models.Model):

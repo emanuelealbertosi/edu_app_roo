@@ -316,7 +316,7 @@ const handleLogout = () => {
     </div>
 
     <!-- Contenuto Principale -->
-    <div class="flex flex-col flex-grow">
+    <div class="flex flex-col flex-grow min-w-0">
         <!-- Header -->
         <header v-if="sharedAuth.isAuthenticated" class="bg-white shadow p-4 h-16 flex items-center justify-between flex-shrink-0">
              <!-- Pulsante Hamburger (visibile solo su mobile) -->
@@ -335,8 +335,8 @@ const handleLogout = () => {
                  <!-- Pulsante Create (Dropdown) - Visibile solo a Teacher/Admin -->
                  <div v-if="sharedAuth.userRole === 'TEACHER' || sharedAuth.userRole === 'ADMIN'" class="relative">
                      <button @click="toggleCreateMenu" class="flex items-center px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-md shadow-sm transition duration-150 ease-in-out">
-                         <PlusCircleIcon class="h-5 w-5 mr-1" />
-                         Crea
+                         <PlusCircleIcon class="h-5 w-5 sm:mr-1" />
+                         <span class="hidden sm:inline">Crea</span>
                          <ChevronDownIcon class="h-4 w-4 ml-1" />
                      </button>
                      <!-- Dropdown Menu -->

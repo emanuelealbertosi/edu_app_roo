@@ -464,7 +464,6 @@ const handleEditSave = async (lessonData: { id?: number; title: string; topic: n
 <style scoped>
 .uda-detail-view {
   padding: 20px;
-  font-family: sans-serif;
 }
 
 .loading-message, .error-message, .no-data-message {

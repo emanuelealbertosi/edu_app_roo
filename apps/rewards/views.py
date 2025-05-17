@@ -296,7 +296,13 @@ class BadgeViewSet(mixins.ListModelMixin,
     """
     queryset = Badge.objects.filter(is_active=True)
     serializer_class = BadgeSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsStudentAuthenticated] # Modificato per garantire che request.user sia uno Studente
+
+    def get_serializer_context(self):
+        """ Assicura che il contesto della richiesta sia passato al serializer. """
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
 
 
 class StudentEarnedBadgeViewSet(mixins.ListModelMixin,
@@ -455,10 +461,9 @@ class StudentWalletInfoView(generics.RetrieveAPIView):
         # Limita il numero di transazioni per performance
         recent_transactions = wallet.transactions.order_by('-timestamp')[:10] # Mostra le ultime 10
 
-        data = {
-            'current_points': wallet.current_points,
-            'recent_transactions': recent_transactions
-        }
-
-        serializer = self.get_serializer(data)
+        # Passiamo direttamente l'istanza del wallet al serializzatore.
+        # Il serializzatore è già configurato per gestire l'accesso
+        # a 'current_points' e 'recent_transactions' (tramite PointTransactionSerializer)
+        # e calcolerà 'total_earned_points' usando l'istanza del wallet.
+        serializer = self.get_serializer(wallet)
         return Response(serializer.data)

@@ -5,8 +5,10 @@ import RewardsService, { type EarnedBadge, type Badge } from '@/api/rewards'; //
 import type { QuizAttemptDashboardItem, Pathway, WalletInfo } from '@/api/dashboard';
 
 // Interfaccia BadgeInfo (se non importata da altrove)
-interface BadgeInfo extends Badge { // Estende Badge per includere potenzialmente animation_class
-  animation_class?: string | null;
+// Badge (da @/api/rewards) ora include fileUrl, mediaType, thumbnailUrl, isEarned.
+// Rimuoviamo animation_class se non più necessaria.
+interface BadgeInfo extends Badge {
+  // animation_class?: string | null; // Rimosso, non nel piano attuale
 }
 // Interfaccia EarnedBadge (assicurati che abbia earned_at)
 interface EarnedBadgeInfo extends EarnedBadge {
@@ -122,10 +124,13 @@ export const useDashboardStore = defineStore('dashboard', {
      const sortedBadges = [...state.earnedBadges].sort((a, b) =>
        new Date(b.earned_at).getTime() - new Date(a.earned_at).getTime()
      );
-     // Restituisce le info del badge più recente
-     return sortedBadges[0].badge;
-   }
- },
+     // Prende il badge più recente
+     const latest = sortedBadges[0].badge;
+     // Assicura che isEarned sia true, dato che proviene dalla lista dei badge guadagnati.
+     // Questo è più una misura di sicurezza; idealmente, latest.isEarned dovrebbe già essere true.
+     return { ...latest, isEarned: true };
+  }
+},
 
  actions: {
     /**
@@ -187,8 +192,41 @@ export const useDashboardStore = defineStore('dashboard', {
     async fetchEarnedBadges() {
       this.loading.badges = true;
       try {
-        // Assicurati che il servizio e il tipo restituito siano corretti
-        this.earnedBadges = await RewardsService.getEarnedBadges() as EarnedBadgeInfo[];
+        const rawEarnedBadgesData = await RewardsService.getEarnedBadges(); // Questo è Array<EarnedBadge> come da servizio
+        
+        // Eseguiamo la mappatura per assicurarci che le proprietà del badge annidato siano camelCase
+        // e conformi a BadgeInfo/Badge.
+        this.earnedBadges = rawEarnedBadgesData.map((rawEb: any) => { // rawEb è un singolo EarnedBadge, potenzialmente con badge annidato in snake_case
+          const rawInnerBadge = rawEb.badge; // L'oggetto badge annidato
+          
+          // L'interfaccia Badge (e quindi BadgeInfo) si aspetta camelCase.
+          // L'API potrebbe restituire snake_case per l'oggetto badge annidato.
+          const mappedInnerBadge: BadgeInfo = {
+            id: rawInnerBadge.id,
+            name: rawInnerBadge.name,
+            description: rawInnerBadge.description,
+            fileUrl: rawInnerBadge.fileUrl || rawInnerBadge.file_url || null,
+            mediaType: rawInnerBadge.mediaType || rawInnerBadge.media_type || 'IMAGE_STATIC', // Default a un tipo statico se non specificato
+            thumbnailUrl: rawInnerBadge.thumbnailUrl || rawInnerBadge.thumbnail_url || null,
+            trigger_type: rawInnerBadge.trigger_type,
+            trigger_type_display: rawInnerBadge.trigger_type_display,
+            trigger_condition: rawInnerBadge.trigger_condition,
+            is_active: rawInnerBadge.is_active,
+            // isEarned dovrebbe essere gestito dal contesto (es. se è in earnedBadges, è earned)
+            // ma l'API per il badge annidato potrebbe avere un suo flag is_earned.
+            isEarned: typeof rawInnerBadge.isEarned === 'boolean' ? rawInnerBadge.isEarned : (typeof rawInnerBadge.is_earned === 'boolean' ? rawInnerBadge.is_earned : true),
+            created_at: rawInnerBadge.created_at,
+            // animation_class: rawInnerBadge.animation_class // Se necessario e definito in BadgeInfo
+          };
+
+          return {
+            id: rawEb.id,
+            student: rawEb.student,
+            earned_at: rawEb.earned_at,
+            badge: mappedInnerBadge, // Usa l'oggetto badge mappato
+          };
+        }) as EarnedBadgeInfo[];
+
       } catch (error) {
         console.error('Error in fetchEarnedBadges:', error);
         // Non bloccare l'intera dashboard per errore badge, ma segnalalo

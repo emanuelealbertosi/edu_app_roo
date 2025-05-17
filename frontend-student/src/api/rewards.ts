@@ -35,12 +35,14 @@ export interface Badge {
   id: number;
   name: string;
   description: string;
-  // slug: string; // Rimosso campo slug, non presente nel modello backend
-  image_url: string | null;
-  trigger_type: string; 
+  fileUrl: string | null; // Rinominato da image_url
+  mediaType: 'IMAGE_STATIC' | 'IMAGE_GIF' | 'VIDEO_MP4' | string; // Tipo di media
+  thumbnailUrl: string | null; // URL per l'anteprima statica opzionale
+  trigger_type: string;
   trigger_type_display?: string; // Reso opzionale
   trigger_condition: { [key: string]: any };
   is_active: boolean;
+  isEarned: boolean; // Flag per indicare se lo studente l'ha guadagnato
   created_at: string;
 }
 

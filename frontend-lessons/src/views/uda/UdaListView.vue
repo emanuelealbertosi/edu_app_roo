@@ -6,9 +6,10 @@
       <!-- Pulsante stile adattato per contrasto -->
       <RouterLink
         :to="{ name: 'uda-new' }"
-        class="px-4 py-2 bg-white text-blue-600 rounded-md shadow-sm hover:bg-blue-100 transition duration-150 ease-in-out font-medium"
+        class="flex items-center px-3 py-2 bg-white text-blue-600 rounded-md shadow-sm hover:bg-blue-100 transition duration-150 ease-in-out font-medium"
       >
-        Nuova UDA
+        <PlusCircleIcon class="h-5 w-5 sm:mr-2" />
+        <span class="hidden sm:inline">Nuova UDA</span>
       </RouterLink>
     </div>
 
@@ -38,7 +39,7 @@
     </div>
 
     <!-- Tabella UDA Filtrate -->
-    <div v-else class="shadow-lg overflow-hidden border-b border-gray-200 sm:rounded-lg">
+    <div v-else class="shadow-lg overflow-x-auto border-b border-gray-200 sm:rounded-lg">
       <table class="min-w-full divide-y divide-gray-200">
         <thead class="bg-gray-50">
           <tr>
@@ -160,7 +161,7 @@ import { useCourseStore } from '@/stores/courseStore';
 import { useSubjectStore } from '@/stores/subjectStore';
 import { useTopicStore } from '@/stores/topicStore'; // Importa topicStore
 import { useUiStore } from '@/stores/ui';
-import { PencilIcon, TrashIcon, EyeIcon, DocumentDuplicateIcon } from '@heroicons/vue/24/outline'; // Aggiunto DocumentDuplicateIcon
+import { PencilIcon, TrashIcon, EyeIcon, DocumentDuplicateIcon, PlusCircleIcon } from '@heroicons/vue/24/outline'; // Aggiunto DocumentDuplicateIcon e PlusCircleIcon
 import type { UDA } from '@/types/uda'; // Rimosso Course
 // import type { Subject } from '@/types/subject'; // Rimosso Subject
 // import type { Topic } from '@/types/topic'; // Importa Topic type - Non più utilizzato dopo aver commentato la riga 175

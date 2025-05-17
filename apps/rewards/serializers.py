@@ -6,7 +6,8 @@ from .models import (
     Wallet, PointTransaction, RewardTemplate, Reward,
     RewardAvailability, RewardPurchase, Badge, EarnedBadge
 )
-from apps.users.models import User, Student, UserRole
+from django.db.models import Sum # Aggiunto per Sum
+from apps.users.models import User, Student, UserRole # Import Student
 from apps.student_groups.models import StudentGroup
 # Importa i serializer base per Studente e Gruppo
 from apps.users.serializers import StudentSerializer, StudentBasicSerializer
@@ -193,7 +194,25 @@ class StudentWalletDashboardSerializer(serializers.Serializer):
     Combina i punti correnti con le transazioni recenti.
     """
     current_points = serializers.IntegerField(read_only=True)
-    recent_transactions = PointTransactionSerializer(many=True, read_only=True)
+    total_earned_points = serializers.SerializerMethodField()
+    recent_transactions = serializers.SerializerMethodField()
+
+    def get_total_earned_points(self, obj: Wallet):
+        # obj è l'istanza del Wallet
+        # Calcola la somma di tutte le transazioni di punti positive per questo portafoglio
+        # Assicurati che PointTransaction abbia un related_name al Wallet, es. 'transactions'
+        # o usa il default 'pointtransaction_set'
+        total_earned = obj.transactions.filter(points_change__gt=0).aggregate(total=Sum('points_change'))['total']
+        return total_earned if total_earned is not None else 0
+
+    def get_recent_transactions(self, obj: Wallet):
+        # obj è l'istanza del Wallet
+        # Recupera le ultime N transazioni, ad esempio 5
+        transactions = obj.transactions.order_by('-timestamp')[:5]
+        # Serializzale usando PointTransactionSerializer
+        # È importante passare il contesto se PointTransactionSerializer ne avesse bisogno (es. per request)
+        # In questo caso, PointTransactionSerializer è semplice e non sembra richiederlo.
+        return PointTransactionSerializer(transactions, many=True, context=self.context).data
 
 
 # --- Serializers per Gamification (Badge) ---
@@ -201,29 +220,61 @@ class StudentWalletDashboardSerializer(serializers.Serializer):
 class BadgeSerializer(serializers.ModelSerializer):
     """ Serializer per visualizzare le definizioni dei Badge. """
     trigger_type_display = serializers.CharField(source='get_trigger_type_display', read_only=True)
-    image_url = serializers.SerializerMethodField()
+    media_type = serializers.CharField(read_only=True) # Aggiunto da modello
+    file_url = serializers.SerializerMethodField()
+    thumbnail_url = serializers.SerializerMethodField()
+    is_earned = serializers.SerializerMethodField()
 
-    def get_image_url(self, obj):
+    def get_file_url(self, obj):
         request = self.context.get('request')
-        if obj.image and request:
+        if obj.file and hasattr(obj.file, 'url') and request:
             try:
-                return request.build_absolute_uri(obj.image.url)
-            except ValueError: # Gestisce casi in cui l'URL non è valido o completo
-                logger.warning(f"Impossibile costruire URL assoluto per l'immagine del badge {obj.id}")
+                return request.build_absolute_uri(obj.file.url)
+            except ValueError:
+                logger.warning(f"Impossibile costruire URL assoluto per il file del badge {obj.id} ({obj.file.name})")
                 return None
         return None
+
+    def get_thumbnail_url(self, obj):
+        request = self.context.get('request')
+        if obj.thumbnail and hasattr(obj.thumbnail, 'url') and request:
+            try:
+                return request.build_absolute_uri(obj.thumbnail.url)
+            except ValueError:
+                logger.warning(f"Impossibile costruire URL assoluto per il thumbnail del badge {obj.id} ({obj.thumbnail.name})")
+                return None
+        return None
+
+    def get_is_earned(self, obj):
+        request = self.context.get('request')
+        if request and hasattr(request, 'user') and request.user.is_authenticated:
+            user = request.user
+            student_instance = None
+            if isinstance(user, Student): # Se l'utente loggato è già uno Studente
+                student_instance = user
+            # Rimosso il blocco elif hasattr(user, 'student_profile') perché
+            # il modello Student non è direttamente collegato a User tramite un campo 'student_profile'.
+            # La logica si affida al fatto che request.user sia un'istanza di Student.
+            if student_instance: # student_instance è impostato solo se isinstance(user, Student) è True
+                return EarnedBadge.objects.filter(student=student_instance, badge=obj).exists()
+        return False
 
     class Meta:
         model = Badge
         fields = [
-            'id', 'name', 'description', 'image', 'image_url',
+            'id', 'name', 'description',
+            'file_url', 'media_type', 'thumbnail_url', # Campi media aggiornati
             'trigger_type', 'trigger_type_display', 'trigger_condition',
-            'is_active', 'created_at'
+            'is_active', 'created_at',
+            'is_earned' # Aggiunto flag
         ]
+        # 'file' e 'thumbnail' (i campi FileField/ImageField) non sono inclusi direttamente
+        # perché esponiamo solo gli URL.
 
 
 class EarnedBadgeSerializer(serializers.ModelSerializer):
     """ Serializer per visualizzare i Badge guadagnati da uno studente. """
+    # BadgeSerializer ora include 'is_earned', che sarà True in questo contesto.
     badge = BadgeSerializer(read_only=True)
 
     class Meta:
@@ -234,20 +285,23 @@ class EarnedBadgeSerializer(serializers.ModelSerializer):
 
 class SimpleBadgeSerializer(serializers.ModelSerializer):
     """ Serializer semplificato per i Badge, usato per le notifiche o liste. """
-    image_url = serializers.SerializerMethodField()
+    # Manteniamo questo semplice, ma potrebbe beneficiare di file_url e media_type
+    # a seconda dell'uso. Per ora, aggiorniamo solo il riferimento al campo file.
+    file_url = serializers.SerializerMethodField(method_name='get_file_url_for_simple')
+    media_type = serializers.CharField(read_only=True)
 
-    def get_image_url(self, obj):
+    def get_file_url_for_simple(self, obj):
         request = self.context.get('request')
-        if obj.image and request:
+        if obj.file and hasattr(obj.file, 'url') and request:
              try:
-                 return request.build_absolute_uri(obj.image.url)
+                 return request.build_absolute_uri(obj.file.url)
              except ValueError:
                  return None
         return None
 
     class Meta:
         model = Badge
-        fields = ['id', 'name', 'description', 'image_url'] # Mostra solo URL immagine
+        fields = ['id', 'name', 'description', 'file_url', 'media_type']
 # --- Serializers Specifici per Esportazione GDPR ---
 
 class GDPRPointTransactionSerializer(serializers.ModelSerializer):

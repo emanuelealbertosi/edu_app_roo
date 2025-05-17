@@ -4,6 +4,7 @@ import type { WalletInfo } from '@/api/dashboard';
 const props = defineProps<{
   wallet: WalletInfo | null;
   loading?: boolean;
+  totalEarnedPoints?: number;
 }>();
 
 // Formatta la data in un formato più leggibile
@@ -45,17 +46,22 @@ const formatPointsChange = (pointsChange: number): string => {
     <div v-else>
       <div class="wallet-balance bg-neutral-lightest p-6 rounded-lg mb-6 text-center border border-neutral-DEFAULT"> <!-- Sfondo neutro chiaro -->
         <div class="balance-label text-lg text-neutral-dark mb-1">Punti disponibili</div> <!-- Etichetta neutra scura -->
-        <div class="balance-value text-5xl font-bold text-primary">{{ wallet.current_points }}</div> <!-- Valore primario -->
+        <div class="balance-value text-5xl font-bold text-primary mb-3">{{ wallet.current_points }}</div> <!-- Valore primario -->
+        
+        <div v-if="totalEarnedPoints !== undefined" class="mt-2">
+          <div class="balance-label text-sm text-neutral-dark mb-0.5">Punti totali guadagnati</div>
+          <div class="balance-value text-2xl font-bold text-neutral-darker">{{ totalEarnedPoints }}</div>
+        </div>
       </div>
       
       <div class="wallet-transactions">
         <h3 class="text-lg font-semibold text-neutral-darkest mb-3 pt-4 border-t border-neutral-DEFAULT">Transazioni recenti</h3> <!-- Titolo neutro scuro, bordo neutro -->
 
-        <div v-if="wallet.recent_transactions.length === 0" class="empty-transactions text-center py-4 text-neutral-dark"> <!-- Testo neutro scuro -->
+        <div v-if="!wallet.recent_transactions || wallet.recent_transactions.length === 0" class="empty-transactions text-center py-4 text-neutral-dark"> <!-- Testo neutro scuro -->
           <p>Nessuna transazione recente.</p>
         </div>
         
-        <div v-else class="transactions-list space-y-3">
+        <div v-else-if="wallet.recent_transactions && wallet.recent_transactions.length > 0" class="transactions-list space-y-3">
           <div v-for="transaction in wallet.recent_transactions.slice(0, 3)" :key="transaction.id" class="transaction-item flex justify-between items-center bg-neutral-lightest p-3 rounded-md border-l-4" :class="transaction.points_change >= 0 ? 'border-success' : 'border-error'"> <!-- Sfondo neutro chiaro, bordi success/error -->
             <div class="transaction-info flex-1 mr-2">
               <div class="transaction-reason text-sm font-medium text-neutral-darkest mb-0.5">{{ transaction.reason }}</div> <!-- Testo neutro scuro -->

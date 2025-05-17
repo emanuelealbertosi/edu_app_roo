@@ -3,6 +3,7 @@ import { createPinia } from 'pinia' // Importa Pinia
 import piniaPluginPersistedstate from 'pinia-plugin-persistedstate' // Importa il plugin
 import router from './router' // Importa il router
 import './index.css' // Importa gli stili Tailwind
+import './style.css' // Importa i nostri stili personalizzati
 import App from './App.vue'
 
 // Crea l'istanza dell'app Vue

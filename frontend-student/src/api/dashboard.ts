@@ -68,6 +68,7 @@ export interface Pathway {
 
 export interface WalletInfo {
   current_points: number;
+  total_earned_points?: number; // Aggiunto per i punti totali guadagnati
   recent_transactions: {
     id: number;
     points_change: number;

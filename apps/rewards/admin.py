@@ -6,6 +6,10 @@ from .models import (
     RewardAvailability, RewardPurchase, # Sostituito RewardStudentSpecificAvailability con RewardAvailability
     Badge, EarnedBadge # Aggiunto Badge e EarnedBadge
 )
+# import os # Non più necessario qui per BadgeMediaFileAdmin
+# from django.conf import settings # Non più necessario qui per BadgeMediaFileAdmin
+# from django.contrib import messages # Non più necessario qui per BadgeMediaFileAdmin
+from django.utils.html import format_html # Ancora usato da BadgeAdmin
 
 @admin.register(Wallet)
 class WalletAdmin(admin.ModelAdmin):
@@ -82,23 +86,53 @@ class RewardPurchaseAdmin(admin.ModelAdmin):
 
 @admin.register(Badge)
 class BadgeAdmin(admin.ModelAdmin):
-    list_display = ('name', 'image_thumbnail', 'trigger_type', 'is_active', 'created_at') # Aggiunto image_thumbnail
-    list_filter = ('trigger_type', 'is_active')
+    list_display = ('name', 'file_preview', 'media_type', 'thumbnail_preview', 'trigger_type', 'is_active', 'created_at')
+    list_filter = ('trigger_type', 'is_active', 'media_type')
     search_fields = ('name', 'description')
-    # Definisci i campi mostrati nel form di modifica/creazione
-    fields = ('name', 'description', 'image', 'trigger_type', 'trigger_condition', 'is_active')
-    readonly_fields = ('image_thumbnail',) # Mostra anteprima ma non renderla modificabile direttamente qui
+    
+    fieldsets = (
+        (None, {
+            'fields': ('name', 'description', 'is_active')
+        }),
+        ('Media', {
+            'fields': ('file', 'file_preview_in_form', 'media_type', 'thumbnail', 'thumbnail_preview_in_form')
+        }),
+        ('Trigger', {
+            'fields': ('trigger_type', 'trigger_condition')
+        }),
+    )
+    readonly_fields = ('media_type', 'file_preview_in_form', 'thumbnail_preview_in_form')
     formfield_overrides = {
         models.JSONField: {'widget': JSONEditorWidget},
     }
 
-    # Metodo per mostrare un'anteprima dell'immagine nella lista
-    @admin.display(description='Image Preview')
-    def image_thumbnail(self, obj):
+    @admin.display(description='File Preview')
+    def file_preview(self, obj):
         from django.utils.html import format_html
-        if obj.image:
-            return format_html('<img src="{}" style="max-height: 50px; max-width: 50px;" />', obj.image.url)
-        return "No Image"
+        if obj.file:
+            if obj.media_type == obj.MediaType.VIDEO_MP4:
+                return format_html(
+                    '<video src="{}" controls style="max-height: 60px; max-width: 100px;"><a href="{}">Download</a></video>',
+                    obj.file.url, obj.file.url
+                )
+            elif obj.media_type in [obj.MediaType.IMAGE_STATIC, obj.MediaType.IMAGE_GIF]:
+                return format_html('<img src="{}" style="max-height: 50px; max-width: 50px;" />', obj.file.url)
+        return "No File"
+    
+    @admin.display(description='Current File')
+    def file_preview_in_form(self, obj): # Usato nel form
+        return self.file_preview(obj)
+
+    @admin.display(description='Thumbnail Preview')
+    def thumbnail_preview(self, obj):
+        from django.utils.html import format_html
+        if obj.thumbnail:
+            return format_html('<img src="{}" style="max-height: 50px; max-width: 50px;" />', obj.thumbnail.url)
+        return "No Thumbnail"
+
+    @admin.display(description='Current Thumbnail')
+    def thumbnail_preview_in_form(self, obj): # Usato nel form
+        return self.thumbnail_preview(obj)
 
 @admin.register(EarnedBadge)
 class EarnedBadgeAdmin(admin.ModelAdmin):
