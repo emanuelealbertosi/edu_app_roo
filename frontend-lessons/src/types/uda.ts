@@ -22,6 +22,7 @@ interface BaseContent {
   created_at?: string;
   updated_at?: string;
   estimated_hours?: number | null; // Tempo stimato in ore
+  actual_hours?: number | null; // Tempo effettivo in ore
 }
 
 // Contenuto di tipo Lezione
@@ -109,6 +110,9 @@ export interface UDA {
   source_template?: number | null; // FK a UDATemplate
   title: string;
   description?: string | null;
+  knowledge_html?: string | null;
+  skills_html?: string | null;
+  competences_html?: string | null;
   start_date?: string | null; // Formato YYYY-MM-DD
   end_date?: string | null;   // Formato YYYY-MM-DD
   subjects?: number[]; // Array di ID di Subject (usato internamente nel form e per l'invio come subject_ids)

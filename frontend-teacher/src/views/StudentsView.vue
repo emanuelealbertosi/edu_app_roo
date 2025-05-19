@@ -30,6 +30,7 @@
             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider">Cognome</th>
             <!-- Ripristinato -->
             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider">Codice Studente</th>
+            <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-neutral-darker uppercase tracking-wider">Azioni</th>
             <!-- Rimosso come da richiesta -->
             <!-- <th>Username</th> -->
             <!-- Aggiungere altre colonne se necessario -->
@@ -45,6 +46,11 @@
             <td class="px-6 py-4 whitespace-nowrap text-sm text-neutral-darker">{{ student.last_name }}</td>
             <!-- Ripristinato, stile td aggiornato -->
             <td class="px-6 py-4 whitespace-nowrap text-sm text-neutral-darker">{{ student.student_code }}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-right">
+              <BaseButton variant="info" size="sm" @click="viewStudentDetails(student.id)" class="p-2" title="Vedi Dettagli Studente">
+                <EyeIcon class="h-5 w-5" />
+              </BaseButton>
+            </td>
             <!-- Rimosso come da richiesta -->
             <!-- <td>{{ student.username }}</td> -->
             <!-- Aggiungere altre celle se necessario -->
@@ -61,14 +67,17 @@
 
 <script setup lang="ts">
 import { ref, onMounted, nextTick } from 'vue'; // Aggiungi nextTick
+import { useRouter } from 'vue-router';
 import { getMyStudents } from '@/api/students'; // Usa il nome corretto della funzione
 import type { Student } from '@/types/users'; // Importa il tipo dalla sua fonte originale
 // Rimosso import per createRegistrationToken
 import BaseButton from '@/components/common/BaseButton.vue'; // Importa BaseButton
+import { EyeIcon } from '@heroicons/vue/24/outline';
 
 const students = ref<Student[]>([]); // Conterrà l'elenco degli studenti
 const isLoading = ref(false); // Stato di caricamento
 const error = ref<string | null>(null); // Messaggio di errore caricamento studenti
+const router = useRouter();
 
 // Rimosso stato per generazione link
 
@@ -89,6 +98,12 @@ onMounted(async () => {
 });
 
 // Rimosse funzioni generateRegistrationLink e copyLinkToClipboard
+
+const viewStudentDetails = (studentId: number) => {
+  console.log(`TODO: Naviga ai dettagli per lo studente con ID: ${studentId}`);
+  // Esempio di navigazione (da implementare la rotta 'student-details'):
+  // router.push({ name: 'student-details', params: { id: studentId } });
+};
 </script>
 
 <style scoped>

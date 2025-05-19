@@ -37,9 +37,15 @@
               <input type="number" id="activityEstimatedHours" v-model.number="editableContent.estimated_hours" step="0.1" min="0"
                      placeholder="Es. 1.5"
                      class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2">
-            </div>
-          </template>
-        </form>
+           </div>
+           <div>
+             <label for="activityActualHours" class="block text-sm font-medium text-gray-700 mb-1">Tempo Effettivo (ore)</label>
+             <input type="number" id="activityActualHours" v-model.number="editableContent.actual_hours" step="0.1" min="0"
+                    placeholder="Es. 1.0"
+                    class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2">
+           </div>
+         </template>
+       </form>
       </div>
       <div class="flex justify-end pt-4 border-t border-gray-200 mt-4 space-x-3">
         <button type="button"
@@ -74,7 +80,8 @@ type EditableActivityType = Partial<ActivityUDAContent | ActivityTemplateUDACont
   title?: string;
   description?: string;
   attachmentUrl?: string;
-  estimated_hours?: number | null; // Aggiunto
+  estimated_hours?: number | null;
+  actual_hours?: number | null; // Aggiunto per ore effettive
 };
 
 const props = defineProps({
@@ -95,7 +102,7 @@ const props = defineProps({
 const emit = defineEmits(['update:modelValue', 'save', 'close']);
 const udaStore = useUdaStore();
 
-const editableContent = ref<EditableActivityType>({ title: '', description: '', estimated_hours: null }); // Inizializzato
+const editableContent = ref<EditableActivityType>({ title: '', description: '', estimated_hours: null, actual_hours: null }); // Inizializzato
 const fileUploadComponent = ref<InstanceType<typeof FileUpload> | null>(null);
 const selectedActivityFileObject = ref<File | null>(null);
 
@@ -109,7 +116,8 @@ watch(() => props.modelValue, (newValue) => {
         ...templateActivity,
         title: templateActivity.activity_template_title || '',
         description: templateActivity.activity_template_description || '',
-        estimated_hours: templateActivity.estimated_hours // Aggiunto
+        estimated_hours: templateActivity.estimated_hours,
+        // actual_hours non è pertinente per i template
       };
     } else {
       const udaActivity = newValue as ActivityUDAContent;
@@ -118,7 +126,8 @@ watch(() => props.modelValue, (newValue) => {
         title: udaActivity.activity_title || '',
         description: udaActivity.activity_description || '',
         attachmentUrl: udaActivity.activity_attachment_url || '',
-        estimated_hours: udaActivity.estimated_hours // Aggiunto
+        estimated_hours: udaActivity.estimated_hours,
+        actual_hours: udaActivity.actual_hours // Aggiunto
       };
     }
   } else {
@@ -126,7 +135,8 @@ watch(() => props.modelValue, (newValue) => {
       title: '',
       description: '',
       attachmentUrl: '',
-      estimated_hours: null // Aggiunto reset
+      estimated_hours: null,
+      actual_hours: null // Aggiunto reset
     };
     selectedActivityFileObject.value = null;
     fileUploadComponent.value?.reset();
@@ -154,7 +164,8 @@ const saveActivity = async () => {
       ...(props.modelValue || {}),
       activity_template_title: editableContent.value.title,
       activity_template_description: editableContent.value.description,
-      estimated_hours: editableContent.value.estimated_hours || null, // Aggiunto
+      estimated_hours: editableContent.value.estimated_hours || null,
+      // actual_hours non pertinente per template
       content_type: UDATemplateContentType.ACTIVITY_TEMPLATE,
     } as Partial<ActivityTemplateUDAContent>;
     emit('save', { activityData: dataToSave, file: undefined });
@@ -166,7 +177,8 @@ const saveActivity = async () => {
       activity_description: editableContent.value.description,
       activity_attachment_url: editableContent.value.attachmentUrl,
       teacher_marked_completed: currentActivityData?.teacher_marked_completed ?? false,
-      estimated_hours: editableContent.value.estimated_hours || null, // Aggiunto
+      estimated_hours: editableContent.value.estimated_hours || null,
+      actual_hours: editableContent.value.actual_hours || null, // Aggiunto
       content_type: UDAContentType.ACTIVITY,
     } as Partial<ActivityUDAContent>;
 

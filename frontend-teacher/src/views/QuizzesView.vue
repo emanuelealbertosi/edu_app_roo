@@ -1,48 +1,56 @@
 <template>
-  <div class="quizzes-view">
-    <h1>Gestione Quiz</h1>
-    <p>Qui puoi visualizzare, creare e modificare i tuoi quiz.</p>
-    <div class="actions">
-      <!-- Applicato stile Tailwind -->
-      <button @click="createNewQuiz" class="btn btn-primary mr-2">Crea Nuovo Quiz</button>
-      <!-- Applicato stile Tailwind -->
-      <button @click="uploadFromFile" class="btn btn-success">Carica da File</button>
+  <div class="container mx-auto p-4">
+    <div class="flex justify-between items-center mb-6">
+      <h1 class="text-2xl font-bold">Gestione Quiz</h1>
+      <div class="flex space-x-2">
+        <BaseButton @click="createNewQuiz" variant="primary" class="flex items-center">
+          <PlusCircleIcon class="h-5 w-5 mr-2" />
+          Crea Nuovo Quiz
+        </BaseButton>
+        <BaseButton @click="uploadFromFile" variant="success" class="flex items-center">
+          <ArrowUpTrayIcon class="h-5 w-5 mr-2" />
+          Carica da File
+        </BaseButton>
+      </div>
     </div>
-    <div v-if="isLoading" class="loading">Caricamento quiz...</div>
-    <div v-else-if="error" class="error-message">
-      Errore nel caricamento dei quiz: {{ error }}
+    <p class="text-gray-600 mb-6">Qui puoi visualizzare, creare e modificare i tuoi quiz.</p>
+
+    <GlobalLoadingIndicator :is-loading="isLoading" />
+
+    <div v-if="error" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
+      <strong class="font-bold">Errore!</strong>
+      <span class="block sm:inline"> {{ error }}</span>
     </div>
-    <div v-else-if="quizzes.length > 0" class="quizzes-list">
-      <!-- Tabella o lista dei quiz -->
-      <ul>
-        <!-- Tabella o lista dei quiz -->
-        <table>
-          <thead>
-            <tr>
-              <th>Titolo</th>
-              <th>Descrizione</th>
-              <th>Creato il</th>
-              <th>Azioni</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="quiz in quizzes" :key="quiz.id">
-              <td>{{ quiz.title }}</td>
-              <td>{{ quiz.description || '-' }}</td>
-              <td>{{ new Date(quiz.created_at).toLocaleDateString() }}</td>
-              <td>
-                <!-- Applicato stile Tailwind -->
-                <button @click="editQuiz(quiz.id)" class="btn btn-warning text-sm mr-2">Modifica</button>
-                <!-- Applicato stile Tailwind -->
-                <button @click="deleteQuiz(quiz.id)" class="btn btn-danger text-sm">Elimina</button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </ul>
+
+    <div v-if="!isLoading && quizzes.length > 0" class="overflow-x-auto bg-white shadow-md rounded-lg">
+      <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+          <tr>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Titolo</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Descrizione</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Creato il</th>
+            <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Azioni</th>
+          </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-gray-200">
+          <tr v-for="quiz in quizzes" :key="quiz.id" class="hover:bg-gray-50">
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ quiz.title }}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ quiz.description || '-' }}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ new Date(quiz.created_at).toLocaleDateString('it-IT') }}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
+              <BaseButton @click="editQuiz(quiz.id)" variant="warning" size="sm" class="p-2" title="Modifica Quiz">
+                <PencilIcon class="h-5 w-5" />
+              </BaseButton>
+              <BaseButton @click="deleteQuiz(quiz.id)" variant="danger" size="sm" class="p-2" title="Elimina Quiz">
+                <TrashIcon class="h-5 w-5" />
+              </BaseButton>
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </div>
-    <div v-else class="no-quizzes">
-      Nessun quiz trovato.
+    <div v-if="!isLoading && quizzes.length === 0 && !error" class="text-center text-gray-500 mt-6 py-10 bg-gray-50 rounded-md">
+      Nessun quiz trovato. Creane uno nuovo o carica da file!
     </div>
   </div>
 </template>
@@ -51,6 +59,9 @@
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router'; // Importa useRouter per la navigazione
 import { fetchQuizzes, deleteQuizApi, type Quiz } from '@/api/quizzes'; // Importa anche deleteQuizApi
+import BaseButton from '@/components/common/BaseButton.vue';
+import GlobalLoadingIndicator from '@/components/common/GlobalLoadingIndicator.vue';
+import { PlusCircleIcon, ArrowUpTrayIcon, PencilIcon, TrashIcon } from '@heroicons/vue/24/outline';
 
 const quizzes = ref<Quiz[]>([]);
 const isLoading = ref(false);
@@ -108,49 +119,5 @@ const uploadFromFile = () => {
 </script>
 
 <style scoped>
-.quizzes-view {
-  padding: 20px;
-}
-
-.loading,
-.error-message,
-.no-quizzes {
-  margin-top: 20px;
-  font-style: italic;
-  color: #666;
-}
-
-.error-message {
-  color: red;
-  font-weight: bold;
-}
-
-.quizzes-list {
-  margin-top: 20px;
-}
-
-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 15px;
-}
-
-th, td {
-  border: 1px solid #ddd;
-  padding: 8px;
-  text-align: left;
-}
-
-th {
-  background-color: #f2f2f2;
-}
-
-/* Rimosso stile td button - gestito da Tailwind */
-
-.actions {
-  margin-bottom: 20px;
-}
-
-/* Rimosso stile .actions button - gestito da Tailwind */
-
+/* Gli stili specifici sono stati rimossi per fare affidamento su Tailwind CSS e BaseButton */
 </style>

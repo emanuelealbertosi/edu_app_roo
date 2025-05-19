@@ -43,6 +43,18 @@
           ></textarea>
         </div>
 
+        <div class="form-group">
+          <label for="lesson-estimated-hours">Ore Stimate (opzionale):</label>
+          <input
+            id="lesson-estimated-hours"
+            v-model.number="editableLesson.estimated_hours"
+            type="number"
+            step="0.1"
+            min="0"
+            placeholder="Es. 2.5"
+          />
+        </div>
+
          <div class="form-group form-group-checkbox">
           <input
             id="lesson-published"
@@ -77,6 +89,7 @@ interface Lesson {
     description: string;
     topic: number; // ID argomento
     is_published: boolean;
+    estimated_hours?: number | null; // Aggiunto estimated_hours
 }
 
 const props = defineProps<{
@@ -86,7 +99,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'close'): void;
-  (e: 'save', lessonData: { id?: number; title: string; topic: number; description?: string; is_published?: boolean }): void;
+  (e: 'save', lessonData: { id?: number; title: string; topic: number; description?: string; is_published?: boolean; estimated_hours?: number | null }): void;
 }>();
 
 const editableLesson = ref({
@@ -94,7 +107,8 @@ const editableLesson = ref({
     title: '',
     description: '',
     topic: '' as number | '',
-    is_published: false
+    is_published: false,
+    estimated_hours: undefined as number | undefined | null, // Aggiunto
 });
 const formError = ref<string | null>(null);
 const isSaving = ref(false);
@@ -104,9 +118,20 @@ const isEditing = computed(() => !!props.lesson);
 
 watch(() => props.lesson, (newLesson) => {
   if (newLesson) {
-    editableLesson.value = { ...newLesson, topic: newLesson.topic || '' };
+    editableLesson.value = {
+        ...newLesson,
+        topic: newLesson.topic || '',
+        estimated_hours: newLesson.estimated_hours === null ? undefined : newLesson.estimated_hours // Gestisce null dal backend
+    };
   } else {
-    editableLesson.value = { id: undefined, title: '', description: '', topic: '', is_published: false };
+    editableLesson.value = {
+        id: undefined,
+        title: '',
+        description: '',
+        topic: '',
+        is_published: false,
+        estimated_hours: undefined
+    };
   }
   formError.value = null;
 }, { immediate: true });
@@ -150,11 +175,14 @@ const submitForm = () => {
 
   isSaving.value = true;
 
-  const dataToSave: { id?: number; title: string; topic: number; description?: string; is_published?: boolean } = {
+  const dataToSave: { id?: number; title: string; topic: number; description?: string; is_published?: boolean; estimated_hours?: number | null } = {
       title: editableLesson.value.title,
       topic: editableLesson.value.topic as number,
       description: editableLesson.value.description || undefined,
       is_published: editableLesson.value.is_published,
+      estimated_hours: (typeof editableLesson.value.estimated_hours === 'number' && editableLesson.value.estimated_hours > 0)
+                         ? editableLesson.value.estimated_hours
+                         : null, // Invia null se non specificato o zero
   };
   if (isEditing.value && editableLesson.value.id) {
       dataToSave.id = editableLesson.value.id;

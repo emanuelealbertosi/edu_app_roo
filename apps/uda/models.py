@@ -47,6 +47,9 @@ ALLOWED_TAGS = [
 ALLOWED_ATTRIBUTES = {
     'a': ['href', 'title', 'target'],
     'span': {'style': is_safe_css_color_property}, # Permette solo 'color' in style
+    'ul': True, # Permette tutti gli attributi per <ul>
+    'ol': True, # Permette tutti gli attributi per <ol>
+    'li': True, # Permette tutti gli attributi per <li>
 }
 # ALLOWED_STYLES non è più necessario con bleach >= 5.0 e la callback per 'style'
 
@@ -208,6 +211,11 @@ class UDA(models.Model):
     )
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True, null=True)
+    # Nuovi campi per conoscenze, abilità, competenze
+    knowledge_html = models.TextField(blank=True, null=True, help_text="Contenuto HTML per le conoscenze")
+    skills_html = models.TextField(blank=True, null=True, help_text="Contenuto HTML per le abilità")
+    competences_html = models.TextField(blank=True, null=True, help_text="Contenuto HTML per le competenze")
+
     start_date = models.DateField(blank=True, null=True)
     end_date = models.DateField(blank=True, null=True)
     subjects = models.ManyToManyField(
@@ -240,6 +248,23 @@ class UDA(models.Model):
     class Meta:
         verbose_name = "UDA"
         verbose_name_plural = "UDAs"
+
+    def save(self, *args, **kwargs):
+        logger.debug(f"UDA save called for ID {self.pk}.")
+        if self.description:
+            self.description = sanitize_html(self.description)
+            logger.debug(f"UDA ID {self.pk} after sanitizing description: '{str(self.description)[:100]}'")
+        if self.knowledge_html:
+            self.knowledge_html = sanitize_html(self.knowledge_html)
+            logger.debug(f"UDA ID {self.pk} after sanitizing knowledge_html: '{str(self.knowledge_html)[:100]}'")
+        if self.skills_html:
+            self.skills_html = sanitize_html(self.skills_html)
+            logger.debug(f"UDA ID {self.pk} after sanitizing skills_html: '{str(self.skills_html)[:100]}'")
+        if self.competences_html:
+            self.competences_html = sanitize_html(self.competences_html)
+            logger.debug(f"UDA ID {self.pk} after sanitizing competences_html: '{str(self.competences_html)[:100]}'")
+        super().save(*args, **kwargs)
+        logger.debug(f"UDA ID {self.pk} save completed.")
 
     def __str__(self):
         return f"{self.title} (by {self.teacher.username})"
@@ -308,6 +333,10 @@ class UDAContent(models.Model):
     estimated_hours = models.DecimalField(
         max_digits=4, decimal_places=1, null=True, blank=True,
         help_text="Tempo stimato in ore (es. 1.5 per 1 ora e mezza)"
+    )
+    actual_hours = models.DecimalField(
+        max_digits=4, decimal_places=1, null=True, blank=True,
+        help_text="Tempo effettivo impiegato in ore (es. 1.5 per 1 ora e mezza)"
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

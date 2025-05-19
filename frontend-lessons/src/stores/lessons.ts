@@ -73,7 +73,7 @@ export const useLessonStore = defineStore('lessons', {
       }
     },
 
-    async addLesson(lessonData: { title: string; topic: number; description?: string; is_published?: boolean }) {
+    async addLesson(lessonData: { title: string; topic: number; description?: string; is_published?: boolean; estimated_hours?: number | null }) {
       this.isLoading = true;
       this.error = null;
       try {
@@ -91,7 +91,7 @@ export const useLessonStore = defineStore('lessons', {
       }
     },
 
-    async updateLesson(lessonId: number, lessonData: { title?: string; topic?: number; description?: string; is_published?: boolean }) {
+    async updateLesson(lessonId: number, lessonData: { title?: string; topic?: number; description?: string; is_published?: boolean; estimated_hours?: number | null }) {
         this.isLoading = true;
         this.error = null;
         try {

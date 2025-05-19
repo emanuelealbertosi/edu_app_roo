@@ -79,14 +79,14 @@ class LessonSerializer(serializers.ModelSerializer):
         model = Lesson
         fields = [
             'id', 'title', 'description', 'topic', 'topic_name', 'subject_name',
-            'creator', 'created_at', 'updated_at', 'is_published', 'contents'
+            'creator', 'created_at', 'updated_at', 'is_published', 'contents', 'estimated_hours'
         ]
         read_only_fields = ['creator', 'created_at', 'updated_at', 'topic_name', 'subject_name', 'contents']
 
 class LessonWriteSerializer(serializers.ModelSerializer):
      class Meta:
         model = Lesson
-        fields = ['id', 'title', 'description', 'topic', 'is_published']
+        fields = ['id', 'title', 'description', 'topic', 'is_published', 'estimated_hours']
         read_only_fields = ['id']
 
 # --- Serializer per Assegnazioni Lezioni (MODIFICATO) ---

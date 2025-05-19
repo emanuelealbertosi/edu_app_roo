@@ -16,6 +16,7 @@ export const useUdaStore = defineStore('uda', {
       try {
         const rawData: any[] = await udaService.getUdas(filters); // Ricevi come any[]
         // Mappa i dati ricevuti all'interfaccia UDA, conservando i nuovi campi
+        // inclusi knowledge_html, skills_html, competences_html se presenti dal backend.
         this.udas = rawData.map((udaData: any) => ({
           ...udaData, // Copia tutti i campi ricevuti
           course: udaData.course_id, // Salva l'ID del corso nel campo 'course'
@@ -49,6 +50,7 @@ export const useUdaStore = defineStore('uda', {
         }
 
         // Mappa i dati ricevuti all'interfaccia UDA, conservando i nuovi campi
+        // inclusi knowledge_html, skills_html, competences_html se presenti dal backend.
         this.currentUda = {
           ...rawData, // Copia tutti i campi ricevuti
           contents: processedContents, // Usa i contenuti processati (o originali se non c'erano)
@@ -73,11 +75,11 @@ export const useUdaStore = defineStore('uda', {
       }
     },
 
-    async createUda(udaData: Partial<Omit<UDA, 'id' | 'teacher' | 'created_at' | 'updated_at' | 'contents' | 'topics' | 'subject' | 'subjects' | 'course' >> & { topics?: number[], subject_ids?: number[], course_id?: number | null, order_in_course?: number | null }) : Promise<UDA | undefined> {
+    async createUda(udaData: Partial<Omit<UDA, 'id' | 'teacher' | 'created_at' | 'updated_at' | 'contents' | 'topics' | 'subject' | 'subjects' | 'course' >> & { topics?: number[], subject_ids?: number[], course_id?: number | null, order_in_course?: number | null, knowledge_html?: string | null, skills_html?: string | null, competences_html?: string | null }) : Promise<UDA | undefined> {
       this.loading = true;
       this.error = null;
       try {
-        const payload = { ...udaData } as any; // Usiamo 'any' temporaneamente per flessibilità con subject_id vs subject_ids
+        const payload = { ...udaData } as any; // Usiamo 'any' temporaneamente per flessibilità
         if (payload.topics && Array.isArray(payload.topics) && payload.topics.length > 0 && typeof payload.topics[0] === 'object' && payload.topics[0] !== null && 'id' in payload.topics[0]) {
             payload.topics = payload.topics.map((t: any) => t.id);
         }
@@ -109,7 +111,7 @@ export const useUdaStore = defineStore('uda', {
       }
     },
 
-    async updateUda(udaId: number, udaData: Partial<Omit<UDA, 'id' | 'teacher' | 'created_at' | 'updated_at' | 'contents' | 'topics' | 'subject' | 'subjects' | 'course'>> & { topics?: number[], subject_ids?: number[], course_id?: number | null }): Promise<UDA | undefined> {
+    async updateUda(udaId: number, udaData: Partial<Omit<UDA, 'id' | 'teacher' | 'created_at' | 'updated_at' | 'contents' | 'topics' | 'subject' | 'subjects' | 'course'>> & { topics?: number[], subject_ids?: number[], course_id?: number | null, knowledge_html?: string | null, skills_html?: string | null, competences_html?: string | null }): Promise<UDA | undefined> {
       this.loading = true;
       this.error = null;
       try {
@@ -223,10 +225,12 @@ export const useUdaStore = defineStore('uda', {
       try {
         // Passa il file al servizio se presente
         const newContentFromService = await udaService.addContentToUda(udaId, contentData, file);
+        console.log('[udaStore.addContentToUda] newContentFromService:', JSON.parse(JSON.stringify(newContentFromService))); // LOG 1
         const newContent = {
             ...newContentFromService,
             uda_id: udaId // Assicura che uda_id sia presente
         };
+        console.log('[udaStore.addContentToUda] newContent after adding uda_id:', JSON.parse(JSON.stringify(newContent))); // LOG 2
         const updateAndSortContents = (contentsArray?: UDAContent[]) => {
             if (!contentsArray) contentsArray = [];
             contentsArray.push(newContent);
@@ -263,10 +267,12 @@ export const useUdaStore = defineStore('uda', {
       try {
         // Passa il file al servizio se presente
         const updatedContentFromService = await udaService.updateUdaContent(udaId, contentId, contentData, file);
+        console.log('[udaStore.updateContentInUda] updatedContentFromService:', JSON.parse(JSON.stringify(updatedContentFromService))); // LOG 3
         const updatedContent = {
             ...updatedContentFromService,
             uda_id: udaId // Assicura che uda_id sia presente
         };
+        console.log('[udaStore.updateContentInUda] updatedContent after adding uda_id:', JSON.parse(JSON.stringify(updatedContent))); // LOG 4
         const updateLocalContents = (contentsArray?: UDAContent[]) => {
             if (!contentsArray) return;
             const contentIndex = contentsArray.findIndex(c => c.id === contentId);

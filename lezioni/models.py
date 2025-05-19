@@ -45,7 +45,7 @@ class Topic(models.Model):
         verbose_name_plural = "Argomenti"
 
     def __str__(self):
-        return f"{self.subject.name} - {self.name}"
+        return self.name
 
 class Lesson(models.Model):
     title = models.CharField(max_length=255)
@@ -57,6 +57,7 @@ class Lesson(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     is_published = models.BooleanField(default=False, help_text="Se la lezione è visibile agli studenti assegnati.")
+    estimated_hours = models.DecimalField(max_digits=4, decimal_places=1, null=True, blank=True, verbose_name="Ore Stimate Lezione")
 
     def __str__(self):
         return self.title

@@ -3,7 +3,8 @@
     <h1 class="text-2xl font-bold mb-4">Gestione Gruppi Studenti</h1>
 
     <div class="mb-4 flex justify-end">
-      <BaseButton @click="goToCreateGroup" variant="primary">
+      <BaseButton @click="goToCreateGroup" variant="primary" class="flex items-center">
+        <PlusCircleIcon class="h-5 w-5 mr-2" />
         Crea Nuovo Gruppo
       </BaseButton>
     </div>
@@ -68,11 +69,11 @@
               {{ formatDate(group.created_at) }}
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-              <BaseButton @click="goToGroupDetail(group.id)" variant="secondary" size="sm" class="mr-2">
-                Dettagli
+              <BaseButton @click="goToGroupDetail(group.id)" variant="info" size="sm" class="mr-2 p-2" title="Dettagli Gruppo">
+                <EyeIcon class="h-5 w-5" />
               </BaseButton>
-              <BaseButton @click="handleDeleteGroup(group.id)" variant="danger" size="sm">
-                Elimina
+              <BaseButton @click="handleDeleteGroup(group.id)" variant="danger" size="sm" class="p-2" title="Elimina Gruppo">
+                <TrashIcon class="h-5 w-5" />
               </BaseButton>
             </td>
           </tr>
@@ -94,6 +95,7 @@ import { storeToRefs } from 'pinia';
 import { useGroupStore } from '@/stores/groups';
 import BaseButton from '@/components/common/BaseButton.vue';
 import GlobalLoadingIndicator from '@/components/common/GlobalLoadingIndicator.vue';
+import { PlusCircleIcon, EyeIcon, TrashIcon } from '@heroicons/vue/24/outline';
 
 const router = useRouter();
 const groupStore = useGroupStore();

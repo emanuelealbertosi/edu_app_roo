@@ -3,23 +3,46 @@
     <!-- Il titolo della nota è già gestito dal contentTitle in UdaContentItemRenderer -->
     <!-- <h6 v-if="content.note_title" class="mb-1">{{ content.note_title }}</h6> -->
     <div v-if="props.content.estimated_hours" class="flex text-sm mb-2">
-        <strong class="w-24 flex-shrink-0 text-gray-700">Ore Stimate:</strong>
-        <span class="text-gray-600">{{ props.content.estimated_hours }}h</span>
+      <strong class="w-24 flex-shrink-0 text-gray-700">Ore Stimate:</strong>
+      <span class="text-gray-600">{{ props.content.estimated_hours }}h</span>
     </div>
-    <div v-if="!isEditing" @click="startEditing" class="note-body prose prose-sm max-w-none cursor-pointer min-h-[50px]">
-      <div v-if="content.note_content" v-html="content.note_content"></div>
-      <p v-else class="text-sm text-gray-500 italic">Clicca per aggiungere un contenuto alla nota.</p>
-    </div>
-    <div v-else>
-      <WysiwygEditor
-        v-model="editableContent"
-        :editable="true"
-      />
-      <div class="mt-2 flex justify-start space-x-2">
-        <button @click="cancelEditing" class="px-3 py-1 text-sm bg-gray-200 hover:bg-gray-300 rounded">Annulla</button>
-        <button @click="saveChanges" class="px-3 py-1 text-sm bg-blue-500 hover:bg-blue-600 text-white rounded">Salva</button>
+    <div class="flex text-sm mb-2 items-center">
+      <strong class="w-24 flex-shrink-0 text-gray-700">Ore Effettive:</strong>
+      <div v-if="!isEditingActualHours" class="flex items-center">
+        <span class="text-gray-600 mr-2">{{ props.content.actual_hours !== null && typeof props.content.actual_hours !== 'undefined' ? props.content.actual_hours + 'h' : 'N/D' }}</span>
+        <button @click="startEditingActualHours" class="text-xs text-blue-500 hover:text-blue-700">(modifica)</button>
       </div>
-      <!-- Potremmo aggiungere un piccolo spinner/messaggio di salvataggio qui durante il saveChanges -->
+      <div v-else class="flex items-center space-x-2">
+        <input
+          type="number"
+          step="0.1"
+          min="0"
+          v-model.number="editableActualHours"
+          class="w-20 px-2 py-1 border border-gray-300 rounded text-sm"
+          placeholder="Ore"
+        />
+        <button @click="saveActualHours" class="px-2 py-1 text-xs bg-green-500 hover:bg-green-600 text-white rounded">Salva</button>
+        <button @click="cancelEditingActualHours" class="px-2 py-1 text-xs bg-gray-300 hover:bg-gray-400 rounded">Annulla</button>
+      </div>
+    </div>
+
+    <!-- Modifica contenuto nota -->
+    <div class="mt-2"> <!-- Aggiunto margin top per separare dalla sezione ore effettive -->
+      <div v-if="!isEditingContent" @click="startEditingContent" class="note-body prose prose-sm max-w-none cursor-pointer min-h-[50px]">
+        <div v-if="content.note_content" v-html="content.note_content"></div>
+        <p v-else class="text-sm text-gray-500 italic">Clicca per aggiungere un contenuto alla nota.</p>
+      </div>
+      <div v-else>
+        <WysiwygEditor
+          v-model="editableContent"
+          :editable="true"
+        />
+        <div class="mt-2 flex justify-start space-x-2">
+          <button @click="cancelEditingContent" class="px-3 py-1 text-sm bg-gray-200 hover:bg-gray-300 rounded">Annulla</button>
+          <button @click="saveContentChanges" class="px-3 py-1 text-sm bg-blue-500 hover:bg-blue-600 text-white rounded">Salva</button>
+        </div>
+        <!-- Potremmo aggiungere un piccolo spinner/messaggio di salvataggio qui durante il saveChanges -->
+      </div>
     </div>
   </div>
 </template>
@@ -44,32 +67,44 @@ const props = defineProps({
 
 const udaStore = useUdaStore();
 
-const isEditing = ref(false);
+// State per la modifica del contenuto della nota
+const isEditingContent = ref(false);
 const editableContent = ref(props.content.note_content || '');
 const originalContent = ref(props.content.note_content || '');
 
+// State per la modifica delle ore effettive
+const isEditingActualHours = ref(false);
+const editableActualHours = ref<number | undefined | null>(props.content.actual_hours);
+const originalActualHours = ref<number | undefined | null>(props.content.actual_hours);
+
+
 watch(() => props.content.note_content, (newVal) => {
-  if (!isEditing.value) {
+  if (!isEditingContent.value) {
     editableContent.value = newVal || '';
     originalContent.value = newVal || '';
   }
 });
 
-const startEditing = () => {
+watch(() => props.content.actual_hours, (newVal) => {
+  if (!isEditingActualHours.value) {
+    editableActualHours.value = newVal;
+    originalActualHours.value = newVal;
+  }
+});
+
+// --- Metodi per la modifica del contenuto della nota ---
+const startEditingContent = () => {
   originalContent.value = props.content.note_content || '';
-  editableContent.value = props.content.note_content || ''; // Assicura che l'editor parta con il contenuto attuale
-  isEditing.value = true;
-  // Non è necessario focus programmatico qui perché WysiwygEditor dovrebbe gestirlo
+  editableContent.value = props.content.note_content || '';
+  isEditingContent.value = true;
 };
 
-const saveChanges = async () => {
-  console.log('[NoteContentDisplay] saveChanges called. editableContent:', editableContent.value, 'originalContent:', originalContent.value);
+const saveContentChanges = async () => {
+  console.log('[NoteContentDisplay] saveContentChanges called. editableContent:', editableContent.value);
 
   if (editableContent.value !== originalContent.value) {
-    console.log('Content changed, attempting to save...');
-    if (typeof props.content.id === 'undefined') {
-      console.error('Cannot update content: content ID is undefined.');
-      // Non revertire qui, l'utente potrebbe voler correggere. Mostrare errore.
+    if (typeof props.content.id === 'undefined' || typeof props.content.uda_id === 'undefined') {
+      console.error('Cannot update note content: content ID or UDA ID is undefined.');
       // TODO: Mostrare un messaggio di errore all'utente
       return;
     }
@@ -77,36 +112,63 @@ const saveChanges = async () => {
       const updatedData: Partial<NoteUDAContent> = {
         note_content: editableContent.value,
       };
-
-      console.log(`[NoteContentDisplay] About to update. uda_id: ${props.content.uda_id}, content_id: ${props.content.id}`);
-      if (typeof props.content.uda_id === 'undefined') {
-        console.error('[NoteContentDisplay] CRITICAL: props.content.uda_id is undefined before calling store action!');
-        // TODO: Mostrare un messaggio di errore all'utente
-        return;
-      }
-
       await udaStore.updateContentInUda(props.content.uda_id, props.content.id, updatedData as UDAContent);
-      console.log('Content saved successfully. Waiting for prop update.');
-      originalContent.value = editableContent.value; // Aggiorna originalContent dopo il salvataggio
-      isEditing.value = false;
-      // Il watch su props.content.note_content dovrebbe sincronizzare editableContent se il backend risponde con il dato aggiornato
+      originalContent.value = editableContent.value;
+      isEditingContent.value = false;
     } catch (error) {
       console.error('Failed to save note content:', error);
-      // Non revertire automaticamente, l'utente potrebbe voler riprovare.
-      // Potrebbe essere utile notificare l'utente dell'errore
-      // TODO: Gestire lo stato di errore per l'UI (es. non chiudere l'editor, mostrare messaggio)
+      // TODO: Gestire lo stato di errore per l'UI
     }
-    // Non mettere isEditing.value = false nel finally se vogliamo che l'editor rimanga aperto in caso di errore
   } else {
-    console.log('Content not changed.');
-    isEditing.value = false;
+    isEditingContent.value = false;
   }
 };
 
-const cancelEditing = () => {
-  console.log('[NoteContentDisplay] cancelEditing called.');
-  editableContent.value = originalContent.value; // Ripristina il contenuto originale
-  isEditing.value = false;
+const cancelEditingContent = () => {
+  editableContent.value = originalContent.value;
+  isEditingContent.value = false;
+};
+
+// --- Metodi per la modifica delle ore effettive ---
+const startEditingActualHours = () => {
+  originalActualHours.value = props.content.actual_hours;
+  editableActualHours.value = props.content.actual_hours;
+  isEditingActualHours.value = true;
+};
+
+const saveActualHours = async () => {
+  console.log('[NoteContentDisplay] saveActualHours called. editableActualHours:', editableActualHours.value);
+  // Normalizza undefined o null a null per il backend.
+  // Un input numerico vuoto con v-model.number dovrebbe risultare in null o undefined.
+  const valueToSave = (typeof editableActualHours.value === 'undefined' || editableActualHours.value === null)
+                      ? null
+                      : Number(editableActualHours.value);
+
+  if (valueToSave !== originalActualHours.value) {
+    if (typeof props.content.id === 'undefined' || typeof props.content.uda_id === 'undefined') {
+      console.error('Cannot update actual hours: content ID or UDA ID is undefined.');
+      // TODO: Mostrare un messaggio di errore all'utente
+      return;
+    }
+    try {
+      const updatedData: Partial<Pick<NoteUDAContent, 'actual_hours'>> = { // Usa Pick per type safety
+        actual_hours: valueToSave,
+      };
+      await udaStore.updateContentInUda(props.content.uda_id, props.content.id, updatedData as UDAContent);
+      originalActualHours.value = valueToSave;
+      isEditingActualHours.value = false;
+    } catch (error) {
+      console.error('Failed to save actual hours:', error);
+      // TODO: Gestire lo stato di errore per l'UI
+    }
+  } else {
+    isEditingActualHours.value = false;
+  }
+};
+
+const cancelEditingActualHours = () => {
+  editableActualHours.value = originalActualHours.value;
+  isEditingActualHours.value = false;
 };
 
 </script>

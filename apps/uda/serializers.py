@@ -263,7 +263,7 @@ class UDAContentSerializer(serializers.ModelSerializer):
             'note_title', 'note_content',
             'activity_title', 'activity_description', 'activity_attachment_url', 'activity_completed',
             'teacher_marked_completed', # Aggiunto come da piano
-            'order', 'estimated_hours' # Aggiunto
+            'order', 'estimated_hours', 'actual_hours' # Aggiunto actual_hours
         ]
         # read_only_fields = ['id']
 
@@ -331,6 +331,14 @@ class UDAContentSerializer(serializers.ModelSerializer):
         
         logger.info(f"[UDAContentSerializer.validate] Output data after validation logic: {data}")
         return data
+
+    def create(self, validated_data):
+        lesson = validated_data.get('lesson')
+        if lesson and lesson.estimated_hours is not None and validated_data.get('content_type') == 'LESSON':
+            # Se 'estimated_hours' non è fornito esplicitamente per UDAContent, usa quello della Lezione
+            if 'estimated_hours' not in validated_data or validated_data.get('estimated_hours') is None:
+                validated_data['estimated_hours'] = lesson.estimated_hours
+        return super().create(validated_data)
 
     def validate_activity_attachment_url(self, value):
         # 'value' è il risultato di LenientFileField.to_internal_value()
@@ -467,11 +475,53 @@ class UDAContentSerializer(serializers.ModelSerializer):
         logger.info(f"[UDAContentSerializer.update] Validated_data: {validated_data}")
 
         # Chiamata al metodo update della classe base (ModelSerializer)
+        # Logica di precompilazione per l'update
+        lesson = validated_data.get('lesson', getattr(instance, 'lesson', None))
+        if lesson and lesson.estimated_hours is not None and validated_data.get('content_type', instance.content_type) == 'LESSON':
+            # Se 'estimated_hours' non è fornito esplicitamente o è None, e la lezione cambia o il tipo diventa LESSON
+            if 'estimated_hours' not in validated_data or validated_data.get('estimated_hours') is None:
+                 # Controlla se il campo 'lesson' è effettivamente cambiato o se il tipo di contenuto è cambiato in LESSON
+                lesson_field_changed_in_payload = 'lesson' in validated_data and validated_data['lesson'] != instance.lesson
+                content_type_changed_to_lesson_in_payload = 'content_type' in validated_data and validated_data['content_type'] == 'LESSON' and instance.content_type != 'LESSON'
+
+                # Determina se dobbiamo precompilare
+                # Precompiliamo se la lezione/tipo cambiano, O se l'istanza era vuota (e stiamo fornendo una lezione con ore).
+                should_prefill = (lesson_field_changed_in_payload or
+                                  content_type_changed_to_lesson_in_payload or
+                                  (instance.estimated_hours is None and lesson and lesson.estimated_hours is not None)) # Assicurati che la lezione esista e abbia ore
+
+                if should_prefill:
+                    validated_data['estimated_hours'] = lesson.estimated_hours
+                else:
+                    # Non precompiliamo.
+                    # Se 'estimated_hours' era esplicitamente None nel payload,
+                    # e l'istanza aveva un valore, dobbiamo preservare il valore dell'istanza
+                    # (assumendo che il None dal frontend non fosse un'intenzione di cancellare se non ci sono altre ragioni per cambiare).
+                    if 'estimated_hours' in validated_data and validated_data.get('estimated_hours') is None and instance.estimated_hours is not None:
+                        # Rimuovi 'estimated_hours': None dal payload per non sovrascrivere il valore esistente.
+                        # Questo fa sì che super().update() non modifichi il campo.
+                        del validated_data['estimated_hours']
+                    # Altrimenti (es. 'estimated_hours' non era nel payload, o era None e instance.estimated_hours era già None),
+                    # il comportamento di default (usare None se esplicito, o non toccare se non nel payload) è corretto.
+            # Se 'estimated_hours' è esplicitamente fornito e non è None, la CONDIZIONE_INTERNA_1 (riga 482) è falsa,
+            # quindi il valore fornito dall'utente viene utilizzato, il che è corretto.
         updated_instance = super().update(instance, validated_data)
 
         logger.info(f"[UDAContentSerializer.update] Instance activity_description AFTER super().update: '{updated_instance.activity_description if updated_instance else 'N/A'}'")
         logger.info(f"[UDAContentSerializer.update] Update complete for instance ID: {updated_instance.pk if updated_instance else 'None'}")
         return updated_instance
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        # Se estimated_hours nel UDAContent è null, e il content è una LESSON,
+        # e la Lesson associata ha estimated_hours, usa quello della Lesson per la rappresentazione.
+        # Questo non cambia il valore nel database, ma corregge la visualizzazione.
+        if instance.content_type == 'LESSON' and \
+           representation.get('estimated_hours') is None and \
+           instance.lesson and \
+           instance.lesson.estimated_hours is not None:
+            representation['estimated_hours'] = instance.lesson.estimated_hours
+        return representation
 
 class UDASerializer(serializers.ModelSerializer):
    contents = UDAContentSerializer(many=True, required=False)
@@ -515,6 +565,7 @@ class UDASerializer(serializers.ModelSerializer):
        model = UDA
        fields = [
            'id', 'teacher', 'source_template_id', 'title', 'description',
+           'knowledge_html', 'skills_html', 'competences_html', # Campi aggiunti
            'start_date', 'end_date',
            'subjects_display', 'subject_ids', # Sostituisce 'subject'
            'course_id', 'course_name', 'course_teacher_username', 'order_in_course', # Modificato da course_display
@@ -524,149 +575,154 @@ class UDASerializer(serializers.ModelSerializer):
        read_only_fields = ['id', 'teacher', 'created_at', 'updated_at']
 
    def create(self, validated_data):
-       contents_data = validated_data.pop('contents', [])
-       topics_data = validated_data.pop('topics', []) # Gestito da topic_ids
-       subject_data = validated_data.pop('subjects', []) # Gestito da subject_ids
+        logger.debug(f"[UDASerializer CREATE] Initial validated_data: {validated_data}")
+        contents_data = validated_data.pop('contents', [])
+        topics_data = validated_data.pop('topics', []) # Gestito da topic_ids
+        subject_data = validated_data.pop('subjects', []) # Gestito da subject_ids
        
-       validated_data['teacher'] = self.context['request'].user
-       
-       uda = UDA.objects.create(**validated_data)
+        validated_data['teacher'] = self.context['request'].user
+        
+        uda = UDA.objects.create(**validated_data)
 
-       if topics_data:
-           uda.topics.set(topics_data)
-       
-       if subject_data: # Aggiunto per gestire le materie
-           uda.subjects.set(subject_data)
+        if topics_data:
+            uda.topics.set(topics_data)
+        
+        if subject_data: # Aggiunto per gestire le materie
+            uda.subjects.set(subject_data)
 
-       # Se source_template è fornito e i contenuti non sono forniti esplicitamente,
-       # copia i contenuti dal template
-       source_template = validated_data.get('source_template')
-       if source_template and not contents_data:
-           for template_content in source_template.contents.all():
-               content_data = {
-                   'content_type': (
-                       'QUIZ' if template_content.content_type == 'QUIZ_TEMPLATE'
-                       else 'NOTE' if template_content.content_type == 'NOTE_TEMPLATE'
-                       else 'ACTIVITY' if template_content.content_type == 'ACTIVITY_TEMPLATE'
-                       else template_content.content_type # Mantiene LESSON o altri tipi
-                   ),
-                   'lesson': template_content.lesson,
-                   'quiz_template': template_content.quiz_template,
-                   'note_title': template_content.note_template_title,
-                   'note_content': template_content.note_template_content,
-                   'activity_title': template_content.activity_template_title,
-                   'activity_description': template_content.activity_template_description,
-                   'order': template_content.order,
-                   'estimated_hours': template_content.estimated_hours, # Aggiunto
-                   # teacher_marked_completed di default è False per i nuovi UDAContent
-                   # activity_attachment_url e activity_completed non vengono copiati di default
-               }
-               # Rimuovi chiavi None prima di creare UDAContent
-               content_data_cleaned = {k: v for k, v in content_data.items() if v is not None}
-               UDAContent.objects.create(uda=uda, **content_data_cleaned)
-       else:
-           for content_data in contents_data:
-               UDAContent.objects.create(uda=uda, **content_data)
-       return uda
+        # Se source_template è fornito e i contenuti non sono forniti esplicitamente,
+        # copia i contenuti dal template
+        source_template = validated_data.get('source_template')
+        if source_template and not contents_data:
+            for template_content in source_template.contents.all():
+                content_data = {
+                    'content_type': (
+                        'QUIZ' if template_content.content_type == 'QUIZ_TEMPLATE'
+                        else 'NOTE' if template_content.content_type == 'NOTE_TEMPLATE'
+                        else 'ACTIVITY' if template_content.content_type == 'ACTIVITY_TEMPLATE'
+                        else template_content.content_type # Mantiene LESSON o altri tipi
+                    ),
+                    'lesson': template_content.lesson,
+                    'quiz_template': template_content.quiz_template,
+                    'note_title': template_content.note_template_title,
+                    'note_content': template_content.note_template_content,
+                    'activity_title': template_content.activity_template_title,
+                    'activity_description': template_content.activity_template_description,
+                    'order': template_content.order,
+                    'estimated_hours': template_content.estimated_hours, # Aggiunto
+                    # teacher_marked_completed di default è False per i nuovi UDAContent
+                    # activity_attachment_url e activity_completed non vengono copiati di default
+                }
+                # Rimuovi chiavi None prima di creare UDAContent
+                content_data_cleaned = {k: v for k, v in content_data.items() if v is not None}
+                UDAContent.objects.create(uda=uda, **content_data_cleaned)
+        else:
+            for content_data in contents_data:
+                UDAContent.objects.create(uda=uda, **content_data)
+        return uda
 
    def update(self, instance, validated_data):
-       contents_data = validated_data.pop('contents', None)
-       topics_data = validated_data.pop('topics', None)
-       subject_data = validated_data.pop('subjects', None)
+        logger.debug(f"[UDASerializer UPDATE] Initial validated_data for instance {instance.pk}: {validated_data}")
+        contents_data = validated_data.pop('contents', None)
+        topics_data = validated_data.pop('topics', None)
+        subject_data = validated_data.pop('subjects', None)
 
        # Aggiorna i campi dell'istanza UDA principale
-       instance.title = validated_data.get('title', instance.title)
-       instance.description = validated_data.get('description', instance.description)
-       instance.start_date = validated_data.get('start_date', instance.start_date)
-       instance.end_date = validated_data.get('end_date', instance.end_date)
-       instance.status = validated_data.get('status', instance.status)
-       instance.course = validated_data.get('course', instance.course)
-       instance.order_in_course = validated_data.get('order_in_course', instance.order_in_course)
-       # source_template non è modificabile dopo la creazione
-       instance.save()
+        instance.title = validated_data.get('title', instance.title)
+        instance.description = validated_data.get('description', instance.description)
+        instance.knowledge_html = validated_data.get('knowledge_html', instance.knowledge_html)
+        instance.skills_html = validated_data.get('skills_html', instance.skills_html)
+        instance.competences_html = validated_data.get('competences_html', instance.competences_html)
+        instance.start_date = validated_data.get('start_date', instance.start_date)
+        instance.end_date = validated_data.get('end_date', instance.end_date)
+        instance.status = validated_data.get('status', instance.status)
+        instance.course = validated_data.get('course', instance.course)
+        instance.order_in_course = validated_data.get('order_in_course', instance.order_in_course)
+        # source_template non è modificabile dopo la creazione
+        instance.save()
 
-       if topics_data is not None:
-           instance.topics.set(topics_data)
-       
-       if subject_data is not None:
-           instance.subjects.set(subject_data)
+        if topics_data is not None:
+            instance.topics.set(topics_data)
+        
+        if subject_data is not None:
+            instance.subjects.set(subject_data)
 
-       if contents_data is not None:
-           existing_contents_map = {content.id: content for content in instance.contents.all()}
-           processed_existing_content_ids = set()
+        if contents_data is not None:
+            existing_contents_map = {content.id: content for content in instance.contents.all()}
+            processed_existing_content_ids = set()
 
-           for item_data in contents_data:
-               item_id = item_data.get('id', None)
-               content_serializer_context = self.context
+            for item_data in contents_data:
+                item_id = item_data.get('id', None)
+                content_serializer_context = self.context
 
-               if item_id is not None and item_id in existing_contents_map:
-                   content_instance = existing_contents_map[item_id]
-                   processed_existing_content_ids.add(item_id)
-                   
-                   logger.info(f"[UDASerializer.update] Updating existing UDAContent (ID: {item_id}) for UDA (ID: {instance.id})")
-                   content_serializer = UDAContentSerializer(
-                       content_instance, data=item_data, partial=True, context=content_serializer_context
-                   )
-                   if content_serializer.is_valid(raise_exception=True):
-                       content_serializer.save()
-               else:
-                   # Nessun ID fornito o ID non corrispondente a un contenuto esistente.
-                   # Potrebbe essere una creazione o un aggiornamento di un elemento esistente
-                   # identificato tramite URL dell'allegato (se il frontend non invia l'ID).
-                   
-                   # Rimuovi 'id' se presente, dato che potrebbe essere un ID non valido o per creazione
-                   potential_invalid_id = item_data.pop('id', None)
-                   if potential_invalid_id is not None:
-                       logger.info(f"[UDASerializer.update] Popped id '{potential_invalid_id}' from item_data as it was not in existing_contents_map or was None.")
+                if item_id is not None and item_id in existing_contents_map:
+                    content_instance = existing_contents_map[item_id]
+                    processed_existing_content_ids.add(item_id)
+                    
+                    logger.info(f"[UDASerializer.update] Updating existing UDAContent (ID: {item_id}) for UDA (ID: {instance.id})")
+                    content_serializer = UDAContentSerializer(
+                        content_instance, data=item_data, partial=True, context=content_serializer_context
+                    )
+                    if content_serializer.is_valid(raise_exception=True):
+                        content_serializer.save()
+                else:
+                    # Nessun ID fornito o ID non corrispondente a un contenuto esistente.
+                    # Potrebbe essere una creazione o un aggiornamento di un elemento esistente
+                    # identificato tramite URL dell'allegato (se il frontend non invia l'ID).
+                    
+                    # Rimuovi 'id' se presente, dato che potrebbe essere un ID non valido o per creazione
+                    potential_invalid_id = item_data.pop('id', None)
+                    if potential_invalid_id is not None:
+                        logger.info(f"[UDASerializer.update] Popped id '{potential_invalid_id}' from item_data as it was not in existing_contents_map or was None.")
 
-                   found_match_by_url = False
-                   attachment_url_from_item = item_data.get('activity_attachment_url')
+                    found_match_by_url = False
+                    attachment_url_from_item = item_data.get('activity_attachment_url')
 
-                   if isinstance(attachment_url_from_item, str) and item_data.get('content_type') == 'ACTIVITY':
-                       logger.info(f"[UDASerializer.update] No ID for item, but activity_attachment_url string found: {attachment_url_from_item}. Trying to match with existing unprocessed contents for UDA (ID: {instance.id}).")
-                       
-                       # Normalizza l'URL in arrivo
-                       media_url_prefix = getattr(settings, 'MEDIA_URL', '/media/')
-                       normalized_input_url = attachment_url_from_item
-                       if normalized_input_url.startswith(media_url_prefix):
-                           normalized_input_url = normalized_input_url[len(media_url_prefix):]
-                       normalized_input_url = normalized_input_url.lstrip('/')
+                    if isinstance(attachment_url_from_item, str) and item_data.get('content_type') == 'ACTIVITY':
+                        logger.info(f"[UDASerializer.update] No ID for item, but activity_attachment_url string found: {attachment_url_from_item}. Trying to match with existing unprocessed contents for UDA (ID: {instance.id}).")
+                        
+                        # Normalizza l'URL in arrivo
+                        media_url_prefix = getattr(settings, 'MEDIA_URL', '/media/')
+                        normalized_input_url = attachment_url_from_item
+                        if normalized_input_url.startswith(media_url_prefix):
+                            normalized_input_url = normalized_input_url[len(media_url_prefix):]
+                        normalized_input_url = normalized_input_url.lstrip('/')
 
-                       for existing_id, existing_content_instance in existing_contents_map.items():
-                           if existing_id in processed_existing_content_ids:
-                               continue # Già processato
+                        for existing_id, existing_content_instance in existing_contents_map.items():
+                            if existing_id in processed_existing_content_ids:
+                                continue # Già processato
 
-                           if existing_content_instance.content_type == 'ACTIVITY' and existing_content_instance.activity_attachment_url:
-                               existing_file_name = existing_content_instance.activity_attachment_url.name
-                               normalized_existing_file_name = existing_file_name.lstrip('/')
-                               
-                               logger.debug(f"[UDASerializer.update] Comparing normalized input URL '{normalized_input_url}' with existing file name '{normalized_existing_file_name}' for content ID {existing_id}")
-                               if normalized_input_url == normalized_existing_file_name:
-                                   logger.info(f"[UDASerializer.update] Matched by URL. Updating existing UDAContent (ID: {existing_id}) for UDA (ID: {instance.id}) using URL match.")
-                                   processed_existing_content_ids.add(existing_id)
-                                   
-                                   content_serializer = UDAContentSerializer(
-                                       existing_content_instance, data=item_data, partial=True, context=content_serializer_context
-                                   )
-                                   if content_serializer.is_valid(raise_exception=True):
-                                       content_serializer.save()
-                                   found_match_by_url = True
-                                   break
-                       if not found_match_by_url:
-                           logger.info(f"[UDASerializer.update] No match by URL found for '{attachment_url_from_item}'. Proceeding to create new content for UDA (ID: {instance.id}).")
+                            if existing_content_instance.content_type == 'ACTIVITY' and existing_content_instance.activity_attachment_url:
+                                existing_file_name = existing_content_instance.activity_attachment_url.name
+                                normalized_existing_file_name = existing_file_name.lstrip('/')
+                                
+                                logger.debug(f"[UDASerializer.update] Comparing normalized input URL '{normalized_input_url}' with existing file name '{normalized_existing_file_name}' for content ID {existing_id}")
+                                if normalized_input_url == normalized_existing_file_name:
+                                    logger.info(f"[UDASerializer.update] Matched by URL. Updating existing UDAContent (ID: {existing_id}) for UDA (ID: {instance.id}) using URL match.")
+                                    processed_existing_content_ids.add(existing_id)
+                                    
+                                    content_serializer = UDAContentSerializer(
+                                        existing_content_instance, data=item_data, partial=True, context=content_serializer_context
+                                    )
+                                    if content_serializer.is_valid(raise_exception=True):
+                                        content_serializer.save()
+                                    found_match_by_url = True
+                                    break
+                        if not found_match_by_url:
+                            logger.info(f"[UDASerializer.update] No match by URL found for '{attachment_url_from_item}'. Proceeding to create new content for UDA (ID: {instance.id}).")
 
-                   if not found_match_by_url:
-                       logger.info(f"[UDASerializer.update] Creating new UDAContent for UDA (ID: {instance.id}) with data: {item_data}")
-                       content_serializer = UDAContentSerializer(
-                           data=item_data, context=content_serializer_context
-                       )
-                       if content_serializer.is_valid(raise_exception=True):
-                           content_serializer.save(uda=instance)
-           
-           # Elimina i contenuti che erano presenti ma non sono stati inviati/abbinati nell'aggiornamento
-           ids_to_delete = set(existing_contents_map.keys()) - processed_existing_content_ids
-           if ids_to_delete:
-               logger.info(f"[UDASerializer.update] Deleting UDAContents with IDs: {ids_to_delete} from UDA (ID: {instance.id}) as they were not in the update payload.")
-               UDAContent.objects.filter(id__in=ids_to_delete, uda=instance).delete()
-       
-       return instance
+                    if not found_match_by_url:
+                        logger.info(f"[UDASerializer.update] Creating new UDAContent for UDA (ID: {instance.id}) with data: {item_data}")
+                        content_serializer = UDAContentSerializer(
+                            data=item_data, context=content_serializer_context
+                        )
+                        if content_serializer.is_valid(raise_exception=True):
+                            content_serializer.save(uda=instance)
+            
+            # Elimina i contenuti che erano presenti ma non sono stati inviati/abbinati nell'aggiornamento
+            ids_to_delete = set(existing_contents_map.keys()) - processed_existing_content_ids
+            if ids_to_delete:
+                logger.info(f"[UDASerializer.update] Deleting UDAContents with IDs: {ids_to_delete} from UDA (ID: {instance.id}) as they were not in the update payload.")
+                UDAContent.objects.filter(id__in=ids_to_delete, uda=instance).delete()
+        
+        return instance

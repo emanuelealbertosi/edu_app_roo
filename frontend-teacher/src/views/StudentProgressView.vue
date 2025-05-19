@@ -31,7 +31,9 @@
             <td class="px-6 py-4 whitespace-nowrap text-sm text-neutral-darker">{{ summary.completed_pathways_count ?? 0 }}</td> <!-- Stile td aggiornato -->
             <td class="px-6 py-4 whitespace-nowrap text-sm text-neutral-darker">{{ summary.total_points_earned ?? 0 }}</td> <!-- Stile td aggiornato -->
             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-              <BaseButton variant="info" size="sm" @click="viewDetails(summary.student_id)">Dettagli</BaseButton> <!-- Usa BaseButton -->
+              <BaseButton variant="info" size="sm" @click="viewDetails(summary.student_id)" class="p-2" title="Vedi Dettagli Progressi">
+                <EyeIcon class="h-5 w-5" />
+              </BaseButton>
             </td>
           </tr>
         </tbody>
@@ -49,6 +51,7 @@ import { useRouter } from 'vue-router';
 import apiClient from '@/api/config'; // Usa apiClient per chiamate dirette
 import type { AxiosResponse } from 'axios';
 import BaseButton from '@/components/common/BaseButton.vue'; // Importa BaseButton
+import { EyeIcon } from '@heroicons/vue/24/outline';
 
 // Interfaccia basata su StudentProgressSummarySerializer
 interface StudentProgressSummary {

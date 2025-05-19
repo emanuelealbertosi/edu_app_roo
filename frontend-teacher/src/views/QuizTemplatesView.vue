@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router';
 // Importa API per i template del docente, il tipo QuizTemplate e la nuova funzione di upload
 import { fetchTeacherQuizTemplates, deleteTeacherQuizTemplate, uploadQuizTemplateFromFile, type QuizTemplate } from '@/api/quizzes'; // Aggiunto uploadQuizTemplateFromFile
 import BaseButton from '@/components/common/BaseButton.vue'; // Importa BaseButton
+import { PlusCircleIcon, ArrowUpTrayIcon, XMarkIcon, CheckCircleIcon, PencilIcon, TrashIcon } from '@heroicons/vue/24/outline';
 
 const templates = ref<QuizTemplate[]>([]); // Rinominato e usa tipo QuizTemplate
 const isLoading = ref(false);
@@ -108,8 +109,14 @@ const submitUploadForm = async () => {
       <p class="opacity-90">Qui puoi visualizzare, creare e modificare i tuoi template di quiz.</p> <!-- Rimosso stile individuale, aggiunta opacità -->
     </div>
     <div class="actions mb-6 flex space-x-2"> <!-- Margin e flex ok -->
-      <BaseButton variant="primary" @click="createNewQuizTemplate">Crea Nuovo Template</BaseButton> <!-- Usa BaseButton -->
-      <BaseButton variant="success" @click="toggleUploadForm">Carica Template da File</BaseButton> <!-- Usa BaseButton -->
+      <BaseButton variant="primary" @click="createNewQuizTemplate" class="flex items-center">
+        <PlusCircleIcon class="h-5 w-5 mr-2" />
+        Crea Nuovo Template
+      </BaseButton>
+      <BaseButton variant="success" @click="toggleUploadForm" class="flex items-center">
+        <ArrowUpTrayIcon class="h-5 w-5 mr-2" />
+        Carica Template da File
+      </BaseButton>
     </div>
 
     <!-- Form di Upload (mostrato/nascosto) -->
@@ -125,17 +132,22 @@ const submitUploadForm = async () => {
           <input type="file" id="templateFile" @change="handleFileUpload" accept=".pdf,.docx,.md" required class="block w-full text-sm text-neutral-darker file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 cursor-pointer"> <!-- Stili input file aggiornati -->
         </div>
         <div class="flex justify-end space-x-3"> <!-- Spazio ok -->
-           <BaseButton type="button" variant="secondary" @click="toggleUploadForm">Annulla</BaseButton> <!-- Usa BaseButton -->
-           <BaseButton type="submit" variant="success" :disabled="isUploading"> <!-- Usa BaseButton -->
+           <BaseButton type="button" variant="secondary" @click="toggleUploadForm" class="flex items-center">
+            <XMarkIcon class="h-5 w-5 mr-2" />
+            Annulla
+           </BaseButton>
+           <BaseButton type="submit" variant="success" :disabled="isUploading" class="flex items-center">
              <span v-if="isUploading">
-               <!-- Sostituito spinner FontAwesome con uno SVG o si potrebbe usare un componente Spinner -->
-               <svg class="animate-spin -ml-1 mr-2 h-4 w-4 inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+               <svg class="animate-spin -ml-1 mr-2 h-5 w-5 inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                </svg>
                Caricamento...
              </span>
-             <span v-else>Carica Template</span>
+             <span v-else class="flex items-center">
+              <CheckCircleIcon class="h-5 w-5 mr-2" />
+              Carica Template
+             </span>
            </BaseButton>
         </div>
         <p v-if="uploadError" class="text-error text-sm mt-3">{{ uploadError }}</p> <!-- Stile errore aggiornato -->
@@ -167,8 +179,12 @@ const submitUploadForm = async () => {
             <td class="px-6 py-4 whitespace-nowrap text-sm text-neutral-darker">{{ template.topic || '-' }}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-neutral-darker">{{ new Date(template.created_at).toLocaleDateString() }}</td> <!-- Stile td aggiornato -->
             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2"> <!-- Spazio ok -->
-              <BaseButton variant="warning" size="sm" @click="editQuizTemplate(template.id)">Modifica</BaseButton> <!-- Usa BaseButton -->
-              <BaseButton variant="danger" size="sm" @click="deleteQuizTemplate(template.id)">Elimina</BaseButton> <!-- Usa BaseButton -->
+              <BaseButton variant="warning" size="sm" @click="editQuizTemplate(template.id)" class="p-2" title="Modifica Template">
+                <PencilIcon class="h-5 w-5" />
+              </BaseButton>
+              <BaseButton variant="danger" size="sm" @click="deleteQuizTemplate(template.id)" class="p-2" title="Elimina Template">
+                <TrashIcon class="h-5 w-5" />
+              </BaseButton>
             </td>
           </tr>
         </tbody>

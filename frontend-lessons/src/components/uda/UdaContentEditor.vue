@@ -9,7 +9,7 @@
       <div v-else>
         <!-- Passa la prop isEditing -->
         <UdaContentItemRenderer
-          v-for="(content, index) in localContents"
+          v-for="(content, index) in enrichedLocalContents"
           :key="content.temp_id || content.id"
           :content="content"
           :is-first="index === 0"
@@ -77,8 +77,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, type PropType } from 'vue'; // Assicurati che watch sia importato, rimosso nextTick
-// import { useQuizStore } from '@/stores/quizStore'; // Rimosso import quizStore
+import { ref, watch, type PropType, computed } from 'vue'; // Assicurati che watch e computed siano importati
+import { useLessonStore } from '@/stores/lessons'; // Importa lessonStore
+import { useQuizStore } from '@/stores/quizStore'; // Importa quizStore
 import { useUdaStore } from '@/stores/udaStore'; // Importa lo store UDA
 import SelectExistingContentModal from './SelectExistingContentModal.vue';
 import EditNoteContentModal from './EditNoteContentModal.vue';
@@ -136,7 +137,8 @@ const props = defineProps({
 
 const emit = defineEmits(['update:modelValue']);
 const udaStore = useUdaStore(); // Istanza dello store
-// const quizStore = useQuizStore(); // Rimosso perché non utilizzato
+const lessonStore = useLessonStore(); // Istanza di lessonStore
+const quizStore = useQuizStore();   // Istanza di quizStore
 
 const localContents = ref<ContentItem[]>([]);
 const showSelectExistingContentModal = ref(false);
@@ -172,6 +174,31 @@ watch(() => props.modelValue, (newValue) => {
 watch(localContents, (newValue) => {
   emit('update:modelValue', newValue);
 }, { deep: true });
+
+const enrichedLocalContents = computed(() => {
+  return localContents.value.map(content => {
+    const enrichedContent = { ...content } as ContentItem; // Copia per non mutare l'originale
+
+    if (enrichedContent.content_type === UDAContentType.LESSON || enrichedContent.content_type === UDATemplateContentType.LESSON) {
+      const lessonId = (enrichedContent as LessonUDAContent).lesson;
+      if (lessonId) {
+        const lesson = lessonStore.getLessonById(lessonId);
+        if (lesson && !(enrichedContent as LessonUDAContent).lesson_title) {
+          (enrichedContent as LessonUDAContent).lesson_title = lesson.title;
+        }
+      }
+    } else if (enrichedContent.content_type === UDAContentType.QUIZ || enrichedContent.content_type === UDATemplateContentType.QUIZ_TEMPLATE) {
+      const quizTemplateId = (enrichedContent as QuizUDAContent).quiz_template;
+      if (quizTemplateId) {
+        const quizTemplate = quizStore.getQuizTemplateById(quizTemplateId);
+        if (quizTemplate && !(enrichedContent as QuizUDAContent).quiz_title) {
+          (enrichedContent as QuizUDAContent).quiz_title = quizTemplate.title;
+        }
+      }
+    }
+    return enrichedContent;
+  });
+});
 
 const openAddExistingContentModal = () => {
   // console.log('[UdaContentEditor] FN openAddExistingContentModal: Inizio esecuzione.');

@@ -5,7 +5,10 @@
       <p class="opacity-90">Qui puoi visualizzare, creare e modificare le ricompense disponibili per gli studenti.</p> <!-- Rimosso stile individuale, aggiunta opacità -->
     </div>
     <div class="actions mb-6"> <!-- Margin ok -->
-      <BaseButton variant="primary" @click="createNewReward">Crea Nuova Ricompensa</BaseButton> <!-- Usa BaseButton -->
+      <BaseButton variant="primary" @click="createNewReward" class="flex items-center">
+        <PlusCircleIcon class="h-5 w-5 mr-2" />
+        Crea Nuova Ricompensa
+      </BaseButton>
     </div>
 
     <div v-if="isLoading" class="text-center py-10 text-neutral-dark">Caricamento ricompense...</div> <!-- Stile loading aggiornato -->
@@ -40,16 +43,22 @@
                {{ reward.availability_type === 'ALL' ? 'Tutti' : 'Specifica' }}
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2"> <!-- Spazio ok -->
-              <BaseButton variant="warning" size="sm" @click="editReward(reward.id)">Modifica</BaseButton>
+              <BaseButton variant="warning" size="sm" @click="editReward(reward.id)" class="p-2" title="Modifica Ricompensa">
+                <PencilIcon class="h-5 w-5" />
+              </BaseButton>
               <BaseButton
                   v-if="reward.availability_type === 'SPECIFIC'"
                   variant="info"
                   size="sm"
                   @click="openAvailabilityModal(reward)"
-              > <!-- NUOVO PULSANTE -->
-                  Disponibilità
+                  class="p-2"
+                  title="Gestisci Disponibilità"
+              >
+                  <UsersIcon class="h-5 w-5" />
               </BaseButton>
-              <BaseButton variant="danger" size="sm" @click="deleteReward(reward.id)">Elimina</BaseButton>
+              <BaseButton variant="danger" size="sm" @click="deleteReward(reward.id)" class="p-2" title="Elimina Ricompensa">
+                <TrashIcon class="h-5 w-5" />
+              </BaseButton>
             </td>
           </tr>
         </tbody>
@@ -84,6 +93,7 @@ import BaseButton from '@/components/common/BaseButton.vue';
 // Importa le modali
 import RewardAvailabilityModal from '@/components/features/rewards/RewardAvailabilityModal.vue';
 import RewardCreateModal from '@/components/features/rewards/RewardCreateModal.vue'; // Importa la modale di creazione
+import { PlusCircleIcon, PencilIcon, UsersIcon, TrashIcon } from '@heroicons/vue/24/outline';
 
 const router = useRouter();
 const rewards = ref<Reward[]>([]);

@@ -93,6 +93,34 @@
             </div>
           </div>
         </div>
+
+        <!-- Sezioni Conoscenze, Abilità, Competenze -->
+        <div class="space-y-6">
+          <div class="border-blue-500 border-2 rounded-md p-4">
+            <label for="knowledgeHtml" class="block text-sm font-medium text-gray-700 mb-2">Conoscenze</label>
+            <WysiwygEditor
+              id="knowledgeHtml"
+              v-model="knowledgeHtmlForEditor"
+              :editable="true"
+            />
+          </div>
+          <div class="border-green-500 border-2 rounded-md p-4">
+            <label for="skillsHtml" class="block text-sm font-medium text-gray-700 mb-2">Abilità</label>
+            <WysiwygEditor
+              id="skillsHtml"
+              v-model="skillsHtmlForEditor"
+              :editable="true"
+            />
+          </div>
+          <div class="border-purple-500 border-2 rounded-md p-4">
+            <label for="competencesHtml" class="block text-sm font-medium text-gray-700 mb-2">Competenze</label>
+            <WysiwygEditor
+              id="competencesHtml"
+              v-model="competencesHtmlForEditor"
+              :editable="true"
+            />
+          </div>
+        </div>
       </div>
       
       <div class="bg-gray-50 border border-gray-300 rounded-lg p-6 shadow-sm">
@@ -135,6 +163,7 @@ import { useSubjectStore } from '@/stores/subjectStore';
 import { useTopicStore } from '@/stores/topicStore';
 import { useUiStore } from '@/stores/ui';
 import UdaContentEditor from '@/components/uda/UdaContentEditor.vue';
+import WysiwygEditor from '@/components/WysiwygEditor.vue'; // Importa l'editor
 import { type UDA, type UDAContent } from '@/types/uda';
 import type { Course as CourseType } from '@/types/uda'; // Course è in uda.ts, rinominato per evitare conflitto
 import type { Subject as SubjectType } from '@/types/subject'; // Rinominato
@@ -144,6 +173,9 @@ import { XMarkIcon, CheckCircleIcon } from '@heroicons/vue/24/outline';
 interface UdaFormData {
   title: string;
   description: string | null;
+  knowledge_html: string | null; // Aggiunto
+  skills_html: string | null;    // Aggiunto
+  competences_html: string | null; // Aggiunto
   start_date: string | null;
   end_date: string | null;
   status: UDA['status'];
@@ -157,6 +189,9 @@ interface UdaFormData {
 interface UdaApiPayload {
   title: string;
   description?: string | null;
+  knowledge_html?: string | null; // Aggiunto
+  skills_html?: string | null;    // Aggiunto
+  competences_html?: string | null; // Aggiunto
   start_date?: string | null;
   end_date?: string | null;
   status: UDA['status'];
@@ -199,6 +234,9 @@ watch(initialError, (newValue, oldValue) => {
 const formData = ref<UdaFormData>({
   title: '',
   description: null,
+  knowledge_html: null,
+  skills_html: null,
+  competences_html: null,
   start_date: null,
   end_date: null,
   status: 'TODO',
@@ -237,6 +275,22 @@ watch(() => formData.value.subjects, (newSubjects, oldSubjects) => {
   }
 }, { deep: true });
 
+const knowledgeHtmlForEditor = computed({
+  get: () => formData.value.knowledge_html || undefined,
+  set: (val) => { formData.value.knowledge_html = val || null; }
+});
+
+const skillsHtmlForEditor = computed({
+  get: () => formData.value.skills_html || undefined,
+  set: (val) => { formData.value.skills_html = val || null; }
+});
+
+const competencesHtmlForEditor = computed({
+  get: () => formData.value.competences_html || undefined,
+  set: (val) => { formData.value.competences_html = val || null; }
+});
+
+
 // Non sono più necessari i watch per sincronizzare formData.topics/subjects con selectedTopicIds/selectedSubjectIds
 // perché usiamo formData.topics/subjects direttamente come v-model.
 
@@ -267,6 +321,9 @@ onMounted(async () => {
         // per dare tempo alle opzioni del select (es. corsi) di essere renderizzate.
         formData.value.title = udaToEdit.title;
         formData.value.description = udaToEdit.description || null;
+        formData.value.knowledge_html = udaToEdit.knowledge_html || null;
+        formData.value.skills_html = udaToEdit.skills_html || null;
+        formData.value.competences_html = udaToEdit.competences_html || null;
         formData.value.start_date = udaToEdit.start_date || null;
         formData.value.end_date = udaToEdit.end_date || null;
         formData.value.status = udaToEdit.status;
@@ -310,6 +367,9 @@ const handleSubmit = async () => {
   const payload: UdaApiPayload = {
     title: formData.value.title,
     description: formData.value.description || undefined,
+    knowledge_html: formData.value.knowledge_html || undefined,
+    skills_html: formData.value.skills_html || undefined,
+    competences_html: formData.value.competences_html || undefined,
     start_date: formData.value.start_date || undefined,
     end_date: formData.value.end_date || undefined,
     status: formData.value.status,

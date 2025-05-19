@@ -21,6 +21,10 @@
         <strong class="w-28 flex-shrink-0 text-gray-700">Ore Stimate:</strong>
         <span class="text-gray-600">{{ props.content.estimated_hours }}h</span>
       </div>
+      <div v-if="props.content.actual_hours" class="flex">
+        <strong class="w-28 flex-shrink-0 text-gray-700">Ore Effettive:</strong>
+        <span class="text-gray-600">{{ props.content.actual_hours }}h</span>
+      </div>
     </div>
     <p v-else-if="!isLoading && !quizTemplate && props.content.quiz_template" class="text-sm text-red-600">
       Impossibile caricare i dettagli del template quiz (ID: {{ props.content.quiz_template }}).

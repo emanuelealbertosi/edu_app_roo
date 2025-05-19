@@ -31,7 +31,9 @@
             <td class="px-6 py-4 whitespace-nowrap text-sm text-neutral-darker">{{ new Date(quiz.created_at).toLocaleDateString() }}</td> <!-- Stile td aggiornato -->
             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2"> <!-- Spazio ok -->
               <!-- Forse solo visualizzazione dettagli o statistiche? Modifica/Eliminazione potrebbe essere problematica -->
-              <BaseButton variant="info" size="sm" @click="viewQuizDetails(quiz.id)">Dettagli</BaseButton> <!-- Usa BaseButton -->
+              <BaseButton variant="info" size="sm" @click="viewQuizDetails(quiz.id)" class="p-2" title="Vedi Dettagli Quiz Assegnato">
+                <EyeIcon class="h-5 w-5" />
+              </BaseButton>
               <!-- L'eliminazione di un'istanza assegnata potrebbe richiedere logica aggiuntiva (es. rimuovere assegnazioni) -->
               <!-- <BaseButton variant="danger" size="sm" @click="deleteAssignedQuiz(quiz.id)">Elimina Istanza</BaseButton> -->
             </td>
@@ -51,6 +53,7 @@ import { useRouter } from 'vue-router';
 // Importa API per fetchare le istanze Quiz concrete
 import { fetchQuizzes, deleteQuizApi, type Quiz } from '@/api/quizzes';
 import BaseButton from '@/components/common/BaseButton.vue'; // Importa BaseButton
+import { EyeIcon } from '@heroicons/vue/24/outline';
 
 const assignedQuizzes = ref<Quiz[]>([]); // Usa il tipo Quiz per le istanze
 const isLoading = ref(false);

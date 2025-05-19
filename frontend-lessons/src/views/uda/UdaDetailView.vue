@@ -22,6 +22,31 @@
         <p class="text-gray-600 whitespace-pre-wrap">{{ uda.description }}</p>
       </div>
 
+      <!-- Sezioni Conoscenze, Abilità, Competenze -->
+      <div class="extended-description-sections my-6 flex flex-wrap gap-4 items-start">
+        <CollapsibleEditableSection
+          title="Conoscenze"
+          :initial-content-html="uda.knowledge_html"
+          border-style-class="border-blue-500 border-2 rounded-md"
+          @save="handleSaveKnowledge"
+          class="flex-1 min-w-[300px]"
+        />
+        <CollapsibleEditableSection
+          title="Abilità"
+          :initial-content-html="uda.skills_html"
+          border-style-class="border-green-500 border-2 rounded-md"
+          @save="handleSaveSkills"
+          class="flex-1 min-w-[300px]"
+        />
+        <CollapsibleEditableSection
+          title="Competenze"
+          :initial-content-html="uda.competences_html"
+          border-style-class="border-purple-500 border-2 rounded-md"
+          @save="handleSaveCompetences"
+          class="flex-1 min-w-[300px]"
+        />
+      </div>
+
       <!-- Riga Metadati Compatti -->
       <div class="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-gray-600 mb-6 border-t border-b py-4">
         <div>
@@ -132,6 +157,7 @@ import type { UDA, UDAContent, LessonUDAContent, QuizUDAContent, UDAStatus } fro
 // Importa enum come valori
 import { UDAContentType, UDATemplateContentType } from '@/types/uda'; // Rimosso UDAStatus da qui
 import UdaContentItemRenderer from '@/components/uda/UdaContentItemRenderer.vue';
+import CollapsibleEditableSection from '@/components/uda/CollapsibleEditableSection.vue'; // IMPORTATO NUOVO COMPONENTE
 import LessonEditModal from '@/components/features/lezioni/LessonEditModal.vue'; // IMPORTATO MODALE
 import type { Lesson } from '@/types/lezioni'; // IMPORTATO TIPO Lesson
 import { useUiStore } from '@/stores/ui'; // CORRETTO: Importa da ui.ts
@@ -383,6 +409,43 @@ const handleMoveContent = async (contentToMove: UDAContent, direction: number) =
     console.error("Errore durante il riordino dei contenuti:", error);
     // Potrebbe essere utile mostrare un messaggio di errore all'utente
     // e potenzialmente ripristinare l'ordine visivo precedente se necessario.
+  }
+};
+
+// Funzioni per salvare Conoscenze, Abilità, Competenze
+const handleSaveKnowledge = async (newHtml: string) => {
+  if (uda.value?.id) {
+    try {
+      await udaStore.updateUda(uda.value.id, { knowledge_html: newHtml });
+      uiStore.addNotification({ message: 'Conoscenze aggiornate!', type: 'success' });
+    } catch (e) {
+      uiStore.addNotification({ message: `Errore aggiornamento Conoscenze: ${(e as Error).message}`, type: 'error' });
+      throw e; // Rilancia l'errore per farlo gestire dal componente figlio (mostra messaggio errore)
+    }
+  }
+};
+
+const handleSaveSkills = async (newHtml: string) => {
+  if (uda.value?.id) {
+    try {
+      await udaStore.updateUda(uda.value.id, { skills_html: newHtml });
+      uiStore.addNotification({ message: 'Abilità aggiornate!', type: 'success' });
+    } catch (e) {
+      uiStore.addNotification({ message: `Errore aggiornamento Abilità: ${(e as Error).message}`, type: 'error' });
+      throw e;
+    }
+  }
+};
+
+const handleSaveCompetences = async (newHtml: string) => {
+  if (uda.value?.id) {
+    try {
+      await udaStore.updateUda(uda.value.id, { competences_html: newHtml });
+      uiStore.addNotification({ message: 'Competenze aggiornate!', type: 'success' });
+    } catch (e) {
+      uiStore.addNotification({ message: `Errore aggiornamento Competenze: ${(e as Error).message}`, type: 'error' });
+      throw e;
+    }
   }
 };
 

@@ -55,13 +55,14 @@
                 <input
                   type="checkbox"
                   :id="`lesson-${lesson.id}`"
-                  :value="{ type: UDAContentType.LESSON, id: lesson.id, title: lesson.title }"
+                  :value="{ type: UDAContentType.LESSON, id: lesson.id, title: lesson.title, estimated_hours: lesson.estimated_hours }"
                   v-model="selectedItems"
                   class="h-5 w-5 text-indigo-600 border-gray-400 rounded focus:ring-indigo-500 focus:ring-2 focus:ring-offset-0 cursor-pointer mr-3"
                 />
                 <label :for="`lesson-${lesson.id}`" class="flex-grow cursor-pointer">
                   <span class="select-none text-sm text-gray-900">{{ lesson.title }}</span>
                   <small v-if="lesson.subject_name" class="text-gray-500 ml-2">({{ lesson.subject_name }})</small>
+                  <small v-if="lesson.estimated_hours" class="text-gray-500 ml-2">[{{ lesson.estimated_hours }}h]</small>
                 </label>
               </li>
             </ul>
@@ -117,7 +118,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue';
+import { ref, onMounted, watch, computed } from 'vue'; // Aggiunto computed
 import { useLessonStore } from '@/stores/lessons';
 import { useQuizStore } from '@/stores/quizStore';
 import { useUiStore } from '@/stores/ui';
@@ -131,9 +132,9 @@ const emit = defineEmits(['close', 'select']);
 
 const activeTab = ref<'lessons' | 'quizzes'>('lessons');
 const loading = ref(false);
-const lessons = ref<Lesson[]>([]);
-const quizTemplates = ref<QuizTemplate[]>([]); // Modificato da quizzes a quizTemplates
-const selectedItems = ref<RawSelectedContentItem[]>([]); // Tipo per la selezione grezza
+// lessons è ora una computed property
+const quizTemplates = ref<QuizTemplate[]>([]);
+const selectedItems = ref<RawSelectedContentItem[]>([]);
 const errorLoadingContent = ref<string | null>(null);
 const isConfirming = ref(false);
 
@@ -141,9 +142,16 @@ const lessonStore = useLessonStore();
 const quizStore = useQuizStore();
 const uiStore = useUiStore();
 
-const loadLessons = async () => {
-  await lessonStore.fetchLessons();
-  lessons.value = lessonStore.lessons;
+// lessons è ora una computed property che riflette direttamente lo store
+const lessons = computed(() => lessonStore.lessons);
+
+const loadInitialLessons = async () => {
+  // Carica le lezioni solo se l'array nello store è vuoto all'inizio.
+  // Successivamente, ci si affida alla reattività di `lessons` (computed).
+  if (lessonStore.lessons.length === 0) {
+    await lessonStore.fetchLessons();
+  }
+  // Non è più necessario assegnare a un ref locale `lessons.value` qui
 };
 
 const loadQuizTemplates = async () => {
@@ -158,7 +166,7 @@ onMounted(async () => {
   try {
     // Carica inizialmente le lezioni (o il tab attivo)
     if (activeTab.value === 'lessons') {
-      await loadLessons();
+      await loadInitialLessons();
     } else {
       await loadQuizTemplates();
     }
@@ -179,11 +187,13 @@ watch(activeTab, async (newTab, oldTab) => {
   selectedItems.value = []; // Resetta la selezione quando si cambia tab
   try {
     if (newTab === 'lessons') {
-      if (!lessons.value.length) { // Carica solo se non già caricato
-        await loadLessons();
+      // Se le lezioni non sono mai state caricate (store vuoto), caricale.
+      // Altrimenti, la computed property `lessons` si aggiornerà automaticamente.
+      if (lessonStore.lessons.length === 0) {
+        await lessonStore.fetchLessons();
       }
     } else if (newTab === 'quizzes') {
-      if (!quizTemplates.value.length) { // Carica solo se non già caricato
+      if (quizStore.quizTemplates.length === 0) { // Controlla lo store direttamente
         await loadQuizTemplates();
       }
     }

@@ -170,6 +170,24 @@ onBeforeUnmount(() => {
   min-height: 100px; /* Assicura un'altezza minima */
 }
 
+/* Stili espliciti per le liste all'interno dell'editor */
+:deep(.ProseMirror ul) {
+  list-style-type: disc !important;
+  padding-left: 2.5rem !important; /* Aumentato per visibilità */
+  margin-left: 0 !important; /* Resetta eventuali margini di Tailwind */
+}
+
+:deep(.ProseMirror ol) {
+  list-style-type: decimal !important;
+  padding-left: 2.5rem !important; /* Aumentato per visibilità */
+  margin-left: 0 !important; /* Resetta eventuali margini di Tailwind */
+}
+
+:deep(.ProseMirror li) {
+  /* Potrebbe non essere necessario, ma per sicurezza */
+  display: list-item !important;
+}
+
 :deep(.ProseMirror p.is-editor-empty:first-child::before) {
   content: attr(data-placeholder);
   float: left;

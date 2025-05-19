@@ -37,6 +37,7 @@
             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Titolo</th>
             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Argomento</th>
             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Materia</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ore Stimate</th>
             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stato</th>
             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data Creazione</th>
             <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Azioni</th>
@@ -44,9 +45,14 @@
         </thead>
         <tbody class="bg-white divide-y divide-gray-200">
           <tr v-for="lesson in filteredLessons" :key="lesson.id" class="hover:bg-gray-50">
-            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ lesson.title }}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600 hover:text-blue-800 cursor-pointer" @click="gotoContents(lesson.id)">
+              {{ lesson.title }}
+            </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ getTopicName(lesson.topic) }}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ getSubjectNameFromTopic(lesson.topic) }}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+              {{ lesson.estimated_hours ? lesson.estimated_hours + 'h' : '-' }}
+            </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm">
                 <span :class="lesson.is_published ? 'text-green-600' : 'text-yellow-600'">
                     {{ lesson.is_published ? 'Pubblicata' : 'Bozza' }}
@@ -108,11 +114,13 @@ const filteredLessons = computed(() => {
     const subjectName = getSubjectNameFromTopic(lesson.topic).toLowerCase();
     const status = (lesson.is_published ? 'pubblicata' : 'bozza').toLowerCase();
     const title = lesson.title.toLowerCase();
+    const estimatedHours = lesson.estimated_hours ? lesson.estimated_hours.toString() : '';
 
     return title.includes(query) ||
            topicName.includes(query) ||
            subjectName.includes(query) ||
-           status.includes(query);
+           status.includes(query) ||
+           (query && estimatedHours.includes(query)); // Aggiunta ricerca per ore stimate se query non è vuota
   });
 });
 import type { Lesson } from '@/types/lezioni'; // Rimossi Topic e Subject non usati qui
@@ -192,7 +200,7 @@ const closeModal = () => {
   lessonToEdit.value = null;
 };
 
-const handleSave = async (lessonData: { id?: number; title: string; topic: number; description?: string; is_published?: boolean }) => {
+const handleSave = async (lessonData: { id?: number; title: string; topic: number; description?: string; is_published?: boolean; estimated_hours?: number | null }) => {
     let success = false;
     let savedLesson: Lesson | null = null;
 
@@ -205,7 +213,10 @@ const handleSave = async (lessonData: { id?: number; title: string; topic: numbe
 
     if (success) {
         closeModal();
-        await lessonStore.fetchLessons(); // Ricarica per vedere le modifiche
+        // Non è necessario chiamare fetchLessons() qui.
+        // Le azioni addLesson/updateLesson nello store dovrebbero aver già aggiornato
+        // l'array `lessons` in modo reattivo, e la `computed property` `lessons`
+        // in questo componente dovrebbe riflettere tali cambiamenti.
     } else {
          alert(`Errore durante il salvataggio: ${lessonStore.error}`);
          lessonStore.error = null;

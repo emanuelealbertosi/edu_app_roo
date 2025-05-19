@@ -19,6 +19,7 @@ Questo documento descrive il piano di implementazione per la funzionalità "Unit
 ### 2.2. Modelli Django [COMPLETATO]
 Verranno creati i seguenti modelli nel file `uda/models.py` (o, se più appropriato, il modello `Course` potrebbe risiedere in una nuova app `courses`) come specificato nel [`design_document.md`](design_document.md:1):
 
+*   **Nota importante sulla gestione dei Nomi di Argomenti e Materie:** Si specifica che i nomi delle entità come Materie (`Subject`) e soprattutto Argomenti (`Topic`) devono essere gestiti e salvati in modo atomico. Ad esempio, un `Topic` deve avere un campo nome che contiene solo il titolo dell'argomento (es., "Le equazioni di primo grado") e non una stringa combinata come "Matematica - Le equazioni di primo grado". L'associazione tra UDA, Materie e Argomenti è gestita tramite le relazioni M2M definite (`UDASubject`, `UDATopic`). Questa atomicità è cruciale per la corretta visualizzazione e interrogazione dei dati.
 *   **`Course`**: NUOVO MODELLO [COMPLETATO]
     *   Campi: `teacher` (FK a User), `name` (CharField, univoco per docente), `description` (TextField, opzionale), `created_at`, `updated_at`.
 *   **`UDATemplate`**: [RIMOSSO]
@@ -188,7 +189,7 @@ Sviluppare i seguenti componenti Vue.js in `frontend-lessons/src/views/` e `fron
             *   **Dati Principali UDA (Layout Compattato):**
                 *   Riga 1: Titolo, Descrizione (breve), Data Inizio, Data Fine.
                 *   Riga 2: Stato, Corso, Materie (potenzialmente multiple), Argomenti.
-            *   Visualizzazione dettagliata dei nomi per Materia (ora potenzialmente multiple), Argomenti e Corso, se non già inclusi in modo esauriente nel layout compattato.
+            *   Visualizzazione dettagliata dei nomi per Materia (ora potenzialmente multiple), Argomenti (assicurandosi che venga visualizzato solo il nome atomico dell'argomento, es. "Le equazioni", e non "Materia - Le equazioni") e Corso, se non già inclusi in modo esauriente nel layout compattato.
         *   [COMPLETATO] Definire/Implementare la logica per gli handler degli eventi.
     *   [COMPLETATO, DA AGGIORNARE] Raffinare i componenti display specifici per contenuto (per visualizzare `estimated_hours`).
     *   [COMPLETATO] Implementare le modali di modifica per Note e Attività.

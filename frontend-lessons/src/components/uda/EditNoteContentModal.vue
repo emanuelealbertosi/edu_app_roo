@@ -26,9 +26,15 @@
             <input type="number" id="noteEstimatedHours" v-model.number="editableContent.estimated_hours" step="0.1" min="0"
                    placeholder="Es. 1.5"
                    class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2">
-          </div>
-        </form>
-      </div>
+         </div>
+         <div v-if="props.context === 'uda'">
+           <label for="noteActualHours" class="block text-sm font-medium text-gray-700 mb-1">Tempo Effettivo (ore)</label>
+           <input type="number" id="noteActualHours" v-model.number="editableContent.actual_hours" step="0.1" min="0"
+                  placeholder="Es. 1.0"
+                  class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2">
+         </div>
+       </form>
+     </div>
       <div class="flex justify-end pt-4 border-t border-gray-200 mt-4 space-x-3">
         <button type="button"
                 class="border border-gray-300 hover:bg-gray-100 text-gray-700 font-medium py-2 px-4 rounded-md shadow-sm text-sm"
@@ -53,7 +59,8 @@ import WysiwygEditor from '@/components/WysiwygEditor.vue';
 type EditableNoteType = Partial<NoteUDAContent | NoteTemplateUDAContent> & {
   title?: string;
   content?: string;
-  estimated_hours?: number | null; // Aggiunto
+  estimated_hours?: number | null;
+  actual_hours?: number | null; // Aggiunto per ore effettive
 };
 
 const props = defineProps({
@@ -69,7 +76,7 @@ const props = defineProps({
 
 const emit = defineEmits(['update:modelValue', 'save', 'close']);
 
-const editableContent = ref<EditableNoteType>({ title: '', content: '', estimated_hours: null }); // Inizializzato
+const editableContent = ref<EditableNoteType>({ title: '', content: '', estimated_hours: null, actual_hours: null }); // Inizializzato
 
 const isEditing = computed(() => !!(props.modelValue && (props.modelValue.id || props.modelValue.temp_id)));
 
@@ -81,7 +88,8 @@ watch(() => props.modelValue, (newValue) => {
         ...templateNote,
         title: templateNote.note_template_title || '',
         content: templateNote.note_template_content || '',
-        estimated_hours: templateNote.estimated_hours // Aggiunto
+        estimated_hours: templateNote.estimated_hours,
+        // actual_hours non è pertinente per i template
       };
     } else {
       const udaNote = newValue as NoteUDAContent;
@@ -89,14 +97,16 @@ watch(() => props.modelValue, (newValue) => {
         ...udaNote,
         title: udaNote.note_title || '',
         content: udaNote.note_content || '',
-        estimated_hours: udaNote.estimated_hours // Aggiunto
+        estimated_hours: udaNote.estimated_hours,
+        actual_hours: udaNote.actual_hours // Aggiunto
       };
     }
   } else {
     editableContent.value = {
       title: '',
       content: '',
-      estimated_hours: null // Aggiunto reset
+      estimated_hours: null,
+      actual_hours: null // Aggiunto reset
     };
   }
 }, { immediate: true, deep: true });
@@ -113,7 +123,8 @@ const saveNote = () => {
       ...(props.modelValue || {}),
       note_template_title: editableContent.value.title,
       note_template_content: editableContent.value.content,
-      estimated_hours: editableContent.value.estimated_hours || null, // Aggiunto
+      estimated_hours: editableContent.value.estimated_hours || null,
+      // actual_hours non pertinente per template
       content_type: 'NOTE_TEMPLATE' as UDATemplateContentType.NOTE_TEMPLATE,
     } as Partial<NoteTemplateUDAContent>;
   } else {
@@ -121,7 +132,8 @@ const saveNote = () => {
       ...(props.modelValue || {}),
       note_title: editableContent.value.title,
       note_content: editableContent.value.content,
-      estimated_hours: editableContent.value.estimated_hours || null, // Aggiunto
+      estimated_hours: editableContent.value.estimated_hours || null,
+      actual_hours: editableContent.value.actual_hours || null, // Aggiunto
       content_type: 'NOTE' as UDAContentType.NOTE,
     } as Partial<NoteUDAContent>;
   }

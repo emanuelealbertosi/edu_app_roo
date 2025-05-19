@@ -75,6 +75,7 @@ export interface Lesson {
   is_published: boolean;
   contents?: LessonContent[]; // Opzionale, caricato separatamente o annidato
   assignments?: LessonAssignment[]; // Opzionale
+  estimated_hours?: number; // Aggiunto per le ore stimate della lezione
 }
 
 export interface LessonContent {
