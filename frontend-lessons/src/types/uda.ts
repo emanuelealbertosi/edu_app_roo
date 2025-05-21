@@ -104,6 +104,7 @@ export type UDAStatus = 'TODO' | 'IN_PROGRESS' | 'COMPLETED';
 export interface UDA {
   id: number;
   teacher: number; // FK a User
+  teacher_username?: string; // Username dell'autore dell'UDA
   course?: number | null; // FK a Course (ID)
   course_name?: string | null; // Nome del corso (dal backend)
   course_teacher_username?: string | null; // Username dell'autore del corso (dal backend)
@@ -113,6 +114,15 @@ export interface UDA {
   knowledge_html?: string | null;
   skills_html?: string | null;
   competences_html?: string | null;
+  // Campi per Export DOCX
+  is_civic_education?: boolean;
+  didactic_strategies_html?: string | null;
+  materials_tools_html?: string | null;
+  assessment_type_html?: string | null;
+  evaluation_html?: string | null;
+  other_involved_subjects_text?: string | null;
+  export_specific_annotations_html?: string | null;
+
   start_date?: string | null; // Formato YYYY-MM-DD
   end_date?: string | null;   // Formato YYYY-MM-DD
   subjects?: number[]; // Array di ID di Subject (usato internamente nel form e per l'invio come subject_ids)
@@ -124,12 +134,16 @@ export interface UDA {
   created_at: string;
   updated_at: string;
   topics_display?: string[];
+  total_estimated_hours?: number | null; // Aggiunto per il totale ore stimate
+  total_lesson_estimated_hours?: number | null; // Aggiunto per il totale ore stimate delle lezioni
+  lesson_count?: number; // Aggiunto per il numero di lezioni
 }
 
 // Interfaccia per Course
 export interface Course {
   id: number;
   teacher: number; // FK a User
+  teacher_username?: string; // Username dell'autore del corso
   name: string;
   description?: string | null;
   created_at: string;

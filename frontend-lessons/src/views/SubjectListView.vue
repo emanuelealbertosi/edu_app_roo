@@ -30,7 +30,11 @@
         </thead>
         <tbody class="bg-white divide-y divide-gray-200">
           <tr v-for="subject in subjects" :key="subject.id" class="hover:bg-gray-50">
-            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ subject.name }}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+              <a href="#" @click.prevent="editSubject(subject as Subject)" class="text-indigo-600 hover:text-indigo-900 hover:underline" title="Modifica Materia">
+                {{ subject.name }}
+              </a>
+            </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ subject.description || '-' }}</td>
             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
               <button @click="editSubject(subject as Subject)" class="text-yellow-600 hover:text-yellow-900 transition duration-150 ease-in-out" title="Modifica Materia">

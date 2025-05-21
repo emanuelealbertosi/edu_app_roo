@@ -30,7 +30,7 @@
 
 <script setup lang="ts">
 import { ref, watch, onMounted } from 'vue';
-import { PencilIcon, CheckIcon, XMarkIcon } from '@heroicons/vue/24/outline';
+import { CheckIcon, XMarkIcon } from '@heroicons/vue/24/outline';
 import WysiwygEditor from '@/components/WysiwygEditor.vue'; // Importato l'editor effettivo
 
 interface Props {

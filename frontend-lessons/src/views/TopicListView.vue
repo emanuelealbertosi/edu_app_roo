@@ -45,7 +45,11 @@
         </thead>
         <tbody class="bg-white divide-y divide-gray-200">
           <tr v-for="topic in topics" :key="topic.id" class="hover:bg-gray-50">
-            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ topic.name }}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+              <a href="#" @click.prevent="editTopic(topic as Topic)" class="text-indigo-600 hover:text-indigo-900 hover:underline" title="Modifica Argomento">
+                {{ topic.name }}
+              </a>
+            </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ getSubjectName(topic.subject) }}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ topic.description || '-' }}</td>
             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">

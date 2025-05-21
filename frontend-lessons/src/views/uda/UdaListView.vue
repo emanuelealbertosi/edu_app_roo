@@ -67,6 +67,15 @@
             <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
               Contenuti
             </th>
+            <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+              N. Lez.
+            </th>
+            <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Ore Lez.
+            </th>
+            <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Ore Stimate Tot.
+            </th>
             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               Date (Inizio/Fine)
             </th>
@@ -112,6 +121,15 @@
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 text-center">
               {{ uda.contents?.length || 0 }}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 text-center">
+              {{ uda.lesson_count || 0 }}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 text-center">
+              {{ uda.total_lesson_estimated_hours || '0.0' }}h
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 text-center">
+              {{ uda.total_estimated_hours || '0.0' }}h
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
               {{ formatDate(uda.start_date) }} / {{ formatDate(uda.end_date) }}

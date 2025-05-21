@@ -122,7 +122,7 @@ import { ref, onMounted, watch, computed } from 'vue'; // Aggiunto computed
 import { useLessonStore } from '@/stores/lessons';
 import { useQuizStore } from '@/stores/quizStore';
 import { useUiStore } from '@/stores/ui';
-import type { Lesson } from '@/types/lezioni';
+// import type { Lesson } from '@/types/lezioni'; // Rimosso perché non utilizzato direttamente, il tipo per 'lessons' è inferito dallo store
 // import type { Quiz } from '@/types/quiz'; // Non più usato direttamente per la lista
 import type { QuizTemplate } from '@/types/quizTemplate';
 import { UDAContentType } from '@/types/uda'; // Importa l'enum

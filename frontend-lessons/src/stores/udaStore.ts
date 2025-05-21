@@ -23,7 +23,15 @@ export const useUdaStore = defineStore('uda', {
           course_name: udaData.course_name, // Salva il nome del corso
           course_teacher_username: udaData.course_teacher_username, // Salva l'username dell'autore
           subjects: udaData.subject_ids || [], // Mappa subject_ids a subjects (per il form)
-          topics: udaData.topic_ids || []      // Mappa topic_ids a topics (per il form)
+          topics: udaData.topic_ids || [],      // Mappa topic_ids a topics (per il form)
+          // Campi per Export DOCX
+          is_civic_education: udaData.is_civic_education,
+          didactic_strategies_html: udaData.didactic_strategies_html,
+          materials_tools_html: udaData.materials_tools_html,
+          assessment_type_html: udaData.assessment_type_html,
+          evaluation_html: udaData.evaluation_html,
+          other_involved_subjects_text: udaData.other_involved_subjects_text,
+          export_specific_annotations_html: udaData.export_specific_annotations_html,
         })) as UDA[]; // Asserisci il tipo finale a UDA[]
       } catch (err) {
         this.error = (err as Error).message || 'Failed to fetch UDAs';
@@ -58,7 +66,15 @@ export const useUdaStore = defineStore('uda', {
           course_name: rawData.course_name, // Salva il nome del corso
           course_teacher_username: rawData.course_teacher_username, // Salva l'username dell'autore
           subjects: rawData.subject_ids || [], // Mappa subject_ids a subjects (per il form)
-          topics: rawData.topic_ids || []      // Mappa topic_ids a topics (per il form)
+          topics: rawData.topic_ids || [],      // Mappa topic_ids a topics (per il form)
+          // Campi per Export DOCX
+          is_civic_education: rawData.is_civic_education,
+          didactic_strategies_html: rawData.didactic_strategies_html,
+          materials_tools_html: rawData.materials_tools_html,
+          assessment_type_html: rawData.assessment_type_html,
+          evaluation_html: rawData.evaluation_html,
+          other_involved_subjects_text: rawData.other_involved_subjects_text,
+          export_specific_annotations_html: rawData.export_specific_annotations_html,
         } as UDA; // Asserisci il tipo finale a UDA
         
         // Se i contenuti non erano presenti in rawData o erano vuoti (anche dopo il tentativo di processarli),
@@ -75,7 +91,7 @@ export const useUdaStore = defineStore('uda', {
       }
     },
 
-    async createUda(udaData: Partial<Omit<UDA, 'id' | 'teacher' | 'created_at' | 'updated_at' | 'contents' | 'topics' | 'subject' | 'subjects' | 'course' >> & { topics?: number[], subject_ids?: number[], course_id?: number | null, order_in_course?: number | null, knowledge_html?: string | null, skills_html?: string | null, competences_html?: string | null }) : Promise<UDA | undefined> {
+    async createUda(udaData: Partial<Omit<UDA, 'id' | 'teacher' | 'created_at' | 'updated_at' | 'contents' | 'topics' | 'subject' | 'subjects' | 'course' >> & { topics?: number[], subject_ids?: number[], course_id?: number | null, order_in_course?: number | null, knowledge_html?: string | null, skills_html?: string | null, competences_html?: string | null, is_civic_education?: boolean, didactic_strategies_html?: string | null, materials_tools_html?: string | null, assessment_type_html?: string | null, evaluation_html?: string | null, other_involved_subjects_text?: string | null, export_specific_annotations_html?: string | null }) : Promise<UDA | undefined> {
       this.loading = true;
       this.error = null;
       try {
@@ -111,7 +127,7 @@ export const useUdaStore = defineStore('uda', {
       }
     },
 
-    async updateUda(udaId: number, udaData: Partial<Omit<UDA, 'id' | 'teacher' | 'created_at' | 'updated_at' | 'contents' | 'topics' | 'subject' | 'subjects' | 'course'>> & { topics?: number[], subject_ids?: number[], course_id?: number | null, knowledge_html?: string | null, skills_html?: string | null, competences_html?: string | null }): Promise<UDA | undefined> {
+    async updateUda(udaId: number, udaData: Partial<Omit<UDA, 'id' | 'teacher' | 'created_at' | 'updated_at' | 'contents' | 'topics' | 'subject' | 'subjects' | 'course'>> & { topics?: number[], subject_ids?: number[], course_id?: number | null, knowledge_html?: string | null, skills_html?: string | null, competences_html?: string | null, is_civic_education?: boolean, didactic_strategies_html?: string | null, materials_tools_html?: string | null, assessment_type_html?: string | null, evaluation_html?: string | null, other_involved_subjects_text?: string | null, export_specific_annotations_html?: string | null }): Promise<UDA | undefined> {
       this.loading = true;
       this.error = null;
       try {

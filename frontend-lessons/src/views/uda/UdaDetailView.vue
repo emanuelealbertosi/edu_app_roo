@@ -47,6 +47,62 @@
         />
       </div>
 
+      <!-- Sezioni per i campi di esportazione DOCX -->
+      <div class="export-specific-sections my-6 flex flex-wrap gap-4 items-start">
+        <CollapsibleEditableSection
+          title="Strategie Didattiche"
+          :initial-content-html="uda.didactic_strategies_html"
+          border-style-class="border-yellow-500 border-2 rounded-md"
+          @save="handleSaveDidacticStrategies"
+          class="flex-1 min-w-[300px]"
+        />
+        <CollapsibleEditableSection
+          title="Materiali e Strumenti"
+          :initial-content-html="uda.materials_tools_html"
+          border-style-class="border-yellow-500 border-2 rounded-md"
+          @save="handleSaveMaterialsTools"
+          class="flex-1 min-w-[300px]"
+        />
+        <CollapsibleEditableSection
+          title="Tipo di Verifiche"
+          :initial-content-html="uda.assessment_type_html"
+          border-style-class="border-yellow-500 border-2 rounded-md"
+          @save="handleSaveAssessmentType"
+          class="flex-1 min-w-[300px]"
+        />
+      </div>
+      <div class="export-specific-sections my-6 flex flex-wrap gap-4 items-start">
+        <CollapsibleEditableSection
+          title="Valutazione"
+          :initial-content-html="uda.evaluation_html"
+          border-style-class="border-orange-500 border-2 rounded-md"
+          @save="handleSaveEvaluation"
+          class="flex-1 min_w-[300px]"
+        />
+        <CollapsibleEditableSection
+          title="Annotazioni Specifiche"
+          :initial-content-html="uda.export_specific_annotations_html"
+          border-style-class="border-orange-500 border-2 rounded-md"
+          @save="handleSaveExportAnnotations"
+          class="flex-1 min-w-[300px]"
+        />
+        <!-- Sezione per campi non HTML -->
+        <div class="flex-1 min-w-[300px] p-4 border border-gray-300 rounded-md bg-gray-50 space-y-2">
+          <h3 class="text-md font-semibold text-gray-700">Dati Aggiuntivi UDA</h3>
+          <div>
+            <strong class="text-gray-800">Educazione Civica:</strong>
+            <span class="ml-1">{{ uda.is_civic_education ? 'Sì' : 'No' }}</span>
+            <!-- Potrebbe avere un piccolo toggle/bottone per modificarlo rapidamente se necessario -->
+          </div>
+          <div>
+            <strong class="text-gray-800">Altre Discipline Coinvolte:</strong>
+            <p class="text-gray-600 whitespace-pre-wrap mt-1">{{ uda.other_involved_subjects_text || 'N/D' }}</p>
+            <!-- Anche questo potrebbe avere un modo per modificarlo rapidamente -->
+          </div>
+        </div>
+      </div>
+
+
       <!-- Riga Metadati Compatti -->
       <div class="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-gray-600 mb-6 border-t border-b py-4">
         <div>
@@ -81,11 +137,15 @@
         </div>
          <div v-if="subjectNames">
           <strong class="text-gray-800">Materie:</strong>
-          <span class="ml-1">{{ subjectNames }}</span>
+          <router-link :to="{ name: 'uda-edit', params: { id: udaId }, hash: '#subjects-section' }" class="ml-1 text-indigo-600 hover:text-indigo-800 hover:underline" title="Modifica Materie">
+            {{ subjectNames }}
+          </router-link>
         </div>
          <div v-if="topicNames">
           <strong class="text-gray-800">Argomenti:</strong>
-          <span class="ml-1">{{ topicNames }}</span>
+          <router-link :to="{ name: 'uda-edit', params: { id: udaId }, hash: '#topics-section' }" class="ml-1 text-indigo-600 hover:text-indigo-800 hover:underline" title="Modifica Argomenti">
+            {{ topicNames }}
+          </router-link>
         </div>
       </div>
 
@@ -444,6 +504,66 @@ const handleSaveCompetences = async (newHtml: string) => {
       uiStore.addNotification({ message: 'Competenze aggiornate!', type: 'success' });
     } catch (e) {
       uiStore.addNotification({ message: `Errore aggiornamento Competenze: ${(e as Error).message}`, type: 'error' });
+      throw e;
+    }
+  }
+};
+
+const handleSaveDidacticStrategies = async (newHtml: string) => {
+  if (uda.value?.id) {
+    try {
+      await udaStore.updateUda(uda.value.id, { didactic_strategies_html: newHtml });
+      uiStore.addNotification({ message: 'Strategie Didattiche (Export) aggiornate!', type: 'success' });
+    } catch (e) {
+      uiStore.addNotification({ message: `Errore aggiornamento Strategie Didattiche: ${(e as Error).message}`, type: 'error' });
+      throw e;
+    }
+  }
+};
+
+const handleSaveMaterialsTools = async (newHtml: string) => {
+  if (uda.value?.id) {
+    try {
+      await udaStore.updateUda(uda.value.id, { materials_tools_html: newHtml });
+      uiStore.addNotification({ message: 'Materiali e Strumenti (Export) aggiornati!', type: 'success' });
+    } catch (e) {
+      uiStore.addNotification({ message: `Errore aggiornamento Materiali e Strumenti: ${(e as Error).message}`, type: 'error' });
+      throw e;
+    }
+  }
+};
+
+const handleSaveAssessmentType = async (newHtml: string) => {
+  if (uda.value?.id) {
+    try {
+      await udaStore.updateUda(uda.value.id, { assessment_type_html: newHtml });
+      uiStore.addNotification({ message: 'Tipo di Verifiche (Export) aggiornato!', type: 'success' });
+    } catch (e) {
+      uiStore.addNotification({ message: `Errore aggiornamento Tipo di Verifiche: ${(e as Error).message}`, type: 'error' });
+      throw e;
+    }
+  }
+};
+
+const handleSaveEvaluation = async (newHtml: string) => {
+  if (uda.value?.id) {
+    try {
+      await udaStore.updateUda(uda.value.id, { evaluation_html: newHtml });
+      uiStore.addNotification({ message: 'Valutazione (Export) aggiornata!', type: 'success' });
+    } catch (e) {
+      uiStore.addNotification({ message: `Errore aggiornamento Valutazione: ${(e as Error).message}`, type: 'error' });
+      throw e;
+    }
+  }
+};
+
+const handleSaveExportAnnotations = async (newHtml: string) => {
+  if (uda.value?.id) {
+    try {
+      await udaStore.updateUda(uda.value.id, { export_specific_annotations_html: newHtml });
+      uiStore.addNotification({ message: 'Annotazioni Specifiche (Export) aggiornate!', type: 'success' });
+    } catch (e) {
+      uiStore.addNotification({ message: `Errore aggiornamento Annotazioni Specifiche: ${(e as Error).message}`, type: 'error' });
       throw e;
     }
   }

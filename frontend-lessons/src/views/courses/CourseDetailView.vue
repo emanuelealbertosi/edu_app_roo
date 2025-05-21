@@ -43,7 +43,61 @@
         <div class="bg-sky-100 p-4 rounded-md mb-6 flex justify-between items-center border border-sky-200">
           <h2 class="text-xl font-semibold text-sky-800">Unità Didattiche di Apprendimento (UDA)</h2>
           <div class="flex space-x-2">
-             <!-- Pulsanti stile adattato per contrasto -->
+            <!-- Pulsante Esporta con Dropdown -->
+            <div class="relative inline-block text-left">
+              <div>
+                <button
+                  @click="toggleExportMenu"
+                  :disabled="exportingFile"
+                  type="button"
+                  class="px-4 py-2 bg-white text-purple-700 border border-purple-300 rounded-md shadow-sm hover:bg-purple-50 transition duration-150 ease-in-out font-medium flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
+                  id="export-menu-button"
+                  aria-expanded="true"
+                  aria-haspopup="true"
+                >
+                  <DocumentArrowDownIcon class="h-5 w-5 mr-2" />
+                  <span v-if="exportingFile">Esportazione...</span>
+                  <span v-else>Esporta</span>
+                  <ChevronDownIcon class="h-5 w-5 ml-2 -mr-1" aria-hidden="true" />
+                </button>
+              </div>
+
+              <div
+                v-if="showExportMenu"
+                @clickaway="closeExportMenu"
+                class="origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-10"
+                role="menu"
+                aria-orientation="vertical"
+                aria-labelledby="export-menu-button"
+                tabindex="-1"
+              >
+                <div class="py-1" role="none">
+                  <a
+                    href="#"
+                    @click.prevent="handleExportUdas('docx')"
+                    class="text-gray-700 block px-4 py-2 text-sm hover:bg-gray-100 hover:text-gray-900"
+                    role="menuitem"
+                    tabindex="-1"
+                    id="export-menu-item-0"
+                  >
+                    Esporta come DOCX
+                  </a>
+                  <a
+                    href="#"
+                    @click.prevent="handleExportUdas('pdf')"
+                    class="text-gray-700 block px-4 py-2 text-sm hover:bg-gray-100 hover:text-gray-900"
+                    role="menuitem"
+                    tabindex="-1"
+                    id="export-menu-item-1"
+                  >
+                    Esporta come PDF
+                  </a>
+                </div>
+              </div>
+            </div>
+            <!-- Fine Pulsante Esporta con Dropdown -->
+            
+            <!-- Pulsanti stile adattato per contrasto -->
             <button
               @click="openAssignExistingUdaModal"
               class="px-4 py-2 bg-white text-teal-700 border border-teal-300 rounded-md shadow-sm hover:bg-teal-50 transition duration-150 ease-in-out font-medium flex items-center"
@@ -75,9 +129,13 @@
                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Titolo</th>
                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Descrizione</th>
                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stato</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Creato da (UDA)</th>
                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Argomenti</th>
                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Materie</th>
                 <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Contenuti</th>
+                <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">N. Lez.</th>
+                <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Ore Lez.</th>
+                <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Ore Stimate Tot.</th>
                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date (Inizio/Fine)</th>
                 <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Azioni</th>
               </tr>
@@ -98,14 +156,26 @@
                 <td class="px-6 py-4 whitespace-nowrap text-sm">
                   <span class="font-medium px-2 py-0.5 rounded-full" :class="getStatusClass(uda.status)">{{ uda.status }}</span>
                 </td>
-                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {{ getTopicNames(uda.topics) || '-' }}
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {{ uda.teacher_username || course.teacher_username || '-' }} <!-- Username del creatore dell'UDA, fallback a quello del corso -->
                 </td>
                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {{ getSubjectNames(uda.subjects) || '-' }}
+                  {{ uda.topics_display?.join(', ') || '-' }}
+                </td>
+                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {{ uda.subjects_display?.join(', ') || '-' }}
                 </td>
                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
                   {{ uda.contents?.length || 0 }}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 text-center">
+                  {{ uda.lesson_count || 0 }}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 text-center">
+                  {{ uda.total_lesson_estimated_hours || '0.0' }}h
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 text-center">
+                  {{ uda.total_estimated_hours || '0.0' }}h
                 </td>
                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                   {{ formatDate(uda.start_date) }} / {{ formatDate(uda.end_date) }}
@@ -187,10 +257,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, defineComponent } from 'vue'; // defineComponent non strettamente necessario qui ma buona pratica
 import { useRoute, RouterLink, useRouter } from 'vue-router'; // Aggiunto useRouter
 import { useCourseStore } from '@/stores/courseStore';
-import { PencilIcon, PlusCircleIcon, TrashIcon, ArrowUpIcon, ArrowDownIcon, DocumentDuplicateIcon, LinkIcon } from '@heroicons/vue/24/outline'; // Aggiunto DocumentDuplicateIcon, LinkIcon
+import { PencilIcon, PlusCircleIcon, TrashIcon, ArrowUpIcon, ArrowDownIcon, DocumentDuplicateIcon, LinkIcon, DocumentArrowDownIcon, ChevronDownIcon } from '@heroicons/vue/24/outline'; // Aggiunto ChevronDownIcon
+import { directive as onClickaway } from 'vue3-click-away'; // Per chiudere il menu cliccando fuori
 import { useUdaStore } from '@/stores/udaStore';
 import { useUiStore } from '@/stores/ui'; // Importa uiStore per le notifiche/conferme
 import { useTopicStore } from '@/stores/topicStore'; // Importa store argomenti
@@ -212,6 +283,8 @@ const courseId = computed(() => Number(route.params.id));
 const pageLoading = ref(true); // Loading generale per la pagina (dettagli corso)
 const pageError = ref<string | null>(null);
 const udasLoading = ref(false); // Loading specifico per le UDA
+const exportingFile = ref(false); // Stato generico per l'esportazione
+const showExportMenu = ref(false); // Stato per la visibilità del menu di esportazione
 
 const course = computed(() => courseStore.currentCourse);
 const udas = computed(() => courseStore.udasForCurrentCourse); // Queste sono le UDA già filtrate per il corso dallo store
@@ -342,6 +415,9 @@ const formatDate = (dateString?: string | null) => {
   }
 };
 
+// getTopicNames e getSubjectNames non sono più strettamente necessari se topics_display e subjects_display sono usati direttamente.
+// Li lascio commentati per riferimento futuro o se si volesse una logica di fallback più complessa.
+/*
 const getTopicNames = (topicIds?: number[]): string => {
   if (!topicIds || topicIds.length === 0) return '';
   return topicIds.map(id => topicStore.getTopicById(id)?.name || `ID:${id}`).join(', ');
@@ -349,9 +425,9 @@ const getTopicNames = (topicIds?: number[]): string => {
 
 const getSubjectNames = (subjectIds?: number[]): string => {
   if (!subjectIds || subjectIds.length === 0) return '';
-  // Assumendo che le UDA abbiano un array di ID materia
   return subjectIds.map(id => subjectStore.getSubjectById(id)?.name || `ID:${id}`).join(', ');
 };
+*/
 
 const handleCopyUda = async (udaIdToCopy: number, udaTitle: string) => {
   uiStore.addNotification({ message: `Copia dell'UDA "${udaTitle}" in corso...`, type: 'info' });
@@ -372,6 +448,35 @@ const handleCopyUda = async (udaIdToCopy: number, udaTitle: string) => {
   }
 };
 
+const toggleExportMenu = () => {
+  showExportMenu.value = !showExportMenu.value;
+};
+
+const closeExportMenu = () => {
+  showExportMenu.value = false;
+};
+
+const handleExportUdas = async (format: 'docx' | 'pdf') => {
+  closeExportMenu(); // Chiudi il menu dopo la selezione
+  if (!courseId.value) {
+    uiStore.addNotification({ message: 'ID del corso non valido per l\'esportazione.', type: 'error' });
+    return;
+  }
+  exportingFile.value = true;
+  const formatUpper = format.toUpperCase();
+  uiStore.addNotification({ message: `Esportazione UDA in formato ${formatUpper} in corso...`, type: 'info' });
+  try {
+    // Assumiamo che esista una funzione exportUdas nello store che accetta il formato
+    await courseStore.exportUdas(courseId.value, format);
+    // Potremmo non avere una notifica di successo qui se il download è gestito dal browser
+  } catch (error) {
+    console.error(`Errore durante l'esportazione delle UDA in ${formatUpper}:`, error);
+    uiStore.addNotification({ message: `Errore durante l'esportazione in ${formatUpper}: ${(error as Error).message}`, type: 'error' });
+  } finally {
+    exportingFile.value = false;
+  }
+};
+
 onMounted(async () => {
   pageLoading.value = true;
   pageError.value = null;
@@ -381,16 +486,16 @@ onMounted(async () => {
     try {
       // Carica materie e argomenti in parallelo con il corso
       await Promise.all([
-        courseStore.fetchCourse(courseId.value),
-        subjectStore.fetchSubjects(), // Assicurati che siano caricate
-        topicStore.fetchTopics()      // Assicurati che siano caricate
+        courseStore.fetchCourse(courseId.value), // Questo dovrebbe popolare course.teacher_username
+        subjectStore.fetchSubjects(),
+        topicStore.fetchTopics()
       ]);
 
       // Se fetchCourse ha successo e currentCourse è settato, allora carica le UDA
+      // Le UDA caricate da fetchUdasForCourse dovrebbero includere teacher_username se il serializer lo fornisce
       if (courseStore.currentCourse) {
          await courseStore.fetchUdasForCourse(courseId.value);
       } else {
-        // Se currentCourse non è settato dopo fetchCourse, il corso non esiste
         pageError.value = 'Corso non trovato.';
       }
     } catch (err) {

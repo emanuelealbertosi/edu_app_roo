@@ -140,6 +140,18 @@ export const useCourseStore = defineStore('course', {
         } finally {
             this.loading = false;
         }
+    },
+    async exportUdas(courseId: number, format: 'docx' | 'pdf'): Promise<void> {
+      // Non impostiamo loading/error qui perché il servizio gestirà il download
+      // e non c'è uno stato specifico dello store da aggiornare con il risultato diretto.
+      // Eventuali errori verranno gestiti dal chiamante (il componente).
+      try {
+        await courseService.exportUdas(courseId, format); // Chiama la nuova funzione del servizio
+        // Il download del file è gestito dal browser tramite il servizio.
+      } catch (err) {
+        console.error(`[courseStore] Failed to trigger ${format.toUpperCase()} export for course ${courseId}:`, err);
+        throw err; // Rilancia l'errore in modo che il componente possa gestirlo
+      }
     }
   },
   getters: {

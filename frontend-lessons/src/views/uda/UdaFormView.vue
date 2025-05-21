@@ -61,7 +61,7 @@
             <div v-if="courseStore.loading" class="text-xs text-gray-500 mt-1">Caricamento corsi...</div>
           </div>
           
-          <div class="lg:col-span-1">
+          <div class="lg:col-span-1" id="subjects-section">
             <label class="block text-sm font-medium text-gray-700 mb-1">Materie (Opzionale)</label>
             <div v-if="subjectStore.loading" class="text-sm text-gray-500">Caricamento materie...</div>
             <div v-else-if="availableSubjects.length === 0" class="text-sm text-gray-500">Nessuna materia disponibile.</div>
@@ -79,7 +79,7 @@
             </div>
           </div>
 
-          <div v-if="formData.subjects.length > 0" class="lg:col-span-1">
+          <div v-if="formData.subjects.length > 0" class="lg:col-span-1" id="topics-section">
             <label for="topics" class="block text-sm font-medium text-gray-700 mb-1">Argomenti (Opzionale)</label>
             <div v-if="topicStore.loading" class="text-sm text-gray-500">Caricamento argomenti...</div>
             <div v-else-if="availableTopicsForSelectedSubject.length === 0" class="text-sm text-gray-500">
@@ -119,6 +119,45 @@
               v-model="competencesHtmlForEditor"
               :editable="true"
             />
+          </div>
+        </div>
+
+        <!-- Campi per Export DOCX -->
+        <div class="bg-yellow-50 border border-yellow-300 rounded-lg p-6 space-y-6 shadow-sm mt-6">
+          <h2 class="text-xl font-semibold text-neutral-darkest bg-yellow-200 p-3 rounded-t-md mb-4 shadow-sm">Dati per Esportazione Documento Ministeriale</h2>
+          
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+            <div class="flex items-center">
+              <input type="checkbox" id="isCivicEducation" v-model="formData.is_civic_education" class="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
+              <label for="isCivicEducation" class="ml-2 block text-sm font-medium text-gray-700">Parte del percorso di Educazione Civica</label>
+            </div>
+          </div>
+
+          <div class="space-y-4">
+            <div>
+              <label for="didacticStrategiesHtml" class="block text-sm font-medium text-gray-700 mb-1">Strategie Didattiche</label>
+              <WysiwygEditor id="didacticStrategiesHtml" v-model="didacticStrategiesHtmlForEditor" :editable="true" />
+            </div>
+            <div>
+              <label for="materialsToolsHtml" class="block text-sm font-medium text-gray-700 mb-1">Materiali e Strumenti</label>
+              <WysiwygEditor id="materialsToolsHtml" v-model="materialsToolsHtmlForEditor" :editable="true" />
+            </div>
+            <div>
+              <label for="assessmentTypeHtml" class="block text-sm font-medium text-gray-700 mb-1">Tipo di Verifiche</label>
+              <WysiwygEditor id="assessmentTypeHtml" v-model="assessmentTypeHtmlForEditor" :editable="true" />
+            </div>
+            <div>
+              <label for="evaluationHtml" class="block text-sm font-medium text-gray-700 mb-1">Valutazione</label>
+              <WysiwygEditor id="evaluationHtml" v-model="evaluationHtmlForEditor" :editable="true" />
+            </div>
+            <div>
+              <label for="otherInvolvedSubjectsText" class="block text-sm font-medium text-gray-700 mb-1">Altre Discipline Coinvolte (Testo Libero)</label>
+              <textarea id="otherInvolvedSubjectsText" v-model="formData.other_involved_subjects_text" rows="3" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2"></textarea>
+            </div>
+            <div>
+              <label for="exportSpecificAnnotationsHtml" class="block text-sm font-medium text-gray-700 mb-1">Annotazioni Specifiche per Export</label>
+              <WysiwygEditor id="exportSpecificAnnotationsHtml" v-model="exportSpecificAnnotationsHtmlForEditor" :editable="true" />
+            </div>
           </div>
         </div>
       </div>
@@ -176,6 +215,14 @@ interface UdaFormData {
   knowledge_html: string | null; // Aggiunto
   skills_html: string | null;    // Aggiunto
   competences_html: string | null; // Aggiunto
+  // Campi per Export DOCX
+  is_civic_education: boolean;
+  didactic_strategies_html: string | null;
+  materials_tools_html: string | null;
+  assessment_type_html: string | null;
+  evaluation_html: string | null;
+  other_involved_subjects_text: string | null;
+  export_specific_annotations_html: string | null;
   start_date: string | null;
   end_date: string | null;
   status: UDA['status'];
@@ -192,6 +239,14 @@ interface UdaApiPayload {
   knowledge_html?: string | null; // Aggiunto
   skills_html?: string | null;    // Aggiunto
   competences_html?: string | null; // Aggiunto
+  // Campi per Export DOCX
+  is_civic_education?: boolean;
+  didactic_strategies_html?: string | null;
+  materials_tools_html?: string | null;
+  assessment_type_html?: string | null;
+  evaluation_html?: string | null;
+  other_involved_subjects_text?: string | null;
+  export_specific_annotations_html?: string | null;
   start_date?: string | null;
   end_date?: string | null;
   status: UDA['status'];
@@ -237,6 +292,14 @@ const formData = ref<UdaFormData>({
   knowledge_html: null,
   skills_html: null,
   competences_html: null,
+  // Campi per Export DOCX
+  is_civic_education: false,
+  didactic_strategies_html: null,
+  materials_tools_html: null,
+  assessment_type_html: null,
+  evaluation_html: null,
+  other_involved_subjects_text: null,
+  export_specific_annotations_html: null,
   start_date: null,
   end_date: null,
   status: 'TODO',
@@ -290,6 +353,31 @@ const competencesHtmlForEditor = computed({
   set: (val) => { formData.value.competences_html = val || null; }
 });
 
+const didacticStrategiesHtmlForEditor = computed({
+  get: () => formData.value.didactic_strategies_html || undefined,
+  set: (val) => { formData.value.didactic_strategies_html = val || null; }
+});
+
+const materialsToolsHtmlForEditor = computed({
+  get: () => formData.value.materials_tools_html || undefined,
+  set: (val) => { formData.value.materials_tools_html = val || null; }
+});
+
+const assessmentTypeHtmlForEditor = computed({
+  get: () => formData.value.assessment_type_html || undefined,
+  set: (val) => { formData.value.assessment_type_html = val || null; }
+});
+
+const evaluationHtmlForEditor = computed({
+  get: () => formData.value.evaluation_html || undefined,
+  set: (val) => { formData.value.evaluation_html = val || null; }
+});
+
+const exportSpecificAnnotationsHtmlForEditor = computed({
+  get: () => formData.value.export_specific_annotations_html || undefined,
+  set: (val) => { formData.value.export_specific_annotations_html = val || null; }
+});
+
 
 // Non sono più necessari i watch per sincronizzare formData.topics/subjects con selectedTopicIds/selectedSubjectIds
 // perché usiamo formData.topics/subjects direttamente come v-model.
@@ -324,6 +412,14 @@ onMounted(async () => {
         formData.value.knowledge_html = udaToEdit.knowledge_html || null;
         formData.value.skills_html = udaToEdit.skills_html || null;
         formData.value.competences_html = udaToEdit.competences_html || null;
+        // Campi per Export DOCX
+        formData.value.is_civic_education = udaToEdit.is_civic_education || false;
+        formData.value.didactic_strategies_html = udaToEdit.didactic_strategies_html || null;
+        formData.value.materials_tools_html = udaToEdit.materials_tools_html || null;
+        formData.value.assessment_type_html = udaToEdit.assessment_type_html || null;
+        formData.value.evaluation_html = udaToEdit.evaluation_html || null;
+        formData.value.other_involved_subjects_text = udaToEdit.other_involved_subjects_text || null;
+        formData.value.export_specific_annotations_html = udaToEdit.export_specific_annotations_html || null;
         formData.value.start_date = udaToEdit.start_date || null;
         formData.value.end_date = udaToEdit.end_date || null;
         formData.value.status = udaToEdit.status;
@@ -370,6 +466,14 @@ const handleSubmit = async () => {
     knowledge_html: formData.value.knowledge_html || undefined,
     skills_html: formData.value.skills_html || undefined,
     competences_html: formData.value.competences_html || undefined,
+    // Campi per Export DOCX
+    is_civic_education: formData.value.is_civic_education,
+    didactic_strategies_html: formData.value.didactic_strategies_html || undefined,
+    materials_tools_html: formData.value.materials_tools_html || undefined,
+    assessment_type_html: formData.value.assessment_type_html || undefined,
+    evaluation_html: formData.value.evaluation_html || undefined,
+    other_involved_subjects_text: formData.value.other_involved_subjects_text || undefined,
+    export_specific_annotations_html: formData.value.export_specific_annotations_html || undefined,
     start_date: formData.value.start_date || undefined,
     end_date: formData.value.end_date || undefined,
     status: formData.value.status,
