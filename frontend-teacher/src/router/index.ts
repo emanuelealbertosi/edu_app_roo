@@ -9,8 +9,8 @@ const router = createRouter({
     {
       path: '/',
       name: 'root', // Nome per la rotta root
-      component: () => import('../views/LoginView.vue'), // Mostra LoginView per default a '/'
-      meta: { requiresGuest: true } // Marca anche la root come "guest"
+      component: () => import('../views/DashboardView.vue'), // Mostra DashboardView per default a '/'
+      meta: { requiresAuth: true } // Richiede autenticazione
     },
     {
       path: '/docenti/login', // Aggiornato il path per corrispondere a Nginx
@@ -22,20 +22,13 @@ const router = createRouter({
         // Usa lo store condiviso anche qui
         const sharedAuth = useSharedAuthStore();
         if (sharedAuth.isAuthenticated) {
-          console.log('Login Route Guard (Teacher): Shared user authenticated, redirecting to landing.');
-          // Se l'utente è già loggato (da studente o teacher), mandalo a /landing
-          next({ name: 'landing' });
+          console.log('Login Route Guard (Teacher): Shared user authenticated, redirecting to dashboard.');
+          // Se l'utente è già loggato (da studente o teacher), mandalo a /dashboard
+          next({ name: 'dashboard' });
         } else {
           next(); // Proceed to teacher login page
         }
       }
-    },
-    {
-      // Rotta per la Landing Page post-login
-      path: '/landing',
-      name: 'landing',
-      component: () => import('../views/LandingView.vue'),
-      meta: { requiresAuth: true } // Richiede autenticazione
     },
     {
       // Define the dashboard route separately now
@@ -250,6 +243,37 @@ const router = createRouter({
       name: 'profile',
       component: () => import('../views/ProfileView.vue'),
       meta: { requiresAuth: true }
+    },
+    // --- Rotte per Contenuti Embedded da frontend-lessons ---
+    {
+      path: '/gestione/materie',
+      name: 'EmbeddedTeacherSubjects',
+      component: () => import('../views/embedded/EmbeddedTeacherSubjectsView.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/gestione/argomenti',
+      name: 'EmbeddedTeacherTopics',
+      component: () => import('../views/embedded/EmbeddedTeacherTopicsView.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/gestione/lezioni',
+      name: 'EmbeddedTeacherLessonsList',
+      component: () => import('../views/embedded/EmbeddedTeacherLessonsListView.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/gestione/corsi',
+      name: 'EmbeddedTeacherCourses',
+      component: () => import('../views/embedded/EmbeddedTeacherCoursesView.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/gestione/uda',
+      name: 'EmbeddedTeacherUdas',
+      component: () => import('../views/embedded/EmbeddedTeacherUdasView.vue'),
+      meta: { requiresAuth: true }
     }
     // Add other teacher routes here later (e.g., student-progress-detail)
   ]
@@ -274,19 +298,16 @@ router.beforeEach(async (to, from, next) => {
       const allowedRoles = ['TEACHER', 'ADMIN'];
       const isTeacherOrAdmin = userRole && allowedRoles.includes(userRole);
 
-      if (to.name === 'landing') {
-         // Chiunque sia autenticato può accedere a /landing
-         console.log('[Teacher Router Guard] Accessing landing page (authenticated). Allowing.');
-         next();
-      } else if (isTeacherOrAdmin) {
+      // Rimosso il controllo specifico per to.name === 'landing'
+      if (isTeacherOrAdmin) {
          // Utente Teacher/Admin che accede ad altre rotte protette del teacher
          console.log('[Teacher Router Guard] Teacher/Admin accessing protected route. Allowing.');
          // Qui potresti aggiungere la verifica del token se necessaria (try/catch con fetchUserProfile)
          next();
       } else {
-         // Utente autenticato ma NON Teacher/Admin (es. Studente) che tenta di accedere a rotte teacher diverse da /landing
-         console.warn(`[Teacher Router Guard] Authenticated user with role '${userRole}' tried to access teacher route '${String(to.name)}'. Redirecting to landing.`);
-         next({ name: 'landing' }); // Rimanda alla landing page
+         // Utente autenticato ma NON Teacher/Admin (es. Studente) che tenta di accedere a rotte teacher
+         console.warn(`[Teacher Router Guard] Authenticated user with role '${userRole}' tried to access teacher route '${String(to.name)}'. Redirecting to dashboard.`);
+         next({ name: 'dashboard' }); // Rimanda alla dashboard
       }
     } else {
       // Utente non autenticato che tenta di accedere a una rotta protetta
@@ -296,8 +317,8 @@ router.beforeEach(async (to, from, next) => {
   } else if (requiresGuest) {
       if (isAuthenticated) {
         // Utente autenticato tenta di accedere a rotta guest (login teacher)
-        console.log('[Teacher Router Guard] Guest required, but user is authenticated. Redirecting to landing.');
-        next({ name: 'landing' }); // Mandalo alla landing page
+        console.log('[Teacher Router Guard] Guest required, but user is authenticated. Redirecting to dashboard.');
+        next({ name: 'dashboard' }); // Mandalo alla dashboard
       } else {
         // Utente non autenticato su rotta guest, procedi
         next();

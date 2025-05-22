@@ -22,12 +22,17 @@ import {
   InboxArrowDownIcon, // Consegne (Delivery)
   ChartBarIcon, // Progressi
   UserCircleIcon, // Profilo
-  BookOpenIcon, // Lezioni (Link esterno)
+  BookOpenIcon, // Icona generica, usata come fallback o per altre sezioni
   ArrowLeftOnRectangleIcon, // Logout
   BellIcon, // Notifiche
   Bars3Icon, // Icona Hamburger per menu mobile
   XMarkIcon, // Icona per chiudere menu mobile
-  MagnifyingGlassIcon // Icona per Sfoglia Gruppi
+  MagnifyingGlassIcon, // Icona per Sfoglia Gruppi
+  TagIcon, // Per Materie
+  LightBulbIcon, // Per Argomenti
+  AcademicCapIcon, // Per Lezioni (già importata, ma la confermo qui per chiarezza)
+  FolderIcon, // Per Corsi
+  PuzzlePieceIcon // Per UDA
 } from '@heroicons/vue/24/outline';
 
 const authStore = useAuthStore(); // Mantenuto per azione logout specifica
@@ -357,12 +362,40 @@ onMounted(async () => {
               <span class="ml-3 text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Progressi</span>
             </router-link>
           </li>
-          <!-- Lezioni (Link Esterno) -->
+
+          <!-- Sezione Gestione Didattica -->
+          <li class="mt-4 mb-1 px-2">
+            <span class="text-xs font-semibold text-neutral-400 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Gestione Didattica</span>
+          </li>
           <li class="mb-2">
-            <a :href="lessonsAppUrl" class="flex items-center p-2 rounded hover:bg-secondary-light">
-              <BookOpenIcon class="h-5 w-5 flex-shrink-0" />
+            <router-link :to="{ name: 'EmbeddedTeacherSubjects' }" class="flex items-center p-2 rounded hover:bg-secondary-light">
+              <TagIcon class="h-5 w-5 flex-shrink-0" />
+              <span class="ml-3 text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Materie</span>
+            </router-link>
+          </li>
+          <li class="mb-2">
+            <router-link :to="{ name: 'EmbeddedTeacherTopics' }" class="flex items-center p-2 rounded hover:bg-secondary-light">
+              <LightBulbIcon class="h-5 w-5 flex-shrink-0" />
+              <span class="ml-3 text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Argomenti</span>
+            </router-link>
+          </li>
+          <li class="mb-2">
+            <router-link :to="{ name: 'EmbeddedTeacherLessonsList' }" class="flex items-center p-2 rounded hover:bg-secondary-light">
+              <AcademicCapIcon class="h-5 w-5 flex-shrink-0" />
               <span class="ml-3 text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Lezioni</span>
-            </a>
+            </router-link>
+          </li>
+          <li class="mb-2">
+            <router-link :to="{ name: 'EmbeddedTeacherCourses' }" class="flex items-center p-2 rounded hover:bg-secondary-light">
+              <FolderIcon class="h-5 w-5 flex-shrink-0" />
+              <span class="ml-3 text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Corsi</span>
+            </router-link>
+          </li>
+          <li class="mb-2">
+            <router-link :to="{ name: 'EmbeddedTeacherUdas' }" class="flex items-center p-2 rounded hover:bg-secondary-light">
+              <PuzzlePieceIcon class="h-5 w-5 flex-shrink-0" />
+              <span class="ml-3 text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">UDA</span>
+            </router-link>
           </li>
         </ul>
       </nav>
@@ -484,12 +517,40 @@ onMounted(async () => {
                 <span class="ml-3 text-sm">Progressi</span>
               </router-link>
             </li>
-            <!-- Lezioni (Link Esterno) -->
+
+            <!-- Sezione Gestione Didattica -->
+            <li class="mt-4 mb-1 px-2">
+              <span class="text-xs font-semibold text-neutral-400">Gestione Didattica</span>
+            </li>
             <li class="mb-2">
-              <a :href="lessonsAppUrl" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-secondary-light">
-                <BookOpenIcon class="h-5 w-5 flex-shrink-0" />
+              <router-link :to="{ name: 'EmbeddedTeacherSubjects' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-secondary-light">
+                <TagIcon class="h-5 w-5 flex-shrink-0" />
+                <span class="ml-3 text-sm">Materie</span>
+              </router-link>
+            </li>
+            <li class="mb-2">
+              <router-link :to="{ name: 'EmbeddedTeacherTopics' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-secondary-light">
+                <LightBulbIcon class="h-5 w-5 flex-shrink-0" />
+                <span class="ml-3 text-sm">Argomenti</span>
+              </router-link>
+            </li>
+            <li class="mb-2">
+              <router-link :to="{ name: 'EmbeddedTeacherLessonsList' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-secondary-light">
+                <AcademicCapIcon class="h-5 w-5 flex-shrink-0" />
                 <span class="ml-3 text-sm">Lezioni</span>
-              </a>
+              </router-link>
+            </li>
+            <li class="mb-2">
+              <router-link :to="{ name: 'EmbeddedTeacherCourses' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-secondary-light">
+                <FolderIcon class="h-5 w-5 flex-shrink-0" />
+                <span class="ml-3 text-sm">Corsi</span>
+              </router-link>
+            </li>
+            <li class="mb-2">
+              <router-link :to="{ name: 'EmbeddedTeacherUdas' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-secondary-light">
+                <PuzzlePieceIcon class="h-5 w-5 flex-shrink-0" />
+                <span class="ml-3 text-sm">UDA</span>
+              </router-link>
             </li>
           </ul>
         </nav>

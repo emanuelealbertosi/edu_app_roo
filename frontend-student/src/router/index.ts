@@ -166,6 +166,12 @@ const router = createRouter({
       component: () => import('../views/PrivacyPolicyView.vue'), // Placeholder, usare un componente dedicato
       meta: { requiresGuest: false } // Accessibile a tutti
     },
+    {
+      path: '/visualizza-lezioni',
+      name: 'EmbeddedLessons',
+      component: () => import('../views/EmbeddedLessonsView.vue'),
+      meta: { requiresAuth: true }
+    },
     // Rotta 404 per pagine non trovate
     {
       path: '/:pathMatch(.*)*',

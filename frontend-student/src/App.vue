@@ -311,12 +311,12 @@ onMounted(() => {
               <span class="ml-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Traguardi</span>
             </router-link>
           </li>
-          <!-- Lezioni (Link Esterno) -->
+          <!-- Le Mie Lezioni (incorporate) -->
           <li class="mb-3">
-            <a :href="lessonsAppUrl" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700">
+            <router-link :to="{ name: 'EmbeddedLessons' }" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700">
               <BookOpenIcon class="h-6 w-6 flex-shrink-0" />
-              <span class="ml-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Lezioni</span>
-            </a>
+              <span class="ml-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Le Mie Lezioni</span>
+            </router-link>
           </li>
         </ul>
       </nav>
@@ -378,12 +378,12 @@ onMounted(() => {
                 <span class="ml-3">Traguardi</span>
               </router-link>
             </li>
-            <!-- Lezioni (Link Esterno) -->
+            <!-- Le Mie Lezioni (incorporate) -->
             <li class="mb-3">
-              <a :href="lessonsAppUrl" @click="toggleMobileMenu" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700">
+              <router-link :to="{ name: 'EmbeddedLessons' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700">
                 <BookOpenIcon class="h-6 w-6 flex-shrink-0" />
-                <span class="ml-3">Lezioni</span>
-              </a>
+                <span class="ml-3">Le Mie Lezioni</span>
+              </router-link>
             </li>
           </ul>
         </nav>

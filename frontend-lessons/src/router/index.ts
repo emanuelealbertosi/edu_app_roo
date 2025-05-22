@@ -174,7 +174,20 @@ router.beforeEach(async (to, from, next) => {
   const requiredRoles = to.meta.roles as string[] | undefined;
   const isAuthenticated = sharedAuth.isAuthenticated; // Usa stato condiviso
 
-  console.log(`Guard: To: ${String(to.name)}, From: ${String(from.name)}, Auth: ${isAuthenticated}, Role: ${sharedAuth.userRole}`);
+  console.log(`Guard: To: ${String(to.name)}, From: ${String(from.name)}, Auth: ${isAuthenticated}, Role: ${sharedAuth.userRole}, Query: ${JSON.stringify(to.query)}`);
+
+  // Logica per far persistere il query parameter 'embedded'
+  if (from.query.embedded === 'true' && to.query.embedded !== 'true') {
+    // Se stiamo navigando da una pagina embedded e la destinazione non ha il parametro, aggiungilo.
+    // Questo assicura che il parametro persista durante la navigazione interna all'iframe.
+    // È importante clonare to.query per evitare modifiche dirette che Vue Router potrebbe non gradire.
+    const newQuery = { ...to.query, embedded: 'true' };
+    // Rimpiazza la navigazione con la nuova query.
+    // Usiamo 'replace' per non aggiungere una nuova entry nella history del browser per questo aggiustamento.
+    console.log(`Guard: Persisting 'embedded=true'. Navigating to ${String(to.name)} with query: ${JSON.stringify(newQuery)}`);
+    next({ path: to.path, query: newQuery, replace: true });
+    return; // Interrompi l'esecuzione della guardia qui, la navigazione è stata gestita.
+  }
 
   if (requiresAuth && !isAuthenticated) {
     // Utente non autenticato tenta di accedere a rotta protetta

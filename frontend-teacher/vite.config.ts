@@ -6,7 +6,7 @@ import vue from '@vitejs/plugin-vue'
 // https://vitejs.dev/config/
 export default defineConfig(({ command }) => ({ // Modificato per accedere a 'command'
   envDir: '../', // Cerca i file .env nella directory principale del progetto
-  base: '/', // Imposta sempre la base a '/' sia per build che per dev
+  base: command === 'build' ? '/docenti/' : '/', // Configurazione base aggiornata
   plugins: [
     vue(),
   ],

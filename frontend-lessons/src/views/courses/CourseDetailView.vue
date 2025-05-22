@@ -257,11 +257,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, defineComponent } from 'vue'; // defineComponent non strettamente necessario qui ma buona pratica
+import { ref, onMounted, computed } from 'vue';
 import { useRoute, RouterLink, useRouter } from 'vue-router'; // Aggiunto useRouter
 import { useCourseStore } from '@/stores/courseStore';
 import { PencilIcon, PlusCircleIcon, TrashIcon, ArrowUpIcon, ArrowDownIcon, DocumentDuplicateIcon, LinkIcon, DocumentArrowDownIcon, ChevronDownIcon } from '@heroicons/vue/24/outline'; // Aggiunto ChevronDownIcon
-import { directive as onClickaway } from 'vue3-click-away'; // Per chiudere il menu cliccando fuori
+// import { directive as onClickaway } from 'vue3-click-away'; // Rimosso perché l'alias onClickaway non è usato e @clickaway nel template potrebbe funzionare ugualmente
 import { useUdaStore } from '@/stores/udaStore';
 import { useUiStore } from '@/stores/ui'; // Importa uiStore per le notifiche/conferme
 import { useTopicStore } from '@/stores/topicStore'; // Importa store argomenti
