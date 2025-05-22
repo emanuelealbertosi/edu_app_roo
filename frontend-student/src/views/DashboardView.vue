@@ -117,7 +117,7 @@ const goToShop = () => {
         <div class="bg-white p-6 rounded-lg shadow-md text-center">
           <h2 class="text-xl font-bold text-primary-dark mb-4 flex items-center justify-center"><span class="text-2xl mr-2">🏆</span> Ultimo Traguardo</h2>
           <div v-if="dashboardStore.loading.badges" class="text-sm text-neutral-dark italic py-4">Caricamento traguardi...</div>
-          <AnimatedBadge v-else-if="latestBadge" :badge="latestBadge" class="mx-auto max-w-[theme(spacing.24)] mb-3"/>
+          <AnimatedBadge v-else-if="latestBadge" :badge="latestBadge" class="mx-auto max-w-[theme(spacing.72)] mb-3"/>
           <p v-else class="text-sm text-neutral-dark italic py-4">Nessun traguardo ancora raggiunto.</p>
           <router-link to="/badges" class="block text-sm text-primary hover:underline mt-3">Vedi tutti i traguardi</router-link>
         </div>

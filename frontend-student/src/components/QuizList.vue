@@ -66,7 +66,7 @@ const openDetailsModal = (quizId: number) => {
 };
 const closeDetailsModal = () => {
   isDetailsModalOpen.value = false;
-  setTimeout(() => { selectedQuizIdForDetails.value = null; }, 300);
+  selectedQuizIdForDetails.value = null; // Reset immediato
 };
 
 // Funzioni per modale tentativo (riceve già quizId, corretto)
@@ -79,10 +79,8 @@ const openAttemptModal = (quizId: number, attemptId: number | null = null) => {
 const closeAttemptModal = () => {
   isAttemptModalOpen.value = false;
   // Potremmo voler ricaricare i dati della dashboard qui se l'utente chiude a metà
-  setTimeout(() => {
-    quizIdForAttempt.value = null;
-    attemptIdToContinue.value = null; // Ripristinato: Resetta anche l'ID del tentativo
-  }, 300);
+  quizIdForAttempt.value = null; // Reset immediato
+  attemptIdToContinue.value = null; // Ripristinato: Resetta anche l'ID del tentativo // Reset immediato
 };
 
 // Gestisce l'avvio DALLA MODALE DETTAGLI (riceve già quizId, corretto)
@@ -108,7 +106,7 @@ const handleAttemptCompleted = (attemptId: number) => {
 // Funzione per chiudere la modale dei risultati
 const closeResultModal = () => {
   isResultModalOpen.value = false;
-  setTimeout(() => { attemptIdForResult.value = null; }, 300); // Ritarda reset per animazione
+  attemptIdForResult.value = null; // Reset immediato
 };
 
 
@@ -277,29 +275,38 @@ onMounted(() => {
         class="quiz-item bg-white rounded-lg shadow-md overflow-hidden flex flex-col"
       >
         <!-- Contenuto principale della card -->
-        <div class="p-5 flex-grow">
-          <h3 class="text-lg font-semibold text-gray-800 mb-2">{{ attempt.title }}</h3>
-          
-          <!-- Metadati: Materia, Argomento, Docente -->
-          <div class="text-sm text-gray-600 mb-2">
-            <p v-if="attempt.subject_name"><strong>Materia:</strong> {{ attempt.subject_name }}</p>
-            <p v-if="attempt.topic_name"><strong>Argomento:</strong> {{ attempt.topic_name }}</p>
-            <p>
-                <strong>Docente:</strong>
-                {{ attempt.teacher_first_name || '' }} {{ attempt.teacher_last_name || '' }}
-                <span v-if="!attempt.teacher_first_name && !attempt.teacher_last_name">{{ attempt.teacher_username || 'N/D' }}</span>
-            </p>
-            <p v-if="attempt.metadata?.difficulty"><strong>Difficoltà:</strong> {{ attempt.metadata.difficulty }}</p>
-            <p v-if="attempt.metadata?.points_on_completion"><strong>Punti:</strong> {{ attempt.metadata.points_on_completion }}</p>
-          </div>
+        <div class="p-5 flex-grow relative">
+          <!-- Sfondo colorato limitato a quest'area -->
+          <div
+            v-if="attempt.card_background_color"
+            class="absolute inset-0 opacity-20"
+            :style="{ backgroundColor: attempt.card_background_color }"
+          ></div>
+          <!-- Wrapper per il contenuto testuale per z-index -->
+          <div class="relative z-10">
+            <h3 class="text-lg font-semibold text-gray-800 mb-2">{{ attempt.title }}</h3>
+            
+            <!-- Metadati: Materia, Argomento, Docente -->
+            <div class="text-sm text-gray-600 mb-2">
+              <p v-if="attempt.subject_name"><strong>Materia:</strong> {{ attempt.subject_name }}</p>
+              <p v-if="attempt.topic_name"><strong>Argomento:</strong> {{ attempt.topic_name }}</p>
+              <p>
+                  <strong>Docente:</strong>
+                  {{ attempt.teacher_first_name || '' }} {{ attempt.teacher_last_name || '' }}
+                  <span v-if="!attempt.teacher_first_name && !attempt.teacher_last_name">{{ attempt.teacher_username || 'N/D' }}</span>
+              </p>
+              <p v-if="attempt.metadata?.difficulty"><strong>Difficoltà:</strong> {{ attempt.metadata.difficulty }}</p>
+              <p v-if="attempt.metadata?.points_on_completion"><strong>Punti:</strong> {{ attempt.metadata.points_on_completion }}</p>
+            </div>
 
-          <!-- Date e Stato -->
-          <p class="text-xs text-gray-500 mb-3">
-            <span v-if="attempt.available_from">Disponibile dal: {{ formatDate(attempt.available_from) }} <br /></span>
-            <span v-if="attempt.available_until && attempt.status !== 'COMPLETED'">Scade il: {{ formatDate(attempt.available_until) }} <br /></span>
-            Stato: <span :class="['font-medium', getStatusClass(attempt)]">{{ getAttemptStatusLabel(attempt) }}</span>
-            <span v-if="attempt.status === 'COMPLETED' && attempt.completed_at"> il {{ formatDate(attempt.completed_at) }}</span>
-          </p>
+            <!-- Date e Stato -->
+            <p class="text-xs text-gray-500 mb-3">
+              <span v-if="attempt.available_from">Disponibile dal: {{ formatDate(attempt.available_from) }} <br /></span>
+              <span v-if="attempt.available_until && attempt.status !== 'COMPLETED'">Scade il: {{ formatDate(attempt.available_until) }} <br /></span>
+              Stato: <span :class="['font-medium', getStatusClass(attempt)]">{{ getAttemptStatusLabel(attempt) }}</span>
+              <span v-if="attempt.status === 'COMPLETED' && attempt.completed_at"> il {{ formatDate(attempt.completed_at) }}</span>
+            </p>
+          </div>
         </div>
 
         <!-- Footer della card con pulsante di azione -->

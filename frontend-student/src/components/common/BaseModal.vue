@@ -64,14 +64,13 @@ watch(() => props.show, (newValue) => {
     if (newValue) {
       document.body.style.overflow = 'hidden';
     } else {
-      // Ritarda il ripristino per permettere all'animazione di finire
-      setTimeout(() => {
-        // Controlla se un'altra modale è ancora aperta prima di ripristinare
-        const openModals = document.querySelectorAll('.fixed.inset-0.z-50').length;
-        if (openModals === 0) {
-           document.body.style.overflow = '';
-        }
-      }, 300); // Deve corrispondere alla durata della transizione CSS
+      // Ripristino immediato, ma controlla sempre se altre modali sono aperte
+      // Questo previene il problema se questa modale si chiude mentre un'altra è ancora attiva.
+      const openModals = document.querySelectorAll('.fixed.inset-0.z-50.flex').length; // Selettore più specifico per modali attive
+      // Se non ci sono altre modali visibili (o questa è l'ultima che sta per diventare non visibile)
+      if (openModals === 0 || (openModals === 1 && !props.show)) { // props.show sarà false qui
+         document.body.style.overflow = '';
+      }
     }
   }
 }, { immediate: false });
