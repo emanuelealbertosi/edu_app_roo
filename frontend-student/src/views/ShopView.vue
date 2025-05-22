@@ -105,16 +105,17 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="shop-view container mx-auto px-4 py-8">
-    <header class="shop-header bg-white p-4 md:p-6 rounded-lg shadow-md mb-8 flex flex-col md:flex-row justify-between items-center gap-4">
-      <h1 class="text-2xl md:text-3xl font-bold text-primary-dark flex items-center"><span class="text-3xl md:text-4xl mr-3">🛍️</span> Negozio Ricompense</h1> <!-- Colore titolo aggiornato -->
-      <div class="current-points bg-primary/10 text-primary-dark text-lg font-semibold px-4 py-2 rounded-full shadow-sm"> <!-- Colori punti aggiornati -->
+  <div class="shop-view px-4 md:px-8 py-8"> <!-- Rimosso container mx-auto, aggiunto padding laterale -->
+    <header class="shop-header bg-accent text-neutral-lightest p-4 rounded-lg shadow-md mb-6 flex justify-between items-center gap-2"> <!-- Ripristinate flex, ridotto gap -->
+      <h1 class="text-2xl font-semibold flex items-center"><span class="text-3xl mr-3">🛍️</span> Negozio Ricompense</h1>
+      <div class="current-points bg-white/20 text-neutral-lightest text-lg font-semibold px-4 py-1 rounded-full shadow-sm"> <!-- Rimosso posizionamento assoluto, ridotto py -->
         Punti: <strong class="text-xl">{{ currentPoints }}</strong> ✨
       </div>
-      <BaseButton variant="secondary" @click="router.push('/dashboard')">Torna alla Dashboard</BaseButton> <!-- Usa BaseButton -->
+      <!-- Pulsante "Torna alla Dashboard" rimosso -->
     </header>
 
-    <div v-if="isLoading" class="loading text-center py-10 text-neutral-dark"> <!-- Colore testo aggiornato -->
+    <div class="container mx-auto"> <!-- Contenuto principale avvolto in container -->
+      <div v-if="isLoading" class="loading text-center py-10 text-neutral-dark">
       <p>Caricamento ricompense...</p>
       <!-- Spinner TODO rimosso -->
     </div>
@@ -171,7 +172,8 @@ onMounted(() => {
         <p>Non ci sono ricompense disponibili al momento.</p>
       </div>
     </div>
-  </div>
+  </div> <!-- Chiusura del div container mx-auto -->
+</div> <!-- Chiusura del div shop-view principale -->
 </template>
 
 <style scoped>

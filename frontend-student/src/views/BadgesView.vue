@@ -109,14 +109,15 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="badges-view container mx-auto px-4 py-8">
-    <header class="badges-header mb-8">
-      <h1 class="text-3xl font-bold text-primary-dark flex items-center">
-        <span class="text-4xl mr-3">🏆</span> I Miei Traguardi
+  <div class="badges-view px-4 md:px-8 py-8"> <!-- Rimosso container mx-auto, aggiunto padding laterale -->
+    <header class="badges-header bg-accent text-neutral-lightest p-4 rounded-lg shadow-md mb-6">
+      <h1 class="text-2xl font-semibold flex items-center">
+        <span class="text-3xl mr-3">🏆</span> I Miei Traguardi
       </h1>
     </header>
 
-    <div v-if="isLoading" class="loading text-center py-10 text-neutral-dark">
+    <div class="container mx-auto"> <!-- Contenuto principale avvolto in container -->
+      <div v-if="isLoading" class="loading text-center py-10 text-neutral-dark">
       <p>Caricamento badge...</p>
       <svg class="animate-spin h-5 w-5 text-primary mx-auto mt-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -143,7 +144,8 @@ onMounted(() => {
      <div v-if="!isLoading && !error && processedBadges.length === 0" class="text-center py-10 text-neutral-dark">
         <p>Nessun badge definito al momento.</p>
      </div>
-  </div>
+  </div> <!-- Chiusura del div container mx-auto -->
+</div> <!-- Chiusura del div badges-view principale -->
 </template>
 
 <style scoped>

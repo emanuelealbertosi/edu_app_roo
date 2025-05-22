@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'; // Aggiunto onMounted
+import { ref, computed, onMounted, watch, onBeforeUnmount } from 'vue'; // Aggiunto watch, onBeforeUnmount
 import { useAuthStore } from '@/stores/auth';
 import { useNotificationStore } from '@/stores/notification'; // Aggiunto NotificationStore
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router';
@@ -11,7 +11,9 @@ import { marked } from 'marked'; // Importa marked
 import {
   HomeIcon, ShoppingCartIcon, UserCircleIcon, CreditCardIcon, TrophyIcon,
   BookOpenIcon, ArrowLeftOnRectangleIcon, BellIcon, Bars3Icon, XMarkIcon,
-  QuestionMarkCircleIcon // Aggiunta icona per Quiz
+  QuestionMarkCircleIcon, // Aggiunta icona per Quiz
+  ChevronDoubleLeftIcon,
+  ChevronDoubleRightIcon
 } from '@heroicons/vue/24/outline';
 
 const authStore = useAuthStore();
@@ -20,6 +22,12 @@ const route = useRoute();
 const router = useRouter();
 const isMobileMenuOpen = ref(false);
 const isNotificationsOpen = ref(false); // Stato per il dropdown delle notifiche
+
+const isSidebarExpandedState = ref(false); // Sidebar desktop espansa permanentemente
+const sidebarAsideRef = ref<HTMLElement | null>(null);
+const mobileMenuButtonRef = ref<HTMLElement | null>(null); // Ref per il bottone del menu mobile
+
+const portalName = 'Portale Studente';
 
 // Stato per la modale
 const isModalOpen = ref(false);
@@ -256,6 +264,27 @@ onMounted(() => {
 
 // TODO: Aggiungere watch su authStore.isAuthenticated per caricare le notifiche dopo il login, se App.vue è già montato
 
+const isEffectivelyExpanded = computed(() => isSidebarExpandedState.value);
+
+const sidebarHeaderTitle = computed(() => {
+  if (isSidebarExpandedState.value) {
+    return 'Contrai menu';
+  } else {
+    return `Espandi menu ${portalName}`;
+  }
+});
+
+const toggleSidebarExpansion = () => {
+  isSidebarExpandedState.value = !isSidebarExpandedState.value;
+};
+
+// Logica per contrarre la sidebar quando si interagisce con il contenuto principale
+const handleContentInteraction = () => {
+  if (isSidebarExpandedState.value) {
+    isSidebarExpandedState.value = false;
+  }
+};
+
 </script>
 <template>
   <GlobalLoadingIndicator />
@@ -273,12 +302,28 @@ onMounted(() => {
     <!-- Sidebar Desktop (visibile da md in su) -->
     <aside
       v-if="authStore.isAuthenticated"
-      class="bg-secondary text-neutral-lightest hidden md:flex flex-col w-20 group hover:w-64 transition-all duration-300 ease-in-out overflow-hidden"
+      ref="sidebarAsideRef"
+      :class="[
+        'bg-secondary text-neutral-lightest hidden md:flex flex-col transition-all duration-300 ease-in-out overflow-hidden',
+        isSidebarExpandedState ? 'w-64' : 'w-20'
+      ]"
       aria-label="Sidebar"
     >
       <!-- Logo/Titolo App -->
-       <div class="h-16 flex items-center justify-center flex-shrink-0 px-4">
-         <span class="text-xl font-semibold opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Student Portal</span>
+       <div
+        @click="toggleSidebarExpansion"
+        class="h-16 flex items-center justify-center flex-shrink-0 px-4 cursor-pointer"
+        :title="sidebarHeaderTitle"
+        >
+        <span
+          v-if="isEffectivelyExpanded"
+          class="text-xl font-semibold whitespace-nowrap mr-2 transition-opacity duration-200 ease-in-out"
+          :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }"
+        >
+          {{ portalName }}
+        </span>
+        <ChevronDoubleLeftIcon v-if="isSidebarExpandedState" class="h-6 w-6 flex-shrink-0" />
+        <ChevronDoubleRightIcon v-else class="h-6 w-6 flex-shrink-0" />
        </div>
 
       <!-- Navigazione Desktop -->
@@ -286,44 +331,44 @@ onMounted(() => {
         <ul>
           <!-- Dashboard -->
           <li class="mb-3">
-            <router-link :to="{ name: 'dashboard' }" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700">
+            <router-link :to="{ name: 'dashboard' }" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700" title="Dashboard">
               <HomeIcon class="h-6 w-6 flex-shrink-0" />
-              <span class="ml-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Dashboard</span>
+              <span class="ml-3 whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">Dashboard</span>
             </router-link>
           </li>
           <!-- I Miei Quiz -->
           <li class="mb-3">
-            <router-link :to="{ name: 'QuizzesPage' }" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700">
+            <router-link :to="{ name: 'QuizzesPage' }" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700" title="I Miei Quiz">
               <QuestionMarkCircleIcon class="h-6 w-6 flex-shrink-0" />
-              <span class="ml-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">I Miei Quiz</span>
+              <span class="ml-3 whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">I Miei Quiz</span>
             </router-link>
           </li>
           <!-- Le Mie Lezioni (incorporate) -->
           <li class="mb-3">
-            <router-link :to="{ name: 'EmbeddedLessons' }" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700">
+            <router-link :to="{ name: 'EmbeddedLessons' }" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700" title="Le Mie Lezioni">
               <BookOpenIcon class="h-6 w-6 flex-shrink-0" />
-              <span class="ml-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Le Mie Lezioni</span>
+              <span class="ml-3 whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">Le Mie Lezioni</span>
             </router-link>
           </li>
           <!-- Shop -->
           <li class="mb-3">
-            <router-link :to="{ name: 'shop' }" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700">
+            <router-link :to="{ name: 'shop' }" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700" title="Shop">
               <ShoppingCartIcon class="h-6 w-6 flex-shrink-0" />
-              <span class="ml-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Shop</span>
+              <span class="ml-3 whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">Shop</span>
             </router-link>
           </li>
           <!-- Acquisti -->
           <li class="mb-3">
-            <router-link :to="{ name: 'purchases' }" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700">
+            <router-link :to="{ name: 'purchases' }" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700" title="Acquisti">
               <CreditCardIcon class="h-6 w-6 flex-shrink-0" />
-              <span class="ml-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Acquisti</span>
+              <span class="ml-3 whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">Acquisti</span>
             </router-link>
           </li>
           <!-- Traguardi -->
           <li class="mb-3">
-            <router-link :to="{ name: 'Badges' }" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700">
+            <router-link :to="{ name: 'Badges' }" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700" title="Traguardi">
               <TrophyIcon class="h-6 w-6 flex-shrink-0" />
-              <span class="ml-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Traguardi</span>
+              <span class="ml-3 whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">Traguardi</span>
             </router-link>
           </li>
         </ul>
@@ -331,9 +376,9 @@ onMounted(() => {
 
       <!-- Logout Desktop -->
        <div class="p-4 mt-auto border-t border-purple-700 flex-shrink-0">
-         <button @click="handleLogout" class="w-full flex items-center p-2 rounded text-neutral-lightest hover:bg-red-700">
+         <button @click="handleLogout" class="w-full flex items-center p-2 rounded text-neutral-lightest hover:bg-red-700" title="Logout">
            <ArrowLeftOnRectangleIcon class="h-6 w-6 flex-shrink-0" />
-           <span class="ml-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Logout</span>
+           <span class="ml-3 whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">Logout</span>
          </button>
        </div>
     </aside>
@@ -348,7 +393,7 @@ onMounted(() => {
              :class="isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'">
         <!-- Logo/Titolo App e Bottone Chiusura -->
         <div class="h-16 flex items-center justify-between flex-shrink-0 px-4">
-          <span class="text-xl font-semibold">Student Portal</span>
+          <span class="text-xl font-semibold">{{ portalName }}</span>
           <button @click="toggleMobileMenu" class="p-1 text-neutral-lightest hover:bg-purple-700 rounded">
             <span class="sr-only">Chiudi menu</span>
             <XMarkIcon class="h-6 w-6" />
@@ -360,42 +405,42 @@ onMounted(() => {
           <ul>
             <!-- Dashboard -->
             <li class="mb-3">
-              <router-link :to="{ name: 'dashboard' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700">
+              <router-link :to="{ name: 'dashboard' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700" title="Dashboard">
                 <HomeIcon class="h-6 w-6 flex-shrink-0" />
                 <span class="ml-3">Dashboard</span>
               </router-link>
             </li>
             <!-- I Miei Quiz -->
             <li class="mb-3">
-              <router-link :to="{ name: 'QuizzesPage' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700">
+              <router-link :to="{ name: 'QuizzesPage' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700" title="I Miei Quiz">
                 <QuestionMarkCircleIcon class="h-6 w-6 flex-shrink-0" />
                 <span class="ml-3">I Miei Quiz</span>
               </router-link>
             </li>
             <!-- Le Mie Lezioni (incorporate) -->
             <li class="mb-3">
-              <router-link :to="{ name: 'EmbeddedLessons' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700">
+              <router-link :to="{ name: 'EmbeddedLessons' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700" title="Le Mie Lezioni">
                 <BookOpenIcon class="h-6 w-6 flex-shrink-0" />
                 <span class="ml-3">Le Mie Lezioni</span>
               </router-link>
             </li>
             <!-- Shop -->
             <li class="mb-3">
-              <router-link :to="{ name: 'shop' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700">
+              <router-link :to="{ name: 'shop' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700" title="Shop">
                 <ShoppingCartIcon class="h-6 w-6 flex-shrink-0" />
                 <span class="ml-3">Shop</span>
               </router-link>
             </li>
             <!-- Acquisti -->
             <li class="mb-3">
-              <router-link :to="{ name: 'purchases' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700">
+              <router-link :to="{ name: 'purchases' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700" title="Acquisti">
                 <CreditCardIcon class="h-6 w-6 flex-shrink-0" />
                 <span class="ml-3">Acquisti</span>
               </router-link>
             </li>
             <!-- Traguardi -->
             <li class="mb-3">
-              <router-link :to="{ name: 'Badges' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700">
+              <router-link :to="{ name: 'Badges' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700" title="Traguardi">
                 <TrophyIcon class="h-6 w-6 flex-shrink-0" />
                 <span class="ml-3">Traguardi</span>
               </router-link>
@@ -405,7 +450,7 @@ onMounted(() => {
 
         <!-- Logout Mobile -->
         <div class="p-4 mt-auto border-t border-purple-700 flex-shrink-0">
-          <button @click="handleLogout(); toggleMobileMenu();" class="w-full flex items-center p-2 rounded text-neutral-lightest hover:bg-red-700">
+          <button @click="handleLogout(); toggleMobileMenu();" class="w-full flex items-center p-2 rounded text-neutral-lightest hover:bg-red-700" title="Logout">
             <ArrowLeftOnRectangleIcon class="h-6 w-6 flex-shrink-0" />
             <span class="ml-3">Logout</span>
           </button>
@@ -414,11 +459,14 @@ onMounted(() => {
     </div>
 
     <!-- Contenuto Principale -->
-    <div class="flex flex-col flex-grow">
+    <div class="flex flex-col flex-grow" @click="handleContentInteraction">
         <!-- Header -->
         <header v-if="authStore.isAuthenticated" class="bg-white shadow p-4 h-16 flex items-center justify-between flex-shrink-0">
              <!-- Pulsante Hamburger (visibile solo su mobile) -->
-             <button @click="toggleMobileMenu" class="md:hidden p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded focus:outline-none focus:ring-2 focus:ring-inset focus:ring-purple-500">
+             <button
+                ref="mobileMenuButtonRef"
+                @click="toggleMobileMenu"
+                class="md:hidden p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded focus:outline-none focus:ring-2 focus:ring-inset focus:ring-purple-500">
                <span class="sr-only">Apri menu principale</span>
                <Bars3Icon class="h-6 w-6" />
              </button>
@@ -470,7 +518,7 @@ onMounted(() => {
                  </div>
 
                  <!-- Pulsante Profilo (Link diretto) -->
-                 <button @click="goToProfile" class="p-1 rounded-full text-gray-500 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500">
+                 <button @click="goToProfile" class="p-1 rounded-full text-gray-500 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500" title="Profilo">
                      <span class="sr-only">Vai al profilo</span>
                      <UserCircleIcon class="h-7 w-7" />
                  </button>
@@ -498,17 +546,10 @@ onMounted(() => {
 .router-link-exact-active {
   @apply bg-secondary-light; /* Usa il colore light della sidebar per l'attivo */
 }
-nav a:hover, nav button:hover {
-  @apply bg-purple-700; /* Usa un viola più chiaro per hover per maggior contrasto */
-}
-/* Stile specifico per il bottone logout hover */
-div > button.hover\:bg-red-700:hover { /* Selettore più specifico per override */
-   @apply bg-error; /* Usa il colore error definito in tailwind.config */
-}
 
-/* Stili per i pulsanti dell'header */
-header button {
-  @apply text-neutral-dark hover:text-neutral-darker hover:bg-neutral-light focus:outline-none focus:bg-neutral-light focus:ring-2 focus:ring-offset-2 focus:ring-primary;
+/* Stili aggiuntivi per la transizione dell'opacità e del testo */
+.group:hover .opacity-0 {
+  opacity: 1;
 }
-/* Stili del footer rimossi perché ora sono in AppFooter.vue */
 </style>
+]]>

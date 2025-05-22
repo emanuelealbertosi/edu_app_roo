@@ -51,10 +51,10 @@
 <script setup lang="ts">
 import { computed } from 'vue'; // Aggiunto computed
 import { useSharedAuthStore } from '@/stores/sharedAuth'; // Importa lo store condiviso
-import { useRouter } from 'vue-router'; // Aggiunto useRouter per il logout
+// import { useRouter } from 'vue-router'; // Rimosso useRouter perché non utilizzato
 
 const sharedAuthStore = useSharedAuthStore(); // Usa lo store condiviso
-const router = useRouter(); // Istanza di useRouter
+// const router = useRouter(); // Rimosso perché non utilizzato
 
 const studentAppUrl = computed(() => (import.meta.env.VITE_STUDENT_APP_URL as string | undefined) || '/studenti/');
 

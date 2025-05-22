@@ -119,15 +119,19 @@ const filteredCompletedQuizzes = computed(() => {
 
 <template>
   <div class="quizzes-page p-4 md:p-8">
-    <header class="page-header mb-8">
-      <h1 class="text-3xl md:text-4xl font-bold text-primary-dark mb-4">I Miei Quiz</h1>
-      <input
-        type="text"
-        v-model="searchTerm"
-        placeholder="Cerca quiz per materia, argomento, titolo..."
-        class="w-full p-3 border border-neutral-light rounded-md focus:ring-primary focus:border-primary shadow-sm"
-      />
+    <header class="page-header bg-accent text-neutral-lightest p-4 rounded-lg shadow-md mb-6"> <!-- Padding p-4, rimosso allineamento testo esplicito -->
+      <h1 class="text-2xl font-semibold flex items-center"><span class="text-3xl mr-3">📝</span>I Miei Quiz</h1>
     </header>
+
+    <!-- Barra di ricerca spostata qui sotto -->
+    <div class="mb-6">
+        <input
+            type="text"
+            v-model="searchTerm"
+            placeholder="Cerca quiz per materia, argomento, titolo..."
+            class="w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-gray-700"
+        />
+    </div>
 
     <div v-if="isLoading" class="loading-container flex flex-col items-center justify-center p-12 text-center">
       <div class="loading-spinner"></div>

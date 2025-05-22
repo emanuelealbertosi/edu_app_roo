@@ -9,11 +9,13 @@ const router = createRouter({
     {
       path: '/',
       name: 'root', // Nome per la rotta root
-      component: () => import('../views/DashboardView.vue'), // Mostra DashboardView per default a '/'
-      meta: { requiresAuth: true } // Richiede autenticazione
+      redirect: { name: 'dashboard' }, // Reindirizza la root a /dashboard
+      meta: { requiresAuth: true } // Richiede autenticazione (la guardia si applicherà prima del redirect)
     },
     {
-      path: '/docenti/login', // Aggiornato il path per corrispondere a Nginx
+      // Path per il login, relativo alla base '/docenti/'
+      // Quindi nel browser sarà /docenti/login
+      path: '/login',
       name: 'login', // Manteniamo il nome per coerenza interna (es. nelle guardie)
       component: () => import('../views/LoginView.vue'),
       meta: { requiresGuest: true }, // Marca la login come "guest"

@@ -15,12 +15,12 @@ const props = defineProps<{
   title: string;
   emptyMessage: string;
   loading?: boolean;
-  displayMode?: 'list' | 'grid'; // Nuova prop per la modalità di visualizzazione
+  // displayMode?: 'list' | 'grid'; // Rimosso displayMode
 }>();
 
 const router = useRouter();
 
-const isGridView = computed(() => props.displayMode === 'grid');
+// const isGridView = computed(() => props.displayMode === 'grid'); // Rimosso isGridView
 
 // Formatta la data in un formato più leggibile
 const formatDate = (dateString: string | null): string => {
@@ -152,24 +152,7 @@ const getStatusClass = (attempt: QuizAttemptDashboardItem): string => {
   }
 };
 
-// Determina la classe CSS per il BORDO sinistro in base allo stato
-const getStatusBorderClass = (attempt: QuizAttemptDashboardItem): string => {
-  // Usa direttamente lo stato del tentativo
-  switch (attempt.status) {
-    case 'IN_PROGRESS':
-      return 'border-status-in-progress';
-    case 'PENDING_GRADING':
-      return 'border-status-pending';
-    case 'COMPLETED':
-      return 'border-status-completed';
-    case 'FAILED':
-      return 'border-status-failed'; // Aggiungere stile per failed se necessario
-    case 'PENDING':
-      return 'border-status-not-started'; // Usa lo stile 'not-started' per 'PENDING'
-    default:
-      return 'border-status-unknown'; // Aggiungere stile per unknown se necessario
-  }
-};
+// Rimosso getStatusBorderClass perché non più utilizzato
 
 // Ripristinato: Determina se il pulsante "Inizia Quiz" debba essere mostrato per questo tentativo
 const shouldShowStartButton = (attempt: QuizAttemptDashboardItem): boolean => {
@@ -201,43 +184,77 @@ const shouldShowStartButton = (attempt: QuizAttemptDashboardItem): boolean => {
   return false;
 };
 
+const getButtonLabel = (attempt: QuizAttemptDashboardItem): string => {
+  switch (attempt.status) {
+    case 'PENDING':
+      return 'Inizia Quiz';
+    case 'IN_PROGRESS':
+      return 'Continua Quiz';
+    case 'FAILED':
+      return 'Ritenta Quiz';
+    case 'COMPLETED':
+    case 'PENDING_GRADING':
+      return 'Visualizza Risultati';
+    default:
+      return 'Visualizza Dettagli';
+  }
+};
+
+const getButtonDisabledState = (attempt: QuizAttemptDashboardItem): boolean => {
+  const now = new Date();
+  if (attempt.status === 'PENDING' || attempt.status === 'FAILED') {
+    if (attempt.available_from && new Date(attempt.available_from) > now) {
+      return true; // Non ancora disponibile
+    }
+    if (attempt.available_until && new Date(attempt.available_until) < now) {
+      return true; // Scaduto
+    }
+  }
+  // Per COMPLETED o PENDING_GRADING, il pulsante è sempre abilitato se c'è un attempt_id
+  if ((attempt.status === 'COMPLETED' || attempt.status === 'PENDING_GRADING') && !attempt.attempt_id) {
+      return true; // Non può visualizzare risultati senza un ID tentativo
+  }
+  return false;
+};
+
+const handleQuizAction = (attempt: QuizAttemptDashboardItem): void => {
+  if (getButtonDisabledState(attempt)) return;
+
+  switch (attempt.status) {
+    case 'PENDING':
+      openAttemptModal(attempt.quiz_id);
+      break;
+    case 'IN_PROGRESS':
+      openAttemptModal(attempt.quiz_id, attempt.attempt_id);
+      break;
+    case 'FAILED':
+      // Assumiamo che ritentare apra la modale per un nuovo tentativo sullo stesso quiz_id
+      openAttemptModal(attempt.quiz_id);
+      break;
+    case 'COMPLETED':
+    case 'PENDING_GRADING':
+      if (attempt.attempt_id) {
+        attemptIdForResult.value = attempt.attempt_id;
+        isResultModalOpen.value = true;
+      } else {
+        // Fallback o errore: non dovrebbe succedere se il pulsante non è disabilitato
+        openDetailsModal(attempt.quiz_id);
+      }
+      break;
+    default:
+      openDetailsModal(attempt.quiz_id);
+      break;
+  }
+};
+
+
 onMounted(() => {
   // Logga i dati dei quiz quando il componente viene montato e ogni volta che le props cambiano (se la reattività lo permette)
   // Questo ci aiuterà a vedere se subject_name, topic_name, etc., arrivano al componente.
   console.log('[QuizList.vue] Props quizzes ricevute:', JSON.parse(JSON.stringify(props.quizzes)));
 });
 
-// Funzione helper per schiarire un colore esadecimale
-const lightenColor = (hex: string, percent: number): string => {
-  hex = hex.replace(/^#/, '');
-  const f = parseInt(hex, 16);
-  const t = percent < 0 ? 0 : 255;
-  const p = percent < 0 ? percent * -1 : percent;
-  const R = f >> 16;
-  const G = (f >> 8) & 0x00ff;
-  const B = f & 0x0000ff;
-  return (
-    '#' +
-    (
-      0x1000000 +
-      (Math.round((t - R) * (p / 100)) + R) * 0x10000 +
-      (Math.round((t - G) * (p / 100)) + G) * 0x100 +
-      (Math.round((t - B) * (p / 100)) + B)
-    )
-      .toString(16)
-      .slice(1)
-  );
-};
-
-// Funzione helper per determinare un colore di testo contrastante (bianco o nero)
-const getContrastingTextColor = (hexcolor: string): string => {
-  hexcolor = hexcolor.replace('#', '');
-  const r = parseInt(hexcolor.substring(0, 2), 16);
-  const g = parseInt(hexcolor.substring(2, 4), 16);
-  const b = parseInt(hexcolor.substring(4, 6), 16);
-  const yiq = (r * 299 + g * 587 + b * 114) / 1000;
-  return yiq >= 128 ? '#000000' : '#FFFFFF';
-};
+// Rimosse lightenColor e getContrastingTextColor perché non più utilizzate con stili fissi
 
 </script>
 
@@ -253,91 +270,46 @@ const getContrastingTextColor = (hexcolor: string): string => {
       <p>{{ emptyMessage }}</p>
     </div>
     
-    <div v-else :class="isGridView ? 'quiz-grid grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4' : 'quiz-list space-y-4'">
-      <!-- Aggiungere @click qui -->
-      <!-- Itera sui tentativi (rinominato quiz -> attempt) -->
+    <div v-else class="quiz-list grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"> <!-- Layout a griglia -->
       <div
         v-for="attempt in quizzes"
         :key="attempt.attempt_id"
-        class="quiz-item rounded-lg p-4 shadow border-l-4 relative hover:shadow-lg transition-shadow duration-200 cursor-pointer flex flex-col"
-        :class="[
-          getStatusBorderClass(attempt),
-          isGridView ? 'aspect-square justify-between' : 'pb-16' // Aggiunge aspect-square e justify-between per la modalità griglia
-        ]"
-        :style="{ backgroundColor: attempt.card_background_color || '#F5F5F5', color: getContrastingTextColor(attempt.card_background_color || '#F5F5F5') }"
-        @click="openDetailsModal(attempt.quiz_id)"
+        class="quiz-item bg-white rounded-lg shadow-md overflow-hidden flex flex-col"
       >
-        <!-- Contenuto dell'item (usa 'attempt' invece di 'quiz') -->
-        <div class="quiz-header flex justify-between items-center mb-2">
-          <h3 class="font-semibold text-lg" :style="{ color: getContrastingTextColor(attempt.card_background_color || '#F5F5F5') }">{{ attempt.title }}</h3> <!-- Titolo dal tentativo (che lo eredita dal quiz) -->
-          <span :class="['quiz-status text-xs font-medium px-3 py-1 rounded-full', getStatusClass(attempt)]" :style="attempt.card_background_color ? { color: getContrastingTextColor(attempt.card_background_color), backgroundColor: lightenColor(attempt.card_background_color, -10) } : {}">{{ getAttemptStatusLabel(attempt) }}</span>
-        </div>
-
-        <p class="quiz-description text-sm mb-3 line-clamp-2" :style="{ color: getContrastingTextColor(attempt.card_background_color || '#F5F5F5') }">{{ attempt.description }}</p> <!-- Descrizione dal tentativo -->
-
-        <div class="quiz-metadata flex flex-wrap gap-x-4 gap-y-2 text-xs mb-3" :style="{ color: getContrastingTextColor(attempt.card_background_color || '#F5F5F5') }"> <!-- Modificato gap per migliore spaziatura -->
-          <div v-if="attempt.metadata?.difficulty" class="quiz-difficulty px-2 py-1 rounded" :style="{ backgroundColor: attempt.card_background_color ? lightenColor(attempt.card_background_color, -10) : '#E5E7EB', color: getContrastingTextColor(attempt.card_background_color ? lightenColor(attempt.card_background_color, -10) : '#E5E7EB') }">
-            Difficoltà: {{ attempt.metadata.difficulty }}
-          </div>
-
-          <div v-if="attempt.subject_name"
-               class="quiz-subject-actual px-2 py-1 rounded"
-               :style="{ backgroundColor: attempt.subject_color_placeholder || (attempt.card_background_color ? lightenColor(attempt.card_background_color, -15) : '#6B7280'), color: getContrastingTextColor(attempt.subject_color_placeholder || (attempt.card_background_color ? lightenColor(attempt.card_background_color, -15) : '#6B7280')) }">
-            {{ attempt.subject_name }}
-          </div>
-
-
-          <div v-if="attempt.topic_name"
-               class="quiz-topic-actual px-2 py-1 rounded"
-               :style="{ backgroundColor: attempt.subject_color_placeholder ? lightenColor(attempt.subject_color_placeholder, 30) : (attempt.card_background_color ? lightenColor(attempt.card_background_color, -20) : '#9CA3AF'), color: getContrastingTextColor(attempt.subject_color_placeholder ? lightenColor(attempt.subject_color_placeholder, 30) : (attempt.card_background_color ? lightenColor(attempt.card_background_color, -20) : '#9CA3AF')) }">
-            {{ attempt.topic_name }}
-          </div>
-
-          <div v-if="attempt.metadata?.points_on_completion" class="quiz-points px-2 py-1 rounded" :style="{ backgroundColor: attempt.card_background_color ? lightenColor(attempt.card_background_color, -10) : '#FEF3C7', color: getContrastingTextColor(attempt.card_background_color ? lightenColor(attempt.card_background_color, -10) : '#FEF3C7') }">
-            Punti: {{ attempt.metadata.points_on_completion }}
-          </div>
-
-          <!-- NUOVO: Assegnato da -->
-          <div class="quiz-assigned-by" :style="{ color: getContrastingTextColor(attempt.card_background_color || '#F5F5F5') }">
-             <span class="font-medium">Assegnato da:</span> {{ attempt.teacher_first_name }} {{ attempt.teacher_last_name }}
-          </div>
-        </div>
-
-        <!-- Mostra le date se il tentativo non è completato -->
-        <div v-if="attempt.status !== 'COMPLETED'" class="quiz-dates flex flex-wrap gap-x-4 gap-y-1 text-xs" :style="{ color: getContrastingTextColor(attempt.card_background_color || '#F5F5F5') }">
-          <div v-if="attempt.available_from" class="quiz-available-from">
-            <span class="font-medium">Da:</span> {{ formatDate(attempt.available_from) }}
-          </div>
-
-          <div v-if="attempt.available_until" class="quiz-available-until">
-             <span class="font-medium">Fino a:</span> {{ formatDate(attempt.available_until) }}
-          </div>
-        </div>
-
-        <div :class="isGridView ? 'mt-auto pt-4' : 'absolute bottom-4 right-4 z-10'">
-          <!-- Ripristinato: Pulsante Inizia Quiz (visibile solo se appropriato per lo stato del TENTATIVO) -->
-          <button
-            v-if="shouldShowStartButton(attempt)"
-            @click.stop="startQuizAttempt(attempt.quiz_id)"
-            :class="[
-              'start-quiz-button bg-primary hover:bg-primary-dark text-white font-bold py-2 px-4 rounded-lg shadow transition-colors duration-200',
-              isGridView ? 'w-full' : ''
-            ]"
-          >
-            <!-- Modificato testo pulsante per chiarezza -->
-            {{ attempt.status === 'FAILED' ? 'Ritenta Quiz ▶' : 'Inizia Quiz ▶' }}
-          </button>
+        <!-- Contenuto principale della card -->
+        <div class="p-5 flex-grow">
+          <h3 class="text-lg font-semibold text-gray-800 mb-2">{{ attempt.title }}</h3>
           
-          <!-- Ripristinato: Pulsante Continua Quiz (visibile solo se IN_PROGRESS) -->
+          <!-- Metadati: Materia, Argomento, Docente -->
+          <div class="text-sm text-gray-600 mb-2">
+            <p v-if="attempt.subject_name"><strong>Materia:</strong> {{ attempt.subject_name }}</p>
+            <p v-if="attempt.topic_name"><strong>Argomento:</strong> {{ attempt.topic_name }}</p>
+            <p>
+                <strong>Docente:</strong>
+                {{ attempt.teacher_first_name || '' }} {{ attempt.teacher_last_name || '' }}
+                <span v-if="!attempt.teacher_first_name && !attempt.teacher_last_name">{{ attempt.teacher_username || 'N/D' }}</span>
+            </p>
+            <p v-if="attempt.metadata?.difficulty"><strong>Difficoltà:</strong> {{ attempt.metadata.difficulty }}</p>
+            <p v-if="attempt.metadata?.points_on_completion"><strong>Punti:</strong> {{ attempt.metadata.points_on_completion }}</p>
+          </div>
+
+          <!-- Date e Stato -->
+          <p class="text-xs text-gray-500 mb-3">
+            <span v-if="attempt.available_from">Disponibile dal: {{ formatDate(attempt.available_from) }} <br /></span>
+            <span v-if="attempt.available_until && attempt.status !== 'COMPLETED'">Scade il: {{ formatDate(attempt.available_until) }} <br /></span>
+            Stato: <span :class="['font-medium', getStatusClass(attempt)]">{{ getAttemptStatusLabel(attempt) }}</span>
+            <span v-if="attempt.status === 'COMPLETED' && attempt.completed_at"> il {{ formatDate(attempt.completed_at) }}</span>
+          </p>
+        </div>
+
+        <!-- Footer della card con pulsante di azione -->
+        <div class="bg-gray-50 px-5 py-3 mt-auto">
           <button
-            v-if="attempt.status === 'IN_PROGRESS'"
-            @click.stop="openAttemptModal(attempt.quiz_id, attempt.attempt_id)"
-            :class="[
-              'continue-quiz-button bg-warning hover:bg-warning-dark text-white font-bold py-2 px-4 rounded-lg shadow transition-colors duration-200',
-              isGridView ? 'w-full mt-2' : ''
-            ]"
+            @click="handleQuizAction(attempt)"
+            class="w-full text-center px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-medium rounded-md shadow-sm transition duration-150 ease-in-out"
+            :disabled="getButtonDisabledState(attempt)"
           >
-            Continua Quiz ▶
+            {{ getButtonLabel(attempt) }}
           </button>
         </div>
       </div>
@@ -413,32 +385,25 @@ const getContrastingTextColor = (hexcolor: string): string => {
 /* Aggiungiamo classi Tailwind direttamente nel template per gli stati,
    ma potremmo definire colori specifici qui se necessario */
 .status-not-started {
-  @apply bg-neutral text-neutral-darker; /* Badge neutro */
+  @apply bg-gray-200 text-gray-700;
 }
 .status-in-progress {
-  @apply bg-warning/10 text-warning-dark; /* Badge warning (ambra) */
+  @apply bg-yellow-200 text-yellow-800;
 }
 .status-pending {
-   @apply bg-blue-100 text-blue-800; /* Usiamo info per pending/in attesa - Corretto */
+   @apply bg-blue-200 text-blue-800;
 }
 .status-completed {
-   @apply bg-success/10 text-success-dark; /* Badge success */
+   @apply bg-green-200 text-green-800;
 }
 .status-failed {
-    @apply bg-red-100 text-red-800; /* Aggiunto stile per failed - Corretto */
+    @apply bg-red-200 text-red-800;
 }
 .status-unknown {
-    @apply bg-neutral text-neutral-darker; /* Stile per stato sconosciuto */
+    @apply bg-gray-200 text-gray-700;
 }
 
-
-/* Classi per il bordo sinistro in base allo stato */
-.border-status-not-started { @apply border-l-neutral-medium; } /* Bordo neutro (per PENDING) */
-.border-status-in-progress { @apply border-l-warning; } /* Bordo warning (ambra) */
-.border-status-pending { @apply border-l-blue-500; } /* Bordo info per pending/in attesa - Corretto */
-.border-status-completed { @apply border-l-success; } /* Bordo success */
-.border-status-failed { @apply border-l-red-500; } /* Aggiunto bordo per failed - Corretto */
-.border-status-unknown { @apply border-l-neutral-dark; } /* Bordo per stato sconosciuto */
+/* Rimosse classi border-status-* perché il bordo colorato non è più usato */
 
 /* Stile per troncare la descrizione (alternativa a line-clamp se non supportato ovunque) */
 .quiz-description {

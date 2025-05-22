@@ -133,6 +133,13 @@ read -p "Versione Docker da utilizzare [latest]: " DOCKER_VERSION_VAR
 DOCKER_VERSION_VAR=${DOCKER_VERSION_VAR:-latest}
 echo "Versione Docker selezionata: ${DOCKER_VERSION_VAR}"
 
+# URL App Lezioni (per iframe)
+# Assumendo che tu abbia modificato lo script per usare SERVER_DOMAIN come suggerito in precedenza.
+# Se usi ancora SERVER_IP, modifica il default qui sotto.
+DEFAULT_VITE_LESSONS_APP_URL="https://${SERVER_DOMAIN:-${SERVER_IP}}/lezioni/"
+read -p "URL base Frontend Lezioni (VITE_LESSONS_APP_URL) [${DEFAULT_VITE_LESSONS_APP_URL}]: " VITE_LESSONS_APP_URL_VAR
+VITE_LESSONS_APP_URL_VAR=${VITE_LESSONS_APP_URL_VAR:-${DEFAULT_VITE_LESSONS_APP_URL}}
+
 # --- Creazione File .env.prod (Sovrascrive se esiste) ---
 echo "Creazione/Sovrascrittura del file '${ENV_FILE_PATH}'..."
 # Costruisci DATABASE_URL DENTRO lo script, prima di scrivere il file .env
@@ -163,6 +170,9 @@ DJANGO_SUPERUSER_PASSWORD=${DJANGO_SUPERUSER_PASSWORD_VAR}
 
 # --- Docker Settings ---
 DOCKER_VERSION=${DOCKER_VERSION_VAR}
+
+# --- Frontend Settings ---
+VITE_LESSONS_APP_URL=${VITE_LESSONS_APP_URL_VAR}
 EOF
 
 echo "File '${ENV_FILE_PATH}' creato/aggiornato con successo."

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue'; // Importa watch e onMounted
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'; // Importa watch, onMounted, onBeforeUnmount
 import { useAuthStore } from '@/stores/auth'; // Store specifico Teacher (per logout e checkAuth)
 import { useSharedAuthStore } from '@/stores/sharedAuth'; // Importa store condiviso
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router';
@@ -32,7 +32,9 @@ import {
   LightBulbIcon, // Per Argomenti
   AcademicCapIcon, // Per Lezioni (già importata, ma la confermo qui per chiarezza)
   FolderIcon, // Per Corsi
-  PuzzlePieceIcon // Per UDA
+  PuzzlePieceIcon, // Per UDA
+  ChevronDoubleLeftIcon,
+  ChevronDoubleRightIcon
 } from '@heroicons/vue/24/outline';
 
 const authStore = useAuthStore(); // Mantenuto per azione logout specifica
@@ -40,6 +42,11 @@ const sharedAuth = useSharedAuthStore(); // Usa store condiviso per stato auth
 const route = useRoute();
 const router = useRouter();
 const isMobileMenuOpen = ref(false); // Stato per menu mobile
+const isSidebarExpandedState = ref(false); // Sidebar desktop espansa permanentemente
+const sidebarAsideRef = ref<HTMLElement | null>(null);
+const mobileMenuButtonRef = ref<HTMLElement | null>(null); // Ref per il bottone del menu mobile
+
+const portalName = 'Portale Docente';
 
 // Stato per la modale Policy
 const isModalOpen = ref(false);
@@ -243,6 +250,27 @@ watch(route, (to) => {
 //   // console.log('[App.vue onMounted] Authentication check complete.');
 // });
 
+const isEffectivelyExpanded = computed(() => isSidebarExpandedState.value);
+
+const sidebarHeaderTitle = computed(() => {
+  if (isSidebarExpandedState.value) {
+    return 'Contrai menu';
+  } else {
+    return `Espandi menu ${portalName}`;
+  }
+});
+
+const toggleSidebarExpansion = () => {
+  isSidebarExpandedState.value = !isSidebarExpandedState.value;
+};
+
+// Logica per contrarre la sidebar quando si interagisce con il contenuto principale
+const handleContentInteraction = () => {
+  if (isSidebarExpandedState.value) {
+    isSidebarExpandedState.value = false;
+  }
+};
+
 </script>
 
 <template>
@@ -264,12 +292,28 @@ watch(route, (to) => {
     <!-- Mostra sidebar solo se autenticato E non sulla landing page -->
     <aside
       v-if="sharedAuth.isAuthenticated && route.name !== 'landing'"
-      class="bg-secondary text-neutral-lightest hidden md:flex flex-col w-20 group hover:w-64 transition-all duration-300 ease-in-out overflow-hidden"
+      ref="sidebarAsideRef"
+      :class="[
+        'bg-secondary text-neutral-lightest hidden md:flex flex-col transition-all duration-300 ease-in-out overflow-hidden',
+        isSidebarExpandedState ? 'w-64' : 'w-20'
+      ]"
       aria-label="Sidebar"
     >
       <!-- Logo/Titolo App -->
-       <div class="h-16 flex items-center justify-center flex-shrink-0 px-4">
-         <span class="text-xl font-semibold opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Teacher Portal</span>
+       <div
+        @click="toggleSidebarExpansion"
+        class="h-16 flex items-center justify-center flex-shrink-0 px-4 cursor-pointer"
+        :title="sidebarHeaderTitle"
+        >
+        <span
+          v-if="isEffectivelyExpanded"
+          class="text-xl font-semibold whitespace-nowrap mr-2 transition-opacity duration-200 ease-in-out"
+          :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }"
+        >
+          {{ portalName }}
+        </span>
+        <ChevronDoubleLeftIcon v-if="isSidebarExpandedState" class="h-6 w-6 flex-shrink-0" />
+        <ChevronDoubleRightIcon v-else class="h-6 w-6 flex-shrink-0" />
        </div>
 
       <!-- Navigazione Desktop -->
@@ -277,125 +321,125 @@ watch(route, (to) => {
         <ul>
           <!-- Dashboard -->
           <li class="mb-2">
-            <router-link :to="{ name: 'dashboard' }" class="flex items-center p-2 rounded hover:bg-secondary-light">
+            <router-link :to="{ name: 'dashboard' }" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Dashboard">
               <HomeIcon class="h-5 w-5 flex-shrink-0" />
-              <span class="ml-3 text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Dashboard</span>
+              <span class="ml-3 text-sm whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">Dashboard</span>
             </router-link>
           </li>
           <!-- Studenti -->
           <li class="mb-2">
-            <router-link :to="{ name: 'students' }" class="flex items-center p-2 rounded hover:bg-secondary-light">
+            <router-link :to="{ name: 'students' }" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Studenti">
               <UsersIcon class="h-5 w-5 flex-shrink-0" />
-              <span class="ml-3 text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Studenti</span>
+              <span class="ml-3 text-sm whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">Studenti</span>
             </router-link>
           </li>
           <!-- Gruppi Studenti (NUOVO) -->
           <li class="mb-2">
-            <router-link :to="{ name: 'GroupsList' }" class="flex items-center p-2 rounded hover:bg-secondary-light">
+            <router-link :to="{ name: 'GroupsList' }" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Gruppi">
               <UserGroupIcon class="h-5 w-5 flex-shrink-0" />
-              <span class="ml-3 text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Gruppi</span>
+              <span class="ml-3 text-sm whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">Gruppi</span>
             </router-link>
           </li>
           <!-- Sfoglia Gruppi Pubblici -->
           <li class="mb-2">
-            <router-link :to="{ name: 'BrowseGroups' }" class="flex items-center p-2 rounded hover:bg-secondary-light">
+            <router-link :to="{ name: 'BrowseGroups' }" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Sfoglia Gruppi">
               <MagnifyingGlassIcon class="h-5 w-5 flex-shrink-0" />
-              <span class="ml-3 text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Sfoglia Gruppi</span>
+              <span class="ml-3 text-sm whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">Sfoglia Gruppi</span>
             </router-link>
           </li>
            <!-- Quiz Templates -->
           <li class="mb-2">
-            <router-link :to="{ name: 'quiz-templates' }" class="flex items-center p-2 rounded hover:bg-secondary-light">
+            <router-link :to="{ name: 'quiz-templates' }" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Quiz Templates">
               <ClipboardDocumentListIcon class="h-5 w-5 flex-shrink-0" />
-              <span class="ml-3 text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Quiz Templates</span>
+              <span class="ml-3 text-sm whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">Quiz Templates</span>
             </router-link>
           </li>
           <!-- Template Percorsi - Temporarily Hidden -->
           <!--
           <li class="mb-2">
-            <router-link :to="{ name: 'pathway-templates' }" class="flex items-center p-2 rounded hover:bg-secondary-light">
+            <router-link :to="{ name: 'pathway-templates' }" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Template Percorsi">
               <MapIcon class="h-5 w-5 flex-shrink-0" />
-              <span class="ml-3 text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Template Percorsi</span>
+              <span class="ml-3 text-sm whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">Template Percorsi</span>
             </router-link>
           </li>
           -->
           <!-- Quiz Assegnati -->
           <li class="mb-2">
-            <router-link :to="{ name: 'assigned-quizzes' }" class="flex items-center p-2 rounded hover:bg-secondary-light">
+            <router-link :to="{ name: 'assigned-quizzes' }" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Quiz Assegnati">
               <ClipboardDocumentCheckIcon class="h-5 w-5 flex-shrink-0" />
-              <span class="ml-3 text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Quiz Assegnati</span>
+              <span class="ml-3 text-sm whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">Quiz Assegnati</span>
             </router-link>
           </li>
           <!-- Percorsi Assegnati - Temporarily Hidden -->
           <!--
           <li class="mb-2">
-            <router-link :to="{ name: 'assigned-pathways' }" class="flex items-center p-2 rounded hover:bg-secondary-light">
+            <router-link :to="{ name: 'assigned-pathways' }" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Percorsi Assegnati">
               <MapPinIcon class="h-5 w-5 flex-shrink-0" />
-              <span class="ml-3 text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Percorsi Assegnati</span>
+              <span class="ml-3 text-sm whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">Percorsi Assegnati</span>
             </router-link>
           </li>
           -->
           <!-- Ricompense -->
           <li class="mb-2">
-            <router-link :to="{ name: 'rewards' }" class="flex items-center p-2 rounded hover:bg-secondary-light">
+            <router-link :to="{ name: 'rewards' }" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Ricompense">
               <GiftIcon class="h-5 w-5 flex-shrink-0" />
-              <span class="ml-3 text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Ricompense</span>
+              <span class="ml-3 text-sm whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">Ricompense</span>
             </router-link>
           </li>
           <!-- Valutazioni -->
           <li class="mb-2">
-            <router-link :to="{ name: 'GradingDashboard' }" class="flex items-center p-2 rounded hover:bg-secondary-light">
+            <router-link :to="{ name: 'GradingDashboard' }" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Valutazioni">
               <PencilSquareIcon class="h-5 w-5 flex-shrink-0" />
-              <span class="ml-3 text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Valutazioni</span>
+              <span class="ml-3 text-sm whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">Valutazioni</span>
             </router-link>
           </li>
           <!-- Consegne -->
           <li class="mb-2">
-            <router-link :to="{ name: 'delivery' }" class="flex items-center p-2 rounded hover:bg-secondary-light">
+            <router-link :to="{ name: 'delivery' }" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Consegne">
               <InboxArrowDownIcon class="h-5 w-5 flex-shrink-0" />
-              <span class="ml-3 text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Consegne</span>
+              <span class="ml-3 text-sm whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">Consegne</span>
             </router-link>
           </li>
           <!-- Progressi -->
           <li class="mb-2">
-            <router-link :to="{ name: 'student-progress' }" class="flex items-center p-2 rounded hover:bg-secondary-light">
+            <router-link :to="{ name: 'student-progress' }" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Progressi">
               <ChartBarIcon class="h-5 w-5 flex-shrink-0" />
-              <span class="ml-3 text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Progressi</span>
+              <span class="ml-3 text-sm whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">Progressi</span>
             </router-link>
           </li>
 
           <!-- Sezione Gestione Didattica -->
           <li class="mt-4 mb-1 px-2">
-            <span class="text-xs font-semibold text-neutral-400 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Gestione Didattica</span>
+            <span class="text-xs font-semibold text-neutral-400 whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">Gestione Didattica</span>
           </li>
           <li class="mb-2">
-            <router-link :to="{ name: 'EmbeddedTeacherSubjects' }" class="flex items-center p-2 rounded hover:bg-secondary-light">
+            <router-link :to="{ name: 'EmbeddedTeacherSubjects' }" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Materie">
               <TagIcon class="h-5 w-5 flex-shrink-0" />
-              <span class="ml-3 text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Materie</span>
+              <span class="ml-3 text-sm whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">Materie</span>
             </router-link>
           </li>
           <li class="mb-2">
-            <router-link :to="{ name: 'EmbeddedTeacherTopics' }" class="flex items-center p-2 rounded hover:bg-secondary-light">
+            <router-link :to="{ name: 'EmbeddedTeacherTopics' }" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Argomenti">
               <LightBulbIcon class="h-5 w-5 flex-shrink-0" />
-              <span class="ml-3 text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Argomenti</span>
+              <span class="ml-3 text-sm whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">Argomenti</span>
             </router-link>
           </li>
           <li class="mb-2">
-            <router-link :to="{ name: 'EmbeddedTeacherLessonsList' }" class="flex items-center p-2 rounded hover:bg-secondary-light">
+            <router-link :to="{ name: 'EmbeddedTeacherLessonsList' }" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Lezioni">
               <AcademicCapIcon class="h-5 w-5 flex-shrink-0" />
-              <span class="ml-3 text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Lezioni</span>
+              <span class="ml-3 text-sm whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">Lezioni</span>
             </router-link>
           </li>
           <li class="mb-2">
-            <router-link :to="{ name: 'EmbeddedTeacherCourses' }" class="flex items-center p-2 rounded hover:bg-secondary-light">
+            <router-link :to="{ name: 'EmbeddedTeacherCourses' }" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Corsi">
               <FolderIcon class="h-5 w-5 flex-shrink-0" />
-              <span class="ml-3 text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Corsi</span>
+              <span class="ml-3 text-sm whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">Corsi</span>
             </router-link>
           </li>
           <li class="mb-2">
-            <router-link :to="{ name: 'EmbeddedTeacherUdas' }" class="flex items-center p-2 rounded hover:bg-secondary-light">
+            <router-link :to="{ name: 'EmbeddedTeacherUdas' }" class="flex items-center p-2 rounded hover:bg-secondary-light" title="UDA">
               <PuzzlePieceIcon class="h-5 w-5 flex-shrink-0" />
-              <span class="ml-3 text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">UDA</span>
+              <span class="ml-3 text-sm whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">UDA</span>
             </router-link>
           </li>
         </ul>
@@ -403,9 +447,9 @@ watch(route, (to) => {
 
       <!-- Logout Desktop -->
        <div class="p-4 mt-auto border-t border-secondary-light flex-shrink-0">
-         <button @click="handleLogout" class="w-full flex items-center p-2 rounded hover:bg-error">
+         <button @click="handleLogout" class="w-full flex items-center p-2 rounded hover:bg-error" title="Logout">
            <ArrowLeftOnRectangleIcon class="h-6 w-6 flex-shrink-0" />
-           <span class="ml-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Logout</span>
+           <span class="ml-3 whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">Logout</span>
          </button>
        </div>
     </aside>
@@ -420,7 +464,7 @@ watch(route, (to) => {
              :class="isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'">
         <!-- Logo/Titolo App e Bottone Chiusura -->
         <div class="h-16 flex items-center justify-between flex-shrink-0 px-4">
-          <span class="text-xl font-semibold">Teacher Portal</span>
+          <span class="text-xl font-semibold">{{ portalName }}</span>
           <button @click="toggleMobileMenu" class="p-1 text-neutral-lightest hover:bg-secondary-light rounded">
             <span class="sr-only">Chiudi menu</span>
             <XMarkIcon class="h-6 w-6" />
@@ -432,35 +476,35 @@ watch(route, (to) => {
           <ul>
             <!-- Dashboard -->
             <li class="mb-2">
-              <router-link :to="{ name: 'dashboard' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-secondary-light">
+              <router-link :to="{ name: 'dashboard' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Dashboard">
                 <HomeIcon class="h-5 w-5 flex-shrink-0" />
                 <span class="ml-3 text-sm">Dashboard</span>
               </router-link>
             </li>
             <!-- Studenti -->
             <li class="mb-2">
-              <router-link :to="{ name: 'students' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-secondary-light">
+              <router-link :to="{ name: 'students' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Studenti">
                 <UsersIcon class="h-5 w-5 flex-shrink-0" />
                 <span class="ml-3 text-sm">Studenti</span>
               </router-link>
             </li>
             <!-- Gruppi Studenti (NUOVO) -->
             <li class="mb-2">
-              <router-link :to="{ name: 'GroupsList' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-secondary-light">
+              <router-link :to="{ name: 'GroupsList' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Gruppi">
                 <UserGroupIcon class="h-5 w-5 flex-shrink-0" />
                 <span class="ml-3 text-sm">Gruppi</span>
               </router-link>
             </li>
             <!-- Sfoglia Gruppi Pubblici -->
             <li class="mb-2">
-              <router-link :to="{ name: 'BrowseGroups' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-secondary-light">
+              <router-link :to="{ name: 'BrowseGroups' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Sfoglia Gruppi">
                 <MagnifyingGlassIcon class="h-5 w-5 flex-shrink-0" />
                 <span class="ml-3 text-sm">Sfoglia Gruppi</span>
               </router-link>
             </li>
              <!-- Quiz Templates -->
             <li class="mb-2">
-              <router-link :to="{ name: 'quiz-templates' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-secondary-light">
+              <router-link :to="{ name: 'quiz-templates' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Quiz Templates">
                 <ClipboardDocumentListIcon class="h-5 w-5 flex-shrink-0" />
                 <span class="ml-3 text-sm">Quiz Templates</span>
               </router-link>
@@ -468,7 +512,7 @@ watch(route, (to) => {
             <!-- Template Percorsi - Temporarily Hidden -->
             <!--
             <li class="mb-2">
-              <router-link :to="{ name: 'pathway-templates' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-secondary-light">
+              <router-link :to="{ name: 'pathway-templates' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Template Percorsi">
                 <MapIcon class="h-5 w-5 flex-shrink-0" />
                 <span class="ml-3 text-sm">Template Percorsi</span>
               </router-link>
@@ -476,7 +520,7 @@ watch(route, (to) => {
             -->
             <!-- Quiz Assegnati -->
             <li class="mb-2">
-              <router-link :to="{ name: 'assigned-quizzes' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-secondary-light">
+              <router-link :to="{ name: 'assigned-quizzes' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Quiz Assegnati">
                 <ClipboardDocumentCheckIcon class="h-5 w-5 flex-shrink-0" />
                 <span class="ml-3 text-sm">Quiz Assegnati</span>
               </router-link>
@@ -484,7 +528,7 @@ watch(route, (to) => {
             <!-- Percorsi Assegnati - Temporarily Hidden -->
             <!--
             <li class="mb-2">
-              <router-link :to="{ name: 'assigned-pathways' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-secondary-light">
+              <router-link :to="{ name: 'assigned-pathways' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Percorsi Assegnati">
                 <MapPinIcon class="h-5 w-5 flex-shrink-0" />
                 <span class="ml-3 text-sm">Percorsi Assegnati</span>
               </router-link>
@@ -492,28 +536,28 @@ watch(route, (to) => {
             -->
             <!-- Ricompense -->
             <li class="mb-2">
-              <router-link :to="{ name: 'rewards' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-secondary-light">
+              <router-link :to="{ name: 'rewards' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Ricompense">
                 <GiftIcon class="h-5 w-5 flex-shrink-0" />
                 <span class="ml-3 text-sm">Ricompense</span>
               </router-link>
             </li>
             <!-- Valutazioni -->
             <li class="mb-2">
-              <router-link :to="{ name: 'GradingDashboard' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-secondary-light">
+              <router-link :to="{ name: 'GradingDashboard' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Valutazioni">
                 <PencilSquareIcon class="h-5 w-5 flex-shrink-0" />
                 <span class="ml-3 text-sm">Valutazioni</span>
               </router-link>
             </li>
             <!-- Consegne -->
             <li class="mb-2">
-              <router-link :to="{ name: 'delivery' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-secondary-light">
+              <router-link :to="{ name: 'delivery' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Consegne">
                 <InboxArrowDownIcon class="h-5 w-5 flex-shrink-0" />
                 <span class="ml-3 text-sm">Consegne</span>
               </router-link>
             </li>
             <!-- Progressi -->
             <li class="mb-2">
-              <router-link :to="{ name: 'student-progress' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-secondary-light">
+              <router-link :to="{ name: 'student-progress' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Progressi">
                 <ChartBarIcon class="h-5 w-5 flex-shrink-0" />
                 <span class="ml-3 text-sm">Progressi</span>
               </router-link>
@@ -524,31 +568,31 @@ watch(route, (to) => {
               <span class="text-xs font-semibold text-neutral-400">Gestione Didattica</span>
             </li>
             <li class="mb-2">
-              <router-link :to="{ name: 'EmbeddedTeacherSubjects' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-secondary-light">
+              <router-link :to="{ name: 'EmbeddedTeacherSubjects' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Materie">
                 <TagIcon class="h-5 w-5 flex-shrink-0" />
                 <span class="ml-3 text-sm">Materie</span>
               </router-link>
             </li>
             <li class="mb-2">
-              <router-link :to="{ name: 'EmbeddedTeacherTopics' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-secondary-light">
+              <router-link :to="{ name: 'EmbeddedTeacherTopics' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Argomenti">
                 <LightBulbIcon class="h-5 w-5 flex-shrink-0" />
                 <span class="ml-3 text-sm">Argomenti</span>
               </router-link>
             </li>
             <li class="mb-2">
-              <router-link :to="{ name: 'EmbeddedTeacherLessonsList' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-secondary-light">
+              <router-link :to="{ name: 'EmbeddedTeacherLessonsList' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Lezioni">
                 <AcademicCapIcon class="h-5 w-5 flex-shrink-0" />
                 <span class="ml-3 text-sm">Lezioni</span>
               </router-link>
             </li>
             <li class="mb-2">
-              <router-link :to="{ name: 'EmbeddedTeacherCourses' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-secondary-light">
+              <router-link :to="{ name: 'EmbeddedTeacherCourses' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Corsi">
                 <FolderIcon class="h-5 w-5 flex-shrink-0" />
                 <span class="ml-3 text-sm">Corsi</span>
               </router-link>
             </li>
             <li class="mb-2">
-              <router-link :to="{ name: 'EmbeddedTeacherUdas' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-secondary-light">
+              <router-link :to="{ name: 'EmbeddedTeacherUdas' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-secondary-light" title="UDA">
                 <PuzzlePieceIcon class="h-5 w-5 flex-shrink-0" />
                 <span class="ml-3 text-sm">UDA</span>
               </router-link>
@@ -558,7 +602,7 @@ watch(route, (to) => {
 
         <!-- Logout Mobile -->
         <div class="p-4 mt-auto border-t border-secondary-light flex-shrink-0">
-          <button @click="handleLogout(); toggleMobileMenu();" class="w-full flex items-center p-2 rounded hover:bg-error">
+          <button @click="handleLogout(); toggleMobileMenu();" class="w-full flex items-center p-2 rounded hover:bg-error" title="Logout">
             <ArrowLeftOnRectangleIcon class="h-6 w-6 flex-shrink-0" />
             <span class="ml-3">Logout</span>
           </button>
@@ -568,41 +612,45 @@ watch(route, (to) => {
 
     <!-- Contenuto Principale -->
     <div class="flex flex-col flex-grow">
-        <!-- Header - Mostra solo se autenticato E non sulla landing page -->
+        <!-- Header -->
         <header v-if="sharedAuth.isAuthenticated && route.name !== 'landing'" class="bg-white shadow p-4 h-16 flex items-center justify-between flex-shrink-0">
              <!-- Pulsante Hamburger (visibile solo su mobile) -->
-             <button @click="toggleMobileMenu" class="md:hidden p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded focus:outline-none focus:ring-2 focus:ring-inset focus:ring-purple-500">
+             <button
+                ref="mobileMenuButtonRef"
+                @click="toggleMobileMenu"
+                class="md:hidden p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded focus:outline-none focus:ring-2 focus:ring-inset focus:ring-purple-500"
+              >
                <span class="sr-only">Apri menu principale</span>
                <Bars3Icon class="h-6 w-6" />
              </button>
 
-             <!-- Placeholder per Titolo Pagina o Spazio -->
-             <div class="flex-1 md:ml-4"></div>
+             <!-- Placeholder per Titolo Pagina o Spazio (su desktop occupa spazio, su mobile no) -->
+             <div class="flex-1 md:ml-4">
+                <!-- <h1 v-if="route.meta.title" class="text-xl font-semibold text-gray-800">{{ route.meta.title }}</h1> -->
+             </div>
 
-             <!-- Pulsanti Header -->
-             <div class="flex items-center space-x-4">
-                 <!-- Pulsante Notifiche -->
-                 <button class="p-2 rounded-full text-neutral-dark hover:text-neutral-darker hover:bg-neutral-light focus:outline-none focus:bg-neutral-light focus:ring-2 focus:ring-offset-2 focus:ring-primary">
-                     <span class="sr-only">View notifications</span>
-                     <BellIcon class="h-6 w-6" />
-                 </button>
-
-                 <!-- Pulsante Profilo (Link diretto) -->
-                 <button @click="goToProfile" class="p-1 rounded-full text-neutral-dark hover:text-neutral-darker focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary">
-                     <span class="sr-only">Vai al profilo</span>
-                     <UserCircleIcon class="h-7 w-7" />
-                 </button>
+             <!-- Pulsanti Header (Profilo, Logout) -->
+             <div class="flex items-center space-x-3">
+                <button @click="goToProfile" class="flex items-center p-2 rounded text-gray-600 hover:bg-gray-100 hover:text-gray-800" title="Profilo">
+                    <UserCircleIcon class="h-6 w-6" />
+                    <span class="ml-2 text-sm hidden sm:inline">{{ sharedAuth.user?.email }}</span>
+                </button>
+                <!-- Logout Button - Hidden on Desktop Sidebar, shown here for consistency if needed or for smaller screens before mobile menu kicks in -->
+                <!-- <button @click="handleLogout" class="hidden sm:flex items-center p-2 rounded text-gray-600 hover:bg-red-100 hover:text-red-700" title="Logout">
+                    <ArrowLeftOnRectangleIcon class="h-6 w-6" />
+                    <span class="ml-2 text-sm hidden md:inline">Logout</span>
+                </button> -->
              </div>
         </header>
-        <!-- Se non autenticato, mostra solo il contenuto senza header -->
+        <!-- Se non autenticato o sulla landing page, mostra solo il contenuto senza header -->
         <header v-else class="h-0"></header> <!-- Placeholder per mantenere struttura flex -->
 
+
         <!-- Area Contenuto -->
-        <!-- Aggiunto padding-top solo se header è visibile (autenticato e non su landing) -->
-        <!-- Applica padding-top sempre se autenticato, per evitare che il contenuto vada sotto eventuali barre fisse -->
-        <main class="flex-grow p-4 md:p-8 overflow-auto" :class="{ 'pt-20': sharedAuth.isAuthenticated }">
+        <!-- Aggiunto padding-top se header è visibile -->
+        <main class="flex-grow p-4 md:p-8 overflow-auto" :class="{ 'pt-4': sharedAuth.isAuthenticated && route.name !== 'landing' }">
           <RouterView />
-        </main>
+        </main> <!-- Moved footer outside main -->
 
         <!-- Footer Component -->
         <AppFooter @openPrivacy="openPrivacyModal" @openCookie="openCookieModal" />
@@ -612,12 +660,14 @@ watch(route, (to) => {
 </template>
 
 <style scoped>
-/* Stili aggiuntivi se necessari */
+/* Stili per link attivi e hover nella sidebar */
 .router-link-exact-active {
-  @apply bg-secondary-light; /* Stile per link attivo nella sidebar aggiornato */
+  @apply bg-secondary-light; /* Usa il colore light della sidebar per l'attivo */
 }
-/* Stile specifico per il bottone logout hover (già gestito inline) */
-/* div > button.hover\:bg-red-700:hover {
-   @apply bg-error;
-} */
+
+/* Stili aggiuntivi per la transizione dell'opacità e del testo */
+.group:hover .opacity-0 {
+  opacity: 1;
+}
 </style>
+]]>

@@ -48,13 +48,14 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="purchases-view container mx-auto px-4 py-8">
-    <header class="purchases-header mb-8 flex justify-between items-center"> <!-- Aggiunto flex per allineare bottone -->
-      <h1 class="text-3xl font-bold text-primary-dark flex items-center"><span class="text-4xl mr-3">📜</span> Storico Acquisti</h1> <!-- Colore titolo aggiornato -->
-      <BaseButton variant="secondary" @click="router.push('/dashboard')">Torna alla Dashboard</BaseButton> <!-- Bottone spostato qui -->
+  <div class="purchases-view px-4 md:px-8 py-8"> <!-- Rimosso container mx-auto, aggiunto padding laterale -->
+    <header class="purchases-header bg-accent text-neutral-lightest p-4 rounded-lg shadow-md mb-6"> <!-- Rimosso flex justify-between items-center -->
+      <h1 class="text-2xl font-semibold flex items-center"><span class="text-3xl mr-3">📜</span> Storico Acquisti</h1>
+      <!-- Pulsante "Torna alla Dashboard" rimosso -->
     </header>
 
-    <div v-if="isLoading" class="loading text-center py-10 text-neutral-dark"> <!-- Colore testo aggiornato -->
+    <div class="container mx-auto"> <!-- Contenuto principale avvolto in container -->
+      <div v-if="isLoading" class="loading text-center py-10 text-neutral-dark">
       <p>Caricamento storico...</p>
     </div>
 
@@ -96,10 +97,11 @@ onMounted(() => {
       
       <div v-else class="empty-message text-center py-10 text-neutral-dark"> <!-- Colore testo aggiornato -->
         <p class="mb-4">Non hai ancora effettuato nessun acquisto.</p>
-        <BaseButton variant="primary" @click="router.push('/shop')">Vai allo Shop</BaseButton> <!-- Usa BaseButton primario -->
+        <BaseButton variant="primary" @click="router.push('/shop')">Vai allo Shop</BaseButton>
       </div>
     </div>
-  </div>
+  </div> <!-- Chiusura del div container mx-auto -->
+</div> <!-- Chiusura del div purchases-view principale -->
 </template>
 
 <style scoped>

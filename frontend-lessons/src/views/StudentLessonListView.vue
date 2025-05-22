@@ -2,7 +2,7 @@
   <div class="assigned-lesson-list-container p-6">
     <!-- Intestazione con sfondo blu -->
     <div class="bg-blue-600 text-white p-4 rounded-md mb-6">
-        <h2 class="text-2xl font-semibold">Le Mie Lezioni Assegnate</h2>
+        <h2 class="text-2xl font-semibold flex items-center"><span class="text-3xl mr-3">📚</span>Le Mie Lezioni Assegnate</h2>
     </div>
 
     <!-- Barra di ricerca -->
