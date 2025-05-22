@@ -33,7 +33,7 @@ const formatPointsChange = (pointsChange: number): string => {
 
 <template>
   <div class="wallet-card bg-white rounded-lg shadow-md p-6"> <!-- Stili card base -->
-    <h2 class="text-xl font-bold text-primary-dark mb-4 flex items-center"><span class="text-2xl mr-2">💰</span> Il tuo Portafoglio</h2> <!-- Titolo primario scuro -->
+    <h2 class="text-xl font-bold text-primary-dark mb-4 flex items-center justify-center"><span class="text-2xl mr-2">💰</span> Il tuo Portafoglio</h2> <!-- Titolo primario scuro, aggiunto justify-center -->
 
     <div v-if="loading" class="loading-indicator text-center py-4 text-neutral-dark"> <!-- Testo loading neutro scuro -->
       <p>Caricamento portafoglio...</p>

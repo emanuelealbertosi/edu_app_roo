@@ -1,7 +1,7 @@
 # Piano di Integrazione Menu Frontend
 
-**Versione:** 1.1
-**Data:** 22 Maggio 2025 (Aggiornato)
+**Versione:** 1.2
+**Data:** 22 Maggio 2025 (Ulteriormente Aggiornato)
 **Autore:** Roo (Architect AI)
 
 ## 1. Obiettivo Principale
@@ -84,6 +84,7 @@ L'integrazione delle funzionalità di `frontend-lessons` avverrà incorporando l
     *   I link per "Gestione Didattica" usano `<router-link>` puntando a nuove rotte interne (es. `name: 'EmbeddedTeacherSubjects'`).
     *   Il testo dell'intestazione della sezione è "Gestione Didattica".
     *   Gli URL dei link sono stati corretti per puntare direttamente ai path specifici di `frontend-lessons`.
+    *   Le icone per le voci "Materie", "Argomenti", "Lezioni", "Corsi", "UDA" sono state aggiornate con icone tematiche più specifiche (`TagIcon`, `LightBulbIcon`, `AcademicCapIcon`, `FolderIcon`, `PuzzlePieceIcon` rispettivamente).
     *   **Stato:** COMPLETATO.
 3.  **Creazione Componenti Vista Embedding (in `frontend-teacher/src/views/embedded/`):**
     *   Creati componenti (`EmbeddedTeacherSubjectsView.vue`, `EmbeddedTeacherTopicsView.vue`, ecc.) ognuno con un `<iframe>`.
@@ -95,12 +96,16 @@ L'integrazione delle funzionalità di `frontend-lessons` avverrà incorporando l
 
 ### 3.3. Modifiche a `frontend-lessons` per Supporto Embedding
 
-1.  **Nascondere Menu in Modalità Embedded ([`frontend-lessons/src/App.vue`](frontend-lessons/src/App.vue)):**
-    *   Aggiunta logica per leggere il query parameter `embedded` dall'URL.
-    *   L'header e la sidebar di `frontend-lessons` sono nascosti se `embedded=true`.
+1.  **Rimozione Menu e Header da `frontend-lessons` e Modifiche alla Dashboard ([`frontend-lessons/src/App.vue`](frontend-lessons/src/App.vue), [`frontend-lessons/src/views/DashboardView.vue`](frontend-lessons/src/views/DashboardView.vue)):**
+    *   Il menu laterale (sidebar) e l'header sono stati completamente rimossi da [`frontend-lessons/src/App.vue`](frontend-lessons/src/App.vue) per eliminare il "flash" del menu quando l'applicazione è caricata in un iframe.
+    *   I link di navigazione precedentemente presenti nel menu laterale sono stati aggiunti alla [`frontend-lessons/src/views/DashboardView.vue`](frontend-lessons/src/views/DashboardView.vue), con visibilità basata sul ruolo dell'utente.
+    *   Un pulsante di "Logout" è stato aggiunto alla [`DashboardView.vue`](frontend-lessons/src/views/DashboardView.vue) per permettere il logout quando si accede a `frontend-lessons` direttamente (es. per debug).
     *   **Stato:** COMPLETATO.
 2.  **Persistenza del Query Parameter `embedded` ([`frontend-lessons/src/router/index.ts`](frontend-lessons/src/router/index.ts)):**
-    *   Modificata la guardia `router.beforeEach` per aggiungere `embedded=true` alla query della rotta di destinazione se la navigazione proviene da una rotta già embedded.
+    *   Modificata la guardia `router.beforeEach` per aggiungere `embedded=true` alla query della rotta di destinazione se la navigazione proviene da una rotta già embedded. Questo comportamento rimane cruciale.
+    *   **Stato:** COMPLETATO.
+3.  **Rimozione Padding in Modalità Embedded ([`frontend-lessons/src/App.vue`](frontend-lessons/src/App.vue)):**
+    *   Il padding attorno all'elemento `<main>` in [`frontend-lessons/src/App.vue`](frontend-lessons/src/App.vue) è stato reso condizionale. Viene rimosso quando il query parameter `embedded` è `true`, per migliorare l'integrazione visiva del contenuto dell'iframe.
     *   **Stato:** COMPLETATO.
 
 ## 4. Test e Verifica
@@ -119,9 +124,10 @@ L'integrazione delle funzionalità di `frontend-lessons` avverrà incorporando l
     *   Assicurare che i permessi basati sul ruolo siano applicati correttamente.
 5.  **Test di Regressione:**
     *   Verificare funzionalità esistenti in `frontend-student` e `frontend-teacher`.
-    *   Verificare che `frontend-lessons` funzioni correttamente (con i suoi menu) se acceduta direttamente.
+    *   Verificare che `frontend-lessons` funzioni correttamente se acceduta direttamente, inclusa la navigazione tramite i link nella dashboard e la funzionalità di logout.
 6.  **Verifica Esperienza Utente con `<iframe>`:**
     *   Valutare scrolling, altezza iframe, coerenza visiva.
+    *   Verificare l'assenza di padding attorno al contenuto di `frontend-lessons` quando visualizzato nell'iframe (modalità embedded).
 
 ## 5. Considerazioni Aggiuntive
 
@@ -133,3 +139,58 @@ L'integrazione delle funzionalità di `frontend-lessons` avverrà incorporando l
 *   **Alternative Future a `<iframe>`:** Per maggiore integrazione, considerare architetture Micro-Frontend (MFE).
 
 Questo piano aggiornato riflette l'approccio di integrazione tramite `<iframe>` per mantenere il layout dell'applicazione host.
+## 6. Debug e Risoluzione Problemi SSO (Post-Integrazione)
+
+Durante i test successivi all'integrazione iniziale, è emerso un problema specifico relativo al Single Sign-On (SSO) quando uno studente, dopo essersi autenticato in `frontend-student` e aver navigato alle lezioni (caricate da `frontend-lessons` in un iframe), effettuava un logout e un nuovo login in `frontend-student`. Al successivo accesso alla sezione delle lezioni, `frontend-lessons` non riconosceva il nuovo stato di autenticazione, risultando in errori (es. "Given token not valid for any token type" durante tentativi di refresh del token) o in un reindirizzamento alla pagina di login errata (quella per docenti/admin) all'interno dell'iframe.
+
+### 6.1. Causa Principale Identificata (Iterativa)
+
+L'indagine ha rivelato una catena di problemi:
+
+1.  **Inizialmente**: Si sospettava un problema nella logica di refresh del token o nella gestione del ruolo utente in `frontend-lessons`.
+2.  **Successivamente**: È emerso che gli interceptor Axios configurati in `frontend-lessons/src/services/apiClient.ts` non venivano eseguiti, probabilmente a causa di problemi di caching di Vite o HMR che servivano una versione obsoleta del modulo all'iframe. Un workaround che prevedeva la creazione di un'istanza Axios locale con interceptor duplicati in `frontend-lessons/src/stores/lessons.ts` ha confermato che gli interceptor funzionavano se eseguiti.
+3.  **Poi**: Il problema si è spostato sulla lettura di `localStorage` da parte di `frontend-lessons`, che trovava dati nulli nonostante `frontend-student` sembrasse aggiornare correttamente il suo store Pinia.
+4.  **Infine (Causa Attuale)**: È stato scoperto che `pinia-plugin-persistedstate` in `frontend-student` non stava scrivendo correttamente lo stato aggiornato dello `sharedAuthStore` (in particolare l'oggetto `user`) in `localStorage`. Anche dopo aver corretto la configurazione `paths` del plugin, `localStorage` rimaneva con dati nulli per `user` e `accessToken` dopo un login, come verificato leggendo `localStorage` direttamente da `frontend-student`. Successivamente, si è determinato che, anche con una scrittura manuale in `localStorage` da `frontend-student`, l'iframe `frontend-lessons` non vedeva queste modifiche in modo tempestivo o affidabile.
+
+La causa principale definitiva è una **mancata o ritardata sincronizzazione dello stato di `localStorage` tra l'applicazione host (`frontend-student`) e l'applicazione caricata nell'iframe (`frontend-lessons`)**. `frontend-lessons` legge una versione di `localStorage` che non riflette gli aggiornamenti più recenti effettuati da `frontend-student`.
+
+### 6.2. Indagini e Tentativi di Correzione Dettagliati
+
+Il processo di debug ha incluso i seguenti passaggi principali:
+
+1.  **Analisi della Logica di Autenticazione in `frontend-lessons`**:
+    *   Verifica e robustezza delle funzioni `checkInitialAuth` e `refreshTokenAction`.
+    *   Aggiunta di tentativi di idratazione manuale da `localStorage` in `checkInitialAuth`, incluso un secondo tentativo con ritardo.
+
+2.  **Verifica degli Interceptor Axios**:
+    *   Aggiunta di interceptor di risposta in `frontend-lessons/src/services/apiClient.ts`.
+    *   Diagnosi della mancata esecuzione di tale modulo e workaround con istanza Axios locale in `frontend-lessons/src/stores/lessons.ts`.
+
+3.  **Analisi della Persistenza Pinia in `frontend-student`**:
+    *   Correzione della configurazione `paths` per `pinia-plugin-persistedstate` in `frontend-student/src/stores/sharedAuth.ts` per includere `user`.
+    *   Semplificazione a `persist: true` per escludere errori di configurazione `paths`.
+    *   Aggiunta di log per verificare il contenuto di `localStorage` subito dopo le operazioni di scrittura da `frontend-student`.
+
+4.  **Implementazione di Scrittura Manuale in `localStorage` da `frontend-student`**:
+    *   Modificate le azioni `setAuthData` e `clearAuthData` in `frontend-student/src/stores/sharedAuth.ts` per scrivere/pulire manualmente `localStorage` (chiave `sharedAuth`), bypassando `pinia-plugin-persistedstate` per la scrittura. Questo ha confermato che `frontend-student` scriveva correttamente i dati.
+
+### 6.3. Soluzione Attualmente in Corso di Verifica: Comunicazione Esplicita Host -> Iframe tramite `postMessage`
+
+Data l'inaffidabilità della sincronizzazione di `localStorage` tra l'host e l'iframe, si è implementato un meccanismo di comunicazione esplicita:
+
+1.  **Invio Messaggio da Host (`frontend-student`):**
+    *   Le azioni `setAuthData` e `clearAuthData` in `frontend-student/src/stores/sharedAuth.ts` sono state modificate per:
+        *   Continuare ad aggiornare manualmente `localStorage`.
+        *   Ottenere un riferimento all'iframe (assumendo un ID come `lessons-iframe`).
+        *   Utilizzare `iframe.contentWindow.postMessage()` per inviare un messaggio a `frontend-lessons`.
+        *   Il messaggio per l'aggiornamento include `{ type: 'AUTH_STATE_UPDATED', payload: stateToPersist }` (dove `stateToPersist` contiene `user`, `accessToken`, `refreshToken`, ecc.).
+        *   Il messaggio per la pulizia è `{ type: 'AUTH_STATE_CLEARED' }`.
+    *   L'origine target per `postMessage` è specificata per sicurezza (derivata da `VITE_LESSONS_APP_URL` di `frontend-student`).
+
+2.  **Ricezione Messaggio nell'Iframe (`frontend-lessons`):**
+    *   Il file `frontend-lessons/src/main.ts` è stato modificato per aggiungere un `window.addEventListener('message', ...)`.
+    *   Quando viene ricevuto un messaggio di tipo `AUTH_STATE_UPDATED` (e l'origine è verificata), `frontend-lessons` usa il `payload` per chiamare `setAuthData` sul suo `sharedAuthStore`.
+    *   Quando viene ricevuto `AUTH_STATE_CLEARED`, chiama `clearAuthData`.
+    *   Dopo l'aggiornamento dello store, viene richiamata `authStore.checkInitialAuth()` per riesaminare lo stato di autenticazione e, se necessario, gestire i reindirizzamenti (es. se l'utente è ora autenticato ma si trova su una pagina di login).
+
+Questo approccio mira a garantire che `frontend-lessons` sia notificato direttamente e aggiorni il suo stato di autenticazione in modo affidabile quando l'autenticazione cambia in `frontend-student`. La verifica di questa soluzione è l'attività corrente.

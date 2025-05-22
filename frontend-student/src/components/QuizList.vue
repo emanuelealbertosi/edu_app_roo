@@ -15,9 +15,12 @@ const props = defineProps<{
   title: string;
   emptyMessage: string;
   loading?: boolean;
+  displayMode?: 'list' | 'grid'; // Nuova prop per la modalità di visualizzazione
 }>();
 
 const router = useRouter();
+
+const isGridView = computed(() => props.displayMode === 'grid');
 
 // Formatta la data in un formato più leggibile
 const formatDate = (dateString: string | null): string => {
@@ -250,14 +253,17 @@ const getContrastingTextColor = (hexcolor: string): string => {
       <p>{{ emptyMessage }}</p>
     </div>
     
-    <div v-else class="quiz-list space-y-4">
+    <div v-else :class="isGridView ? 'quiz-grid grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4' : 'quiz-list space-y-4'">
       <!-- Aggiungere @click qui -->
       <!-- Itera sui tentativi (rinominato quiz -> attempt) -->
       <div
         v-for="attempt in quizzes"
         :key="attempt.attempt_id"
-        class="quiz-item rounded-lg p-4 shadow border-l-4 relative pb-16 hover:shadow-lg transition-shadow duration-200 cursor-pointer"
-        :class="getStatusBorderClass(attempt)"
+        class="quiz-item rounded-lg p-4 shadow border-l-4 relative hover:shadow-lg transition-shadow duration-200 cursor-pointer flex flex-col"
+        :class="[
+          getStatusBorderClass(attempt),
+          isGridView ? 'aspect-square justify-between' : 'pb-16' // Aggiunge aspect-square e justify-between per la modalità griglia
+        ]"
         :style="{ backgroundColor: attempt.card_background_color || '#F5F5F5', color: getContrastingTextColor(attempt.card_background_color || '#F5F5F5') }"
         @click="openDetailsModal(attempt.quiz_id)"
       >
@@ -308,24 +314,32 @@ const getContrastingTextColor = (hexcolor: string): string => {
           </div>
         </div>
 
-        <!-- Ripristinato: Pulsante Inizia Quiz (visibile solo se appropriato per lo stato del TENTATIVO) -->
-        <button
-          v-if="shouldShowStartButton(attempt)"
-          @click.stop="startQuizAttempt(attempt.quiz_id)"
-          class="start-quiz-button absolute bottom-4 right-4 bg-primary hover:bg-primary-dark text-white font-bold py-2 px-4 rounded-lg shadow transition-colors duration-200 z-10"
-        >
-          <!-- Modificato testo pulsante per chiarezza -->
-          {{ attempt.status === 'FAILED' ? 'Ritenta Quiz ▶' : 'Inizia Quiz ▶' }}
-        </button>
-        
-        <!-- Ripristinato: Pulsante Continua Quiz (visibile solo se IN_PROGRESS) -->
-        <button
-          v-if="attempt.status === 'IN_PROGRESS'"
-          @click.stop="openAttemptModal(attempt.quiz_id, attempt.attempt_id)"
-          class="continue-quiz-button absolute bottom-4 right-4 bg-warning hover:bg-warning-dark text-white font-bold py-2 px-4 rounded-lg shadow transition-colors duration-200 z-10"
-        >
-          Continua Quiz ▶
-        </button>
+        <div :class="isGridView ? 'mt-auto pt-4' : 'absolute bottom-4 right-4 z-10'">
+          <!-- Ripristinato: Pulsante Inizia Quiz (visibile solo se appropriato per lo stato del TENTATIVO) -->
+          <button
+            v-if="shouldShowStartButton(attempt)"
+            @click.stop="startQuizAttempt(attempt.quiz_id)"
+            :class="[
+              'start-quiz-button bg-primary hover:bg-primary-dark text-white font-bold py-2 px-4 rounded-lg shadow transition-colors duration-200',
+              isGridView ? 'w-full' : ''
+            ]"
+          >
+            <!-- Modificato testo pulsante per chiarezza -->
+            {{ attempt.status === 'FAILED' ? 'Ritenta Quiz ▶' : 'Inizia Quiz ▶' }}
+          </button>
+          
+          <!-- Ripristinato: Pulsante Continua Quiz (visibile solo se IN_PROGRESS) -->
+          <button
+            v-if="attempt.status === 'IN_PROGRESS'"
+            @click.stop="openAttemptModal(attempt.quiz_id, attempt.attempt_id)"
+            :class="[
+              'continue-quiz-button bg-warning hover:bg-warning-dark text-white font-bold py-2 px-4 rounded-lg shadow transition-colors duration-200',
+              isGridView ? 'w-full mt-2' : ''
+            ]"
+          >
+            Continua Quiz ▶
+          </button>
+        </div>
       </div>
     </div>
 

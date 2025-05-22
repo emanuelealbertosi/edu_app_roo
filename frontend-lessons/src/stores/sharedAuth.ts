@@ -105,6 +105,43 @@ export const useSharedAuthStore = defineStore('sharedAuth', () => {
     setAuthData,
     clearAuthData,
     setLoading,
-    setError
+    setError,
+    /**
+     * Aggiorna lo stato dello store basandosi sui dati ricevuti da un evento 'storage'.
+     * Questo è utile per la sincronizzazione cross-tab/iframe quando localStorage cambia.
+     * @param persistedState - Lo stato deserializzato da event.newValue.
+     */
+    hydrateFromStorageEvent(persistedState: any) {
+      console.log('[SharedAuthStore] Attempting to hydrate from storage event:', persistedState);
+
+      const newAccessToken = persistedState.accessToken || null;
+      const newRefreshToken = persistedState.refreshToken || null;
+      const newUser = persistedState.user || null;
+
+      let changed = false;
+      if (accessToken.value !== newAccessToken) {
+        accessToken.value = newAccessToken;
+        console.log('[SharedAuthStore] Access token updated from storage event.');
+        changed = true;
+      }
+      if (refreshToken.value !== newRefreshToken) {
+        refreshToken.value = newRefreshToken;
+        console.log('[SharedAuthStore] Refresh token updated from storage event.');
+        changed = true;
+      }
+      // Confronto JSON per l'oggetto utente per semplicità,
+      // potrebbe essere necessario un confronto più granulare se le prestazioni diventano un problema.
+      if (JSON.stringify(user.value) !== JSON.stringify(newUser)) {
+        user.value = newUser;
+        console.log('[SharedAuthStore] User data updated from storage event.');
+        changed = true;
+      }
+
+      if (changed) {
+        console.log('[SharedAuthStore] State successfully updated based on storage event.');
+      } else {
+        console.log('[SharedAuthStore] No changes applied from storage event; state was already consistent.');
+      }
+    }
   }
 }, { persist: true }) // Abilita la persistenza per questo store

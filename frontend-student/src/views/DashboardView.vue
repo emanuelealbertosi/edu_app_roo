@@ -3,11 +3,11 @@ import { onMounted, ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { useDashboardStore } from '@/stores/dashboard';
-import QuizList from '@/components/QuizList.vue';
-import PathwayList from '@/components/PathwayList.vue';
+// import QuizList from '@/components/QuizList.vue'; // Rimosso QuizList
+// import PathwayList from '@/components/PathwayList.vue'; // Rimosso PathwayList
 import WalletCard from '@/components/WalletCard.vue';
 import BaseButton from '@/components/common/BaseButton.vue';
-import BaseTabs from '@/components/common/BaseTabs.vue';
+// import BaseTabs from '@/components/common/BaseTabs.vue'; // Rimosso BaseTabs se non più usato per i quiz
 import AnimatedBadge from '@/components/common/AnimatedBadge.vue'; // Importa AnimatedBadge
 
 const authStore = useAuthStore();
@@ -17,44 +17,45 @@ const router = useRouter();
 const isLoading = ref(true);
 const dashboardError = computed(() => dashboardStore.error);
 
-const searchTerm = ref('');
+const searchTerm = ref(''); // Sarà rimosso se la ricerca quiz è solo nella pagina quiz
 
-// Definisci i tab (invariato)
-const dashboardTabs = ref([
-  { name: 'Da Fare', slotName: 'todo' },
-  { name: 'Completati', slotName: 'completed' }
-]);
+// Definisci i tab (invariato) - Verrà rimosso se i tab erano solo per i quiz
+// const dashboardTabs = ref([
+//   { name: 'Da Fare', slotName: 'todo' },
+//   { name: 'Completati', slotName: 'completed' }
+// ]);
 
 // Accedi all'ultimo badge tramite getter
 const latestBadge = computed(() => dashboardStore.latestEarnedBadge);
 
-const filterQuizzes = (quizzes: any[]) => {
-  if (!searchTerm.value.trim()) {
-    return quizzes;
-  }
-  const lowerSearchTerm = searchTerm.value.toLowerCase();
-  return quizzes.filter(quiz => {
-    const subjectName = quiz.subject_name?.toLowerCase() || '';
-    const topicName = quiz.topic_name?.toLowerCase() || '';
-    const title = quiz.title?.toLowerCase() || '';
-    // const className = quiz.class_name?.toLowerCase() || ''; // Campo classe non presente direttamente
-    const teacherUsername = quiz.teacher_username?.toLowerCase() || '';
-    const teacherFirstName = quiz.teacher_first_name?.toLowerCase() || '';
-    const teacherLastName = quiz.teacher_last_name?.toLowerCase() || '';
+// La logica di filtraggio dei quiz è spostata in QuizzesPageView.vue
+// const filterQuizzes = (quizzes: any[]) => {
+//   if (!searchTerm.value.trim()) {
+//     return quizzes;
+//   }
+//   const lowerSearchTerm = searchTerm.value.toLowerCase();
+//   return quizzes.filter(quiz => {
+//     const subjectName = quiz.subject_name?.toLowerCase() || '';
+//     const topicName = quiz.topic_name?.toLowerCase() || '';
+//     const title = quiz.title?.toLowerCase() || '';
+//     // const className = quiz.class_name?.toLowerCase() || ''; // Campo classe non presente direttamente
+//     const teacherUsername = quiz.teacher_username?.toLowerCase() || '';
+//     const teacherFirstName = quiz.teacher_first_name?.toLowerCase() || '';
+//     const teacherLastName = quiz.teacher_last_name?.toLowerCase() || '';
 
-    return subjectName.includes(lowerSearchTerm) ||
-           topicName.includes(lowerSearchTerm) ||
-           title.includes(lowerSearchTerm) ||
-           // className.includes(lowerSearchTerm) ||
-           teacherUsername.includes(lowerSearchTerm) ||
-           teacherFirstName.includes(lowerSearchTerm) ||
-           teacherLastName.includes(lowerSearchTerm);
-  });
-};
+//     return subjectName.includes(lowerSearchTerm) ||
+//            topicName.includes(lowerSearchTerm) ||
+//            title.includes(lowerSearchTerm) ||
+//            // className.includes(lowerSearchTerm) ||
+//            teacherUsername.includes(lowerSearchTerm) ||
+//            teacherFirstName.includes(lowerSearchTerm) ||
+//            teacherLastName.includes(lowerSearchTerm);
+//   });
+// };
 
-const filteredAvailableQuizzes = computed(() => filterQuizzes(dashboardStore.availableQuizzes));
-const filteredInProgressOrFailedQuizzes = computed(() => filterQuizzes(dashboardStore.inProgressOrFailedQuizzes));
-const filteredCompletedQuizzes = computed(() => filterQuizzes(dashboardStore.completedQuizzes));
+// const filteredAvailableQuizzes = computed(() => filterQuizzes(dashboardStore.availableQuizzes));
+// const filteredInProgressOrFailedQuizzes = computed(() => filterQuizzes(dashboardStore.inProgressOrFailedQuizzes));
+// const filteredCompletedQuizzes = computed(() => filterQuizzes(dashboardStore.completedQuizzes));
 
 onMounted(async () => {
   // Usa il getter isAuthenticated invece della funzione checkAuth rimossa
@@ -110,76 +111,32 @@ const goToShop = () => {
       <p class="mt-4 text-neutral-dark">Caricamento in corso...</p>
     </div>
 
-    <div v-else class="dashboard-content grid grid-cols-1 lg:grid-cols-3 gap-8">
-      <div class="wallet-section lg:col-span-1 flex flex-col gap-6">
-         <div class="bg-white p-4 rounded-lg shadow-md text-center">
-            <h3 class="text-lg font-semibold text-primary-dark mb-3">Ultimo Traguardo</h3>
-            <div v-if="dashboardStore.loading.badges" class="text-sm text-neutral-dark italic">Caricamento...</div>
-            <AnimatedBadge v-else-if="latestBadge" :badge="latestBadge" class="mx-auto max-w-[theme(spacing.24)]"/>
-            <p v-else class="text-sm text-neutral-dark italic">Nessun traguardo ancora raggiunto.</p>
-            <router-link to="/badges" class="block text-sm text-primary hover:underline mt-3">Vedi tutti i traguardi</router-link>
-         </div>
+    <div v-else class="dashboard-content">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <!-- Colonna Sinistra: Ultimo Traguardo -->
+        <div class="bg-white p-6 rounded-lg shadow-md text-center">
+          <h2 class="text-xl font-bold text-primary-dark mb-4 flex items-center justify-center"><span class="text-2xl mr-2">🏆</span> Ultimo Traguardo</h2>
+          <div v-if="dashboardStore.loading.badges" class="text-sm text-neutral-dark italic py-4">Caricamento traguardi...</div>
+          <AnimatedBadge v-else-if="latestBadge" :badge="latestBadge" class="mx-auto max-w-[theme(spacing.24)] mb-3"/>
+          <p v-else class="text-sm text-neutral-dark italic py-4">Nessun traguardo ancora raggiunto.</p>
+          <router-link to="/badges" class="block text-sm text-primary hover:underline mt-3">Vedi tutti i traguardi</router-link>
+        </div>
+
+        <!-- Colonna Destra: WalletCard -->
         <WalletCard
           :wallet="dashboardStore.wallet"
           :loading="dashboardStore.loading.wallet"
           :totalEarnedPoints="dashboardStore.wallet?.total_earned_points"
         />
       </div>
-
+      
+      <!-- RIMOZIONE COMPLETA DELLA SEZIONE "educational-content" -->
+      <!--
       <div class="educational-content lg:col-span-2 bg-white p-6 rounded-lg shadow-md">
-        <div class="mb-4">
-          <input
-            type="text"
-            v-model="searchTerm"
-            placeholder="Cerca quiz per materia, argomento, titolo..."
-            class="w-full p-2 border border-neutral-light rounded-md focus:ring-primary focus:border-primary"
-          />
-        </div>
-        <BaseTabs :tabs="dashboardTabs">
-          <template #todo>
-            <div class="space-y-6">
-              <QuizList
-                :quizzes="filteredAvailableQuizzes"
-                title="Quiz Disponibili"
-                emptyMessage="Non ci sono quiz disponibili al momento."
-                :loading="dashboardStore.loading.quizzes"
-                :showStartButton="true"
-              />
-              <QuizList
-                :quizzes="filteredInProgressOrFailedQuizzes"
-                title="Quiz da Continuare o Ritentare"
-                emptyMessage="Non hai quiz in corso o da ritentare."
-                :loading="dashboardStore.loading.quizzes"
-                :showStartButton="true"
-              />
-              <!-- PathwayList
-                :pathways="dashboardStore.inProgressPathways"
-                title="Percorsi in Corso"
-                emptyMessage="Non hai percorsi in corso al momento."
-                :loading="dashboardStore.loading.pathways"
-              / -->
-            </div>
-          </template>
-
-          <template #completed>
-            <div class="space-y-6">
-              <QuizList
-                :quizzes="filteredCompletedQuizzes"
-                title="Quiz Completati"
-                emptyMessage="Non hai ancora completato nessun quiz."
-                :loading="dashboardStore.loading.quizzes"
-              />
-              <!-- PathwayList
-                :pathways="dashboardStore.completedPathways"
-                title="Percorsi Completati"
-                emptyMessage="Non hai ancora completato nessun percorso."
-                :loading="dashboardStore.loading.pathways"
-                :showResultLink="true"
-              / -->
-            </div>
-          </template>
-        </BaseTabs>
+        <h2 class="text-2xl font-semibold text-primary-dark mb-6">Contenuti Educativi</h2>
+        <p class="text-neutral-dark">Al momento non ci sono altri contenuti educativi da visualizzare qui. Puoi trovare i tuoi quiz nella sezione "I Miei Quiz" del menu.</p>
       </div>
+      -->
     </div>
   </div>
 </template>

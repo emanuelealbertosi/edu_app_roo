@@ -234,13 +234,14 @@ watch(route, (to) => {
 }, { immediate: true, deep: true }); // immediate per log iniziale, deep non strettamente necessario ma sicuro
 
 // Hook onMounted per controllare l'autenticazione all'avvio
-onMounted(async () => {
-  console.log('[App.vue onMounted] Component mounted. Checking authentication status...');
-  // Chiama l'azione dallo store authTeacher per verificare e recuperare il profilo
-  // se è presente un token valido nello store condiviso (caricato da localStorage).
-  await authStore.checkAuthAndFetchProfile();
-  console.log('[App.vue onMounted] Authentication check complete.');
-});
+// onMounted(async () => {
+//   console.log('[App.vue onMounted] Component mounted. Checking authentication status...');
+//   // Chiama l'azione dallo store authTeacher per verificare e recuperare il profilo
+//   // se è presente un token valido nello store condiviso (caricato da localStorage).
+//   // QUESTA LOGICA È STATA SPOSTATA IN main.ts PER GARANTIRE CHE VENGA ESEGUITA PRIMA DEL MOUNT DELL'APP
+//   // await authStore.checkAuthAndFetchProfile();
+//   // console.log('[App.vue onMounted] Authentication check complete.');
+// });
 
 </script>
 

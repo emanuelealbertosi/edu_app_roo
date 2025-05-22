@@ -223,32 +223,65 @@ export const useAuthStore = defineStore('auth', {
 
      async refreshTokenAction() {
        const sharedAuthStore = useSharedAuthStore();
-       if (!sharedAuthStore.refreshToken) {
-         console.warn("Refresh token action skipped: no refresh token in shared store.");
-         return false; // Non si può fare refresh senza refresh token
+ 
+       // Attendere che sharedAuthStore sia idratato prima di leggere i suoi valori
+       if (sharedAuthStore.$persistedState && typeof sharedAuthStore.$persistedState.isReady === 'function') {
+           try {
+               console.log('[AuthStore refreshTokenAction] Waiting for sharedAuthStore to be ready...');
+               await sharedAuthStore.$persistedState.isReady();
+               console.log('[AuthStore refreshTokenAction] sharedAuthStore is ready.');
+           } catch (e) {
+               console.error('[AuthStore refreshTokenAction] Error waiting for sharedAuthStore to be ready:', e);
+               // Nonostante l'errore, proviamo a procedere, ma potrebbe usare dati obsoleti.
+               // Considerare il logout qui se isReady() è cruciale e fallisce.
+           }
+       } else {
+            if (import.meta.env.MODE !== 'production') {
+                console.warn(
+                  '[AuthStore refreshTokenAction] sharedAuthStore.$persistedState.isReady() non disponibile. ' +
+                  'Procedendo senza attendere esplicitamente l\'idratazione.'
+                );
+            }
        }
-
-       // Determina l'endpoint corretto in base al ruolo (se disponibile)
-       // Se il ruolo non è noto, proviamo prima quello studente se il token contiene 'is_student'?
-       // O assumiamo che se c'è un refresh token, l'utente DOVREBBE essere nello stato?
-       // Approccio più sicuro: basarsi sul ruolo nello stato.
-       const isStudent = sharedAuthStore.userRole === 'STUDENT'; // Usa ruolo standardizzato
+ 
+       console.log('[AuthStore refreshTokenAction] Called. Current shared state (after potential ready wait):', {
+           user: sharedAuthStore.user ? JSON.parse(JSON.stringify(sharedAuthStore.user)) : null, // Deep copy for logging
+           role: sharedAuthStore.userRole,
+           hasAccessToken: !!sharedAuthStore.accessToken,
+           hasRefreshToken: !!sharedAuthStore.refreshToken,
+       });
+ 
+       if (!sharedAuthStore.refreshToken) {
+         console.warn("[AuthStore refreshTokenAction] Refresh token action skipped: no refresh token in shared store (after ready wait). Logging out.");
+         this.logout();
+         return false;
+       }
+ 
+       const currentRole = sharedAuthStore.userRole;
+       if (!currentRole) {
+           console.error("[AuthStore refreshTokenAction] Cannot refresh token: user role is missing in sharedAuthStore (after ready wait). Logging out.");
+           this.logout();
+           return false;
+       }
+ 
+       const isStudent = currentRole === 'STUDENT';
        const refreshEndpoint = isStudent ? '/auth/student/token/refresh/' : '/auth/token/refresh/';
-       console.log(`Attempting token refresh using endpoint: ${refreshEndpoint} for role: ${sharedAuthStore.userRole}`); // Debug
-
+       
+       console.log(`[AuthStore refreshTokenAction] Attempting token refresh. Endpoint: ${refreshEndpoint}, Role: ${currentRole}, RefreshToken Exists: ${!!sharedAuthStore.refreshToken}`);
+ 
        try {
-         // Usa apiClient importato
+         // apiClient è importato da '@/services/api' a livello di modulo
          const response = await apiClient.post(refreshEndpoint, {
            refresh: sharedAuthStore.refreshToken,
          });
-         const { access } = response.data;
-         // Il refresh token potrebbe essere ruotato, ma per ora assumiamo di no
-         // Aggiorna solo l'access token nello store condiviso, mantenendo l'utente e il refresh token
-         sharedAuthStore.setAuthData(access, sharedAuthStore.refreshToken, sharedAuthStore.user!);
-         console.log("Token refreshed successfully.");
+         const { access, refresh: newRefreshToken } = response.data;
+ 
+         // Aggiorna lo store condiviso con il nuovo access token e potenzialmente nuovo refresh token
+         sharedAuthStore.setAuthData(access, newRefreshToken || sharedAuthStore.refreshToken!, sharedAuthStore.user!);
+         console.log("[AuthStore refreshTokenAction] Token refreshed successfully. New access token set.");
          return true;
        } catch (error) {
-         console.error("Failed to refresh token:", error);
+         console.error(`[AuthStore refreshTokenAction] Failed to refresh token for role ${currentRole} using endpoint ${refreshEndpoint}:`, error);
          this.logout(); // Logout se il refresh fallisce
          return false;
        }
@@ -267,19 +300,90 @@ export const useAuthStore = defineStore('auth', {
      // Azione per controllare lo stato iniziale (es. all'avvio dell'app)
      async checkInitialAuth() {
          const sharedAuthStore = useSharedAuthStore();
-         console.log("Checking initial auth state..."); // Debug
-         if (sharedAuthStore.accessToken && !sharedAuthStore.user) {
-             // Se abbiamo un token ma non i dati utente, prova a recuperarli
-             // Questo implica che l'utente è un Admin/Docente, altrimenti i dati studente
-             // sarebbero stati salvati insieme al token durante il login studente.
-             await this.fetchUser();
-         } else if (sharedAuthStore.accessToken && sharedAuthStore.user) {
-             console.log("User already loaded from shared store:", sharedAuthStore.user); // Debug
-             // Potremmo voler verificare la validità del token qui con /api/auth/token/verify/
-             // o semplicemente lasciare che le chiamate API falliscano e gestiscano il refresh/logout
+         const sharedAuthStoreKey = 'sharedAuth'; // Chiave usata da pinia-plugin-persistedstate
+ 
+         console.log('[AuthStore checkInitialAuth] Inizio checkInitialAuth.');
+ 
+         // Tenta di attendere l'idratazione automatica
+         if (sharedAuthStore.$persistedState && typeof sharedAuthStore.$persistedState.isReady === 'function') {
+             try {
+                 console.log('[AuthStore checkInitialAuth] Waiting for sharedAuthStore.$persistedState.isReady()...');
+                 await sharedAuthStore.$persistedState.isReady();
+                 console.log('[AuthStore checkInitialAuth] sharedAuthStore.$persistedState.isReady() completato.');
+             } catch (e) {
+                 console.error('[AuthStore checkInitialAuth] Errore durante sharedAuthStore.$persistedState.isReady():', e);
+             }
          } else {
-             console.log("No initial token found."); // Debug
+              if (import.meta.env.MODE !== 'production') {
+                  console.warn('[AuthStore checkInitialAuth] sharedAuthStore.$persistedState.isReady() non disponibile.');
+              }
          }
+ 
+         console.log('[AuthStore checkInitialAuth] Stato sharedAuthStore DOPO isReady (o tentativo): AccessToken:', sharedAuthStore.accessToken ? 'Sì' : 'No', 'User:', sharedAuthStore.user ? 'Sì' : 'No');
+ 
+         // Funzione helper per tentare l'idratazione
+         const attemptManualHydration = (attemptNumber: number) => {
+             console.log(`[AuthStore checkInitialAuth] Tentativo di idratazione manuale da localStorage (Tentativo #${attemptNumber}).`);
+             try {
+                 const persistedStateJSON = localStorage.getItem(sharedAuthStoreKey);
+                 if (persistedStateJSON) {
+                     console.log(`[AuthStore checkInitialAuth Attempt #${attemptNumber}] Trovato stato persistito in localStorage per la chiave`, sharedAuthStoreKey, ':', persistedStateJSON);
+                     const persistedState = JSON.parse(persistedStateJSON);
+                     if (persistedState && persistedState.accessToken && persistedState.user && persistedState.user.role) {
+                         console.log(`[AuthStore checkInitialAuth Attempt #${attemptNumber}] Parsed persistedState:`, persistedState);
+                         sharedAuthStore.setAuthData(persistedState.accessToken, persistedState.refreshToken, persistedState.user);
+                         console.log(`[AuthStore checkInitialAuth Attempt #${attemptNumber}] Idratazione manuale COMPLETATA. Nuovo stato: AccessToken:`, sharedAuthStore.accessToken ? 'Sì' : 'No', 'User:', sharedAuthStore.user ? 'Sì' : 'No', 'Role:', sharedAuthStore.userRole);
+                         return true; // Idratazione riuscita
+                     } else {
+                         console.log(`[AuthStore checkInitialAuth Attempt #${attemptNumber}] Stato persistito in localStorage invalido.`);
+                         if(persistedState && persistedState.accessToken && persistedState.user && !persistedState.user.role){
+                            console.warn(`[AuthStore checkInitialAuth Attempt #${attemptNumber}] User object from localStorage is missing "role".`);
+                         }
+                         sharedAuthStore.clearAuthData(); // Pulisci se i dati sono incompleti
+                         return false; // Idratazione fallita
+                     }
+                 } else {
+                     console.log(`[AuthStore checkInitialAuth Attempt #${attemptNumber}] Nessuno stato persistito trovato in localStorage per la chiave:`, sharedAuthStoreKey);
+                     return false; // Idratazione fallita
+                 }
+             } catch (e) {
+                 console.error(`[AuthStore checkInitialAuth Attempt #${attemptNumber}] Errore durante idratazione manuale:`, e);
+                 sharedAuthStore.clearAuthData();
+                 return false; // Idratazione fallita
+             }
+         };
+ 
+         // Se lo store è ancora vuoto o incompleto, tenta un'idratazione manuale
+         if (!sharedAuthStore.accessToken || !sharedAuthStore.user) {
+             if (!attemptManualHydration(1)) {
+                 // Se il primo tentativo fallisce, attendi un breve periodo e riprova
+                 // Questo potrebbe dare a localStorage il tempo di sincronizzarsi se è un problema di timing.
+                 console.log('[AuthStore checkInitialAuth] Primo tentativo di idratazione manuale fallito. Attendo 500ms per un secondo tentativo.');
+                 await new Promise(resolve => setTimeout(resolve, 500)); // Attendi 500ms
+                 attemptManualHydration(2);
+             }
+         }
+ 
+         console.log("[AuthStore checkInitialAuth] Stato finale prima della logica di fetch/verifica. AccessToken:", sharedAuthStore.accessToken ? "Sì" : "No", "User:", sharedAuthStore.user ? "Sì" : "No", "Role:", sharedAuthStore.userRole);
+ 
+         if (sharedAuthStore.accessToken && sharedAuthStore.user) {
+             console.log("[AuthStore checkInitialAuth] Access token e user data presenti in sharedAuthStore:", JSON.parse(JSON.stringify(sharedAuthStore.user)));
+             // Se l'utente è uno studente, i suoi dati dovrebbero essere completi.
+             // Se è un admin/docente e manca l'email (o altri campi specifici), fetchUser potrebbe essere necessario.
+             // Tuttavia, fetchUser è pensato per recuperare i dati DOPO un login token-based, non per idratare.
+             // La logica qui assume che se user esiste, è sufficientemente idratato da localStorage.
+             // Un controllo aggiuntivo sulla validità del token potrebbe essere fatto qui se necessario,
+             // ma l'interceptor di risposta dovrebbe gestire i 401.
+         } else if (sharedAuthStore.accessToken && !sharedAuthStore.user) {
+             // Questo scenario (token presente ma utente assente) dopo il tentativo di idratazione manuale
+             // è meno probabile se localStorage conteneva dati utente validi.
+             // Potrebbe comunque verificarsi se localStorage aveva solo il token o dati utente corrotti.
+             console.log("[AuthStore checkInitialAuth] Access token presente, ma no user data (o user data incompleto dopo idratazione). Tentativo fetchUser (principalmente per Admin/Teacher).");
+             await this.fetchUser(); // fetchUser è specifico per Admin/Docente.
+         } else {
+             console.log("[AuthStore checkInitialAuth] Nessun access token o user data validi in sharedAuthStore dopo tutti i tentativi di idratazione. Utente considerato non autenticato.");
+         }
+         console.log('[AuthStore checkInitialAuth] Fine checkInitialAuth.');
      }
    },
  }); // Rimosso { persist: true } - la persistenza è gestita da sharedAuthStore

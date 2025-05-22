@@ -10,7 +10,8 @@ import AppFooter from '@/components/layout/AppFooter.vue'; // Importa il nuovo f
 import { marked } from 'marked'; // Importa marked
 import {
   HomeIcon, ShoppingCartIcon, UserCircleIcon, CreditCardIcon, TrophyIcon,
-  BookOpenIcon, ArrowLeftOnRectangleIcon, BellIcon, Bars3Icon, XMarkIcon
+  BookOpenIcon, ArrowLeftOnRectangleIcon, BellIcon, Bars3Icon, XMarkIcon,
+  QuestionMarkCircleIcon // Aggiunta icona per Quiz
 } from '@heroicons/vue/24/outline';
 
 const authStore = useAuthStore();
@@ -290,6 +291,20 @@ onMounted(() => {
               <span class="ml-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Dashboard</span>
             </router-link>
           </li>
+          <!-- I Miei Quiz -->
+          <li class="mb-3">
+            <router-link :to="{ name: 'QuizzesPage' }" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700">
+              <QuestionMarkCircleIcon class="h-6 w-6 flex-shrink-0" />
+              <span class="ml-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">I Miei Quiz</span>
+            </router-link>
+          </li>
+          <!-- Le Mie Lezioni (incorporate) -->
+          <li class="mb-3">
+            <router-link :to="{ name: 'EmbeddedLessons' }" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700">
+              <BookOpenIcon class="h-6 w-6 flex-shrink-0" />
+              <span class="ml-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Le Mie Lezioni</span>
+            </router-link>
+          </li>
           <!-- Shop -->
           <li class="mb-3">
             <router-link :to="{ name: 'shop' }" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700">
@@ -309,13 +324,6 @@ onMounted(() => {
             <router-link :to="{ name: 'Badges' }" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700">
               <TrophyIcon class="h-6 w-6 flex-shrink-0" />
               <span class="ml-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Traguardi</span>
-            </router-link>
-          </li>
-          <!-- Le Mie Lezioni (incorporate) -->
-          <li class="mb-3">
-            <router-link :to="{ name: 'EmbeddedLessons' }" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700">
-              <BookOpenIcon class="h-6 w-6 flex-shrink-0" />
-              <span class="ml-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Le Mie Lezioni</span>
             </router-link>
           </li>
         </ul>
@@ -357,6 +365,20 @@ onMounted(() => {
                 <span class="ml-3">Dashboard</span>
               </router-link>
             </li>
+            <!-- I Miei Quiz -->
+            <li class="mb-3">
+              <router-link :to="{ name: 'QuizzesPage' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700">
+                <QuestionMarkCircleIcon class="h-6 w-6 flex-shrink-0" />
+                <span class="ml-3">I Miei Quiz</span>
+              </router-link>
+            </li>
+            <!-- Le Mie Lezioni (incorporate) -->
+            <li class="mb-3">
+              <router-link :to="{ name: 'EmbeddedLessons' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700">
+                <BookOpenIcon class="h-6 w-6 flex-shrink-0" />
+                <span class="ml-3">Le Mie Lezioni</span>
+              </router-link>
+            </li>
             <!-- Shop -->
             <li class="mb-3">
               <router-link :to="{ name: 'shop' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700">
@@ -376,13 +398,6 @@ onMounted(() => {
               <router-link :to="{ name: 'Badges' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700">
                 <TrophyIcon class="h-6 w-6 flex-shrink-0" />
                 <span class="ml-3">Traguardi</span>
-              </router-link>
-            </li>
-            <!-- Le Mie Lezioni (incorporate) -->
-            <li class="mb-3">
-              <router-link :to="{ name: 'EmbeddedLessons' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700">
-                <BookOpenIcon class="h-6 w-6 flex-shrink-0" />
-                <span class="ml-3">Le Mie Lezioni</span>
               </router-link>
             </li>
           </ul>

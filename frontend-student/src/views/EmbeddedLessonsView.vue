@@ -1,6 +1,8 @@
 <template>
   <div class="embedded-lessons-view">
     <iframe
+      id="lessons-iframe"
+      ref="lessonsIframeRef"
       :src="lessonsPageUrl"
       frameborder="0"
       width="100%"
@@ -11,25 +13,46 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, onMounted, ref } from 'vue';
+
+const lessonsIframeRef = ref<HTMLIFrameElement | null>(null);
 
 // Recupera l'URL base dell'app Lezioni dalle variabili d'ambiente o usa un fallback.
-// Assicurati che VITE_LESSONS_APP_URL sia configurata correttamente nel tuo file .env
-// per puntare a http://localhost:5173 in sviluppo per frontend-lessons.
 const lessonsAppBaseUrl = computed(() => (import.meta.env.VITE_LESSONS_APP_URL as string | undefined)?.replace(/\/$/, '') || '/lezioni');
+const lessonsAppOrigin = computed(() => {
+  try {
+    return new URL(lessonsAppBaseUrl.value.startsWith('http') ? lessonsAppBaseUrl.value : window.location.origin + lessonsAppBaseUrl.value).origin;
+  } catch (e) {
+    console.error("Errore nel parsare VITE_LESSONS_APP_URL per ottenere l'origine:", e);
+    // Fallback a un'origine che probabilmente non funzionerà, per evitare errori, ma segnala il problema.
+    // O gestisci diversamente, es. non inviare postMessage se l'origine non è valida.
+    return import.meta.env.VITE_LESSONS_APP_URL_ORIGIN || ''; // Usa VITE_LESSONS_APP_URL_ORIGIN se VITE_LESSONS_APP_URL non è un URL completo
+  }
+});
+
 
 const lessonsPageUrl = computed(() => {
   let url = '';
-  // Se lessonsAppBaseUrl è un URL completo (inizia con http), usalo direttamente.
-  // Altrimenti, assumi che sia un percorso relativo al dominio corrente.
   if (lessonsAppBaseUrl.value.startsWith('http')) {
     url = `${lessonsAppBaseUrl.value}/lezioni-assegnate`;
   } else {
-    // Per percorsi relativi, potrebbe essere necessario aggiustare a seconda di come è servita l'app.
-    // Questo esempio assume che sia relativo alla root del dominio.
     url = `${lessonsAppBaseUrl.value}/lezioni-assegnate`;
   }
   return `${url}?embedded=true`;
+});
+
+onMounted(() => {
+  const iframe = lessonsIframeRef.value;
+  if (iframe) {
+    iframe.onload = () => {
+      console.log('[EmbeddedLessonsView] Iframe caricato. Invio HOST_READY_FOR_IFRAME_SIGNAL.');
+      if (iframe.contentWindow && lessonsAppOrigin.value) {
+        iframe.contentWindow.postMessage({ type: 'HOST_READY_FOR_IFRAME_SIGNAL' }, lessonsAppOrigin.value);
+      } else if (!lessonsAppOrigin.value) {
+        console.error('[EmbeddedLessonsView] Impossibile determinare lessonsAppOrigin. VITE_LESSONS_APP_URL è configurato correttamente?');
+      }
+    };
+  }
 });
 </script>
 

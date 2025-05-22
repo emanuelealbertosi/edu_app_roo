@@ -1,14 +1,127 @@
 import { defineStore } from 'pinia';
-import apiClient, { fetchGroups, assignLesson } from '@/services/api'; // Importa l'istanza Axios e le funzioni API specifiche
-import type { Lesson, LessonContent, LessonAssignment, Student, AssignmentResult } from '@/types/lezioni'; // Importa i tipi definiti
-import type { StudentGroup } from '@/types/groups'; // Importa il tipo per i gruppi
+import axios from 'axios'; // Importa axios direttamente
+import { useSharedAuthStore } from '@/stores/sharedAuth'; // Per gli interceptor
+import { useAuthStore } from '@/stores/auth';       // Per gli interceptor (refreshTokenAction)
+// Rimuoviamo l'import problematico di apiClient da '@/services/api'
+// import apiClientOrig, { fetchGroups as fetchGroupsOrig, assignLesson as assignLessonOrig } from '@/services/api';
 
-// Le interfacce locali sono state rimosse, usiamo quelle importate da @/types/lezioni.ts
+console.log('[DEBUG lessons.ts] Inizio esecuzione modulo lessons.ts');
+
+const API_BASE_URL_LESSONS = import.meta.env.VITE_API_BASE_URL || '/api';
+
+// --- Inizio Logica Duplicata da apiClient.ts (WORKAROUND) ---
+console.log('[DEBUG lessons.ts - WORKAROUND] Creazione istanza Axios locale.');
+const localApiClient = axios.create({
+  baseURL: API_BASE_URL_LESSONS,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+console.log('[DEBUG lessons.ts - WORKAROUND] Registrazione interceptor RICHIESTA su localApiClient.');
+localApiClient.interceptors.request.use(
+  async (config) => {
+    console.log('[DEBUG lessons.ts - WORKAROUND Request Interceptor] Eseguito per:', config.url);
+    const sharedAuthStore = useSharedAuthStore();
+    if (sharedAuthStore.$persistedState && typeof sharedAuthStore.$persistedState.isReady === 'function') {
+      try {
+        await sharedAuthStore.$persistedState.isReady();
+      } catch (e) { console.error('Error sharedAuthStore.isReady (request)', e); }
+    }
+    const accessToken = sharedAuthStore.accessToken;
+    if (accessToken) {
+      config.headers.Authorization = `Bearer ${accessToken}`;
+      console.log('[DEBUG lessons.ts - WORKAROUND Request Interceptor] Token aggiunto.');
+    } else {
+      console.log('[DEBUG lessons.ts - WORKAROUND Request Interceptor] Nessun accessToken.');
+    }
+    return config;
+  },
+  (error) => {
+    console.error('[DEBUG lessons.ts - WORKAROUND Request Interceptor] Errore:', error);
+    return Promise.reject(error);
+  }
+);
+
+console.log('[DEBUG lessons.ts - WORKAROUND] Registrazione interceptor RISPOSTA su localApiClient.');
+localApiClient.interceptors.response.use(
+ (response) => response,
+ async (error) => {
+   console.log('[DEBUG lessons.ts - WORKAROUND Response Interceptor] Invocato per errore. Status:', error.response?.status, 'URL:', error.config?.url);
+   const originalRequest = error.config;
+   const sharedAuthStore = useSharedAuthStore();
+
+   if (sharedAuthStore.$persistedState && typeof sharedAuthStore.$persistedState.isReady === 'function') {
+     try {
+       await sharedAuthStore.$persistedState.isReady();
+     } catch (e) { console.error('Error sharedAuthStore.isReady (response)', e); }
+   }
+
+   if (error.response?.status === 401 && !originalRequest._retry && sharedAuthStore.refreshToken) {
+     originalRequest._retry = true;
+     console.log('[DEBUG lessons.ts - WORKAROUND Response Interceptor] Tentativo refresh token.');
+     try {
+       const authStore = useAuthStore();
+       const refreshed = await authStore.refreshTokenAction();
+       if (refreshed) {
+         console.log('[DEBUG lessons.ts - WORKAROUND Response Interceptor] Refresh OK. Riprovo richiesta.');
+         if (sharedAuthStore.accessToken) {
+          originalRequest.headers.Authorization = `Bearer ${sharedAuthStore.accessToken}`;
+         }
+         return localApiClient(originalRequest); // Usa localApiClient per il retry
+       } else {
+         console.log('[DEBUG lessons.ts - WORKAROUND Response Interceptor] Refresh fallito.');
+         return Promise.reject(error);
+       }
+     } catch (refreshError) {
+       console.error('[DEBUG lessons.ts - WORKAROUND Response Interceptor] Eccezione durante refresh:', refreshError);
+       return Promise.reject(error);
+     }
+   } else if (error.response?.status === 401) {
+     console.warn(`[DEBUG lessons.ts - WORKAROUND Response Interceptor] 401, ma non tento refresh. Retry: ${originalRequest._retry}, RefreshToken: ${!!sharedAuthStore.refreshToken}`);
+     if (!sharedAuthStore.refreshToken) {
+       try {
+         const authStore = useAuthStore(); authStore.logout();
+       } catch (e) { console.error('Error logout', e); }
+     }
+   }
+   return Promise.reject(error);
+ }
+);
+console.log('[DEBUG lessons.ts - WORKAROUND] Fine registrazione interceptor su localApiClient.');
+// --- Fine Logica Duplicata ---
+
+// Le funzioni fetchGroups e assignLesson devono essere ridefinite qui o importate
+// in modo che usino localApiClient se necessario, o modificate per accettare un client.
+// Per ora, le chiamate dirette a queste funzioni potrebbero fallire o usare un client obsoleto.
+// Per semplicità, modificheremo le chiamate API nello store per usare localApiClient.
+
+// Funzioni API specifiche che erano importate da '@/services/api'
+// Ora le definiamo qui o le adattiamo per usare localApiClient
+const fetchGroups = async () => {
+ console.log('[DEBUG lessons.ts - WORKAROUND] Chiamata fetchGroups tramite localApiClient');
+ // Questo endpoint era /groups/ (relativo a /api)
+ // Assumendo che il backend gestisca i permessi per i gruppi
+ return localApiClient.get('/groups/').then(res => res.data);
+};
+
+const assignLesson = async (lessonId: number, studentIds: number[], groupIds: number[]) => {
+ console.log('[DEBUG lessons.ts - WORKAROUND] Chiamata assignLesson tramite localApiClient');
+ // Questo endpoint era /lezioni/lessons/${lessonId}/assign-to-targets/
+ return localApiClient.post(`/lezioni/lessons/${lessonId}/assign-to-targets/`, {
+   student_ids: studentIds,
+   group_ids: groupIds,
+ }).then(res => res.data);
+};
+
+
+import type { Lesson, LessonContent, LessonAssignment, Student, AssignmentResult } from '@/types/lezioni';
+import type { StudentGroup } from '@/types/groups';
 
 
 export const useLessonStore = defineStore('lessons', {
   state: () => ({
-    lessons: [] as Lesson[], // Lista lezioni (es. quelle create dal docente)
+    lessons: [] as Lesson[],
     assignedLessons: [] as LessonAssignment[], // Lezioni assegnate allo studente
     currentLesson: null as Lesson | null, // Lezione attualmente visualizzata/modificata
     isLoading: false,
@@ -44,7 +157,7 @@ export const useLessonStore = defineStore('lessons', {
       }
       try {
         // Questo endpoint restituirà le lezioni in base ai permessi (es. solo quelle del docente)
-        const response = await apiClient.get(url);
+        const response = await localApiClient.get(url); // USA localApiClient
         this.lessons = response.data;
       } catch (err: any) {
         console.error("Errore nel caricamento delle lezioni:", err);
@@ -62,7 +175,7 @@ export const useLessonStore = defineStore('lessons', {
       this.currentLesson = null; // Resetta prima di caricare
       try {
         // Aggiunto prefisso /lezioni/
-        const response = await apiClient.get(`/lezioni/lessons/${lessonId}/`);
+        const response = await localApiClient.get(`/lezioni/lessons/${lessonId}/`); // USA localApiClient
         // Il serializer LessonSerializer dovrebbe includere i contenuti in lettura
         this.currentLesson = response.data;
       } catch (err: any) {
@@ -79,7 +192,7 @@ export const useLessonStore = defineStore('lessons', {
       try {
         // Usa l'endpoint e il LessonWriteSerializer (senza contents)
         // Aggiunto prefisso /lezioni/
-        const response = await apiClient.post('/lezioni/lessons/', lessonData);
+        const response = await localApiClient.post('/lezioni/lessons/', lessonData); // USA localApiClient
         this.lessons.push(response.data); // Aggiunge alla lista locale
         return response.data as Lesson; // Restituisce la lezione creata
       } catch (err: any) {
@@ -97,7 +210,7 @@ export const useLessonStore = defineStore('lessons', {
         try {
             // Usa PATCH e LessonWriteSerializer
             // Aggiunto prefisso /lezioni/
-            const response = await apiClient.patch(`/lezioni/lessons/${lessonId}/`, lessonData);
+            const response = await localApiClient.patch(`/lezioni/lessons/${lessonId}/`, lessonData); // USA localApiClient
             // Aggiorna la lista locale
             const index = this.lessons.findIndex(l => l.id === lessonId);
             if (index !== -1) {
@@ -122,7 +235,7 @@ export const useLessonStore = defineStore('lessons', {
         this.error = null;
         try {
             // Aggiunto prefisso /lezioni/
-            await apiClient.delete(`/lezioni/lessons/${lessonId}/`);
+            await localApiClient.delete(`/lezioni/lessons/${lessonId}/`); // USA localApiClient
             this.lessons = this.lessons.filter(l => l.id !== lessonId);
             if (this.currentLesson?.id === lessonId) {
                 this.currentLesson = null;
@@ -150,7 +263,7 @@ export const useLessonStore = defineStore('lessons', {
                 : { 'Content-Type': 'application/json' };
 
             // Aggiunto prefisso /lezioni/
-            const response = await apiClient.post(`/lezioni/lessons/${lessonId}/contents/`, contentData, { headers });
+            const response = await localApiClient.post(`/lezioni/lessons/${lessonId}/contents/`, contentData, { headers }); // USA localApiClient
 
             // Aggiorna i contenuti della lezione corrente se caricata
             if (this.currentLesson?.id === lessonId) {
@@ -179,7 +292,7 @@ export const useLessonStore = defineStore('lessons', {
 
             // Usa PATCH per aggiornamenti parziali
             // Aggiunto prefisso /lezioni/
-            const response = await apiClient.patch(`/lezioni/lessons/${lessonId}/contents/${contentId}/`, contentData, { headers });
+            const response = await localApiClient.patch(`/lezioni/lessons/${lessonId}/contents/${contentId}/`, contentData, { headers }); // USA localApiClient
 
             if (this.currentLesson?.id === lessonId && this.currentLesson.contents) {
                 const index = this.currentLesson.contents.findIndex(c => c.id === contentId);
@@ -203,7 +316,7 @@ export const useLessonStore = defineStore('lessons', {
         this.error = null;
         try {
             // Aggiunto prefisso /lezioni/
-            await apiClient.delete(`/lezioni/lessons/${lessonId}/contents/${contentId}/`);
+            await localApiClient.delete(`/lezioni/lessons/${lessonId}/contents/${contentId}/`); // USA localApiClient
             if (this.currentLesson?.id === lessonId && this.currentLesson.contents) {
                 this.currentLesson.contents = this.currentLesson.contents.filter(c => c.id !== contentId);
             }
@@ -229,7 +342,7 @@ export const useLessonStore = defineStore('lessons', {
             // Rimosso calcolo rootApiBase e override baseURL.
             // Il percorso relativo corretto per l'istanza apiClient è /students/
             // perché /api/ è già nel baseURL e l'URL completo è /api/students/
-            const response = await apiClient.get('/students/');
+            const response = await localApiClient.get('/students/'); // USA localApiClient
             return response.data as Student[];
         } catch (err: any) {
             console.error("Errore nel caricamento degli studenti:", err);
@@ -310,7 +423,7 @@ export const useLessonStore = defineStore('lessons', {
             // Assumiamo un endpoint specifico o usiamo il ViewSet delle assegnazioni filtrato
             // Se usiamo LessonAssignmentViewSet, il backend filtra in base all'utente
             // Aggiunto prefisso /lezioni/
-            const response = await apiClient.get(`/lezioni/assignments/`); // L'endpoint filtra per studente loggato
+            const response = await localApiClient.get(`/lezioni/assignments/`); // USA localApiClient - L'endpoint filtra per studente loggato
             this.assignedLessons = response.data;
         } catch (err: any) {
             console.error("Errore nel caricamento delle lezioni assegnate:", err);
@@ -326,7 +439,7 @@ export const useLessonStore = defineStore('lessons', {
          try {
              // Usa l'azione custom definita in LessonAssignmentViewSet
              // Aggiunto prefisso /lezioni/
-             const response = await apiClient.post(`/lezioni/assignments/${assignmentId}/mark-viewed/`);
+             const response = await localApiClient.post(`/lezioni/assignments/${assignmentId}/mark-viewed/`); // USA localApiClient
              // Aggiorna lo stato locale dell'assegnazione
              const index = this.assignedLessons.findIndex(a => a.id === assignmentId);
              if (index !== -1) {

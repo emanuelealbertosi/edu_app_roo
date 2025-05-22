@@ -17,9 +17,9 @@ const handleLogin = async () => {
     // Redirect manually after successful login
     await new Promise(resolve => setTimeout(resolve, 100)); // Piccolo ritardo per sicurezza
     console.log('[LoginView] Login successful. isAuthenticated:', authStore.isAuthenticated); // Log stato auth
-    await router.push({ name: 'landing' }); // Reindirizza alla landing page
+    await router.push({ name: 'dashboard' }); // Reindirizza alla dashboard
   } catch (error: any) {
-     console.error("Login component error:", error);
+    console.error("Login component error:", error);
      errorMessage.value = error.message || 'Login failed. Please check credentials.';
   }
 }

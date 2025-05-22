@@ -172,6 +172,12 @@ const router = createRouter({
       component: () => import('../views/EmbeddedLessonsView.vue'),
       meta: { requiresAuth: true }
     },
+    {
+      path: '/i-miei-quiz', // Path per la nuova pagina dei quiz
+      name: 'QuizzesPage',
+      component: () => import('../views/QuizzesPageView.vue'),
+      meta: { requiresAuth: true }
+    },
     // Rotta 404 per pagine non trovate
     {
       path: '/:pathMatch(.*)*',

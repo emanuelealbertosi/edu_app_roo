@@ -21,8 +21,13 @@ COPY . .
 # Utilizziamo /api/ come valore predefinito per sfruttare il proxy Nginx
 ARG VITE_API_BASE_URL=/api/
 ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
+
+# Argomento e variabile d'ambiente per l'URL di frontend-lessons
+ARG VITE_LESSONS_APP_URL
+ENV VITE_LESSONS_APP_URL=${VITE_LESSONS_APP_URL}
+
 # Aggiunto echo per invalidare la cache di build Docker per questo passo
-RUN echo "Building with API URL: ${VITE_API_BASE_URL}" && npm run build
+RUN echo "Building with API URL: ${VITE_API_BASE_URL} and Lessons URL: ${VITE_LESSONS_APP_URL}" && npm run build
 
 # Stage 2: Serve l'applicazione con Nginx
 FROM nginx:stable-alpine

@@ -35,28 +35,29 @@ services:
     restart: unless-stopped
 
   frontend-student:
-    # Costruisce l'immagine localmente usando il Dockerfile in frontend-student/
     build:
       context: ./frontend-student
       dockerfile: Dockerfile
-    # ports: # Rimosso, accesso tramite nginx-proxy
-    #  - "5175:80"
+      args:
+        # Passa l'URL dell'app lezioni come argomento di build.
+        # Questo valore dovrebbe essere definito nel tuo file .env.localprod o .env principale
+        # Esempio: LOCALPROD_LESSONS_APP_URL=http://localhost/lezioni/
+        VITE_LESSONS_APP_URL: ${LOCALPROD_LESSONS_APP_URL:-http://localhost/lezioni/}
     depends_on:
       - backend
-    volumes: # Aggiunto volume media per servire file
+    volumes:
       - media_data:/usr/share/nginx/media
     restart: unless-stopped
 
   frontend-teacher:
-    # Costruisce l'immagine localmente usando il Dockerfile in frontend-teacher/
     build:
       context: ./frontend-teacher
       dockerfile: Dockerfile
-    # ports: # Rimosso, accesso tramite nginx-proxy
-    #  - "5174:80"
+      args:
+        VITE_LESSONS_APP_URL: ${LOCALPROD_LESSONS_APP_URL:-http://localhost/lezioni/}
     depends_on:
       - backend
-    volumes: # Aggiunto volume media per servire file
+    volumes:
       - media_data:/usr/share/nginx/media
     restart: unless-stopped
 
