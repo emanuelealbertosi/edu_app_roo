@@ -8,7 +8,7 @@ from django.db.models import Max # Import Max
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.core.exceptions import PermissionDenied # Import PermissionDenied Django
-from django.db.models import Q, F, OuterRef, Subquery, Count, Prefetch # Import per Q, Subquery, Count e Prefetch
+from django.db.models import Q, F, OuterRef, Subquery, Count, Prefetch, Avg, Value, Case, When, FloatField, IntegerField # Import per Q, Subquery, Count e Prefetch
 
 from .models import (
     QuizTemplate, QuestionTemplate, AnswerOptionTemplate,
@@ -29,7 +29,10 @@ from .serializers import (
     NextPathwayQuizSerializer, # Aggiunto import mancante
     # Nuovi Serializer per Template Percorsi e Assegnazioni
     PathwayTemplateSerializer, PathwayQuizTemplateSerializer,
-    QuizAssignmentSerializer, PathwayAssignmentSerializer,
+    QuizAssignmentModelSerializer as QuizAssignmentSerializer, PathwayAssignmentSerializer,
+    QuizDetailWithAssignmentsSerializer, # Importa il nuovo serializer per i dettagli del quiz con assegnazioni
+    QuizCompletionStatsDataSerializer, # Importa il serializer per le statistiche di completamento
+    EffectiveQuizAssigneeSerializer, # Aggiunto import mancante
     # Nuovi serializer per azioni di assegnazione
     AssignQuizSerializer, AssignPathwaySerializer,
     NotificationSerializer, # NUOVO IMPORT PER NOTIFICHE
@@ -956,6 +959,128 @@ class QuizViewSet(viewsets.ModelViewSet):
             # Errori di validazione del serializer (es. file mancante, titolo mancante, tipo file errato)
             logger.warning(f"Errore di validazione dati upload quiz da utente {request.user.id}: {serializer.errors}")
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=True, methods=['get'], url_path='details', serializer_class=QuizDetailWithAssignmentsSerializer)
+    def details(self, request, pk=None):
+        """
+        Restituisce i dettagli di un quiz specifico, incluse tutte le sue assegnazioni.
+        Accessibile tramite /api/education/quizzes/{quiz_id}/details/
+        """
+        quiz = self.get_object()
+        serializer = self.get_serializer(quiz)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['get'], url_path='assignees', serializer_class=EffectiveQuizAssigneeSerializer)
+    def assignees(self, request, pk=None):
+        """
+        Restituisce l'elenco degli assegnatari (studenti/gruppi) per un quiz specifico.
+        Accessibile tramite /api/education/quizzes/{quiz_id}/assignees/
+        """
+        quiz_instance = self.get_object() # Applica i permessi del ViewSet
+        
+        raw_assignments = quiz_instance.assignments.all().select_related(
+            'student', # Precarica lo studente per assegnazioni dirette
+            'group',   # Precarica il gruppo per assegnazioni a gruppi
+            'assigned_by'
+        ).prefetch_related(
+            'student__quiz_attempts', # Per _get_latest_attempt su assegnazioni dirette
+            'group__memberships__student', # Precarica gli studenti del gruppo tramite memberships
+            'group__memberships__student__quiz_attempts' # Per _get_latest_attempt su studenti da gruppi
+        )
+
+        effective_assignees_payload = []
+
+        for assignment_obj in raw_assignments:
+            assignment_details_base = {
+                "quiz": quiz_instance, # L'oggetto Quiz stesso
+                "assigned_by": assignment_obj.assigned_by,
+                "assigned_at": assignment_obj.assigned_at,
+                "due_date": assignment_obj.due_date,
+                "original_assignment_id": assignment_obj.id, # ID dell'oggetto QuizAssignment originale
+            }
+
+            if assignment_obj.student:
+                # Assegnazione diretta a uno studente
+                payload_item = {
+                    **assignment_details_base,
+                    "student": assignment_obj.student, # L'oggetto Student
+                    "group": None, # Non è un'assegnazione di gruppo
+                    "id": f"student-{assignment_obj.student.id}-quiz-{quiz_instance.id}" # ID univoco per il frontend
+                }
+                effective_assignees_payload.append(payload_item)
+            
+            elif assignment_obj.group:
+                # Assegnazione a un gruppo, espandi per ogni studente
+                # Usiamo group.students.all() che dovrebbe essere precaricato da 'group__students'
+                for membership in assignment_obj.group.memberships.all():
+                    student_member = membership.student
+                    payload_item = {
+                        **assignment_details_base,
+                        "student": student_member, # L'oggetto Student membro del gruppo
+                        "group": assignment_obj.group, # Manteniamo l'info del gruppo originale
+                        "id": f"group-{assignment_obj.group.id}-student-{student_member.id}-quiz-{quiz_instance.id}" # ID univoco
+                    }
+                    effective_assignees_payload.append(payload_item)
+        
+        # Passiamo la lista di dizionari costruiti al serializer
+        # Il serializer dovrà essere adattato per gestire questa struttura di dati (non più istanze di QuizAssignment)
+        serializer = self.get_serializer(effective_assignees_payload, many=True)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['get'], url_path='stats', serializer_class=QuizCompletionStatsDataSerializer)
+    def stats(self, request, pk=None):
+        """
+        Restituisce le statistiche di completamento per un quiz specifico.
+        Accessibile tramite /api/education/quizzes/{quiz_id}/stats/
+        """
+        quiz = self.get_object() # Applica i permessi del ViewSet
+
+        # Numero totale di assegnazioni per questo quiz
+        total_assigned = QuizAssignment.objects.filter(quiz=quiz).count()
+
+        # Tentativi completati direttamente per questo quiz
+        # Questo non distingue tra studenti diversi che potrebbero aver fatto più tentativi.
+        # Per statistiche più precise per studente, sarebbe necessaria una logica più complessa.
+        completed_attempts = QuizAttempt.objects.filter(quiz=quiz, status=QuizAttempt.AttemptStatus.COMPLETED)
+        
+        total_completed_attempts = completed_attempts.count() # Numero di tentativi completati
+
+        # Nota: 'completion_rate' basato sui tentativi rispetto agli assegnati potrebbe non essere la metrica più accurata
+        # se uno studente può fare più tentativi per una singola assegnazione.
+        # Una metrica più accurata di "studenti che hanno completato" richiederebbe di contare gli studenti unici
+        # dai completed_attempts o di verificare lo stato di completamento a livello di QuizAssignment (che non abbiamo).
+        # Per ora, usiamo una definizione semplificata.
+        completion_rate = (total_completed_attempts / total_assigned) if total_assigned > 0 else 0.0
+        
+        average_score_data = completed_attempts.aggregate(avg_score=Avg('score'))
+        average_score = average_score_data['avg_score']
+
+        score_distribution_query = completed_attempts.filter(score__isnull=False) \
+            .values('score') \
+            .annotate(count=Count('id')) \
+            .order_by('score')
+        
+        # Arrotonda i punteggi nella distribuzione se sono float, per raggruppare meglio
+        # Esempio: se i punteggi sono float, potremmo volerli arrotondare all'intero più vicino
+        # o a un certo numero di decimali prima di raggruppare.
+        # Per ora, li lasciamo così come sono dal DB.
+        score_distribution = list(score_distribution_query)
+
+        stats_data = {
+            'total_assigned': total_assigned,
+            'total_completed': total_completed_attempts, # Rinominato per chiarezza
+            'completion_rate': round(completion_rate * 100, 2), # Percentuale arrotondata
+            'average_score': round(average_score, 2) if average_score is not None else None,
+            'score_distribution': score_distribution
+        }
+
+        serializer = self.get_serializer(stats_data)
+        return Response(serializer.data)
+
+        quiz = self.get_object() # get_object usa il queryset e i permessi del ViewSet
+                                 # quindi IsQuizOwnerOrAdmin è già applicato.
+        serializer = self.get_serializer(quiz)
+        return Response(serializer.data)
 
     # Modificata per usare QuizAssignmentSerializer e gestire creazione da template
 

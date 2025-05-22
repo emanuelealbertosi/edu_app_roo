@@ -14,6 +14,15 @@ export interface Student {
   is_active: boolean;
   created_at: string; // ISO date string
   full_name: string;
+  groups?: StudentGroupInfo[]; // Aggiunto campo per i gruppi dello studente
+}
+
+/**
+ * Rappresenta le informazioni essenziali di un gruppo a cui lo studente è associato.
+ */
+export interface StudentGroupInfo {
+  id: number;
+  name: string;
 }
 
 /**

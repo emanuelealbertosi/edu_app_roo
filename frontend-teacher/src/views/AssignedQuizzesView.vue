@@ -77,9 +77,7 @@ onMounted(async () => {
 
 // Funzione per visualizzare dettagli (potrebbe puntare a una vista read-only)
 const viewQuizDetails = (id: number) => {
-  // TODO: Implementare una vista dettagli read-only per le istanze quiz o riutilizzare QuizFormView in modalità read-only?
-  console.warn(`Visualizzazione dettagli per quiz istanza ${id} non implementata.`);
-  // router.push({ name: 'assigned-quiz-details', params: { id: id.toString() } }); // Rotta ipotetica
+  router.push({ name: 'assigned-quiz-details', params: { id: id.toString() } }); // Rotta ipotetica
 };
 
 // Funzione eliminazione (commentata - richiede cautela)

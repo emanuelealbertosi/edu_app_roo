@@ -213,6 +213,13 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
     {
+      path: '/student-progress/:studentId',
+      name: 'student-progress-detail',
+      component: () => import('../views/StudentProgressDetailView.vue'), // Componente da creare
+      props: true, // Passa i parametri della rotta (studentId) come props
+      meta: { requiresAuth: true }
+    },
+    {
       path: '/delivery', // Rotta per la consegna ricompense
       name: 'delivery',
       component: () => import('../views/DeliveryView.vue'),
@@ -223,6 +230,13 @@ const router = createRouter({
       path: '/assigned-quizzes',
       name: 'assigned-quizzes',
       component: () => import('../views/AssignedQuizzesView.vue'), // Nuova vista
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/assigned-quizzes/:id',
+      name: 'assigned-quiz-details',
+      component: () => import('../views/AssignedQuizDetailView.vue'), // Componente da creare
+      props: true,
       meta: { requiresAuth: true }
     },
     {

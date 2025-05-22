@@ -417,6 +417,235 @@ class QuizSerializer(serializers.ModelSerializer):
         if obj.teacher:
             return f"{obj.teacher.first_name} {obj.teacher.last_name}".strip()
         return "N/D" # O un valore di default appropriato
+class EffectiveQuizAssigneeSerializer(serializers.Serializer):
+    """
+    Serializer per visualizzare i dati degli assegnatari effettivi di un quiz,
+    espandendo le assegnazioni di gruppo in voci individuali per studente.
+    Questo serializer ora si aspetta una lista di dizionari dalla vista.
+    Utilizzato specificamente dalla vista QuizViewSet.assignees.
+    """
+    id = serializers.CharField(read_only=True) # ID univoco generato dalla vista
+    quiz_id = serializers.SerializerMethodField()
+    quiz_title = serializers.SerializerMethodField()
+
+    student_info = serializers.SerializerMethodField()
+    group_info = serializers.SerializerMethodField()
+    assigned_by_info = serializers.SerializerMethodField()
+    
+    assigned_at = serializers.DateTimeField(read_only=True)
+    due_date = serializers.DateTimeField(read_only=True, allow_null=True)
+
+    status = serializers.SerializerMethodField()
+    score = serializers.SerializerMethodField()
+    attempt_id = serializers.SerializerMethodField()
+    last_activity_at = serializers.SerializerMethodField()
+
+    def get_quiz_id(self, obj: dict) -> int | None:
+        quiz_instance = obj.get('quiz')
+        return quiz_instance.id if quiz_instance else None
+
+    def get_quiz_title(self, obj: dict) -> str | None:
+        quiz_instance = obj.get('quiz')
+        return quiz_instance.title if quiz_instance else None
+
+    def get_student_info(self, obj: dict) -> dict | None:
+        student_instance = obj.get('student')
+        if student_instance:
+            return StudentBasicSerializer(student_instance).data
+        return None
+
+    def get_group_info(self, obj: dict) -> dict | None:
+        group_instance = obj.get('group')
+        if group_instance:
+            return StudentGroupBasicSerializer(group_instance).data
+        return None
+        
+    def get_assigned_by_info(self, obj: dict) -> dict | None:
+        assigned_by_instance = obj.get('assigned_by')
+        if assigned_by_instance:
+            return UserSerializer(assigned_by_instance).data
+        return None
+
+    def _get_latest_attempt(self, student_obj: Student | None, quiz_obj: Quiz | None) -> QuizAttempt | None:
+        if student_obj and quiz_obj:
+            attempts_for_student_quiz = []
+            
+            prefetched_attempts = None
+            # Controlla se i tentativi sono stati precaricati nella cache dell'oggetto studente
+            if hasattr(student_obj, '_prefetched_objects_cache') and 'quizattempt_set' in student_obj._prefetched_objects_cache:
+                prefetched_attempts = student_obj._prefetched_objects_cache['quizattempt_set']
+                # logger.debug(f"Accessing prefetched attempts for student {student_obj.id} from _prefetched_objects_cache.")
+            # Fallback se non nella cache ma la relazione esiste (potrebbe fare una query)
+            elif hasattr(student_obj, 'quizattempt_set'):
+                # logger.warning(f"Accessing attempts for student {student_obj.id} via related manager (might query DB).")
+                prefetched_attempts = student_obj.quizattempt_set.all()
+
+
+            if prefetched_attempts is not None:
+                for attempt in prefetched_attempts:
+                    if attempt.quiz_id == quiz_obj.id: # Filtra per il quiz corretto
+                        attempts_for_student_quiz.append(attempt)
+            
+            if attempts_for_student_quiz:
+                attempts_for_student_quiz.sort(
+                    key=lambda a: (a.submitted_at or timezone.datetime.min.replace(tzinfo=timezone.utc),
+                                   a.started_at or timezone.datetime.min.replace(tzinfo=timezone.utc)),
+                    reverse=True
+                )
+                # logger.debug(f"Found and sorted {len(attempts_for_student_quiz)} attempts for student {student_obj.id}, quiz {quiz_obj.id}. Latest ID: {attempts_for_student_quiz[0].id}")
+                return attempts_for_student_quiz[0]
+            # logger.debug(f"No attempts found for student {student_obj.id}, quiz {quiz_obj.id} after checking prefetched/related.")
+        return None
+
+    def get_status(self, obj: dict) -> str:
+        student_instance = obj.get('student')
+        quiz_instance = obj.get('quiz')
+        latest_attempt = self._get_latest_attempt(student_instance, quiz_instance)
+        if latest_attempt:
+            if latest_attempt.status == QuizAttempt.StatusChoices.PENDING_MANUAL_GRADING:
+                return 'pending_manual_grading'
+            elif latest_attempt.status == QuizAttempt.StatusChoices.GRADED:
+                 return 'graded'
+            elif latest_attempt.submitted_at:
+                return 'completed'
+            elif latest_attempt.started_at:
+                return 'in_progress'
+        return 'not_started'
+
+    def get_score(self, obj: dict) -> float | None:
+        student_instance = obj.get('student')
+        quiz_instance = obj.get('quiz')
+        latest_attempt = self._get_latest_attempt(student_instance, quiz_instance)
+        return latest_attempt.score if latest_attempt and latest_attempt.score is not None else None
+
+    def get_attempt_id(self, obj: dict) -> int | None:
+        student_instance = obj.get('student')
+        quiz_instance = obj.get('quiz')
+        latest_attempt = self._get_latest_attempt(student_instance, quiz_instance)
+        return latest_attempt.id if latest_attempt else None
+
+    def get_last_activity_at(self, obj: dict) -> str | None:
+        student_instance = obj.get('student')
+        quiz_instance = obj.get('quiz')
+        latest_attempt = self._get_latest_attempt(student_instance, quiz_instance)
+        if latest_attempt:
+            activity_date = latest_attempt.submitted_at or latest_attempt.started_at
+            return activity_date.isoformat() if activity_date else None
+        return None
+
+# --- Nuovo ModelSerializer per QuizAssignment ---
+class QuizAssignmentModelSerializer(serializers.ModelSerializer):
+    """
+    Serializer basato su modello per QuizAssignment, usato per la serializzazione diretta
+    di istanze QuizAssignment (es. in QuizDetailWithAssignmentsSerializer).
+    """
+    quiz_id = serializers.PrimaryKeyRelatedField(source='quiz.id', read_only=True)
+    quiz_title = serializers.CharField(source='quiz.title', read_only=True)
+
+    student_info = StudentBasicSerializer(source='student', read_only=True, allow_null=True)
+    group_info = StudentGroupBasicSerializer(source='group', read_only=True, allow_null=True)
+    assigned_by_info = UserSerializer(source='assigned_by', read_only=True, allow_null=True)
+
+    status = serializers.SerializerMethodField()
+    score = serializers.SerializerMethodField()
+    attempt_id = serializers.SerializerMethodField()
+    last_activity_at = serializers.SerializerMethodField()
+
+    class Meta:
+        model = QuizAssignment
+        fields = [
+            'id',
+            'quiz_id', 'quiz_title',
+            'student_info', 'group_info', 'assigned_by_info',
+            'assigned_at', 'due_date',
+            'status', 'score', 'attempt_id', 'last_activity_at'
+        ]
+        read_only_fields = fields # Tutti i campi sono di sola lettura in questo contesto
+
+    def _get_latest_attempt_for_model_instance(self, assignment_instance: QuizAssignment) -> QuizAttempt | None:
+        if assignment_instance.student and assignment_instance.quiz:
+            # La vista QuizViewSet.details NON precarica i tentativi per le singole assignments
+            # all'interno di QuizDetailWithAssignmentsSerializer, quindi dobbiamo fare una query qui.
+            # logger.debug(f"Querying DB for latest attempt for student {assignment_instance.student_id}, quiz {assignment_instance.quiz_id} from QuizAssignmentModelSerializer.")
+            return QuizAttempt.objects.filter(
+                quiz=assignment_instance.quiz,
+                student=assignment_instance.student
+            ).order_by('-submitted_at', '-started_at').first()
+        return None
+
+    def get_status(self, assignment_instance: QuizAssignment) -> str:
+        # Se l'assegnazione è a un gruppo, questo serializer (usato in details) mostrerà l'assegnazione al gruppo.
+        # Lo stato individuale dello studente per le assegnazioni di gruppo è gestito da EffectiveQuizAssigneeSerializer.
+        if assignment_instance.group:
+            return 'group_assignment'
+
+        latest_attempt = self._get_latest_attempt_for_model_instance(assignment_instance)
+        if latest_attempt:
+            if latest_attempt.status == QuizAttempt.StatusChoices.PENDING_MANUAL_GRADING:
+                return 'pending_manual_grading'
+            elif latest_attempt.status == QuizAttempt.StatusChoices.GRADED:
+                 return 'graded'
+            elif latest_attempt.submitted_at:
+                return 'completed'
+            elif latest_attempt.started_at:
+                return 'in_progress'
+        return 'not_started'
+
+    def get_score(self, assignment_instance: QuizAssignment) -> float | None:
+        if assignment_instance.group: return None # Il punteggio è per studente, non per gruppo qui
+        latest_attempt = self._get_latest_attempt_for_model_instance(assignment_instance)
+        return latest_attempt.score if latest_attempt and latest_attempt.score is not None else None
+
+    def get_attempt_id(self, assignment_instance: QuizAssignment) -> int | None:
+        if assignment_instance.group: return None
+        latest_attempt = self._get_latest_attempt_for_model_instance(assignment_instance)
+        return latest_attempt.id if latest_attempt else None
+
+    def get_last_activity_at(self, assignment_instance: QuizAssignment) -> str | None:
+        if assignment_instance.group: return None
+        latest_attempt = self._get_latest_attempt_for_model_instance(assignment_instance)
+        if latest_attempt:
+            activity_date = latest_attempt.submitted_at or latest_attempt.started_at
+            return activity_date.isoformat() if activity_date else None
+        return None
+
+# Serializer per i dettagli di un Quiz che include le sue assegnazioni
+class QuizDetailWithAssignmentsSerializer(QuizSerializer):
+    """
+    Serializer per i dettagli di un Quiz, che include anche tutte le sue assegnazioni.
+    Utilizzato per l'endpoint /api/education/assigned-quizzes/{quiz_id}/details/ (o simile).
+    """
+    # Il related_name dalla relazione ForeignKey in QuizAssignment verso Quiz.
+    # Se QuizAssignment.quiz = ForeignKey(Quiz, ..., related_name='assignments'), allora source='assignments'.
+    # Se non specificato, il default è 'quizassignment_set'.
+    # Verificare il modello QuizAssignment per il related_name corretto.
+    # Assumendo 'quizassignment_set' o 'assignments' come possibilità comuni.
+    # Usiamo 'quizassignment_set' come placeholder se il related_name non è noto con certezza.
+    # DEVE USARE QuizAssignmentModelSerializer e il source corretto è 'assignments'
+    assignments = QuizAssignmentModelSerializer(many=True, read_only=True)
+
+    class Meta(QuizSerializer.Meta): # Eredita Meta da QuizSerializer
+        # Estende i campi del QuizSerializer con il campo 'assignments'
+        fields = list(QuizSerializer.Meta.fields) + ['assignments']
+        # read_only_fields sono ereditati; 'assignments' è read_only per definizione del campo.
+
+# --- Serializers per Statistiche Quiz ---
+
+class ScoreDistributionPointSerializer(serializers.Serializer):
+    """ Serializer per un punto nella distribuzione dei punteggi. """
+    score = serializers.IntegerField() # O FloatField se i punteggi possono essere decimali
+    count = serializers.IntegerField()
+
+class QuizCompletionStatsDataSerializer(serializers.Serializer):
+    """ Serializer per i dati statistici di completamento di un quiz. """
+    total_assigned = serializers.IntegerField()
+    total_completed = serializers.IntegerField()
+    completion_rate = serializers.FloatField() # Es. 0.75 per 75%
+    average_score = serializers.FloatField(allow_null=True) # Può essere null se nessuno ha completato
+    score_distribution = ScoreDistributionPointSerializer(many=True)
+    # Potremmo aggiungere altri campi come:
+    # total_attempts = serializers.IntegerField()
+    # median_score = serializers.FloatField(allow_null=True)
 
 class PathwayQuizSerializer(serializers.ModelSerializer):
     """ Serializer per la relazione M2M Pathway-Quiz (usato nested in Pathway). """
@@ -915,21 +1144,6 @@ class QuizTemplateUploadSerializer(serializers.Serializer):
 
 # --- Serializers per Tentativi e Dashboard (Aggiornati/Nuovi) ---
 
-class QuizAssignmentSerializer(serializers.ModelSerializer):
-    """ Serializer per visualizzare un'assegnazione Quiz esistente (a Studente o Gruppo). """
-    quiz_title = serializers.CharField(source='quiz.title', read_only=True)
-    student_username = serializers.CharField(source='student.user.username', read_only=True, allow_null=True)
-    group_name = serializers.CharField(source='group.name', read_only=True, allow_null=True)
-    assigned_by_username = serializers.CharField(source='assigned_by.username', read_only=True, allow_null=True)
-
-    class Meta:
-        model = QuizAssignment
-        fields = [
-            'id', 'quiz', 'quiz_title', 'student', 'student_username',
-            'group', 'group_name', 'assigned_by', 'assigned_by_username',
-            'assigned_at', 'due_date'
-        ]
-        read_only_fields = fields # Tutto è di sola lettura in questo contesto
 
 
 class PathwayAssignmentSerializer(serializers.ModelSerializer):

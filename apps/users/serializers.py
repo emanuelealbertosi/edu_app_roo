@@ -5,9 +5,11 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from rest_framework import serializers
 
-from apps.rewards.models import Wallet # Importa Wallet
+from apps.rewards.models import Wallet, PointTransaction # Importa Wallet e PointTransaction
 from apps.student_groups.models import StudentGroup, StudentGroupMembership # Importa modelli gruppi
 from rest_framework_simplejwt.exceptions import InvalidToken
+from apps.education.models import QuizAttempt # Importa QuizAttempt
+from django.db.models import Sum # Importa Sum
 from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 
 from .models import User, Student, UserRole, RegistrationToken
@@ -111,6 +113,13 @@ class UserCreateSerializer(serializers.ModelSerializer):
         return user
 
 
+# Serializer minimale per StudentGroup da usare in StudentSerializer
+class StudentGroupBasicSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = StudentGroup
+        fields = ['id', 'name']
+        read_only_fields = fields
+
 class StudentSerializer(serializers.ModelSerializer):
     """
     Serializer per il modello Student.
@@ -119,21 +128,55 @@ class StudentSerializer(serializers.ModelSerializer):
     # Il campo 'teacher' è stato rimosso dal modello Student.
     # La relazione avviene tramite gruppi.
 
+    completed_quizzes_count = serializers.SerializerMethodField()
+    total_points_earned = serializers.SerializerMethodField()
+    groups = serializers.SerializerMethodField() # Aggiunto campo per i gruppi
+
     class Meta:
         model = Student
         fields = [
             'id',
-            # 'teacher' rimosso
-            # 'teacher_username' rimosso
             'first_name',
             'last_name',
-            'student_code', # Assicurati che questo campo esista nel modello Student
+            'student_code',
             'is_active',
             'created_at',
             'full_name', # Proprietà del modello (sola lettura)
+            'completed_quizzes_count',
+            'total_points_earned',
+            'groups', # Aggiunto groups ai fields
         ]
-        # Rimuovi 'teacher' e 'teacher_username' dai read_only_fields
-        read_only_fields = ['created_at', 'full_name']
+        read_only_fields = ['created_at', 'full_name', 'completed_quizzes_count', 'total_points_earned', 'groups'] # Aggiunto groups ai read_only
+
+    def get_groups(self, obj: Student):
+        # obj è l'istanza di Student
+        # Accediamo ai gruppi tramite il related_name 'group_memberships' definito in StudentGroupMembership
+        memberships = obj.group_memberships.all()
+        groups_data = []
+        for membership in memberships:
+            # Usiamo StudentGroupBasicSerializer per serializzare ogni gruppo
+            group_serializer = StudentGroupBasicSerializer(membership.group)
+            groups_data.append(group_serializer.data)
+        return groups_data
+
+    def get_completed_quizzes_count(self, obj: Student) -> int:
+        return QuizAttempt.objects.filter(student=obj, status=QuizAttempt.AttemptStatus.COMPLETED).count()
+
+    def get_total_points_earned(self, obj: Student) -> int:
+        try:
+            # Assumendo che il related_name da Student a Wallet sia 'wallet' (OneToOneField)
+            # o che esista un segnale che crea il wallet e lo collega.
+            # Se Wallet non esiste per lo studente, o non ci sono transazioni, restituisce 0.
+            wallet = Wallet.objects.get(student=obj)
+            total_earned = PointTransaction.objects.filter(wallet=wallet, points_change__gt=0).aggregate(total=Sum('points_change'))['total']
+            return total_earned if total_earned is not None else 0
+        except Wallet.DoesNotExist:
+            return 0
+        except Exception as e: # Cattura generica per robustezza, logga l'errore se necessario
+            # import logging
+            # logger = logging.getLogger(__name__)
+            # logger.error(f"Errore in get_total_points_earned per studente {obj.id}: {e}")
+            return 0
 
     # La validazione del teacher non è più necessaria
     # def validate_teacher(self, value):

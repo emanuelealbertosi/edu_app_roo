@@ -59,11 +59,13 @@ class CourseSerializer(serializers.ModelSerializer):
    class Meta:
        model = Course
        fields = [
-           'id', 'teacher', 'name', 'description',
+           'id', 'teacher', 'teacher_username', 'name', 'description',
            'created_at', 'updated_at',
            # 'uda_count', 'udas' # Esempio
        ]
-       read_only_fields = ['id', 'teacher', 'created_at', 'updated_at']
+       read_only_fields = ['id', 'teacher', 'created_at', 'updated_at', 'teacher_username']
+
+   teacher_username = serializers.CharField(source='teacher.username', read_only=True)
 
    def create(self, validated_data):
        # Imposta il teacher automaticamente sull'utente loggato
@@ -559,20 +561,48 @@ class UDASerializer(serializers.ModelSerializer):
        required=False
    )
    subjects_display = serializers.StringRelatedField(many=True, source='subjects', read_only=True)
+   total_estimated_hours = serializers.SerializerMethodField()
+   total_lesson_estimated_hours = serializers.SerializerMethodField()
+   lesson_count = serializers.SerializerMethodField()
 
 
    class Meta:
        model = UDA
        fields = [
-           'id', 'teacher', 'source_template_id', 'title', 'description',
+           'id', 'teacher', 'teacher_username', 'source_template_id', 'title', 'description',
            'knowledge_html', 'skills_html', 'competences_html', # Campi aggiunti
+           'is_civic_education', # Campo per Export DOCX
+           'didactic_strategies_html', # Campo per Export DOCX
+           'materials_tools_html', # Campo per Export DOCX
+           'assessment_type_html', # Campo per Export DOCX
+           'evaluation_html', # Campo per Export DOCX
+           'other_involved_subjects_text', # Campo per Export DOCX
+           'export_specific_annotations_html', # Campo per Export DOCX
            'start_date', 'end_date',
            'subjects_display', 'subject_ids', # Sostituisce 'subject'
            'course_id', 'course_name', 'course_teacher_username', 'order_in_course', # Modificato da course_display
            'topics_display', 'topic_ids', 'status', 'contents',
+           'total_estimated_hours', # Aggiunto
+           'total_lesson_estimated_hours', # Aggiunto
+           'lesson_count', # Aggiunto
            'created_at', 'updated_at'
        ]
-       read_only_fields = ['id', 'teacher', 'created_at', 'updated_at']
+       read_only_fields = [
+           'id', 'teacher', 'created_at', 'updated_at',
+           'total_estimated_hours', 'teacher_username',
+           'total_lesson_estimated_hours', 'lesson_count'
+       ]
+
+   teacher_username = serializers.CharField(source='teacher.username', read_only=True)
+
+   def get_total_estimated_hours(self, obj):
+       return obj.total_estimated_hours
+
+   def get_total_lesson_estimated_hours(self, obj):
+       return obj.total_lesson_estimated_hours
+
+   def get_lesson_count(self, obj):
+       return obj.lesson_count
 
    def create(self, validated_data):
         logger.debug(f"[UDASerializer CREATE] Initial validated_data: {validated_data}")

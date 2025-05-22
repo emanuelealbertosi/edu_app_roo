@@ -13,7 +13,7 @@
         >
           <!-- Header -->
           <div class="flex items-center justify-between px-6 py-4 border-b border-brand-gray">
-            <h3 v-if="title" class="text-xl font-bold text-kahoot-purple">{{ title }}</h3>
+            <h3 v-if="title" class="text-xl font-bold text-neutral-darkest">{{ title }}</h3>
             <div v-else></div>
             <button
               @click="closeModal"

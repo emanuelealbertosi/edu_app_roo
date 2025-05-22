@@ -301,7 +301,7 @@ const isOwner = computed(() => {
 // --- Methods ---
 
 const goToEditGroup = () => {
-  router.push({ name: 'GroupEdit', params: { id: groupId.value } });
+  router.push({ name: 'GroupEdit', params: { id: groupId.value.toString() } });
 };
 
 const handleGenerateToken = async () => {

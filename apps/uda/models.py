@@ -216,6 +216,15 @@ class UDA(models.Model):
     skills_html = models.TextField(blank=True, null=True, help_text="Contenuto HTML per le abilità")
     competences_html = models.TextField(blank=True, null=True, help_text="Contenuto HTML per le competenze")
 
+    # Campi per Export DOCX
+    is_civic_education = models.BooleanField(default=False, help_text="Indica se l'UDA rientra nel percorso di Educazione Civica")
+    didactic_strategies_html = models.TextField(blank=True, null=True, help_text="Contenuto HTML per le strategie didattiche (export)")
+    materials_tools_html = models.TextField(blank=True, null=True, help_text="Contenuto HTML per materiali e strumenti (export)")
+    assessment_type_html = models.TextField(blank=True, null=True, help_text="Contenuto HTML per il tipo di verifiche (export)")
+    evaluation_html = models.TextField(blank=True, null=True, help_text="Contenuto HTML per la valutazione (export)")
+    other_involved_subjects_text = models.TextField(blank=True, null=True, help_text="Testo libero per Altre Discipline Coinvolte (export)")
+    export_specific_annotations_html = models.TextField(blank=True, null=True, help_text="Contenuto HTML per Annotazioni specifiche per l'export")
+
     start_date = models.DateField(blank=True, null=True)
     end_date = models.DateField(blank=True, null=True)
     subjects = models.ManyToManyField(
@@ -245,6 +254,47 @@ class UDA(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    @property
+    def total_estimated_hours(self):
+        from decimal import Decimal
+        total_hours = Decimal('0.0')
+        for content in self.contents.all().select_related('lesson'): # Aggiunto select_related per efficienza
+            hours_to_add = Decimal('0.0')
+            if content.estimated_hours is not None:
+                hours_to_add = content.estimated_hours
+            elif content.content_type == 'LESSON' and content.lesson and content.lesson.estimated_hours is not None:
+                hours_to_add = content.lesson.estimated_hours
+            
+            if hours_to_add is not None: # Assicura che hours_to_add sia un Decimal o convertibile
+                try:
+                    total_hours += Decimal(hours_to_add)
+                except TypeError: # Gestisce il caso in cui hours_to_add potrebbe essere None nonostante i controlli
+                    pass # Non aggiungere nulla se non è un numero valido
+        return total_hours
+
+    @property
+    def total_lesson_estimated_hours(self):
+        from decimal import Decimal
+        total_hours = Decimal('0.0')
+        lesson_contents = self.contents.filter(content_type='LESSON').select_related('lesson')
+        for content in lesson_contents:
+            hours_to_add = Decimal('0.0')
+            if content.estimated_hours is not None:
+                hours_to_add = content.estimated_hours
+            elif content.lesson and content.lesson.estimated_hours is not None: # Fallback
+                hours_to_add = content.lesson.estimated_hours
+            
+            if hours_to_add is not None:
+                try:
+                    total_hours += Decimal(hours_to_add)
+                except TypeError:
+                    pass
+        return total_hours
+
+    @property
+    def lesson_count(self):
+        return self.contents.filter(content_type='LESSON').count()
+
     class Meta:
         verbose_name = "UDA"
         verbose_name_plural = "UDAs"
@@ -263,6 +313,22 @@ class UDA(models.Model):
         if self.competences_html:
             self.competences_html = sanitize_html(self.competences_html)
             logger.debug(f"UDA ID {self.pk} after sanitizing competences_html: '{str(self.competences_html)[:100]}'")
+        if self.didactic_strategies_html:
+            self.didactic_strategies_html = sanitize_html(self.didactic_strategies_html)
+            logger.debug(f"UDA ID {self.pk} after sanitizing didactic_strategies_html: '{str(self.didactic_strategies_html)[:100]}'")
+        if self.materials_tools_html:
+            self.materials_tools_html = sanitize_html(self.materials_tools_html)
+            logger.debug(f"UDA ID {self.pk} after sanitizing materials_tools_html: '{str(self.materials_tools_html)[:100]}'")
+        if self.assessment_type_html:
+            self.assessment_type_html = sanitize_html(self.assessment_type_html)
+            logger.debug(f"UDA ID {self.pk} after sanitizing assessment_type_html: '{str(self.assessment_type_html)[:100]}'")
+        if self.evaluation_html:
+            self.evaluation_html = sanitize_html(self.evaluation_html)
+            logger.debug(f"UDA ID {self.pk} after sanitizing evaluation_html: '{str(self.evaluation_html)[:100]}'")
+        if self.export_specific_annotations_html:
+            self.export_specific_annotations_html = sanitize_html(self.export_specific_annotations_html)
+            logger.debug(f"UDA ID {self.pk} after sanitizing export_specific_annotations_html: '{str(self.export_specific_annotations_html)[:100]}'")
+        # Il campo other_involved_subjects_text è un TextField semplice, non HTML, quindi non necessita di sanitizzazione con bleach.
         super().save(*args, **kwargs)
         logger.debug(f"UDA ID {self.pk} save completed.")
 

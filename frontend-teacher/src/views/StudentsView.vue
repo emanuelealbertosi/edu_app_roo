@@ -28,8 +28,8 @@
             <!-- Stile th aggiornato -->
             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider">Nome</th>
             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider">Cognome</th>
-            <!-- Ripristinato -->
             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider">Codice Studente</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider">Gruppi</th>
             <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-neutral-darker uppercase tracking-wider">Azioni</th>
             <!-- Rimosso come da richiesta -->
             <!-- <th>Username</th> -->
@@ -44,12 +44,31 @@
             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-neutral-darkest">{{ student.first_name }}</td>
             <!-- Stile td aggiornato -->
             <td class="px-6 py-4 whitespace-nowrap text-sm text-neutral-darker">{{ student.last_name }}</td>
-            <!-- Ripristinato, stile td aggiornato -->
             <td class="px-6 py-4 whitespace-nowrap text-sm text-neutral-darker">{{ student.student_code }}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-neutral-darker">
+              <div v-if="student.groups && student.groups.length > 0" class="flex flex-wrap gap-1">
+                <RouterLink
+                  v-for="group in student.groups"
+                  :key="group.id"
+                  :to="{ name: 'GroupDetail', params: { id: group.id.toString() } }"
+                  class="px-2 py-0.5 text-xs bg-blue-100 text-blue-700 rounded-full hover:bg-blue-200 hover:text-blue-800 transition-colors"
+                  title="Visualizza Dettaglio Gruppo"
+                >
+                  {{ group.name }}
+                </RouterLink>
+              </div>
+              <span v-else class="text-xs text-neutral-medium">Nessun gruppo</span>
+            </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-right">
-              <BaseButton variant="info" size="sm" @click="viewStudentDetails(student.id)" class="p-2" title="Vedi Dettagli Studente">
-                <EyeIcon class="h-5 w-5" />
-              </BaseButton>
+              <div class="flex items-center justify-end space-x-2">
+                <RouterLink
+                  :to="{ name: 'student-progress-detail', params: { studentId: student.id.toString() } }"
+                  class="p-2 inline-flex items-center text-secondary hover:text-secondary-dark bg-secondary-lightest hover:bg-secondary-lighter rounded-md"
+                  title="Visualizza Progressi Studente"
+                >
+                  <ChartBarIcon class="h-5 w-5" />
+                </RouterLink>
+              </div>
             </td>
             <!-- Rimosso come da richiesta -->
             <!-- <td>{{ student.username }}</td> -->
@@ -72,8 +91,8 @@ import { getMyStudents } from '@/api/students'; // Usa il nome corretto della fu
 import type { Student } from '@/types/users'; // Importa il tipo dalla sua fonte originale
 // Rimosso import per createRegistrationToken
 import BaseButton from '@/components/common/BaseButton.vue'; // Importa BaseButton
-import { EyeIcon } from '@heroicons/vue/24/outline';
-
+import { EyeIcon, ChartBarIcon } from '@heroicons/vue/24/outline'; // Aggiunto ChartBarIcon
+ 
 const students = ref<Student[]>([]); // Conterrà l'elenco degli studenti
 const isLoading = ref(false); // Stato di caricamento
 const error = ref<string | null>(null); // Messaggio di errore caricamento studenti
@@ -100,9 +119,10 @@ onMounted(async () => {
 // Rimosse funzioni generateRegistrationLink e copyLinkToClipboard
 
 const viewStudentDetails = (studentId: number) => {
-  console.log(`TODO: Naviga ai dettagli per lo studente con ID: ${studentId}`);
-  // Esempio di navigazione (da implementare la rotta 'student-details'):
-  // router.push({ name: 'student-details', params: { id: studentId } });
+  // TODO: Questa funzione potrebbe essere usata per navigare a una vista di modifica dettagli studente,
+  // per ora il link diretto ai progressi è più utile.
+  console.log(`TODO: Implementare navigazione a dettagli/modifica per studente ID: ${studentId}`);
+  // router.push({ name: 'student-edit-detail', params: { studentId: studentId.toString() } }); // Esempio se esistesse
 };
 </script>
 

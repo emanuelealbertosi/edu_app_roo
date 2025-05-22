@@ -1,6 +1,10 @@
 <template>
-  <div class="container mx-auto p-4">
-    <h1 class="text-2xl font-bold mb-4">Sfoglia Gruppi Pubblici</h1>
+  <div class="p-4">
+    <!-- Stile titolo aggiornato -->
+    <div class="bg-primary text-white p-4 rounded-md mb-6"> <!-- Contenitore per titolo e sottotitolo -->
+      <h1 class="text-2xl font-semibold mb-1">Sfoglia Gruppi Pubblici</h1>
+      <p class="opacity-90">Cerca e richiedi l'accesso ai gruppi pubblici creati da altri docenti.</p>
+    </div>
 
     <!-- Search Input -->
     <div class="mb-4">

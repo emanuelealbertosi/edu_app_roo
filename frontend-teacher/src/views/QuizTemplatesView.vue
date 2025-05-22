@@ -1,70 +1,166 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed, watch } from 'vue';
 import { useRouter } from 'vue-router';
-// Importa API per i template del docente, il tipo QuizTemplate e la nuova funzione di upload
-import { fetchTeacherQuizTemplates, deleteTeacherQuizTemplate, uploadQuizTemplateFromFile, type QuizTemplate } from '@/api/quizzes'; // Aggiunto uploadQuizTemplateFromFile
-import BaseButton from '@/components/common/BaseButton.vue'; // Importa BaseButton
-import { PlusCircleIcon, ArrowUpTrayIcon, XMarkIcon, CheckCircleIcon, PencilIcon, TrashIcon } from '@heroicons/vue/24/outline';
+import {
+    fetchTeacherQuizTemplates,
+    deleteTeacherQuizTemplate,
+    uploadQuizTemplateFromFile,
+    assignQuizToStudent,
+    assignQuizTemplateToGroup,
+    type QuizTemplate,
+    type AssignQuizPayload,
+    type AssignQuizTemplateToGroupPayload
+} from '@/api/quizzes';
+import {
+    fetchPathwayTemplates, // Anche se non usato attivamente per assegnazione ora, lo teniamo per coerenza se la logica pathway viene riattivata
+    assignPathwayToStudent,
+    assignPathwayTemplateToGroup,
+    type PathwayTemplate,
+    type AssignPathwayPayload,
+    type AssignPathwayTemplateToGroupPayload
+} from '@/api/pathways';
+import { getMyStudents } from '@/api/students';
+import type { Student } from '@/types/users';
+import { useGroupStore } from '@/stores/groups';
+import type { StudentGroup } from '@/types/groups';
+import { storeToRefs } from 'pinia';
 
-const templates = ref<QuizTemplate[]>([]); // Rinominato e usa tipo QuizTemplate
+import BaseButton from '@/components/common/BaseButton.vue';
+import BaseModal from '@/components/common/BaseModal.vue';
+import StudentSelectionModal from '@/components/features/assignment/StudentSelectionModal.vue';
+import GroupSelectionModal from '@/components/features/assignment/GroupSelectionModal.vue'; // Importa la nuova modale
+import { PlusCircleIcon, ArrowUpTrayIcon, XMarkIcon, CheckCircleIcon, PencilIcon, TrashIcon, PaperAirplaneIcon } from '@heroicons/vue/24/outline';
+
+const templates = ref<QuizTemplate[]>([]);
 const isLoading = ref(false);
 const router = useRouter();
 const error = ref<string | null>(null);
-const showUploadForm = ref(false); // Stato per mostrare/nascondere il form
+const showUploadForm = ref(false);
 const uploadFile = ref<File | null>(null);
 const uploadTitle = ref('');
 const isUploading = ref(false);
 const uploadError = ref<string | null>(null);
 
+// --- Stato per la Modale di Assegnazione ---
+const isAssignModalOpen = ref(false);
+const selectedTemplateForAssignment = ref<QuizTemplate | null>(null);
+
+// --- Stato dalla logica di AssignmentView ---
+const selectedContentType = ref<'quiz' | 'pathway'>('quiz'); // Fisso su quiz per ora
+const selectedTemplateId = ref<number | ''>(''); // ID del template selezionato nella modale
+const dueDate = ref<string | null>(null);
+
+const availableQuizTemplates = computed(() => templates.value); // Usa i template già caricati
+const isLoadingQuizTemplates = computed(() => isLoading.value); // Usa isLoading della vista principale
+const quizTemplatesError = computed(() => error.value); // Usa error della vista principale
+
+// const availablePathwayTemplates = ref<PathwayTemplate[]>([]); // Non caricati attivamente
+// const isLoadingPathwayTemplates = ref(false);
+// const pathwayTemplatesError = ref<string | null>(null);
+
+const groupStore = useGroupStore();
+const { groups: availableGroups, isLoadingList: isLoadingGroups, error: groupsError } = storeToRefs(groupStore);
+const selectedGroupIds = ref<number[]>([]);
+
+const availableStudents = ref<Student[]>([]);
+const isLoadingStudents = ref(false);
+const studentsError = ref<string | null>(null);
+const selectedStudentIds = ref<number[]>([]);
+
+const assignmentTargetType = ref<'students' | 'groups'>('students');
+
+const isAssigning = ref(false);
+const assignmentError = ref<string | null>(null);
+const assignmentSuccess = ref<string | null>(null);
+
+const isStudentModalOpen = ref(false);
+const isGroupModalOpen = ref(false); // Stato per la modale dei gruppi
+// --- Fine Stato dalla logica di AssignmentView ---
+
+
 const loadTemplates = async () => {
    isLoading.value = true;
    error.value = null;
    try {
-       templates.value = await fetchTeacherQuizTemplates(); // Usa API per template docente
+       templates.value = await fetchTeacherQuizTemplates();
    } catch (err: any) {
-       console.error("Errore nel recupero dei template quiz:", err); // Messaggio aggiornato
+       console.error("Errore nel recupero dei template quiz:", err);
        error.value = err.message || 'Si è verificato un errore sconosciuto.';
    } finally {
        isLoading.value = false;
    }
 };
 
-onMounted(loadTemplates); // Chiama la funzione per caricare i dati al mount
+const loadStudents = async () => {
+  isLoadingStudents.value = true;
+  studentsError.value = null;
+  try {
+    const response = await getMyStudents();
+    availableStudents.value = response.data;
+  } catch (err) {
+     studentsError.value = 'Errore caricamento studenti.';
+     console.error(err);
+  } finally {
+    isLoadingStudents.value = false;
+  }
+};
 
-// Funzioni aggiornate per template
+const loadGroups = async () => {
+    await groupStore.fetchGroups();
+};
+
+// const loadPathwayTemplatesForModal = async () => { // Funzione separata se si riattivano i percorsi
+//  isLoadingPathwayTemplates.value = true;
+//  pathwayTemplatesError.value = null;
+//  try {
+//    availablePathwayTemplates.value = await fetchPathwayTemplates();
+//  } catch (err) {
+//    pathwayTemplatesError.value = 'Errore caricamento template percorsi.';
+//    console.error(err);
+//  } finally {
+//    isLoadingPathwayTemplates.value = false;
+//  }
+// };
+
+onMounted(async () => {
+  await loadTemplates();
+  // Carica studenti e gruppi solo se necessario (es. al primo click su "Assegna" o all'apertura della modale)
+  // Per ora li carichiamo onMounted per semplicità, ma potrebbe essere ottimizzato.
+  await loadStudents();
+  await loadGroups();
+  // await loadPathwayTemplatesForModal(); // Se si riattivano i percorsi
+});
+
 const editQuizTemplate = (id: number) => {
-  // Naviga alla rotta di modifica del template
-  router.push({ name: 'quiz-template-edit', params: { id: id.toString() } }); // Nome rotta aggiornato
+  router.push({ name: 'quiz-template-edit', params: { id: id.toString() } });
 };
 
 const deleteQuizTemplate = async (id: number) => {
-  if (!confirm(`Sei sicuro di voler eliminare il template quiz con ID ${id}?`)) { // Testo aggiornato
+  if (!confirm(`Sei sicuro di voler eliminare il template quiz con ID ${id}?`)) {
     return;
   }
   try {
-    await deleteTeacherQuizTemplate(id); // Usa API per template docente
-    templates.value = templates.value.filter(template => template.id !== id); // Aggiorna variabile 'templates'
-    console.log(`Template quiz ${id} eliminato con successo.`); // Messaggio aggiornato
+    await deleteTeacherQuizTemplate(id);
+    templates.value = templates.value.filter(template => template.id !== id);
+    console.log(`Template quiz ${id} eliminato con successo.`);
   } catch (err: any) {
-    console.error(`Errore durante l'eliminazione del template quiz ${id}:`, err); // Messaggio aggiornato
-    error.value = `Errore durante l'eliminazione del template quiz: ${err.response?.data?.detail || err.message || 'Errore sconosciuto'}`; // Messaggio aggiornato
+    console.error(`Errore durante l'eliminazione del template quiz ${id}:`, err);
+    error.value = `Errore durante l'eliminazione del template quiz: ${err.response?.data?.detail || err.message || 'Errore sconosciuto'}`;
   }
 };
 
 const createNewQuizTemplate = () => {
-  router.push({ name: 'quiz-template-new' }); // Naviga alla rotta di creazione template
+  router.push({ name: 'quiz-template-new' });
 };
 
-// Funzioni per il form di upload
 const toggleUploadForm = () => {
   showUploadForm.value = !showUploadForm.value;
-  // Resetta i campi e gli errori quando si apre/chiude
   uploadFile.value = null;
   uploadTitle.value = '';
   uploadError.value = null;
   const fileInput = document.getElementById('templateFile') as HTMLInputElement;
   if (fileInput) {
-      fileInput.value = ''; // Resetta l'input file visivamente
+      fileInput.value = '';
   }
 };
 
@@ -72,7 +168,7 @@ const handleFileUpload = (event: Event) => {
   const target = event.target as HTMLInputElement;
   if (target.files && target.files[0]) {
     uploadFile.value = target.files[0];
-    uploadError.value = null; // Resetta errore se si seleziona un file
+    uploadError.value = null;
   } else {
     uploadFile.value = null;
   }
@@ -83,16 +179,12 @@ const submitUploadForm = async () => {
     uploadError.value = 'Per favore, seleziona un file e inserisci un titolo.';
     return;
   }
-
   isUploading.value = true;
   uploadError.value = null;
-
   try {
-    const newTemplate = await uploadQuizTemplateFromFile(uploadFile.value, uploadTitle.value);
-    console.log('Template caricato con successo:', newTemplate);
-    toggleUploadForm(); // Chiudi il form
-    await loadTemplates(); // Ricarica la lista dei template
-    // Potresti aggiungere un messaggio di successo qui (es. con una libreria di notifiche)
+    await uploadQuizTemplateFromFile(uploadFile.value, uploadTitle.value);
+    toggleUploadForm();
+    await loadTemplates();
   } catch (err: any) {
     console.error('Errore durante l\'upload del template:', err);
     uploadError.value = `Errore upload: ${err.response?.data?.detail || err.response?.data?.file?.[0] || err.response?.data?.title?.[0] || err.message || 'Errore sconosciuto'}`;
@@ -100,15 +192,151 @@ const submitUploadForm = async () => {
     isUploading.value = false;
   }
 };
+
+// --- Funzioni per la Modale di Assegnazione ---
+const openAssignModal = (template: QuizTemplate) => {
+  selectedTemplateForAssignment.value = template;
+  selectedTemplateId.value = template.id; // Imposta l'ID del template selezionato
+  selectedContentType.value = 'quiz'; // Assicura che sia quiz
+  // Resetta le selezioni precedenti della modale
+  selectedStudentIds.value = [];
+  selectedGroupIds.value = [];
+  dueDate.value = null;
+  assignmentError.value = null;
+  assignmentSuccess.value = null;
+  assignmentTargetType.value = 'students'; // Default a studenti
+  isAssignModalOpen.value = true;
+};
+
+const closeAssignModal = () => {
+  isAssignModalOpen.value = false;
+  selectedTemplateForAssignment.value = null;
+};
+
+const updateSelectedStudentsInModal = (newSelectedIds: number[]) => {
+  selectedStudentIds.value = newSelectedIds;
+};
+
+const updateSelectedGroupsInModal = (newSelectedIds: number[]) => { // Funzione per aggiornare i gruppi selezionati
+  selectedGroupIds.value = newSelectedIds;
+};
+
+const canAssignInModal = computed(() => {
+    const isTemplateSelected = selectedTemplateId.value !== ''; // selectedTemplateId è ora usato per la modale
+    const isTargetSelected = (assignmentTargetType.value === 'students' && selectedStudentIds.value.length > 0) ||
+                             (assignmentTargetType.value === 'groups' && selectedGroupIds.value.length > 0);
+    return isTemplateSelected && isTargetSelected;
+});
+
+const assignContentFromModal = async () => {
+ if (!canAssignInModal.value) return;
+
+ isAssigning.value = true;
+ assignmentError.value = null;
+ assignmentSuccess.value = null;
+
+ let successfulAssignments = 0;
+ const failedAssignmentsInfo: { targetId: number; targetType: 'student' | 'group'; error: string }[] = [];
+
+ const currentTemplateIdToAssign = selectedTemplateId.value; // Usa l'ID del template dalla modale
+
+ if (!currentTemplateIdToAssign) {
+     assignmentError.value = "ID del template non valido per l'assegnazione.";
+     isAssigning.value = false;
+     return;
+ }
+
+ if (assignmentTargetType.value === 'students') {
+     const studentsToAssign = [...selectedStudentIds.value];
+     for (const studentId of studentsToAssign) {
+         try {
+             if (selectedContentType.value === 'quiz') {
+                 const payload: AssignQuizPayload = {
+                     student: studentId,
+                     due_date: dueDate.value || null
+                 };
+                 await assignQuizToStudent(currentTemplateIdToAssign as number, payload);
+             } else if (selectedContentType.value === 'pathway') {
+                 // Logica Pathway (se riattivata)
+                 // const payload: AssignPathwayPayload = { student: studentId, pathway_template_id: currentTemplateIdToAssign as number };
+                 // await assignPathwayToStudent(payload);
+             }
+             successfulAssignments++;
+         } catch (error: any) {
+             let errorMessage = `Studente ${studentId}: ${error.response?.data?.detail || error.response?.data?.status || error.message || 'Errore sconosciuto'}`;
+             console.error(`Errore assegnazione a studente ${studentId}:`, error);
+             failedAssignmentsInfo.push({ targetId: studentId, targetType: 'student', error: errorMessage });
+         }
+     }
+ } else if (assignmentTargetType.value === 'groups') {
+     const groupsToAssign = [...selectedGroupIds.value];
+     for (const groupId of groupsToAssign) {
+          try {
+             if (selectedContentType.value === 'quiz') {
+                 const payload: AssignQuizTemplateToGroupPayload = {
+                     group: groupId,
+                     due_date: dueDate.value || null,
+                 };
+                 await assignQuizTemplateToGroup(currentTemplateIdToAssign as number, payload);
+             } else if (selectedContentType.value === 'pathway') {
+                  // Logica Pathway (se riattivata)
+                  // const payload: AssignPathwayTemplateToGroupPayload = { group: groupId };
+                  // await assignPathwayTemplateToGroup(currentTemplateIdToAssign as number, payload);
+             }
+             successfulAssignments++;
+         } catch (error: any)
+{
+             let errorMessage = `Gruppo ${groupId}: ${error.response?.data?.detail || error.response?.data?.status || error.message || 'Errore sconosciuto'}`;
+             console.error(`Errore assegnazione a gruppo ${groupId}:`, error);
+             failedAssignmentsInfo.push({ targetId: groupId, targetType: 'group', error: errorMessage });
+         }
+     }
+ }
+
+ isAssigning.value = false;
+
+ const targetTypeText = assignmentTargetType.value === 'students' ? 'studenti' : 'gruppi';
+
+ if (failedAssignmentsInfo.length > 0) {
+     assignmentError.value = `Errore durante l'assegnazione a ${failedAssignmentsInfo.length} ${targetTypeText}. Dettagli: ${failedAssignmentsInfo.map(f => f.error).join('; ')}`;
+ }
+ if (successfulAssignments > 0) {
+     assignmentSuccess.value = `Contenuto assegnato con successo a ${successfulAssignments} ${targetTypeText}.`;
+     // Non resettare le selezioni qui, ma chiudi la modale o dai feedback
+     // La chiusura della modale resetterà i suoi stati interni se necessario
+     setTimeout(() => {
+        closeAssignModal();
+        assignmentError.value = null; // Resetta anche nella vista principale
+        assignmentSuccess.value = null; // Resetta anche nella vista principale
+     }, 2000); // Chiudi dopo 2 secondi per mostrare il messaggio
+ } else {
+    // Se nessun successo, resetta i messaggi dopo un po'
+    setTimeout(() => {
+        assignmentError.value = null;
+        assignmentSuccess.value = null;
+    }, 5000);
+ }
+};
+
+watch(selectedContentType, () => {
+    // selectedTemplateId.value = ''; // Non resettare qui, gestito all'apertura della modale
+    dueDate.value = null;
+});
+
+watch(assignmentTargetType, () => {
+    selectedStudentIds.value = [];
+    selectedGroupIds.value = [];
+});
+
 </script>
 
 <template>
-  <div class="quiz-templates-view p-4 md:p-6"> <!-- Padding ok -->
-    <div class="bg-primary text-white p-4 rounded-md mb-6"> <!-- Contenitore per titolo e sottotitolo -->
-      <h1 class="text-2xl font-semibold mb-1">Gestione Template Quiz</h1> <!-- Rimosso stile individuale, aggiunto mb-1 -->
-      <p class="opacity-90">Qui puoi visualizzare, creare e modificare i tuoi template di quiz.</p> <!-- Rimosso stile individuale, aggiunta opacità -->
+  <div class="quiz-templates-view p-4 md:p-6">
+    <div class="bg-primary text-white p-4 rounded-md mb-6">
+      <h1 class="text-2xl font-semibold mb-1">Gestione Template Quiz</h1>
+      <p class="opacity-90">Qui puoi visualizzare, creare e modificare i tuoi template di quiz.</p>
     </div>
-    <div class="actions mb-6 flex space-x-2"> <!-- Margin e flex ok -->
+    <div class="actions mb-6 flex space-x-2">
       <BaseButton variant="primary" @click="createNewQuizTemplate" class="flex items-center">
         <PlusCircleIcon class="h-5 w-5 mr-2" />
         Crea Nuovo Template
@@ -119,19 +347,18 @@ const submitUploadForm = async () => {
       </BaseButton>
     </div>
 
-    <!-- Form di Upload (mostrato/nascosto) -->
-    <div v-if="showUploadForm" class="upload-form mt-4 p-4 border border-neutral-DEFAULT rounded-lg bg-neutral-lightest shadow-sm mb-6"> <!-- Stili form aggiornati -->
-      <h2 class="text-lg font-semibold mb-3 text-neutral-darkest">Carica Template da File (.pdf, .docx, .md)</h2> <!-- Stile titolo aggiornato -->
+    <div v-if="showUploadForm" class="upload-form mt-4 p-4 border border-neutral-DEFAULT rounded-lg bg-neutral-lightest shadow-sm mb-6">
+      <h2 class="text-lg font-semibold mb-3 text-neutral-darkest">Carica Template da File (.pdf, .docx, .md)</h2>
       <form @submit.prevent="submitUploadForm">
-        <div class="mb-4"> <!-- Margin ok -->
-          <label for="templateTitle" class="block text-sm font-medium text-neutral-darker mb-1">Titolo del Template:</label> <!-- Stile label aggiornato -->
-          <input type="text" id="templateTitle" v-model="uploadTitle" required class="shadow-sm focus:ring-primary focus:border-primary block w-full sm:text-sm border-neutral-DEFAULT rounded-md p-2"> <!-- Stili input aggiornati -->
+        <div class="mb-4">
+          <label for="templateTitle" class="block text-sm font-medium text-neutral-darker mb-1">Titolo del Template:</label>
+          <input type="text" id="templateTitle" v-model="uploadTitle" required class="shadow-sm focus:ring-primary focus:border-primary block w-full sm:text-sm border-neutral-DEFAULT rounded-md p-2">
         </div>
-        <div class="mb-4"> <!-- Margin ok -->
-          <label for="templateFile" class="block text-sm font-medium text-neutral-darker mb-1">Seleziona File:</label> <!-- Stile label aggiornato -->
-          <input type="file" id="templateFile" @change="handleFileUpload" accept=".pdf,.docx,.md" required class="block w-full text-sm text-neutral-darker file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 cursor-pointer"> <!-- Stili input file aggiornati -->
+        <div class="mb-4">
+          <label for="templateFile" class="block text-sm font-medium text-neutral-darker mb-1">Seleziona File:</label>
+          <input type="file" id="templateFile" @change="handleFileUpload" accept=".pdf,.docx,.md" required class="block w-full text-sm text-neutral-darker file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 cursor-pointer">
         </div>
-        <div class="flex justify-end space-x-3"> <!-- Spazio ok -->
+        <div class="flex justify-end space-x-3">
            <BaseButton type="button" variant="secondary" @click="toggleUploadForm" class="flex items-center">
             <XMarkIcon class="h-5 w-5 mr-2" />
             Annulla
@@ -150,35 +377,35 @@ const submitUploadForm = async () => {
              </span>
            </BaseButton>
         </div>
-        <p v-if="uploadError" class="text-error text-sm mt-3">{{ uploadError }}</p> <!-- Stile errore aggiornato -->
+        <p v-if="uploadError" class="text-error text-sm mt-3">{{ uploadError }}</p>
       </form>
     </div>
-    <div v-if="isLoading" class="text-center py-10 text-neutral-dark">Caricamento template quiz...</div> <!-- Stile loading aggiornato -->
-    <div v-else-if="error" class="bg-error/10 border border-error text-error px-4 py-3 rounded relative mb-6" role="alert"> <!-- Stile errore aggiornato -->
+    <div v-if="isLoading" class="text-center py-10 text-neutral-dark">Caricamento template quiz...</div>
+    <div v-else-if="error" class="bg-error/10 border border-error text-error px-4 py-3 rounded relative mb-6" role="alert">
        <strong class="font-bold">Errore!</strong>
        <span class="block sm:inline"> Errore nel caricamento dei template quiz: {{ error }}</span>
     </div>
-    <!-- Responsive Table Container -->
-    <div v-else-if="templates.length > 0" class="shadow-md rounded-lg mt-6"> <!-- Rimosso overflow-x-auto -->
-      <table class="min-w-full divide-y divide-neutral-DEFAULT bg-white"> <!-- Stile tabella aggiornato -->
-        <thead class="bg-neutral-lightest"> <!-- Stile thead aggiornato -->
+    <div v-else-if="templates.length > 0" class="shadow-md rounded-lg mt-6">
+      <table class="min-w-full divide-y divide-neutral-DEFAULT bg-white">
+        <thead class="bg-neutral-lightest">
           <tr>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider">Titolo</th> <!-- Stile th aggiornato -->
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider">Titolo</th>
             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider">Descrizione</th>
             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider">Materia</th>
             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider">Argomento</th>
             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider">Creato il</th>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider">Azioni</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider">Azioni Modifica</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider">Azioni Assegnazione</th>
           </tr>
         </thead>
-        <tbody class="bg-white divide-y divide-neutral-DEFAULT"> <!-- Stile tbody aggiornato -->
-          <tr v-for="template in templates" :key="template.id" class="hover:bg-neutral-lightest transition-colors duration-150"> <!-- Usa variabile 'template', stile tr aggiornato -->
-            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-neutral-darkest">{{ template.title }}</td> <!-- Stile td aggiornato -->
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-neutral-darker">{{ template.description || '-' }}</td> <!-- Stile td aggiornato -->
+        <tbody class="bg-white divide-y divide-neutral-DEFAULT">
+          <tr v-for="template in templates" :key="template.id" class="hover:bg-neutral-lightest transition-colors duration-150">
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-neutral-darkest">{{ template.title }}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-neutral-darker">{{ template.description || '-' }}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-neutral-darker">{{ template.subject || '-' }}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-neutral-darker">{{ template.topic || '-' }}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-neutral-darker">{{ new Date(template.created_at).toLocaleDateString() }}</td> <!-- Stile td aggiornato -->
-            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2"> <!-- Spazio ok -->
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-neutral-darker">{{ new Date(template.created_at).toLocaleDateString() }}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
               <BaseButton variant="warning" size="sm" @click="editQuizTemplate(template.id)" class="p-2" title="Modifica Template">
                 <PencilIcon class="h-5 w-5" />
               </BaseButton>
@@ -186,26 +413,133 @@ const submitUploadForm = async () => {
                 <TrashIcon class="h-5 w-5" />
               </BaseButton>
             </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+              <BaseButton variant="info" size="sm" @click="openAssignModal(template)" class="p-2 flex items-center" title="Assegna Template">
+                <PaperAirplaneIcon class="h-5 w-5 mr-1" /> Assegna
+              </BaseButton>
+            </td>
           </tr>
         </tbody>
       </table>
     </div>
-    <div v-else class="text-center py-10 text-neutral-dark"> <!-- Stile no templates aggiornato -->
+    <div v-else class="text-center py-10 text-neutral-dark">
       Nessun template di quiz trovato.
     </div>
+
+    <!-- Modale di Assegnazione -->
+    <BaseModal :show="isAssignModalOpen" :title="`Assegna Quiz: ${selectedTemplateForAssignment?.title || ''}`" @close="closeAssignModal" max-width-class="max-w-2xl md:max-w-3xl">
+        <div class="p-6">
+            <!-- Sezione Selezione Template (solo display) -->
+            <div class="mb-6 p-4 border border-neutral-DEFAULT rounded-lg bg-neutral-lightest">
+                <h3 class="text-lg font-semibold text-neutral-darkest mb-2">Template Selezionato</h3>
+                <p v-if="selectedTemplateForAssignment" class="text-neutral-dark">
+                    <strong>Titolo:</strong> {{ selectedTemplateForAssignment.title }} <br>
+                    <span v-if="selectedTemplateForAssignment.description"><strong>Descrizione:</strong> {{ selectedTemplateForAssignment.description }}</span>
+                </p>
+                 <input type="hidden" :value="selectedTemplateId"> <!-- Mantiene selectedTemplateId aggiornato -->
+            </div>
+
+            <!-- Aggiunta Data Scadenza -->
+            <div class="form-group mb-4">
+                <label for="due-date-modal" class="block text-sm font-medium text-neutral-darker mb-1">Data Scadenza (Opzionale):</label>
+                <input type="datetime-local" id="due-date-modal" v-model="dueDate" class="w-full p-2 border border-neutral-DEFAULT rounded-md shadow-sm focus:ring-primary focus:border-primary" />
+            </div>
+
+            <!-- Sezione Selezione Target (Studenti o Gruppi) -->
+            <div class="target-selection mb-6">
+                <h2 class="text-xl font-semibold mb-3 text-neutral-darkest">Seleziona Destinatari</h2>
+                <div class="flex items-center space-x-4 mb-4">
+                    <label class="flex items-center cursor-pointer">
+                        <input type="radio" v-model="assignmentTargetType" value="students" name="targetTypeModal" class="form-radio h-4 w-4 text-primary focus:ring-primary border-neutral-DEFAULT">
+                        <span class="ml-2 text-sm text-neutral-darker">Studenti Singoli</span>
+                    </label>
+                    <label class="flex items-center cursor-pointer">
+                        <input type="radio" v-model="assignmentTargetType" value="groups" name="targetTypeModal" class="form-radio h-4 w-4 text-primary focus:ring-primary border-neutral-DEFAULT">
+                        <span class="ml-2 text-sm text-neutral-darker">Gruppi</span>
+                    </label>
+                </div>
+
+                <div v-if="assignmentTargetType === 'students'" class="student-selection">
+                    <h3 class="text-lg font-medium mb-2 text-neutral-darkest">Seleziona Studenti</h3>
+                    <div v-if="isLoadingStudents" class="loading text-center py-4 text-neutral-dark">Caricamento studenti...</div>
+                    <div v-else-if="studentsError" class="error-message bg-error/10 border border-error text-error p-3 rounded">{{ studentsError }}</div>
+                    <div v-else-if="availableStudents.length > 0">
+                        <BaseButton variant="primary" @click="isStudentModalOpen = true" class="mb-2">
+                        Seleziona
+                        </BaseButton>
+                        <div class="text-xs text-neutral-dark">
+                        <span v-if="selectedStudentIds.length === 0">Nessuno studente selezionato.</span>
+                        <span v-else-if="selectedStudentIds.length === 1">1 studente selezionato.</span>
+                        <span v-else>{{ selectedStudentIds.length }} studenti selezionati.</span>
+                        </div>
+                    </div>
+                    <div v-else class="text-center py-4 text-neutral-dark">Nessuno studente trovato.</div>
+                </div>
+
+                <div v-if="assignmentTargetType === 'groups'" class="group-selection">
+                    <h3 class="text-lg font-medium mb-2 text-neutral-darkest">Seleziona Gruppi</h3>
+                    <div v-if="isLoadingGroups" class="loading text-center py-4 text-neutral-dark">Caricamento gruppi...</div>
+                    <div v-else-if="groupsError" class="error-message bg-error/10 border border-error text-error p-3 rounded">{{ groupsError }}</div>
+                    <div v-else-if="availableGroups.length > 0">
+                        <BaseButton variant="primary" @click="isGroupModalOpen = true" class="mb-2">
+                        Seleziona
+                        </BaseButton>
+                        <div class="text-xs text-neutral-dark">
+                            <span v-if="selectedGroupIds.length === 0">Nessun gruppo selezionato.</span>
+                            <span v-else-if="selectedGroupIds.length === 1">1 gruppo selezionato.</span>
+                            <span v-else>{{ selectedGroupIds.length }} gruppi selezionati.</span>
+                        </div>
+                    </div>
+                    <div v-else class="text-center py-4 text-neutral-dark">Nessun gruppo trovato. <router-link :to="{ name: 'GroupsList' }" class="text-primary hover:underline">Gestisci Gruppi</router-link></div>
+                </div>
+            </div>
+
+            <div v-if="assignmentError" class="error-message my-3 text-error text-sm p-3 bg-error/10 border border-error rounded">{{ assignmentError }}</div>
+            <div v-if="assignmentSuccess" class="success-message my-3 text-success-dark text-sm p-3 bg-success/10 border border-success rounded">{{ assignmentSuccess }}</div>
+        </div>
+
+        <template #footer>
+            <div class="w-full flex justify-between items-center p-4">
+                <BaseButton variant="secondary" @click="closeAssignModal">Annulla</BaseButton>
+                <BaseButton
+                    variant="success"
+                    @click="assignContentFromModal"
+                    :disabled="!canAssignInModal || isAssigning"
+                >
+                    <span v-if="isAssigning">
+                        <svg class="animate-spin -ml-1 mr-2 h-4 w-4 inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Assegnazione...
+                    </span>
+                    <span v-else>Assegna Selezionati</span>
+                </BaseButton>
+            </div>
+        </template>
+    </BaseModal>
+
+    <!-- Modale Selezione Studenti (usata dalla modale di assegnazione) -->
+    <StudentSelectionModal
+        :show="isStudentModalOpen"
+        :students="availableStudents"
+        :initial-selected-ids="selectedStudentIds"
+        @close="isStudentModalOpen = false"
+        @update:selectedIds="updateSelectedStudentsInModal"
+    />
+
+    <!-- Modale Selezione Gruppi -->
+    <GroupSelectionModal
+        :show="isGroupModalOpen"
+        :groups="availableGroups"
+        :initial-selected-ids="selectedGroupIds"
+        @close="isGroupModalOpen = false"
+        @update:selectedIds="updateSelectedGroupsInModal"
+    />
+
   </div>
 </template>
 
 <style scoped>
 /* Stili specifici rimossi in favore di Tailwind */
-/* Puoi aggiungere qui stili molto specifici se necessario */
-
-/* Stile per spinner (se usi Font Awesome) - Rimosso perché usato SVG */
-/* @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-.fa-spinner {
-  animation: spin 1s linear infinite;
-} */
 </style>

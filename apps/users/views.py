@@ -13,9 +13,12 @@ from .serializers import (
     StudentProfileUpdateSerializer # Import per la rettifica GDPR
 )
 # Importa modelli da altre app per le annotazioni
-from apps.education.models import QuizAttempt, PathwayProgress
-from apps.rewards.models import Wallet
-from rest_framework import mixins # Importa mixins
+from apps.education.models import QuizAttempt, PathwayProgress, Quiz
+from apps.rewards.models import Wallet, RewardPurchase
+from rest_framework import mixins, status # Importa mixins e status
+from apps.education.serializers import QuizAttemptDetailSerializer # Per quiz_attempts
+from apps.rewards.serializers import WalletSerializer as RewardsWalletSerializer, RewardPurchaseSerializer as RewardsRewardPurchaseSerializer # Per wallet e reward_purchases
+from django.db.models import Avg # Per calcolare la media
 # Importa modelli necessari per la nuova logica queryset studenti
 from apps.student_groups.models import StudentGroup, GroupAccessRequest
 
@@ -108,6 +111,94 @@ class StudentViewSet(viewsets.ModelViewSet):
             # Teoricamente non dovrebbe accadere a causa dei permessi a livello di vista,
             # ma per sicurezza restituiamo un queryset vuoto.
             return Student.objects.none()
+
+    @action(detail=True, methods=['get'], url_path='analytics', permission_classes=[permissions.IsAuthenticated, (IsTeacherUser | IsAdminUser), IsStudentOwnerOrAdmin])
+    def analytics(self, request, pk=None):
+        """
+        Restituisce i dati analitici per uno studente specifico.
+        Formato atteso dal frontend:
+        {
+          "score_trend": [{ "date": "YYYY-MM-DD", "score": 0-100, "quiz_title": "..." }, ...],
+          "overall_stats": { "average_score": 0-100 }
+        }
+        """
+        student = self.get_object()
+        
+        attempts = QuizAttempt.objects.filter(
+            student=student,
+            status=QuizAttempt.AttemptStatus.COMPLETED,
+            completed_at__isnull=False, # Assicurati che ci sia una data di completamento
+            score__isnull=False # Assicurati che ci sia un punteggio
+        ).select_related('quiz').order_by('completed_at')
+
+        score_trend = []
+        for attempt in attempts:
+            score_trend.append({
+                "date": attempt.completed_at.strftime('%Y-%m-%d'),
+                "score": attempt.score,
+                "quiz_title": attempt.quiz.title if attempt.quiz else "Quiz Sconosciuto"
+            })
+        
+        avg_score_data = attempts.aggregate(average_score=Avg('score'))
+        avg_score = avg_score_data['average_score']
+
+        analytics_data = {
+            "score_trend": score_trend,
+            "overall_stats": {
+                "average_score": round(avg_score, 1) if avg_score is not None else None
+            }
+        }
+        return Response(analytics_data)
+
+    @action(detail=True, methods=['get'], url_path='quiz-attempts', permission_classes=[permissions.IsAuthenticated, (IsTeacherUser | IsAdminUser), IsStudentOwnerOrAdmin])
+    def quiz_attempts(self, request, pk=None):
+        """
+        Restituisce i tentativi di quiz per uno studente specifico.
+        Formato atteso dal frontend: StudentQuizAttempt[]
+        """
+        student = self.get_object()
+        attempts = QuizAttempt.objects.filter(student=student).select_related('quiz').order_by('-started_at')
+        # Usiamo QuizAttemptDetailSerializer che dovrebbe essere più completo.
+        # Assicurati che QuizAttemptDetailSerializer fornisca i campi attesi:
+        # attempt_id, quiz_id, quiz_title, started_at, completed_at, score, status
+        serializer = QuizAttemptDetailSerializer(attempts, many=True, context={'request': request})
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['get'], url_path='wallet', permission_classes=[permissions.IsAuthenticated, (IsTeacherUser | IsAdminUser), IsStudentOwnerOrAdmin])
+    def wallet_info(self, request, pk=None):
+        """
+        Restituisce le informazioni del portafoglio per uno studente specifico.
+        Formato atteso dal frontend: StudentWallet { "current_points": 0 }
+        """
+        student = self.get_object()
+        try:
+            wallet = Wallet.objects.get(student=student)
+            # Il frontend si aspetta solo { "current_points": ... }
+            # RewardsWalletSerializer potrebbe restituire di più, ma va bene.
+            # Se serve esattamente quel formato, si può fare: return Response({"current_points": wallet.current_points})
+            serializer = RewardsWalletSerializer(wallet, context={'request': request})
+            return Response(serializer.data)
+        except Wallet.DoesNotExist:
+            # Se il wallet non esiste, restituisci 0 punti come da aspettativa frontend
+            logger.warning(f"Wallet non trovato per lo studente {student.id}. Restituisco 0 punti.")
+            return Response({"current_points": 0}) # Non HTTP_404_NOT_FOUND per non rompere il frontend
+        except Exception as e:
+            logger.error(f"Errore durante il recupero del wallet per lo studente {student.id}: {e}", exc_info=True)
+            return Response({"detail": "Errore durante il recupero del portafoglio."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+    @action(detail=True, methods=['get'], url_path='reward-purchases', permission_classes=[permissions.IsAuthenticated, (IsTeacherUser | IsAdminUser), IsStudentOwnerOrAdmin])
+    def reward_purchases_list(self, request, pk=None):
+        """
+        Restituisce lo storico degli acquisti di ricompense per uno studente specifico.
+        Formato atteso dal frontend: RewardPurchaseItem[]
+        """
+        student = self.get_object()
+        purchases = RewardPurchase.objects.filter(student=student).select_related('reward').order_by('-purchased_at')
+        # Assicurati che RewardsRewardPurchaseSerializer fornisca i campi attesi:
+        # purchase_id, reward_name, points_spent, purchased_at, status
+        serializer = RewardsRewardPurchaseSerializer(purchases, many=True, context={'request': request})
+        return Response(serializer.data)
 
     def perform_create(self, serializer):
         """

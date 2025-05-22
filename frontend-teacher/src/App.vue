@@ -336,13 +336,6 @@ onMounted(async () => {
               <span class="ml-3 text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Ricompense</span>
             </router-link>
           </li>
-          <!-- Assegna -->
-          <li class="mb-2">
-            <router-link :to="{ name: 'assign' }" class="flex items-center p-2 rounded hover:bg-secondary-light">
-              <PaperAirplaneIcon class="h-5 w-5 flex-shrink-0" />
-              <span class="ml-3 text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out whitespace-nowrap">Assegna</span>
-            </router-link>
-          </li>
           <!-- Valutazioni -->
           <li class="mb-2">
             <router-link :to="{ name: 'GradingDashboard' }" class="flex items-center p-2 rounded hover:bg-secondary-light">
@@ -468,13 +461,6 @@ onMounted(async () => {
               <router-link :to="{ name: 'rewards' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-secondary-light">
                 <GiftIcon class="h-5 w-5 flex-shrink-0" />
                 <span class="ml-3 text-sm">Ricompense</span>
-              </router-link>
-            </li>
-            <!-- Assegna -->
-            <li class="mb-2">
-              <router-link :to="{ name: 'assign' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-secondary-light">
-                <PaperAirplaneIcon class="h-5 w-5 flex-shrink-0" />
-                <span class="ml-3 text-sm">Assegna</span>
               </router-link>
             </li>
             <!-- Valutazioni -->

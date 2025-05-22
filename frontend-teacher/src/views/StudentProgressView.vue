@@ -1,8 +1,8 @@
 <template>
   <div class="student-progress-view p-4 md:p-6"> <!-- Padding ok -->
     <div class="bg-primary text-white p-4 rounded-md mb-6"> <!-- Contenitore per titolo e sottotitolo -->
-      <h1 class="text-2xl font-semibold mb-1">Progressi Studenti</h1> <!-- Rimosso stile individuale, aggiunto mb-1 -->
-      <p class="opacity-90">Sommario dei progressi degli studenti associati.</p> <!-- Rimosso stile individuale, aggiunta opacità -->
+      <h1 class="text-3xl font-bold mb-1">Progressi Studenti</h1> <!-- Rimosso stile individuale, aggiunto mb-1 -->
+      <p class="text-xl opacity-90">Sommario dei progressi degli studenti associati.</p> <!-- Rimosso stile individuale, aggiunta opacità -->
     </div>
 
     <div v-if="isLoading" class="text-center py-10 text-neutral-dark">Caricamento progressi...</div> <!-- Stile loading aggiornato -->
@@ -87,9 +87,8 @@ const loadProgressSummaries = async () => {
 onMounted(loadProgressSummaries);
 
 const viewDetails = (studentId: number) => {
-  console.log(`Visualizza dettagli per studente ${studentId} - da implementare`);
   // Navigare a una vista dettagliata, passando studentId
-  // router.push({ name: 'student-progress-detail', params: { studentId: studentId.toString() } }); // Rotta da definire
+  router.push({ name: 'student-progress-detail', params: { studentId: studentId.toString() } }); // Rotta da definire
 };
 
 </script>

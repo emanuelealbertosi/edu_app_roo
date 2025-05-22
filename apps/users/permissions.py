@@ -39,17 +39,44 @@ class IsStudentOwnerOrAdmin(permissions.BasePermission):
     Assume che l'oggetto (obj) abbia un attributo 'teacher'.
     """
     def has_object_permission(self, request, view, obj):
-        # I permessi di lettura (GET, HEAD, OPTIONS) potrebbero essere più ampi,
-        # ma per ora li limitiamo al proprietario o Admin.
-        # SAFE_METHODS sono metodi che non modificano l'oggetto.
-        # if request.method in permissions.SAFE_METHODS:
-        #     return obj.teacher == request.user or request.user.is_admin
+        # L'utente admin ha sempre il permesso
+        if hasattr(request.user, 'role') and request.user.role == UserRole.ADMIN:
+            return True
 
-        # I permessi di scrittura (PUT, PATCH, DELETE) sono solo per il proprietario o Admin.
-        # Assicurati che request.user sia un User (Admin/Docente)
-        is_owner = hasattr(request.user, 'role') and obj.teacher == request.user
-        is_admin = hasattr(request.user, 'role') and request.user.role == UserRole.ADMIN
-        return is_owner or is_admin
+        # Per i metodi di lettura (GET, HEAD, OPTIONS)
+        if request.method in permissions.SAFE_METHODS:
+            # Un insegnante può visualizzare i dettagli dello studente
+            if hasattr(request.user, 'role') and request.user.role == UserRole.TEACHER:
+                return True
+            # Uno studente può visualizzare i propri dettagli
+            # Assumendo che obj sia l'istanza dello studente e request.user sia l'utente studente autenticato
+            if isinstance(request.user, Student) and obj == request.user:
+                return True
+            return False # Altri utenti non autenticati o con ruoli diversi non possono leggere
+
+        # Per i metodi di scrittura (PUT, PATCH, DELETE)
+        # Qui la logica di 'owner' è cruciale.
+        # Dato che 'obj.teacher' causa AttributeError, questa logica deve essere rivista
+        # in base alla reale struttura di ownership/management degli studenti da parte dei docenti.
+        # Per ora, per evitare modifiche non autorizzate se la relazione non è diretta 'obj.teacher',
+        # si potrebbe limitare la scrittura agli admin o implementare la logica corretta.
+        if hasattr(request.user, 'role') and request.user.role == UserRole.TEACHER:
+            # Esempio di logica di proprietà se lo studente fosse legato all'insegnante
+            # tramite un campo diretto (che attualmente manca o è nominato diversamente):
+            # if hasattr(obj, 'managing_teacher') and obj.managing_teacher == request.user:
+            #     return True
+            # Oppure, se gli studenti sono in classi gestite dall'insegnante:
+            # if obj.student_classes.filter(teacher=request.user).exists():
+            # return True
+            # ATTENZIONE: La riga seguente è un placeholder e probabilmente NON è corretta
+            # perché 'obj.teacher' è la causa dell'AttributeError.
+            # is_owner_for_write = hasattr(obj, 'teacher') and obj.teacher == request.user
+            # Per ora, si disabilita la scrittura per i docenti in questa classe di permesso
+            # fino a che la logica di ownership non sia chiarita e implementata correttamente.
+            # Questo previene l'AttributeError e comportamenti non definiti per la scrittura.
+            return False # Modificare questa riga con la logica di ownership corretta per la scrittura
+
+        return False # Nega il permesso per default per operazioni di scrittura se non admin o proprietario definito
 
 class IsStudent(permissions.BasePermission):
     """

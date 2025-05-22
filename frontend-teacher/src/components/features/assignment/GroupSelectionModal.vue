@@ -2,20 +2,20 @@
   <div v-if="show" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-[55] flex items-center justify-center" @click.self="closeModal">
     <div class="relative mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white">
       <div class="mt-3 text-center">
-        <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">Seleziona Studenti</h3>
+        <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">Seleziona Gruppi</h3>
         <div class="mt-2 px-7 py-3">
           <!-- Barra di Filtro -->
           <div class="mb-4">
             <input
               type="text"
               v-model="filterText"
-              placeholder="Filtra per nome, cognome o codice..."
+              placeholder="Filtra per nome gruppo..."
               class="w-full p-2 border border-neutral-DEFAULT rounded-md shadow-sm focus:ring-primary focus:border-primary"
             />
           </div>
 
-          <!-- Lista Studenti -->
-          <div v-if="filteredStudents.length > 0" class="text-left max-h-80 overflow-y-auto border border-neutral-DEFAULT rounded-md p-3 space-y-2 bg-neutral-lightest mb-4">
+          <!-- Lista Gruppi -->
+          <div v-if="filteredGroups.length > 0" class="text-left max-h-80 overflow-y-auto border border-neutral-DEFAULT rounded-md p-3 space-y-2 bg-neutral-lightest mb-4">
              <!-- Seleziona Tutti -->
              <div class="mb-3 border-b pb-2">
                  <label class="inline-flex items-center cursor-pointer">
@@ -23,7 +23,7 @@
                        type="checkbox"
                        @change="toggleSelectAllFiltered"
                        :checked="allFilteredSelected"
-                       :disabled="filteredStudents.length === 0"
+                       :disabled="filteredGroups.length === 0"
                        class="styled-checkbox"
                      />
                      <span class="ml-2 text-sm font-medium text-neutral-darker">Seleziona Tutti (filtrati)</span>
@@ -31,23 +31,23 @@
              </div>
              <!-- Lista -->
              <ul class="space-y-2">
-                <li v-for="student in filteredStudents" :key="student.id">
+                <li v-for="group in filteredGroups" :key="group.id">
                   <label class="inline-flex items-center cursor-pointer w-full p-2 hover:bg-primary-lightest rounded transition-colors duration-150">
                     <input
                       type="checkbox"
-                      :value="student.id"
+                      :value="group.id"
                       v-model="localSelectedIds"
                       class="styled-checkbox"
                     />
                     <span class="ml-3 text-sm text-neutral-darkest">
-                      {{ student.first_name }} {{ student.last_name }} <span class="text-xs text-neutral-dark">({{ student.student_code }})</span>
+                      {{ group.name }} <span class="text-xs text-neutral-dark">({{ group.student_count ?? 0 }} membri)</span>
                     </span>
                   </label>
                 </li>
              </ul>
           </div>
           <div v-else class="text-center py-6 text-neutral-dark">
-            Nessuno studente corrisponde al filtro.
+            Nessun gruppo corrisponde al filtro.
           </div>
 
         </div>
@@ -65,7 +65,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, type PropType } from 'vue';
-import type { Student } from '@/types/users'; // Importa direttamente da types/users
+import type { StudentGroup } from '@/types/groups'; // Importa StudentGroup
 import BaseButton from '@/components/common/BaseButton.vue';
 
 const props = defineProps({
@@ -73,8 +73,8 @@ const props = defineProps({
     type: Boolean,
     required: true,
   },
-  students: {
-    type: Array as PropType<Student[]>,
+  groups: { // Rinominato da students a groups
+    type: Array as PropType<StudentGroup[]>, // Usa StudentGroup
     required: true,
   },
   initialSelectedIds: {
@@ -88,52 +88,47 @@ const emit = defineEmits(['update:selectedIds', 'close']);
 const filterText = ref('');
 const localSelectedIds = ref<number[]>([...props.initialSelectedIds]);
 
-// Filtra studenti in base al testo
-const filteredStudents = computed(() => {
+// Filtra gruppi in base al testo
+const filteredGroups = computed(() => { // Rinominato
   if (!filterText.value) {
-    return props.students;
+    return props.groups;
   }
   const lowerFilter = filterText.value.toLowerCase();
-  return props.students.filter(student =>
-    student.first_name.toLowerCase().includes(lowerFilter) ||
-    student.last_name.toLowerCase().includes(lowerFilter) ||
-    (student.student_code && student.student_code.toLowerCase().includes(lowerFilter))
+  return props.groups.filter(group => // Usa props.groups
+    group.name.toLowerCase().includes(lowerFilter)
+    // Aggiungere altri campi di filtro se necessario, es. group.description
   );
 });
 
 // Logica "Seleziona Tutti" (solo filtrati)
 const allFilteredSelected = computed(() => {
-  const filteredIds = filteredStudents.value.map(s => s.id);
+  const filteredIds = filteredGroups.value.map(g => g.id); // Usa filteredGroups
   return filteredIds.length > 0 && filteredIds.every(id => localSelectedIds.value.includes(id));
 });
 
 const toggleSelectAllFiltered = (event: Event) => {
   const target = event.target as HTMLInputElement;
-  const filteredIds = filteredStudents.value.map(s => s.id);
+  const filteredIds = filteredGroups.value.map(g => g.id); // Usa filteredGroups
 
   if (target.checked) {
-    // Aggiungi solo gli ID filtrati non già presenti
     filteredIds.forEach(id => {
       if (!localSelectedIds.value.includes(id)) {
         localSelectedIds.value.push(id);
       }
     });
   } else {
-    // Rimuovi solo gli ID filtrati
     localSelectedIds.value = localSelectedIds.value.filter(id => !filteredIds.includes(id));
   }
 };
 
-// Sincronizza la selezione locale quando cambiano le props iniziali
 watch(() => props.initialSelectedIds, (newVal) => {
   localSelectedIds.value = [...newVal];
 });
 
-// Sincronizza la prop show per resettare il filtro all'apertura
 watch(() => props.show, (newVal) => {
   if (newVal) {
-    filterText.value = ''; // Resetta filtro all'apertura
-    localSelectedIds.value = [...props.initialSelectedIds]; // Ricarica selezione iniziale
+    filterText.value = '';
+    localSelectedIds.value = [...props.initialSelectedIds];
   }
 });
 
@@ -143,7 +138,7 @@ const closeModal = () => {
 };
 
 const confirmSelection = () => {
-  emit('update:selectedIds', [...localSelectedIds.value]); // Emetti una copia
+  emit('update:selectedIds', [...localSelectedIds.value]);
   closeModal();
 };
 

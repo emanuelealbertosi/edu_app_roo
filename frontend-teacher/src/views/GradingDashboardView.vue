@@ -1,6 +1,10 @@
 <template>
   <div class="grading-dashboard-view p-4">
-    <h1 class="text-2xl font-semibold mb-6">Quiz da Correggere</h1>
+    <!-- Stile titolo aggiornato -->
+    <div class="bg-primary text-white p-4 rounded-md mb-6"> <!-- Contenitore per titolo e sottotitolo -->
+      <h1 class="text-2xl font-semibold mb-1">Quiz da Correggere</h1>
+      <p class="opacity-90">Elenco dei quiz che richiedono una valutazione manuale.</p>
+    </div>
 
     <div v-if="isLoading" class="text-center">
       <p>Caricamento tentativi in attesa di correzione...</p>
@@ -101,7 +105,7 @@ onMounted(() => {
 <style scoped>
 /* Eventuali stili specifici per questa vista */
 .grading-dashboard-view {
-  max-width: 1200px;
-  margin: 0 auto;
+  /* max-width: 1200px; */
+  /* margin: 0 auto; */
 }
 </style>

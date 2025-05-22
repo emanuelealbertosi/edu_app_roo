@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-g">
+    <title>Esportazione UDA Corso: {{ course.name }}</title>
+    <style>
+        body { font-family: sans-serif; margin: 20px; }
+        h1, h2, h3 { color: #333; }
+        h1 { font-size: 24px; text-align: center; margin-bottom: 10px; }
+        h2 { font-size: 20px; margin-top: 30px; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 5px;}
+        h3 { font-size: 16px; margin-top: 20px; margin-bottom: 10px; }
+        .course-header { text-align: center; margin-bottom: 30px; }
+        .teacher-info { font-weight: bold; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; page-break-inside: auto; }
+        th, td { border: 1px solid #ccc; padding: 8px; text-align: left; vertical-align: top; }
+        th { background-color: #f2f2f2; font-weight: bold; }
+        .label-col { width: 30%; font-weight: bold; }
+        .value-col { width: 70%; }
+        .uda-section { page-break-after: always; } /* Inizia ogni UDA su una nuova pagina, tranne l'ultima */
+        .uda-section:last-child { page-break-after: auto; }
+        .no-break { page-break-inside: avoid; } /* Cerca di non spezzare queste tabelle */
+        ul, ol { padding-left: 20px; }
+        .html-content p { margin-top: 0; } /* Rimuove margine extra per p dentro html */
+    </style>
+</head>
+<body>
+    <div class="course-header">
+        <h1>Programmazione Didattica Individuale - UDA del Corso: {{ course.name }}</h1>
+        <p class="teacher-info">Docente: {{ teacher_name }}</p>
+    </div>
+
+    {% for uda in udas %}
+    <div class="uda-section">
+        <h2>UdA n. {{ forloop.counter }}: {{ uda.title }}</h2>
+
+        <table class="no-break">
+            <tr><td class="label-col">Competenze attese a livello di UdA</td><td class="value-col html-content">{{ uda.competences_html|safe }}</td></tr>
+            <tr><td class="label-col">Argomenti Uda</td><td class="value-col">{{ uda.topics_string }}</td></tr>
+            <tr><td class="label-col">Conoscenze ADA (sapere)</td><td class="value-col html-content">{{ uda.knowledge_html|safe }}</td></tr>
+            <tr><td class="label-col">Abilità-Capacità ADA (saper fare)</td><td class="value-col html-content">{{ uda.skills_html|safe }}</td></tr>
+            <tr><td class="label-col">Tempi (durata in ore)</td><td class="value-col">{{ uda.total_estimated_hours_display }} ore</td></tr>
+            <tr><td class="label-col">Strategie didattiche</td><td class="value-col html-content">{{ uda.didactic_strategies_html|safe }}</td></tr>
+            <tr><td class="label-col">Materiali e strumenti</td><td class="value-col html-content">{{ uda.materials_tools_html|safe }}</td></tr>
+            <tr><td class="label-col">Tipo di verifiche</td><td class="value-col html-content">{{ uda.assessment_type_html|safe }}</td></tr>
+            <tr><td class="label-col">Valutazione</td><td class="value-col html-content">{{ uda.evaluation_html|safe }}</td></tr>
+            <tr><td class="label-col">Altre Discipline coinvolte</td><td class="value-col">{{ uda.other_involved_subjects_display }}</td></tr>
+            <tr><td class="label-col">Annotazioni</td><td class="value-col html-content">{{ uda.annotations_display|safe }}</td></tr>
+            {% if uda.is_civic_education %}
+            <tr><td class="label-col">Educazione Civica</td><td class="value-col">Sì, parte del percorso</td></tr>
+            {% endif %}
+        </table>
+
+        {% if uda.lesson_contents %}
+        <h3>Lezioni Previste</h3>
+        <table class="no-break">
+            <thead>
+                <tr>
+                    <th>Titolo Lezione</th>
+                    <th>Durata Stimata (ore)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for lc in uda.lesson_contents %}
+                <tr>
+                    <td>{{ lc.lesson.title|default:"Lezione non specificata" }}</td>
+                    <td>{{ lc.hours_display_pdf }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+    </div>
+    {% endfor %}
+</body>
+</html>
