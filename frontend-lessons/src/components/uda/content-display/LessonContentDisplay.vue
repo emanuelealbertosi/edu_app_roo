@@ -158,8 +158,9 @@ const saveActualHours = async () => {
       return;
     }
     try {
-      const updatedData: Partial<Pick<LessonUDAContent, 'actual_hours'>> = {
+      const updatedData: Partial<Pick<LessonUDAContent, 'actual_hours' | 'lesson'>> = { // Aggiunto 'lesson' al Pick
         actual_hours: valueToSave,
+        lesson: props.content.lesson, // Aggiungi l'ID della lezione
       };
       // Usiamo UDAContent per il tipo nel payload dello store, dato che actual_hours è un campo base
       await udaStore.updateContentInUda(props.content.uda_id, props.content.id, updatedData as UDAContent);
