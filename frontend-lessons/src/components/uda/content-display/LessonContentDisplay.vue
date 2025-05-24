@@ -13,7 +13,7 @@
       <div class="flex">
         <strong class="w-24 flex-shrink-0 text-gray-700">Ore Stimate:</strong>
         <span class="text-gray-600">
-          {{ typeof props.content.estimated_hours === 'number' && props.content.estimated_hours > 0 ? props.content.estimated_hours + 'h' : (props.content.estimated_hours === 0 ? '0h' : 'N/D') }}
+          {{ displayEstimatedHours }}
         </span>
       </div>
       <div class="flex items-center">
@@ -46,7 +46,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, type PropType, watch } from 'vue';
+import { ref, onMounted, type PropType, watch, computed } from 'vue';
 import type { LessonUDAContent, UDAContent } from '@/types/uda'; // Aggiunto UDAContent
 import type { Lesson } from '@/types/lezioni';
 import { useLessonStore } from '@/stores/lessons';
@@ -83,6 +83,33 @@ watch(() => props.content.actual_hours, (newVal) => {
     editableActualHours.value = newVal;
     originalActualHours.value = newVal;
   }
+});
+
+const displayEstimatedHours = computed(() => {
+  // Funzione helper per parsare e formattare le ore
+  const formatHours = (value: any): string | null => {
+    if (value === null || typeof value === 'undefined') {
+      return null;
+    }
+    const num = parseFloat(String(value)); // Converte in stringa prima per sicurezza con parseFloat
+    if (isFinite(num)) {
+      return num + 'h';
+    }
+    return null;
+  };
+
+  let formattedValue = null;
+
+  // 1. Prova con props.content.estimated_hours
+  formattedValue = formatHours(props.content.estimated_hours);
+
+  // 2. Se non valido, prova con lesson.value.estimated_hours (fallback)
+  if (formattedValue === null && lesson.value) {
+    formattedValue = formatHours(lesson.value.estimated_hours);
+  }
+
+  // 3. Se ancora non valido, ritorna 'N/D'
+  return formattedValue !== null ? formattedValue : 'N/D';
 });
 
 

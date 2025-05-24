@@ -1,33 +1,35 @@
 <template>
-  <div class="fill-blank-question-editor">
-    <h4>Domanda Fill in the Blank</h4>
+  <div class="fill-blank-question-editor p-4 border border-neutral-DEFAULT rounded-lg bg-white shadow">
+    <h4 class="text-lg font-semibold mb-3 text-neutral-darkest">Configurazione Domanda "Fill in the Blank"</h4>
 
     <!-- Textarea per il testo della domanda -->
-    <div class="form-group">
-      <label for="question-text">Testo della Domanda:</label>
+    <div class="form-group mb-4">
+      <label for="question-text" class="block text-sm font-medium text-neutral-darker mb-1">Testo della Domanda:</label>
       <textarea
         id="question-text"
         v-model="questionText"
-        class="form-control"
-        rows="3"
+        class="form-input shadow-sm focus:ring-primary focus:border-primary block w-full sm:text-sm border border-gray-400 rounded-md p-2 min-h-[100px]"
+        rows="4"
         placeholder="Inserisci il testo della domanda, usa tre o più underscore (es. ___) per indicare uno spazio vuoto."
         @input="parseQuestionText"
       ></textarea>
-      <small class="form-text text-muted">
-        Usa tre o più underscore (es. ___ , _____) per definire gli spazi da compilare.
-      </small>
+      <ul class="form-help-text text-xs text-neutral-dark mt-2 list-disc list-inside">
+        <li>Usa tre o più underscore (es. <code>___</code> , <code>_____</code>) per definire gli spazi da compilare.</li>
+        <li>Ogni serie di underscore consecutivi verrà trattata come un singolo spazio vuoto.</li>
+      </ul>
     </div>
 
     <!-- Pulsante per aprire la modale di definizione blanks -->
     <BaseButton
       v-if="questionText.trim() !== '' && detectedBlanks.length > 0"
-      class="btn-primary mt-2"
+      variant="primary"
+      class="mt-2"
       @click="openDefineBlanksModal"
     >
       Definisci Risposte per gli Spazi Vuoti ({{ detectedBlanks.length }})
     </BaseButton>
-    <p v-else-if="questionText.trim() !== '' && detectedBlanks.length === 0" class="text-warning mt-2">
-      Nessuno spazio vuoto (___) rilevato nel testo.
+    <p v-else-if="questionText.trim() !== '' && detectedBlanks.length === 0" class="text-warning-dark bg-warning/10 p-2 rounded-md text-sm mt-2">
+      Nessuno spazio vuoto (<code>___</code>) rilevato nel testo. Assicurati di usare almeno tre underscore consecutivi.
     </p>
 
     <!-- Modale per definire le risposte -->
@@ -35,50 +37,70 @@
       :show="isDefineBlanksModalOpen"
       title="Definisci Risposte per gli Spazi Vuoti"
       @close="closeDefineBlanksModal"
+      modal-size="xl"
     >
-      <div v-if="currentBlanks.length > 0">
-        <p>Testo originale con segnaposto:</p>
-        <div class="original-text-preview p-2 mb-3 bg-light border rounded" v-html="textWithPlaceholdersPreview"></div>
+      <!-- Aggiunto padding p-6 al contenitore del corpo della modale -->
+      <div v-if="currentBlanks.length > 0" class="space-y-5 p-6">
+        <div>
+          <p class="text-sm font-medium text-neutral-darker mb-1">Testo originale con segnaposto evidenziati:</p>
+          <div class="original-text-preview p-3 mb-4 bg-neutral-lightest border border-gray-400 rounded-md text-sm" v-html="textWithPlaceholdersPreview"></div>
+        </div>
 
-        <div v-for="(blank, index) in currentBlanks" :key="blank.id" class="mb-3 p-2 border rounded">
-          <h5>Spazio Vuoto #{{ index + 1 }}</h5>
+        <div v-for="(blank, index) in currentBlanks" :key="blank.id" class="mb-4 p-4 border border-neutral-light rounded-lg bg-white shadow-sm">
+          <h5 class="text-md font-semibold text-primary-dark mb-2">Spazio Vuoto #{{ index + 1 }}</h5>
           <div class="form-group">
-            <label :for="`blank-answers-${blank.id}`">Risposte corrette (una per riga):</label>
+            <label :for="`blank-answers-${blank.id}`" class="block text-sm font-medium text-neutral-darker mb-1">Risposte corrette (una per riga):</label>
             <textarea
               :id="`blank-answers-${blank.id}`"
               v-model="blank.correctAnswersInput"
-              class="form-control"
-              rows="2"
-              placeholder="blu&#10;azzurro"
+              class="form-input shadow-sm focus:ring-primary focus:border-primary block w-full sm:text-sm border border-gray-400 rounded-md p-2 min-h-[60px]"
+              rows="3"
+              placeholder="Esempio:&#10;blu&#10;azzurro&#10;celeste"
               @focus="setActiveBlank(blank.id)"
               @blur="clearActiveBlank"
             ></textarea>
+            <p class="form-help-text text-xs text-neutral-dark mt-1">Inserisci ogni possibile risposta corretta su una nuova riga.</p>
           </div>
         </div>
 
-        <div class="form-group form-check mt-3">
+        <div class="form-group flex items-center mt-4">
           <input
             id="case-sensitive-checkbox"
             v-model="isCaseSensitive"
             type="checkbox"
-            class="form-check-input"
+            class="h-4 w-4 text-primary focus:ring-primary border border-gray-400 rounded"
           />
-          <label class="form-check-label" for="case-sensitive-checkbox">
+          <label for="case-sensitive-checkbox" class="ml-2 block text-sm font-medium text-neutral-darker">
             Valutazione Case-Sensitive (sensibile a maiuscole/minuscole)
           </label>
         </div>
       </div>
-      <p v-else>Nessuno spazio vuoto da configurare.</p>
+      <!-- Aggiunto padding p-6 anche al messaggio di fallback -->
+      <p v-else class="text-neutral-dark p-6">Nessuno spazio vuoto da configurare.</p>
       <template #footer>
-        <BaseButton class="btn-secondary" @click="closeDefineBlanksModal">Annulla</BaseButton>
-        <BaseButton class="btn-primary" @click="saveBlanksConfiguration">Salva Configurazione Spazi Vuoti</BaseButton>
+        <BaseButton variant="secondary" @click="closeDefineBlanksModal">Annulla</BaseButton>
+        <BaseButton variant="primary" @click="saveBlanksConfiguration">Salva Configurazione Spazi Vuoti</BaseButton>
       </template>
     </BaseModal>
 
-    <!-- Riepilogo configurazione (debug) -->
-    <div v-if="configuredMetadata" class="mt-3 p-3 bg-light border rounded">
-        <h5>Configurazione Attuale (Metadata):</h5>
-        <pre>{{ JSON.stringify(configuredMetadata, null, 2) }}</pre>
+    <!-- Riepilogo configurazione -->
+    <div v-if="configuredMetadata" class="mt-6 p-4 bg-neutral-lightest border border-neutral-DEFAULT rounded-lg">
+        <h5 class="text-md font-semibold text-neutral-darkest mb-2">Configurazione Attuale Salvata:</h5>
+        <div class="text-sm space-y-1">
+            <p><strong>Testo con Segnaposto:</strong> <code class="bg-neutral-light p-1 rounded">{{ formattedTextWithPlaceholdersForDisplay }}</code></p>
+            <p><strong>Case Sensitive:</strong> {{ configuredMetadata.case_sensitive ? 'Sì' : 'No' }}</p>
+            <div v-if="configuredMetadata.blanks && configuredMetadata.blanks.length > 0">
+                <strong>Spazi Vuoti Definiti:</strong>
+                <ul class="list-disc list-inside ml-4 mt-1">
+                    <li v-for="blank in configuredMetadata.blanks" :key="blank.id">
+                        <strong>Spazio Vuoto #{{ blank.order + 1 }}</strong>:
+                        <span v-if="blank.correct_answers.length > 0" class="italic text-success-dark">"{{ blank.correct_answers.join('", "') }}"</span>
+                        <span v-else class="italic text-error-dark">(Nessuna risposta corretta definita)</span>
+                    </li>
+                </ul>
+            </div>
+            <p v-else class="italic text-neutral-dark">Nessuno spazio vuoto configurato nei metadati.</p>
+        </div>
     </div>
 
   </div>
@@ -120,7 +142,7 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  (e: 'update:metadata', metadata: FillBlankMetadata | null): void
+  (e: 'update:question-details', payload: { text: string, metadata: FillBlankMetadata } | null): void
 }>();
 
 const questionText = ref(props.initialQuestionText || '');
@@ -148,19 +170,22 @@ const textWithPlaceholdersPreview = computed(() => {
   if (!questionText.value) return '';
   let order = 0;
   return questionText.value.replace(BLANK_PLACEHOLDER_REGEX, () => {
-    const currentBlankRenderId = `blank_${order}`;
-    const placeholder = `{${currentBlankRenderId}}`;
-    order++;
-    const isActive = activeBlankId.value === currentBlankRenderId;
+    order++; // Incrementa prima per avere un numero 1-based
+    const placeholderText = `[Spazio Vuoto #${order}]`;
+    // L'ID per l'evidenziazione può rimanere basato su blank_N se la logica di setActiveBlank lo richiede,
+    // oppure possiamo basarlo sull'ordine se più semplice. Per ora, manteniamo la logica di evidenziazione
+    // basata su blank.id che è 'blank_0', 'blank_1', etc.
+    const currentBlankInternalId = `blank_${order - 1}`; // ID interno per l'highlight
+    const isActive = activeBlankId.value === currentBlankInternalId;
     const activeClass = isActive ? 'active-placeholder' : '';
-    return `<strong class="text-primary placeholder-tag ${activeClass}">${placeholder}</strong>`;
+    return `<strong class="placeholder-tag ${activeClass}">${placeholderText}</strong>`;
   });
 });
 
 const generateTextWithPlaceholders = () => {
   if (!questionText.value) return '';
   let order = 0;
-  return questionText.value.replace(BLANK_PLACEHOLDER_REGEX, () => `{blank_${order++}}`);
+  return questionText.value.replace(BLANK_PLACEHOLDER_REGEX, () => `[Spazio Vuoto #${++order}]`);
 };
 
 const openDefineBlanksModal = () => {
@@ -218,7 +243,8 @@ const saveBlanksConfiguration = () => {
   }
 
   configuredMetadata.value = newMetadata;
-  emit('update:metadata', newMetadata); // L'errore qui era un falso positivo del linter, la definizione di emit corretta lo risolve.
+  // Emetti sia il testo aggiornato che i metadati
+  emit('update:question-details', { text: questionText.value, metadata: newMetadata });
   closeDefineBlanksModal();
 };
 
@@ -229,6 +255,23 @@ const setActiveBlank = (blankId: string) => {
 const clearActiveBlank = () => {
   activeBlankId.value = null;
 };
+
+// Proprietà calcolata per formattare text_with_placeholders per la visualizzazione
+const formattedTextWithPlaceholdersForDisplay = computed(() => {
+  if (configuredMetadata.value?.text_with_placeholders) {
+    let text = configuredMetadata.value.text_with_placeholders;
+    // Controlla se usa il vecchio formato {blank_X}
+    if (/\{blank_\d+\}/.test(text)) {
+      let order = 0;
+      text = text.replace(/\{blank_(\d+)\}/g, () => {
+        order++;
+        return `[Spazio Vuoto #${order}]`;
+      });
+    }
+    return text;
+  }
+  return '';
+});
 
 watch(questionText, () => {
   parseQuestionText();
@@ -314,36 +357,32 @@ watch(() => props.initialQuestionText, (newText) => {
 </script>
 
 <style scoped>
-.fill-blank-question-editor {
-  padding: 1rem;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-}
+/* Gli stili principali sono ora gestiti da classi Tailwind nel template.
+   Possiamo mantenere stili specifici qui se necessario. */
 
-.form-group {
-  margin-bottom: 1rem;
-}
-
-.original-text-preview {
-  white-space: pre-wrap; /* Per mantenere gli spazi e andare a capo */
-  word-wrap: break-word;
-}
-
-/* Stili per evidenziare i placeholder nella preview */
-.placeholder-tag {
+.original-text-preview :deep(strong.placeholder-tag) {
+  /* :deep per applicare stili a contenuto generato da v-html */
   padding: 0.1em 0.3em;
   border-radius: 0.2em;
+  font-weight: bold;
   transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out;
+  /* Usa le variabili CSS di Tailwind se definite, o colori diretti */
+  background-color: theme('colors.primary.light'); /* Corretto da lightest a light */
+  color: theme('colors.primary.dark');
+  border: 1px dashed theme('colors.primary.DEFAULT');
 }
 
-.original-text-preview strong.text-primary {
-  font-weight: bold;
-  color: #007bff; /* Blu primario di Bootstrap */
+.original-text-preview :deep(strong.active-placeholder) {
+  background-color: theme('colors.primary.DEFAULT');
+  color: theme('colors.white');
 }
 
-.original-text-preview strong.active-placeholder {
-  background-color: #007bff; /* Blu primario di Bootstrap */
-  color: white;
-  font-weight: bold;
+/* Stile per il testo con `code` inline */
+code {
+  background-color: theme('colors.neutral.light');
+  padding: 0.1em 0.3em;
+  border-radius: 0.2em;
+  font-family: theme('fontFamily.mono');
+  font-size: theme('fontSize.xs');
 }
 </style>

@@ -8,17 +8,17 @@
     <form @submit.prevent="saveQuizTemplate"> <!-- Handler ok -->
       <div class="form-group mb-4"> <!-- Margin bottom -->
         <label for="title" class="block text-sm font-medium text-neutral-darker mb-1">Titolo (Obbligatorio):</label> <!-- Stile label aggiornato -->
-        <input type="text" id="title" v-model="templateData.title" required class="shadow-sm focus:ring-primary focus:border-primary block w-full sm:text-sm border-neutral-DEFAULT rounded-md p-2" /> <!-- Stili input aggiornati -->
+        <input type="text" id="title" v-model="templateData.title" required class="shadow-sm focus:ring-primary focus:border-primary block w-full sm:text-sm border border-gray-400 rounded-md p-2" /> <!-- Stili input aggiornati -->
       </div>
       <div class="form-group mb-4"> <!-- Margin bottom -->
         <label for="description" class="block text-sm font-medium text-neutral-darker mb-1">Descrizione (Obbligatorio):</label> <!-- Stile label aggiornato -->
-        <textarea id="description" v-model="templateData.description" class="shadow-sm focus:ring-primary focus:border-primary block w-full sm:text-sm border-neutral-DEFAULT rounded-md p-2 min-h-[80px]"></textarea> <!-- Stili textarea aggiornati -->
+        <textarea id="description" v-model="templateData.description" class="shadow-sm focus:ring-primary focus:border-primary block w-full sm:text-sm border border-gray-400 rounded-md p-2 min-h-[80px]"></textarea> <!-- Stili textarea aggiornati -->
       </div>
 
       <!-- Campo Materia -->
       <div class="form-group mb-4">
         <label for="subject" class="block text-sm font-medium text-neutral-darker mb-1">Materia (Opzionale):</label>
-        <select id="subject" v-model="templateData.subject_id" @change="handleSubjectChange" class="shadow-sm focus:ring-primary focus:border-primary block w-full sm:text-sm border-neutral-DEFAULT rounded-md p-2">
+        <select id="subject" v-model="templateData.subject_id" @change="handleSubjectChange" class="shadow-sm focus:ring-primary focus:border-primary block w-full sm:text-sm border border-gray-400 rounded-md p-2">
           <option :value="null">Nessuna materia selezionata</option>
           <option v-for="subject_item in teacherSubjects" :key="subject_item.id" :value="subject_item.id">
             {{ subject_item.name }}
@@ -29,7 +29,7 @@
       <!-- Campo Argomento -->
       <div class="form-group mb-4">
         <label for="topic" class="block text-sm font-medium text-neutral-darker mb-1">Argomento (Opzionale, richiede una materia):</label>
-        <select id="topic" v-model="templateData.topic_id" :disabled="!templateData.subject_id || isLoadingTopics" class="shadow-sm focus:ring-primary focus:border-primary block w-full sm:text-sm border-neutral-DEFAULT rounded-md p-2">
+        <select id="topic" v-model="templateData.topic_id" :disabled="!templateData.subject_id || isLoadingTopics" class="shadow-sm focus:ring-primary focus:border-primary block w-full sm:text-sm border border-gray-400 rounded-md p-2">
           <option :value="null">Nessun argomento selezionato</option>
           <option v-if="isLoadingTopics" :value="null" disabled>Caricamento argomenti...</option>
           <option v-for="topic_item in filteredTopics" :key="topic_item.id" :value="topic_item.id">
@@ -43,19 +43,35 @@
       <!-- Rimossi available_from / available_until -->
       <div class="form-group mb-4"> <!-- Margin bottom -->
         <label for="points_on_completion" class="block text-sm font-medium text-neutral-darker mb-1">Punti al Completamento (Default):</label> <!-- Stile label aggiornato -->
-        <input type="number" id="points_on_completion" v-model.number="templateData.metadata.points_on_completion" min="0" class="form-input shadow-sm focus:ring-primary focus:border-primary block w-full sm:text-sm border-neutral-DEFAULT rounded-md p-2" /> <!-- Stili input aggiornati -->
+        <input type="number" id="points_on_completion" v-model.number="templateData.metadata.points_on_completion" min="0" class="form-input shadow-sm focus:ring-primary focus:border-primary block w-full sm:text-sm border border-gray-400 rounded-md p-2" /> <!-- Stili input aggiornati -->
       </div>
       <div class="form-group mb-4"> <!-- Margin bottom -->
         <label for="completion_threshold_percent" class="block text-sm font-medium text-neutral-darker mb-1">Soglia Completamento (%) (Default):</label> <!-- Stile label aggiornato -->
-        <input type="number" id="completion_threshold_percent" v-model.number="templateData.metadata.completion_threshold_percent" min="0" max="100" step="0.1" class="form-input shadow-sm focus:ring-primary focus:border-primary block w-full sm:text-sm border-neutral-DEFAULT rounded-md p-2" /> <!-- Stili input aggiornati -->
+        <input type="number" id="completion_threshold_percent" v-model.number="templateData.metadata.completion_threshold_percent" min="0" max="100" step="0.1" class="form-input shadow-sm focus:ring-primary focus:border-primary block w-full sm:text-sm border border-gray-400 rounded-md p-2" /> <!-- Stili input aggiornati -->
         <p class="form-help-text text-xs text-neutral-dark mt-1">Percentuale minima (0-100) per considerare superato un quiz creato da questo template. Default: 100%.</p> <!-- Stile help text aggiornato -->
       </div>
 
       <!-- Campo Colore Sfondo Card -->
       <div class="form-group mb-4">
         <label for="card_background_color" class="block text-sm font-medium text-neutral-darker mb-1">Colore Sfondo Card (Studente):</label>
-        <input type="color" id="card_background_color" v-model="templateData.card_background_color" class="form-input shadow-sm focus:ring-primary focus:border-primary block w-full sm:text-sm border-neutral-DEFAULT rounded-md p-1 h-10" /> <!-- Stili input colore aggiornati -->
-        <p class="form-help-text text-xs text-neutral-dark mt-1">Scegli un colore per lo sfondo della card del quiz come apparirà allo studente.</p>
+        <div class="flex flex-wrap gap-2 mt-1">
+          <button
+            type="button"
+            v-for="color in predefinedColors"
+            :key="color.value"
+            @click="templateData.card_background_color = color.value"
+            class="w-8 h-8 rounded-full border-2 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+            :class="[
+              templateData.card_background_color === color.value ? 'ring-2 ring-offset-2 ring-primary' : 'border-neutral-light',
+              color.value === '#FFFFFF' || color.value === '#FFF' ? 'border-neutral-dark' : '' // Bordo più visibile per il bianco
+            ]"
+            :style="{ backgroundColor: color.value }"
+            :title="color.name"
+          >
+            <span class="sr-only">{{ color.name }}</span>
+          </button>
+        </div>
+        <p class="form-help-text text-xs text-neutral-dark mt-2">Scegli un colore per lo sfondo della card del quiz come apparirà allo studente. Selezionato: {{ templateData.card_background_color }}</p>
       </div>
 
       <!-- Aggiungere gestione errori -->
@@ -149,16 +165,16 @@
 
     <!-- Modale per Configurare Fill Blank -->
     <div v-if="isConfigureBlankModalOpen && currentQuestionForBlankConfig" class="fixed inset-0 z-50 overflow-y-auto bg-black bg-opacity-50 flex items-center justify-center p-4">
-      <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+      <div class="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto"> <!-- Aumentata larghezza a max-w-4xl -->
         <div class="flex justify-between items-center p-4 border-b">
-          <h2 class="text-xl font-semibold">Configura Risposte per "{{ currentQuestionForBlankConfig.text }}"</h2>
+          <h2 class="text-xl font-semibold">Configura Spazi Vuoti per: "{{ currentQuestionForBlankConfig.text.length > 50 ? currentQuestionForBlankConfig.text.substring(0, 50) + '...' : currentQuestionForBlankConfig.text }}"</h2>
           <button @click="closeConfigureBlankModal" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
         </div>
         <div class="p-6">
           <FillBlankQuestionEditor
             :initial-question-text="currentQuestionForBlankConfig.text"
             :initial-metadata="currentQuestionForBlankConfig.metadata as FillBlankMetadata | null"
-            @update:metadata="handleFillBlankMetadataSaved"
+            @update:question-details="handleFillBlankDetailsSaved"
           />
           <!-- Aggiungere un pulsante Salva qui se FillBlankQuestionEditor non lo ha,
                o se l'evento @update:metadata deve essere scatenato da un'azione esplicita in questa modale.
@@ -200,7 +216,7 @@ import {
 // Importa API per domande/opzioni template
 import {
     fetchTeacherQuestionTemplates, deleteTeacherQuestionTemplate,
-    type QuestionTemplate,
+    type QuestionTemplate, type QuestionTemplatePayload, // Aggiunto QuestionTemplatePayload
     updateTeacherQuestionTemplate // Usiamo questa per aggiornare l'intera domanda template
     // TODO: Importare API per opzioni e gestione completa domande
 } from '@/api/templateQuestions';
@@ -248,6 +264,21 @@ const questionToEditId = ref<number | null>(null);
 const isConfigureBlankModalOpen = ref(false);
 const questionToConfigureBlankId = ref<number | null>(null);
 const currentQuestionForBlankConfig = ref<QuestionTemplate | null>(null);
+
+const predefinedColors = ref([
+  { name: 'Rosso Brillante', value: '#EF4444' }, // red-500
+  { name: 'Arancio Vivo', value: '#F97316' }, // orange-500
+  { name: 'Ambra', value: '#F59E0B' }, // amber-500
+  { name: 'Verde Smeraldo', value: '#10B981' }, // emerald-500
+  { name: 'Ciano', value: '#06B6D4' }, // cyan-500
+  { name: 'Blu Intenso', value: '#3B82F6' }, // blue-500
+  { name: 'Indaco', value: '#6366F1' }, // indigo-500
+  { name: 'Viola Acceso', value: '#8B5CF6' }, // violet-500
+  { name: 'Fucsia', value: '#D946EF' }, // fuchsia-500
+  { name: 'Rosa Shocking', value: '#EC4899' }, // pink-500
+  { name: 'Grigio Medio', value: '#6B7280' }, // gray-500
+  { name: 'Bianco', value: '#FFFFFF' },
+]);
 
 // Dati per materie e argomenti
 const teacherSubjects = ref<Subject[]>([]);
@@ -475,11 +506,6 @@ const cancel = () => {
 const addQuestion = () => {
     if (!templateId.value) return;
     isAddQuestionModalOpen.value = true;
-    // Non naviga più, apre la modale
-    // router.push({
-    //     name: 'quiz-template-question-new', // Usa il nome della rotta definita
-    //     params: { templateId: templateId.value.toString() },
-    // });
 };
 
 const closeAddQuestionModal = () => {
@@ -498,14 +524,8 @@ const handleQuestionCreatedInModal = async () => {
 
 // Apre la modale per modificare una domanda esistente
 const handleEditQuestion = (qId: number) => {
-    if (!templateId.value) return;
-    questionToEditId.value = qId; // Imposta l'ID della domanda da modificare
-    isEditQuestionModalOpen.value = true; // Apri la modale di modifica
-    // Non naviga più
-    // router.push({
-    //     name: 'quiz-template-question-edit',
-    //     params: { templateId: templateId.value.toString(), questionId: qId.toString() }
-    // });
+    questionToEditId.value = qId;
+    isEditQuestionModalOpen.value = true;
 };
 
 const closeEditQuestionModal = () => {
@@ -523,15 +543,15 @@ const handleQuestionUpdatedInModal = async () => {
     }
 };
 
-const handleConfigureFillBlank = (qId: number) => {
-  const question = questions.value.find(q => q.id === qId);
-  if (question && question.question_type === 'fill_blank') {
-    currentQuestionForBlankConfig.value = question;
-    questionToConfigureBlankId.value = qId;
+const handleConfigureFillBlank = (questionPayload: QuestionTemplate) => { // Modificato parametro
+  // Ora riceviamo l'intero oggetto domanda
+  if (questionPayload && (questionPayload.question_type === 'fill_blank' || questionPayload.question_type === 'FILL_BLANK')) {
+    currentQuestionForBlankConfig.value = questionPayload;
+    questionToConfigureBlankId.value = questionPayload.id; // Assumendo che l'ID sia ancora necessario altrove
     isConfigureBlankModalOpen.value = true;
   } else {
-    console.error("Impossibile configurare i blank: domanda non trovata o tipo non corretto.");
-    questionsError.value = "Impossibile configurare i blank per questa domanda.";
+    console.error("Impossibile configurare i blank: payload della domanda non valido, mancante o tipo non corretto.", questionPayload);
+    questionsError.value = "Impossibile configurare i blank per questa domanda (payload o tipo errato).";
   }
 };
 
@@ -541,50 +561,45 @@ const closeConfigureBlankModal = () => {
   currentQuestionForBlankConfig.value = null;
 };
 
-const handleFillBlankMetadataSaved = async (newMetadata: FillBlankMetadata | null) => {
-  if (!templateId.value || !questionToConfigureBlankId.value) {
-    questionsError.value = "ID Template o ID Domanda mancante per salvare i metadati fill_blank.";
-    return;
-  }
-  if (newMetadata === null) {
-    console.warn("Tentativo di salvare metadati null per fill_blank. Operazione annullata.");
-    return;
-  }
-
-  const questionToUpdate = questions.value.find(q => q.id === questionToConfigureBlankId.value);
-  if (!questionToUpdate) {
-    questionsError.value = "Domanda da aggiornare non trovata.";
+// Funzione per gestire il salvataggio dei metadati e del testo da FillBlankQuestionEditor
+const handleFillBlankDetailsSaved = async (details: { text: string, metadata: FillBlankMetadata } | null) => {
+  if (!questionToConfigureBlankId.value || !currentQuestionForBlankConfig.value || !details) {
+    console.error("ID domanda, dati domanda corrente o dettagli mancanti per salvare i dati fill-blank.");
+    questionsError.value = "Errore: impossibile salvare la configurazione degli spazi vuoti (dati mancanti).";
     return;
   }
 
-  isSaving.value = true;
+  // Prepara il payload per l'aggiornamento della domanda
+  const payload: Partial<QuestionTemplatePayload> = { // Usare QuestionTemplatePayload importato
+    text: details.text, // Testo aggiornato
+    question_type: currentQuestionForBlankConfig.value.question_type, // Tipo esistente
+    metadata: details.metadata, // Nuovi metadati
+    order: currentQuestionForBlankConfig.value.order, // Manteniamo l'ordine esistente
+  };
+
+  isSaving.value = true; // Aggiunto per feedback visivo
   try {
-    // Prepara il payload per l'aggiornamento della domanda template.
-    // L'API updateTeacherQuestionTemplate si aspetta un payload di tipo QuestionTemplatePayload.
-    const payloadForUpdate = {
-        text: questionToUpdate.text,
-        question_type: questionToUpdate.question_type,
-        order: questionToUpdate.order,
-        metadata: { ...questionToUpdate.metadata, ...newMetadata }, // Unisci i metadati
-        // Se QuestionTemplatePayload richiede altri campi da QuestionTemplate, aggiungili qui.
-        // Ad esempio, se 'answer_options_template' fosse parte del payload (ma di solito non lo è per un update di metadata)
-        // answer_options_template: questionToUpdate.answer_options_template || [],
-    };
-
-    // Assicurati che il tipo di payloadForUpdate sia compatibile con quello atteso da updateTeacherQuestionTemplate.
-    // Il tipo QuestionTemplatePayload è definito in @/api/templateQuestions.ts (o dove è definito per quella API).
-    // Se ci sono discrepanze, il cast `as any` è una soluzione temporanea.
-    await updateTeacherQuestionTemplate(templateId.value, questionToConfigureBlankId.value, payloadForUpdate as any);
-
-    await loadTemplateQuestions(templateId.value); // Ricarica le domande
-    successMessage.value = "Configurazione Fill in the Blank salvata con successo.";
+    if (!templateId.value) {
+        throw new Error("ID del template quiz non disponibile.");
+    }
+    // Chiamata API per aggiornare la domanda template
+    await updateTeacherQuestionTemplate(templateId.value, questionToConfigureBlankId.value, payload as QuestionTemplatePayload);
+    successMessage.value = "Configurazione 'Fill Blank' e testo domanda salvati con successo.";
+    // Ricarica le domande per riflettere l'aggiornamento
+    await loadTemplateQuestions(templateId.value);
+    // Aggiorna currentQuestionForBlankConfig con il nuovo testo per il titolo della modale, se rimane aperta
+    const updatedQuestion = questions.value.find(q => q.id === questionToConfigureBlankId.value);
+    if (updatedQuestion) {
+        currentQuestionForBlankConfig.value = updatedQuestion;
+    }
+    // La modale viene chiusa da FillBlankQuestionEditor dopo l'emissione dell'evento.
+    // Se si vuole chiudere qui esplicitamente: closeConfigureBlankModal();
     setTimeout(() => { successMessage.value = null; }, 3000);
-    closeConfigureBlankModal();
   } catch (err: any) {
-    console.error("Errore durante il salvataggio dei metadati fill_blank:", err);
+    console.error("Errore durante l'aggiornamento della domanda template con i dettagli fill-blank:", err);
     questionsError.value = `Errore salvataggio configurazione: ${err.response?.data?.detail || err.message || 'Errore sconosciuto'}`;
   } finally {
-    isSaving.value = false;
+    isSaving.value = false; // Aggiunto per feedback visivo
   }
 };
 
