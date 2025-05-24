@@ -1,6 +1,12 @@
 import apiClient from './config';
 import type { Badge } from './rewards'; // Importa il tipo Badge da rewards.ts
 
+// Definisci l'interfaccia per la risposta dell'endpoint dei conteggi
+export interface NewContentCountsResponse {
+  new_quizzes_count: number;
+  new_lessons_count: number;
+}
+
 // Interfacce per TypeScript
 // NUOVA Interfaccia per i dati dei tentativi restituiti dalla dashboard API
 export interface QuizAttemptDashboardItem {
@@ -187,7 +193,24 @@ const DashboardService = {
       console.error('Error setting preferred badge:', error);
       throw error; // Rilancia l'errore per gestirlo nel componente/store chiamante
     }
+  },
+
+  /**
+   * Recupera i conteggi dei nuovi quiz e delle nuove lezioni per lo studente autenticato.
+   */
+  async getNewContentCounts(): Promise<NewContentCountsResponse> {
+    try {
+      // L'URL completo sarà gestito da baseURL di apiClient e dal path specificato qui.
+      // Il path corrisponde a quello definito in apps/education/urls.py
+      const response = await apiClient.get<NewContentCountsResponse>('student/new-content-counts/');
+      return response.data;
+    } catch (error) {
+      console.error('Errore durante il recupero dei conteggi dei nuovi contenuti:', error);
+      // Restituisci valori di default o gestisci l'errore come preferisci
+      // In questo caso, rilanciamo l'errore per farlo gestire dallo store chiamante
+      throw error;
+    }
   }
 };
-
+ 
 export default DashboardService;

@@ -107,8 +107,8 @@ const fetchGroups = async () => {
 
 const assignLesson = async (lessonId: number, studentIds: number[], groupIds: number[]) => {
  console.log('[DEBUG lessons.ts - WORKAROUND] Chiamata assignLesson tramite localApiClient');
- // Questo endpoint era /lezioni/lessons/${lessonId}/assign-to-targets/
- return localApiClient.post(`/lezioni/lessons/${lessonId}/assign-to-targets/`, {
+ // Questo endpoint deve essere /lezioni/lessons/${lessonId}/assign/
+ return localApiClient.post(`/lezioni/lessons/${lessonId}/assign/`, {
    student_ids: studentIds,
    group_ids: groupIds,
  }).then(res => res.data);

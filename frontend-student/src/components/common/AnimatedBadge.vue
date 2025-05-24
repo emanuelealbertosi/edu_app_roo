@@ -15,20 +15,20 @@
         v-if="!badge.isEarned && (badge.mediaType === 'VIDEO_MP4' || badge.mediaType === 'IMAGE_GIF') && badge.thumbnailUrl"
         :src="badge.thumbnailUrl"
         :alt="badge.name + ' thumbnail'"
-        class="badge-media static-preview w-full h-full object-contain"
+        class="badge-media static-preview"
       />
 
       <img
         v-else-if="!badge.isEarned && badge.fileUrl"
         :src="badge.fileUrl"
         :alt="badge.name"
-        class="badge-media w-full h-full object-contain"
+        class="badge-media"
       />
       
       <video
         v-else-if="badge.isEarned && badge.mediaType === 'VIDEO_MP4' && badge.fileUrl"
         :src="badge.fileUrl"
-        class="badge-media w-full h-full object-contain"
+        class="badge-media"
         autoplay
         loop
         muted
@@ -40,7 +40,7 @@
         v-else-if="badge.isEarned && (badge.mediaType === 'IMAGE_STATIC' || badge.mediaType === 'IMAGE_GIF') && badge.fileUrl"
         :src="badge.fileUrl"
         :alt="badge.name"
-        class="badge-media w-full h-full object-contain drop-shadow-md"
+        class="badge-media drop-shadow-md"
       />
 
       <div v-else class="w-full h-full rounded-full bg-neutral-light flex items-center justify-center text-neutral-dark text-3xl shadow-inner">
@@ -96,7 +96,8 @@ const props = defineProps<{
   /* filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.2)); */
 }
 .badge-media {
-  max-width: 100%;
-  max-height: 100%;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 </style>

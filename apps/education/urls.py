@@ -8,6 +8,7 @@ from .views import (
     StudentAssignedQuizzesView, StudentAssignedPathwaysView, # Importa le nuove view
     PathwayAttemptDetailView, # Importa la nuova view per i dettagli del tentativo percorso
     StudentQuizDetailView, # Importa la nuova vista per i dettagli del quiz studente
+    StudentNewContentCountsView, # Importa la view per i contatori dei nuovi contenuti
     # Nuovi ViewSet per Template Percorsi
     PathwayTemplateViewSet, PathwayQuizTemplateViewSet, TeacherQuizTemplateViewSet,
     TeacherQuestionTemplateViewSet, TeacherAnswerOptionTemplateViewSet, # Aggiungo i nuovi ViewSet nidificati
@@ -69,6 +70,7 @@ urlpatterns = [
     path('dashboard/pathways/', StudentAssignedPathwaysView.as_view(), name='student-dashboard-pathways'),
     path('quizzes/<int:pk>/', StudentQuizDetailView.as_view(), name='student-quiz-detail'),
     path('pathways/<int:pk>/attempt/', PathwayAttemptDetailView.as_view(), name='student-pathway-attempt-detail'),
+    path('new-content-counts/', StudentNewContentCountsView.as_view(), name='student-new-content-counts'), # Rimosso 'student/' dal prefisso
 
     # Router principale (include ViewSet per admin/docenti e azioni generiche)
     path('', include(router.urls)),

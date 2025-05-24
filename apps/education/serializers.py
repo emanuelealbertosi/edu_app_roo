@@ -488,7 +488,7 @@ class EffectiveQuizAssigneeSerializer(serializers.Serializer):
             
             if attempts_for_student_quiz:
                 attempts_for_student_quiz.sort(
-                    key=lambda a: (a.submitted_at or timezone.datetime.min.replace(tzinfo=timezone.utc),
+                    key=lambda a: (a.completed_at or timezone.datetime.min.replace(tzinfo=timezone.utc), # CORRETTO submitted_at
                                    a.started_at or timezone.datetime.min.replace(tzinfo=timezone.utc)),
                     reverse=True
                 )
@@ -570,7 +570,7 @@ class QuizAssignmentModelSerializer(serializers.ModelSerializer):
             return QuizAttempt.objects.filter(
                 quiz=assignment_instance.quiz,
                 student=assignment_instance.student
-            ).order_by('-submitted_at', '-started_at').first()
+            ).order_by('-completed_at', '-started_at').first() # CORRETTO submitted_at
         return None
 
     def get_status(self, assignment_instance: QuizAssignment) -> str:

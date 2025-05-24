@@ -1,7 +1,9 @@
 import { defineStore } from 'pinia';
-import { computed } from 'vue'; // Rimosso ref e useRouter non più necessari qui
+import { computed, ref } from 'vue'; // Aggiunto ref
 // import { useRouter } from 'vue-router'; // Non serve più qui
 import AuthService from '@/api/auth'; // Manteniamo per la chiamata API specifica
+import DashboardService from '@/api/dashboard'; // Importa il servizio Dashboard
+import type { NewContentCountsResponse } from '@/api/dashboard'; // Importa l'interfaccia per la risposta
 // import routerInstance from '@/router'; // Non serve più qui
 // Importa lo store condiviso - Assumendo che sia accessibile tramite un alias o percorso relativo
 // Potrebbe essere necessario configurare un alias come '@shared/stores/sharedAuth' in tsconfig/vite config
@@ -17,6 +19,10 @@ export const useAuthStore = defineStore('authStudent', () => { // Cambiato nome 
   const sharedAuth = useSharedAuthStore(); // Usa lo store condiviso
   // const router = useRouter(); // Non serve più qui
 
+  // Stato specifico per i conteggi
+  const unreadQuizzesCount = ref(0);
+  const unreadLessonsCount = ref(0);
+
   // Getters (come computed properties, delegati allo store condiviso)
   const userFullName = computed((): string => {
     const currentUser = sharedAuth.user;
@@ -31,6 +37,23 @@ export const useAuthStore = defineStore('authStudent', () => { // Cambiato nome 
   });
 
   // Actions (come funzioni)
+
+  // Nuova azione unificata per recuperare i conteggi
+  async function fetchNewContentCounts(): Promise<void> {
+    console.log('[AuthStudentStore] Fetching new content counts...');
+    try {
+      const response: NewContentCountsResponse = await DashboardService.getNewContentCounts();
+      unreadQuizzesCount.value = response.new_quizzes_count;
+      // new_lessons_count dal backend è un placeholder, quindi sarà 0 finché non implementato lì
+      unreadLessonsCount.value = response.new_lessons_count;
+      console.log('[AuthStudentStore] New content counts fetched:', { quizzes: unreadQuizzesCount.value, lessons: unreadLessonsCount.value });
+    } catch (error) {
+      console.error('[AuthStudentStore] Error fetching new content counts:', error);
+      unreadQuizzesCount.value = 0; // Resetta in caso di errore
+      unreadLessonsCount.value = 0; // Resetta in caso di errore
+    }
+  }
+
   async function login(studentCode: string, pin: string): Promise<void> {
     sharedAuth.setLoading(true);
     sharedAuth.setError(null);
@@ -73,6 +96,9 @@ export const useAuthStore = defineStore('authStudent', () => { // Cambiato nome 
         console.error('[AuthStudentStore login] Errore leggendo/parsando localStorage:', e);
       }
 
+      // Dopo aver impostato i dati di autenticazione, recupera i conteggi
+      await fetchNewContentCounts();
+
       // Redirect gestito dal componente UI
 
     } catch (err: any) {
@@ -90,6 +116,8 @@ export const useAuthStore = defineStore('authStudent', () => { // Cambiato nome 
   async function logout(): Promise<void> {
     console.log("Logging out student...");
     sharedAuth.clearAuthData(); // Pulisci store condiviso
+    unreadQuizzesCount.value = 0; // Resetta i conteggi al logout
+    unreadLessonsCount.value = 0; // Resetta i conteggi al logout
     // Reindirizza alla root del dominio
     window.location.href = '/';
   }
@@ -119,15 +147,25 @@ export const useAuthStore = defineStore('authStudent', () => { // Cambiato nome 
         sharedAuth.setAuthData(sharedAuth.accessToken, sharedAuth.refreshToken, sharedUserData);
         console.log('[AuthStudentStore] Student data fetched and store updated.');
 
+        // Dopo aver inizializzato l'utente, recupera i conteggi
+        await fetchNewContentCounts();
+
       } catch (error) {
         console.error('[AuthStudentStore] Failed to fetch student data during init:', error);
         // Se fallisce (es. token scaduto), pulisci lo store condiviso
         sharedAuth.clearAuthData();
+        unreadQuizzesCount.value = 0; // Resetta i conteggi
+        unreadLessonsCount.value = 0; // Resetta i conteggi
       } finally {
         sharedAuth.setLoading(false);
       }
-    } else {
-       console.log('[AuthStudentStore] No token found or user already loaded, skipping init fetch.');
+    } else if (sharedAuth.isAuthenticated && sharedAuth.user) {
+      // Utente già autenticato e caricato, ma potremmo voler aggiornare i conteggi
+      console.log('[AuthStudentStore] User already authenticated, fetching counts...');
+      await fetchNewContentCounts();
+    }
+    else {
+       console.log('[AuthStudentStore] No token found or user not loaded, skipping init fetch and counts.');
     }
   }
 
@@ -143,10 +181,15 @@ export const useAuthStore = defineStore('authStudent', () => { // Cambiato nome 
     userRole: computed(() => sharedAuth.userRole),
     userId: computed(() => sharedAuth.userId),
 
+    // Conteggi specifici studente
+    unreadQuizzesCount: computed(() => unreadQuizzesCount.value),
+    unreadLessonsCount: computed(() => unreadLessonsCount.value),
+
     // Azioni specifiche studente
     login,
     logout,
     // checkAuth rimosso
-    initializeAuth // Aggiunta nuova azione
+    initializeAuth, // Aggiunta nuova azione
+    fetchNewContentCounts // Esponi la nuova azione unificata
   };
 });

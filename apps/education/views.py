@@ -10,6 +10,9 @@ from django.utils import timezone
 from django.core.exceptions import PermissionDenied # Import PermissionDenied Django
 from django.db.models import Q, F, OuterRef, Subquery, Count, Prefetch, Avg, Value, Case, When, FloatField, IntegerField # Import per Q, Subquery, Count e Prefetch
 
+# Import modelli lezioni dalla loro app dedicata
+from lezioni.models import Lesson, LessonAssignment
+
 from .models import (
     QuizTemplate, QuestionTemplate, AnswerOptionTemplate,
     Quiz, Question, AnswerOption, Pathway, PathwayQuiz,
@@ -2437,3 +2440,96 @@ class TeacherGradingViewSet(viewsets.GenericViewSet):
         # Potremmo voler un serializer specifico per la risposta post-correzione
         response_serializer = QuizAttemptDetailSerializer(attempt, context={'request': request, 'newly_earned_badges': newly_earned_badges})
         return Response(response_serializer.data, status=status.HTTP_200_OK)
+
+from rest_framework.views import APIView
+from django.db.models import OuterRef, Subquery, Count, Q, Value, BooleanField, Exists
+# from apps.users.permissions import IsStudentAuthenticated # Assicurati che sia corretto
+# from apps.users.models import Student # Assicurati che sia corretto
+# from .models import Quiz, QuizAssignment, QuizAttempt # Già importati
+# Per la logica delle lezioni (TODO):
+# from apps.lezioni.models import Lesson, LessonAssignment # O il percorso corretto
+# from apps.uda.models import UDAContent # Da importare se non già fatto in cima al file
+
+class StudentNewContentCountsView(APIView):
+    """
+    API endpoint to get counts of new/unread quizzes and lessons for the authenticated student.
+    """
+    permission_classes = [permissions.IsAuthenticated, IsStudentAuthenticated] # Assicurati che IsStudentAuthenticated sia importato e corretto
+
+    def get(self, request, *args, **kwargs):
+        if not hasattr(request.user, 'student_code'): # Verifica se request.user è uno Studente
+            logger.error(f"StudentNewContentCountsView: request.user non è un'istanza Student. Utente: {request.user}")
+            return Response({"detail": "Autenticazione studente richiesta o utente non valido."}, status=status.HTTP_403_FORBIDDEN)
+        
+        student = request.user # Ora sappiamo che è uno Studente
+        logger.info(f"[StudentNewContentCountsView] Inizio calcolo conteggi per studente ID: {student.id} (Code: {student.student_code})")
+
+        # Conteggio Quiz Nuovi/Non Iniziati
+        logger.debug(f"[StudentNewContentCountsView] Calcolo conteggio quiz per studente {student.id}")
+        
+        # Assegnazioni totali di quiz per lo studente (dirette o via gruppo)
+        all_quiz_assignments = QuizAssignment.objects.filter(
+            Q(student=student) | Q(group__memberships__student=student), # CORRETTO: group__students_membership__student -> group__memberships__student
+            quiz__isnull=False
+        ).distinct()
+        logger.debug(f"[StudentNewContentCountsView] Trovate {all_quiz_assignments.count()} assegnazioni quiz totali (distinte) per studente {student.id}.")
+        for qa in all_quiz_assignments:
+            logger.debug(f"  - QuizAssignment ID: {qa.id}, Quiz ID: {qa.quiz_id}, Titolo: {qa.quiz.title if qa.quiz else 'N/A'}, Studente: {qa.student_id}, Gruppo: {qa.group_id}")
+
+        # Subquery per trovare i quiz che hanno almeno un tentativo iniziato dallo studente
+        started_quiz_attempts_subquery = QuizAttempt.objects.filter(
+            quiz_id=OuterRef('quiz_id'), # Riferito a QuizAssignment.quiz_id
+            student=student,
+            started_at__isnull=False
+        )
+        logger.debug(f"[StudentNewContentCountsView] Subquery 'started_quiz_attempts_subquery' definita.")
+
+        # Annotare le assegnazioni con l'esistenza di un tentativo iniziato
+        annotated_assignments = all_quiz_assignments.annotate(
+            has_started_attempt=Exists(started_quiz_attempts_subquery)
+        )
+        logger.debug(f"[StudentNewContentCountsView] Assegnazioni annotate con 'has_started_attempt'. Conteggio: {annotated_assignments.count()}")
+
+        # Filtrare quelle che NON hanno un tentativo iniziato
+        new_quiz_assignments = annotated_assignments.filter(
+            has_started_attempt=False
+        )
+        new_quizzes_count = new_quiz_assignments.count() # .distinct() è già stato applicato a all_quiz_assignments
+        logger.debug(f"[StudentNewContentCountsView] Trovate {new_quizzes_count} assegnazioni quiz NUOVE (has_started_attempt=False) per studente {student.id}.")
+        for nqa in new_quiz_assignments:
+            logger.debug(f"  - NUOVO QuizAssignment ID: {nqa.id}, Quiz ID: {nqa.quiz_id}, Titolo: {nqa.quiz.title if nqa.quiz else 'N/A'}")
+
+
+        # Conteggio Lezioni Nuove/Non Lette
+        logger.debug(f"[StudentNewContentCountsView] Calcolo conteggio lezioni per studente {student.id}")
+        all_lesson_assignments = LessonAssignment.objects.filter(
+            Q(student=student) | Q(group__memberships__student=student), # CORRETTO: group__students_membership__student -> group__memberships__student
+            lesson__is_published=True # Solo lezioni pubblicate
+        ).distinct()
+        logger.debug(f"[StudentNewContentCountsView] Trovate {all_lesson_assignments.count()} assegnazioni lezioni totali (pubblicate e distinte) per studente {student.id}.")
+        for la in all_lesson_assignments:
+            logger.debug(f"  - LessonAssignment ID: {la.id}, Lesson ID: {la.lesson_id}, Titolo: {la.lesson.title if la.lesson else 'N/A'}, Viewed: {la.viewed_at}, Published: {la.lesson.is_published if la.lesson else 'N/A'}")
+            
+        new_lesson_assignments = all_lesson_assignments.filter(viewed_at__isnull=True)
+        new_lessons_count = new_lesson_assignments.count() # .distinct() è già stato applicato
+        logger.debug(f"[StudentNewContentCountsView] Trovate {new_lessons_count} assegnazioni lezioni NUOVE (viewed_at=NULL) per studente {student.id}.")
+        for nla in new_lesson_assignments:
+             logger.debug(f"  - NUOVA LessonAssignment ID: {nla.id}, Lesson ID: {nla.lesson_id}, Titolo: {nla.lesson.title if nla.lesson else 'N/A'}")
+
+        logger.info(f"[StudentNewContentCountsView] Conteggi FINALI per studente {student.id}: Quiz={new_quizzes_count}, Lezioni={new_lessons_count}")
+
+        return Response({
+            "new_quizzes_count": new_quizzes_count,
+            "new_lessons_count": new_lessons_count
+        }, status=status.HTTP_200_OK)
+
+# Inserisci questa classe prima di altre definizioni di ViewSet o alla fine del file.
+# Assicurati che gli import in cima al file siano corretti e includano:
+# from rest_framework import permissions, status (già presenti)
+# from apps.users.permissions import IsStudentAuthenticated (o il percorso corretto)
+# from apps.users.models import Student (o il percorso corretto)
+# from .models import Quiz, QuizAssignment, QuizAttempt (già presenti)
+# from django.db.models import OuterRef, Subquery, Count, Q, Value, BooleanField, Exists (aggiungere Exists)
+# from apps.uda.models import UDAContent # Aggiungere questo import
+# import logging # Già presente
+# logger = logging.getLogger(__name__) # Già presente

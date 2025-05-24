@@ -23,6 +23,24 @@ const router = useRouter();
 const isMobileMenuOpen = ref(false);
 const isNotificationsOpen = ref(false); // Stato per il dropdown delle notifiche
 
+// Utilizza i conteggi dallo store di autenticazione
+const newQuizzesCount = computed(() => authStore.unreadQuizzesCount);
+const newLessonsCount = computed(() => authStore.unreadLessonsCount);
+
+const newQuizzesTooltip = computed(() => {
+  if (newQuizzesCount.value > 0) {
+    return `Hai ${newQuizzesCount.value} nuov${newQuizzesCount.value === 1 ? 'o' : 'i'} quiz`;
+  }
+  return 'I Miei Quiz';
+});
+
+const newLessonsTooltip = computed(() => {
+  if (newLessonsCount.value > 0) {
+    return `Hai ${newLessonsCount.value} nuov${newLessonsCount.value === 1 ? 'a' : 'e'} lezion${newLessonsCount.value === 1 ? 'e' : 'i'}`;
+  }
+  return 'Le Mie Lezioni';
+});
+
 const isSidebarExpandedState = ref(false); // Sidebar desktop espansa permanentemente
 const sidebarAsideRef = ref<HTMLElement | null>(null);
 const mobileMenuButtonRef = ref<HTMLElement | null>(null); // Ref per il bottone del menu mobile
@@ -256,13 +274,27 @@ const handleNotificationClick = async (notification: any, routerInstance: any) =
 };
 
 // Chiamata per caricare le notifiche al mount del componente
-onMounted(() => {
+onMounted(async () => { // Aggiunto async
+  // Chiama initializeAuth per caricare lo stato dell'utente e i conteggi se necessario
+  await authStore.initializeAuth(); // Aggiunto await
+
   if (authStore.isAuthenticated) {
     notificationStore.fetchServerNotifications();
+    // I conteggi ora vengono recuperati da initializeAuth o dopo il login
   }
+  // Rimuoviamo la simulazione setTimeout, i conteggi sono gestiti dallo store
 });
 
-// TODO: Aggiungere watch su authStore.isAuthenticated per caricare le notifiche dopo il login, se App.vue è già montato
+// TODO: Considerare se un watch su authStore.isAuthenticated è ancora necessario
+// per fetchare i conteggi, dato che login() e initializeAuth() ora li gestiscono.
+// Potrebbe essere utile se lo stato di autenticazione cambia per altri motivi.
+// watch(() => authStore.isAuthenticated, (newVal) => {
+//   if (newVal) {
+//     authStore.fetchUnreadQuizzesCount();
+//     authStore.fetchUnreadLessonsCount();
+//     notificationStore.fetchServerNotifications();
+//   }
+// });
 
 const isEffectivelyExpanded = computed(() => isSidebarExpandedState.value);
 
@@ -338,16 +370,24 @@ const handleContentInteraction = () => {
           </li>
           <!-- I Miei Quiz -->
           <li class="mb-3">
-            <router-link :to="{ name: 'QuizzesPage' }" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700" title="I Miei Quiz">
+            <router-link :to="{ name: 'QuizzesPage' }" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700 relative" :title="newQuizzesTooltip">
               <QuestionMarkCircleIcon class="h-6 w-6 flex-shrink-0" />
               <span class="ml-3 whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">I Miei Quiz</span>
+              <span v-if="newQuizzesCount > 0"
+                    class="absolute top-1 right-1 h-5 w-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center ring-2 ring-secondary">
+                {{ newQuizzesCount }}
+              </span>
             </router-link>
           </li>
           <!-- Le Mie Lezioni (incorporate) -->
           <li class="mb-3">
-            <router-link :to="{ name: 'EmbeddedLessons' }" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700" title="Le Mie Lezioni">
+            <router-link :to="{ name: 'EmbeddedLessons' }" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700 relative" :title="newLessonsTooltip">
               <BookOpenIcon class="h-6 w-6 flex-shrink-0" />
               <span class="ml-3 whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">Le Mie Lezioni</span>
+              <span v-if="newLessonsCount > 0"
+                    class="absolute top-1 right-1 h-5 w-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center ring-2 ring-secondary">
+                {{ newLessonsCount }}
+              </span>
             </router-link>
           </li>
           <!-- Shop -->
@@ -412,16 +452,24 @@ const handleContentInteraction = () => {
             </li>
             <!-- I Miei Quiz -->
             <li class="mb-3">
-              <router-link :to="{ name: 'QuizzesPage' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700" title="I Miei Quiz">
+              <router-link :to="{ name: 'QuizzesPage' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700 relative" :title="newQuizzesTooltip">
                 <QuestionMarkCircleIcon class="h-6 w-6 flex-shrink-0" />
                 <span class="ml-3">I Miei Quiz</span>
+                <span v-if="newQuizzesCount > 0"
+                      class="absolute top-1 right-1 h-5 w-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center ring-2 ring-secondary">
+                  {{ newQuizzesCount }}
+                </span>
               </router-link>
             </li>
             <!-- Le Mie Lezioni (incorporate) -->
             <li class="mb-3">
-              <router-link :to="{ name: 'EmbeddedLessons' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700" title="Le Mie Lezioni">
+              <router-link :to="{ name: 'EmbeddedLessons' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700 relative" :title="newLessonsTooltip">
                 <BookOpenIcon class="h-6 w-6 flex-shrink-0" />
                 <span class="ml-3">Le Mie Lezioni</span>
+                <span v-if="newLessonsCount > 0"
+                      class="absolute top-1 right-1 h-5 w-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center ring-2 ring-secondary">
+                  {{ newLessonsCount }}
+                </span>
               </router-link>
             </li>
             <!-- Shop -->
