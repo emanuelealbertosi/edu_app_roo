@@ -2,6 +2,7 @@
 import { ref, onMounted, computed } from 'vue';
 import RewardsService, { type Badge, type EarnedBadge } from '@/api/rewards'; // Assumiamo che le interfacce siano in rewards
 import AnimatedBadge from '@/components/common/AnimatedBadge.vue'; // Importa il nuovo componente
+import { useDashboardStore } from '@/stores/dashboard'; // Importa lo store della dashboard
 
 // State
 const allBadges = ref<Badge[]>([]);
@@ -9,6 +10,10 @@ const earnedBadges = ref<EarnedBadge[]>([]);
 const isLoading = ref(true);
 const error = ref<string | null>(null);
 
+// Store Dashboard
+const dashboardStore = useDashboardStore();
+const preferredBadge = computed(() => dashboardStore.preferredBadge);
+ 
 const earnedBadgeIds = computed(() =>
   new Set(earnedBadges.value.map(eb => eb.badge.id))
 );
@@ -105,7 +110,32 @@ async function fetchData() {
 // Lifecycle Hooks
 onMounted(() => {
   fetchData();
+  // Assicurati che i dati della dashboard (incluso il preferredBadge) siano caricati.
+  // Se non è già stato fatto altrove (es. App.vue), potrebbe essere necessario chiamare dashboardStore.loadDashboard()
+  // Tuttavia, per ora presumiamo sia gestito a un livello superiore.
 });
+
+async function handleSetPreferredBadge(badgeId: number) {
+  const currentPreferredId = preferredBadge.value?.id;
+  let newPreferredId: number | null = badgeId;
+
+  if (currentPreferredId === badgeId) {
+    // Se si clicca sul badge già preferito, lo si deseleziona
+    newPreferredId = null;
+  }
+
+  try {
+    await dashboardStore.setPreferredBadge(newPreferredId);
+    // Successo: lo store è aggiornato, il computed preferredBadge si aggiornerà
+    // e l'UI rifletterà il cambiamento.
+  } catch (err) {
+    console.error("Errore nell'impostare il badge preferito:", err);
+    // Mostra un messaggio di errore all'utente se necessario
+    error.value = "Impossibile aggiornare il badge preferito. Riprova.";
+    // Potresti voler resettare l'errore dopo un po'
+    setTimeout(() => { error.value = null; }, 5000);
+  }
+}
 </script>
 
 <template>
@@ -133,12 +163,36 @@ onMounted(() => {
       <div
         v-for="processedBadgeItem in processedBadges"
         :key="processedBadgeItem.id"
-        class="badge-wrapper"
+        class="badge-wrapper relative flex flex-col items-center"
       >
         <AnimatedBadge :badge="processedBadgeItem" />
-         <p v-if="processedBadgeItem.isEarned" class="text-xs text-success-dark mt-1 text-center">
-            Ottenuto!
-         </p>
+        
+        <!-- Pulsante Stella per selezionare/deselezionare il badge preferito -->
+        <button
+          v-if="processedBadgeItem.isEarned"
+          @click="handleSetPreferredBadge(processedBadgeItem.id)"
+          :title="processedBadgeItem.id === preferredBadge?.id ? 'Rimuovi dai preferiti' : 'Imposta come preferito'"
+          class="absolute top-1 right-1 p-1 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+          :class="{
+            'text-yellow-400': processedBadgeItem.id === preferredBadge?.id,
+            'text-gray-400 hover:text-yellow-400': processedBadgeItem.id !== preferredBadge?.id
+          }"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6">
+            <path
+              fill-rule="evenodd"
+              d="M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.006 5.404.434c1.164.093 1.636 1.545.749 2.305l-4.116 3.588 1.28 5.281c.28 1.158-.98 2.035-1.99 1.451L12 18.654l-4.758 2.927c-1.01.584-2.27-.293-1.99-1.451l1.28-5.281-4.117-3.588c-.887-.76-.415-2.212.749-2.305l5.404-.434 2.082-5.005Z"
+              clip-rule="evenodd"
+            />
+          </svg>
+        </button>
+
+        <p v-if="processedBadgeItem.isEarned" class="text-xs text-success-dark mt-1 text-center">
+          Ottenuto!
+        </p>
+        <p v-else class="text-xs text-neutral-light mt-1 text-center">
+          Non ottenuto
+        </p>
       </div>
     </div>
      <div v-if="!isLoading && !error && processedBadges.length === 0" class="text-center py-10 text-neutral-dark">

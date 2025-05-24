@@ -5,16 +5,19 @@ from rest_framework.response import Response # Import Response
 from django.db import models # Importa models
 from django.db.models import Count, Sum, Q, OuterRef, Subquery, F # Aggiungi F
 from .models import User, Student, UserRole, RegistrationToken # Aggiungi RegistrationToken
+from django.utils.translation import gettext_lazy as _
 # Importa tutti i serializer necessari
 from .serializers import (
     UserSerializer, StudentSerializer, UserCreateSerializer,
     StudentProgressSummarySerializer, RegistrationTokenSerializer,
     StudentRegistrationSerializer, GroupTokenRegistrationSerializer, # Aggiungi GroupTokenRegistrationSerializer
-    StudentProfileUpdateSerializer # Import per la rettifica GDPR
+    StudentProfileUpdateSerializer, # Import per la rettifica GDPR
+    PreferredBadgeSerializer,
+    StudentCurrentBadgeSerializer
 )
 # Importa modelli da altre app per le annotazioni
 from apps.education.models import QuizAttempt, PathwayProgress, Quiz
-from apps.rewards.models import Wallet, RewardPurchase
+from apps.rewards.models import Wallet, RewardPurchase, Reward, Badge, EarnedBadge # Aggiunti Reward, Badge, EarnedBadge
 from rest_framework import mixins, status # Importa mixins e status
 from apps.education.serializers import QuizAttemptDetailSerializer # Per quiz_attempts
 from apps.rewards.serializers import WalletSerializer as RewardsWalletSerializer, RewardPurchaseSerializer as RewardsRewardPurchaseSerializer # Per wallet e reward_purchases
@@ -709,6 +712,156 @@ class StudentProfileUpdateView(generics.UpdateAPIView):
 
     # Non è necessario implementare partial_update esplicitamente
     # perché UpdateAPIView lo gestisce di default con PATCH.
+
+
+class SetPreferredBadgeView(generics.UpdateAPIView):
+    """
+    API endpoint per permettere a uno studente autenticato di impostare
+    o aggiornare il proprio badge preferito.
+    Utilizza PATCH per l'aggiornamento parziale del profilo studente.
+    """
+    serializer_class = PreferredBadgeSerializer
+    permission_classes = [permissions.IsAuthenticated, IsStudent] # Assicura che solo lo studente possa farlo
+
+    def get_object(self):
+        # Restituisce l'istanza dello studente autenticato.
+        # request.user è l'istanza di Student grazie a StudentJWTAuthentication.
+        if hasattr(self.request, 'student') and isinstance(self.request.student, Student):
+            return self.request.student
+        elif isinstance(self.request.user, Student): # Fallback se request.student non è popolato
+            return self.request.user
+        # Questo controllo è per robustezza.
+        # Se si usa il sistema di autenticazione standard di Django per gli studenti (improbabile),
+        # si dovrebbe recuperare lo studente in altro modo.
+        from django.core.exceptions import PermissionDenied # Importa qui per evitare import circolare in alto
+        raise PermissionDenied("Impossibile determinare l'utente studente per questa operazione.")
+
+
+    def update(self, request, *args, **kwargs):
+        """
+        Gestisce la richiesta PATCH per aggiornare il preferred_badge dello studente.
+        Ora preferred_badge si riferisce direttamente a un'istanza di Badge.
+        """
+        student = self.get_object()
+        serializer = self.get_serializer(data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+
+        badge_id = serializer.validated_data.get('badge_id')
+        logger.info(f"[SetPreferredBadgeView] Studente ID: {student.id}, Tentativo di impostare badge_id: {badge_id}")
+        
+        # Importa modelli necessari
+        from apps.rewards.models import Badge, EarnedBadge
+        from django.core.exceptions import PermissionDenied, ObjectDoesNotExist
+        from rest_framework import status
+
+        response_badge_instance_to_serialize = None
+        selected_badge_instance = None
+
+        if badge_id is None:
+            logger.info(f"[SetPreferredBadgeView] Studente ID: {student.id}, Deselezione badge preferito.")
+            student.preferred_badge = None
+            student.save(update_fields=['preferred_badge'])
+            student.refresh_from_db() # Ricarica per conferma
+            logger.info(f"[SetPreferredBadgeView] Studente ID: {student.id}, preferred_badge_id dopo deselezione e refresh: {student.preferred_badge_id}")
+            response_badge_instance_to_serialize = self._get_fallback_badge_for_response(student)
+        else:
+            try:
+                selected_badge_instance = Badge.objects.get(pk=badge_id)
+                logger.info(f"[SetPreferredBadgeView] Studente ID: {student.id}, Badge da impostare recuperato: ID {selected_badge_instance.id}, Nome: {selected_badge_instance.name}")
+                
+                student.preferred_badge = selected_badge_instance
+                logger.info(f"[SetPreferredBadgeView] Studente ID: {student.id}, preferred_badge_id PRIMA del save: {student.preferred_badge_id}")
+                student.save(update_fields=['preferred_badge'])
+                logger.info(f"[SetPreferredBadgeView] Studente ID: {student.id}, preferred_badge_id DOPO il save: {student.preferred_badge_id}")
+                
+                # Ricarica l'istanza student dal DB per essere sicuri di leggere il valore persistito
+                student.refresh_from_db()
+                logger.info(f"[SetPreferredBadgeView] Studente ID: {student.id}, preferred_badge_id DOPO refresh_from_db: {student.preferred_badge_id}")
+
+                response_badge_instance_to_serialize = selected_badge_instance
+
+            # Badge.DoesNotExist e PermissionDenied sono gestiti dal serializer.
+            except Exception as e: # Catch generico per debug
+                logger.error(f"Errore imprevisto in SetPreferredBadgeView.update durante l'impostazione del badge preferito per studente {student.id}, badge_id {badge_id}: {e}", exc_info=True)
+                return Response({"detail": _("Si è verificato un errore durante l'aggiornamento del badge preferito.")}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        # Serializza e restituisci il badge:
+        # - Se badge_id era None: il badge di fallback (ultimo guadagnato).
+        # - Se badge_id era specificato: il badge selezionato.
+        response_serializer = StudentCurrentBadgeSerializer(response_badge_instance_to_serialize)
+        return Response(response_serializer.data, status=status.HTTP_200_OK)
+
+    def _get_fallback_badge_for_response(self, student: Student) -> Badge | None:
+        """
+        Logica helper per ottenere l'ultimo badge guadagnato come fallback per la risposta.
+        """
+        # EarnedBadge è importato a livello di modulo o sopra
+        last_earned = EarnedBadge.objects.filter(student=student).order_by('-earned_at').first()
+        if last_earned:
+            return last_earned.badge
+        return None
+
+
+class StudentCurrentBadgeView(generics.RetrieveAPIView):
+    """
+    API endpoint per recuperare il badge corrente dello studente (preferito o fallback).
+    """
+    serializer_class = StudentCurrentBadgeSerializer
+    permission_classes = [permissions.IsAuthenticated, IsStudent]
+
+    def get_object(self):
+        student_user = None
+        if hasattr(self.request, 'student') and isinstance(self.request.student, Student):
+            student_user = self.request.student
+        elif isinstance(self.request.user, Student):
+            student_user = self.request.user
+        
+        if not student_user:
+            logger.error(f"StudentCurrentBadgeView: Impossibile determinare l'utente studente. request.user type: {type(self.request.user)}, hasattr(request, 'student'): {hasattr(self.request, 'student')}")
+            from django.core.exceptions import PermissionDenied
+            raise PermissionDenied("Utente studente non identificato correttamente per questa operazione.")
+
+        # Ora student_user.preferred_badge è una ForeignKey diretta a Badge (o None)
+        # Ricarichiamo l'istanza per essere sicuri di avere i dati più aggiornati dal DB
+        student_user.refresh_from_db()
+        logger.info(f"[StudentCurrentBadgeView] Studente ID: {student_user.id}, Lettura preferred_badge_id dal DB: {student_user.preferred_badge_id}")
+        preferred_badge_instance = student_user.preferred_badge
+
+        if preferred_badge_instance:
+            logger.info(f"[StudentCurrentBadgeView] Studente ID: {student_user.id}, Trovato preferred_badge_instance: ID {preferred_badge_instance.id}, Attivo: {preferred_badge_instance.is_active}")
+            if preferred_badge_instance.is_active:
+                # L'utente ha un Badge preferito ed è attivo.
+                return preferred_badge_instance
+            else:
+                # L'utente ha un Badge preferito ma non è più attivo.
+                # In questo scenario, non mostriamo il fallback, ma indichiamo che la preferenza non è visualizzabile.
+                logger.warning(
+                    f"[StudentCurrentBadgeView] Studente ID: {student_user.id}, Badge preferito {preferred_badge_instance.id} non attivo. Restituito None."
+                )
+                return None # Restituisce None se il preferito non è attivo
+        else:
+            logger.info(f"[StudentCurrentBadgeView] Studente ID: {student_user.id}, Nessun preferred_badge_instance trovato. Procedo con fallback.")
+        
+        # Se non c'è un Badge preferito (preferred_badge_instance è None),
+        # allora applichiamo la logica di fallback: restituisci l'ultimo badge guadagnato attivo.
+        from apps.rewards.models import EarnedBadge, Badge # Assicurarsi che siano importati
+        
+        last_earned_badge_relation = EarnedBadge.objects.filter(
+            student=student_user,
+            badge__is_active=True # Considera solo badge guadagnati che sono ancora attivi
+        ).order_by('-earned_at').first()
+        
+        if last_earned_badge_relation:
+            return last_earned_badge_relation.badge
+        
+        return None # Nessuna preferenza impostata e nessun badge guadagnato attivo come fallback
+
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if instance is None:
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)
 
 
 # --- GDPR Data Deletion Request View ---

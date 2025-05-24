@@ -5,7 +5,7 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from rest_framework import serializers
 
-from apps.rewards.models import Wallet, PointTransaction # Importa Wallet e PointTransaction
+from apps.rewards.models import Wallet, PointTransaction, Reward, Badge # Importa Wallet, PointTransaction, Reward e Badge
 from apps.student_groups.models import StudentGroup, StudentGroupMembership # Importa modelli gruppi
 from rest_framework_simplejwt.exceptions import InvalidToken
 from apps.education.models import QuizAttempt # Importa QuizAttempt
@@ -616,6 +616,110 @@ class GroupTokenRegistrationSerializer(serializers.Serializer):
         # Il token del gruppo rimane valido per altre registrazioni.
 
         return student # Restituisce l'istanza dello studente creato
+
+
+# --- Serializer per Badge Preferito Studente ---
+from apps.rewards.models import Badge, EarnedBadge, Reward # Reward è importato per rimuovere il vecchio codice, potrebbe non servire più qui.
+
+class PreferredBadgeSerializer(serializers.Serializer):
+    """
+    Serializer per il payload di PATCH /api/student/profile/set-preferred-badge/.
+    Valida che il badge_id fornito esista, appartenga a un Badge attivo,
+    e che lo studente l'abbia guadagnato.
+    """
+    badge_id = serializers.IntegerField(
+        required=False,
+        allow_null=True,
+        help_text=_("L'ID del Badge che lo studente desidera impostare come preferito. "
+                    "Fornire null per deselezionare il badge preferito.")
+    )
+
+    def validate_badge_id(self, value): # 'value' è l'ID inviato nel campo 'badge_id' del payload
+        """
+        Valida il 'badge_id' fornito.
+        Verifica che il Badge esista, sia attivo e che lo studente l'abbia guadagnato.
+        Restituisce l'ID del Badge se valido, altrimenti solleva ValidationError.
+        """
+        if value is None:
+            return None # Permette la deselezione (impostare preferred_badge a null)
+
+        request = self.context.get('request')
+        if not request or not hasattr(request, 'student') or not isinstance(request.student, Student):
+            raise serializers.ValidationError(
+                _("Impossibile determinare lo studente autenticato per la validazione."),
+                code='authentication_failed'
+            )
+        student = request.student
+
+        try:
+            badge_instance = Badge.objects.get(pk=value, is_active=True)
+        except Badge.DoesNotExist:
+            raise serializers.ValidationError(
+                _("Il Badge identificato dal 'badge_id' fornito non è stato trovato o non è attivo."),
+                code='invalid_badge'
+            )
+
+        # Verifica che lo studente abbia effettivamente guadagnato questo Badge.
+        if not EarnedBadge.objects.filter(
+            student=student,
+            badge=badge_instance
+        ).exists():
+            raise serializers.ValidationError(
+                _("Non hai guadagnato il Badge identificato dal 'badge_id' fornito."),
+                code='badge_not_earned'
+            )
+
+        return badge_instance.id # Restituisce l'ID del Badge validato
+
+
+class StudentCurrentBadgeSerializer(serializers.ModelSerializer):
+    """
+    Serializer per visualizzare il badge corrente (preferito o ultimo ottenuto) dello studente.
+    Si basa sul modello Badge di apps.rewards.models.
+    """
+    fileUrl = serializers.SerializerMethodField()
+    thumbnailUrl = serializers.SerializerMethodField()
+    # media_type è già un campo del modello Badge, quindi non serve SerializerMethodField se il nome è lo stesso.
+    # Se il frontend si aspetta 'mediaType' (camelCase), allora serve un SerializerMethodField o source.
+
+    class Meta:
+        model = Badge # CAMBIATO: Ora si basa sul modello Badge
+        fields = [
+            'id',
+            'name',
+            'description',
+            'fileUrl',      # Per l'URL del file principale del badge
+            'media_type',   # Campo diretto del modello Badge
+            'thumbnailUrl', # Per l'URL dell'immagine di anteprima
+            # 'trigger_type', # Potrebbe essere utile per l'UI
+            # 'trigger_condition', # Potrebbe essere utile per l'UI
+            'is_active',
+        ]
+        read_only_fields = fields
+
+    def get_fileUrl(self, obj: Badge) -> str | None:
+        if obj.file:
+            return obj.file.url
+        return None
+
+    def get_thumbnailUrl(self, obj: Badge) -> str | None:
+        if obj.thumbnail:
+            return obj.thumbnail.url
+        # Se non c'è thumbnail esplicito, e il file principale è un'immagine statica,
+        # si potrebbe usare obj.file.url come fallback se desiderato.
+        # Per ora, restituisce None se non c'è thumbnail.
+        return None
+
+    # Se il frontend si aspetta 'mediaType' camelCase invece di 'media_type':
+    # mediaType = serializers.CharField(source='media_type', read_only=True)
+    # E rimuovere 'media_type' da fields, aggiungere 'mediaType'.
+    # Per ora, manteniamo 'media_type' come da modello, il frontend dovrà gestirlo.
+    # Oppure, se si vuole forzare camelCase per coerenza con fileUrl e thumbnailUrl:
+    # mediaType = serializers.CharField(source='media_type')
+    # e aggiornare 'fields' per usare 'mediaType'.
+    # Scegliamo di esporre i campi come sono nel modello e usare SerializerMethodField per gli URL.
+
+
 # --- Serializer per Rettifica Profilo Studente (GDPR) ---
 
 class StudentProfileUpdateSerializer(serializers.ModelSerializer):

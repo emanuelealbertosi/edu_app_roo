@@ -3,12 +3,10 @@ import { onMounted, ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { useDashboardStore } from '@/stores/dashboard';
-// import QuizList from '@/components/QuizList.vue'; // Rimosso QuizList
-// import PathwayList from '@/components/PathwayList.vue'; // Rimosso PathwayList
 import WalletCard from '@/components/WalletCard.vue';
 import BaseButton from '@/components/common/BaseButton.vue';
-// import BaseTabs from '@/components/common/BaseTabs.vue'; // Rimosso BaseTabs se non più usato per i quiz
-import AnimatedBadge from '@/components/common/AnimatedBadge.vue'; // Importa AnimatedBadge
+import AnimatedBadge from '@/components/common/AnimatedBadge.vue';
+import type { Badge } from '@/api/rewards'; // Importa il tipo Badge
 
 const authStore = useAuthStore();
 const dashboardStore = useDashboardStore();
@@ -17,16 +15,64 @@ const router = useRouter();
 const isLoading = ref(true);
 const dashboardError = computed(() => dashboardStore.error);
 
-const searchTerm = ref(''); // Sarà rimosso se la ricerca quiz è solo nella pagina quiz
+// Funzione helper per mappare un singolo oggetto badge (potenzialmente da API con snake_case)
+// a un oggetto Badge con camelCase, come atteso dal frontend.
+// Copiata da BadgesView.vue
+function mapApiBadgeToFrontendBadge(apiBadge: any): Badge {
+  // Assicurati che isEarned sia sempre un booleano, specialmente per il preferred badge
+  // che per definizione è "earned".
+  let isEarned = typeof apiBadge.isEarned === 'boolean' ? apiBadge.isEarned : (typeof apiBadge.is_earned === 'boolean' ? apiBadge.is_earned : false);
+  if (apiBadge && Object.keys(apiBadge).length > 0) { // Se l'oggetto apiBadge non è vuoto, consideralo guadagnato
+      isEarned = true;
+  }
 
-// Definisci i tab (invariato) - Verrà rimosso se i tab erano solo per i quiz
-// const dashboardTabs = ref([
-//   { name: 'Da Fare', slotName: 'todo' },
-//   { name: 'Completati', slotName: 'completed' }
-// ]);
+  // Gestione di fileUrl esattamente come in BadgesView.vue
+  const fileUrl = apiBadge.fileUrl || apiBadge.file_url || null;
 
-// Accedi all'ultimo badge tramite getter
-const latestBadge = computed(() => dashboardStore.latestEarnedBadge);
+  let mediaType = apiBadge.mediaType || apiBadge.media_type || 'IMAGE_STATIC';
+  if (typeof mediaType === 'string') {
+    const upperType = mediaType.toUpperCase();
+    if (upperType === 'VIDEO_MP4') mediaType = 'VIDEO_MP4';
+    else if (upperType === 'IMAGE_GIF') mediaType = 'IMAGE_GIF';
+    else if (upperType === 'IMAGE_STATIC') mediaType = 'IMAGE_STATIC';
+    // else lascia mediaType com'è se non corrisponde o normalizza a IMAGE_STATIC come fallback
+  } else {
+    mediaType = 'IMAGE_STATIC';
+  }
+  
+  return {
+    id: apiBadge.id,
+    name: apiBadge.name,
+    description: apiBadge.description,
+    fileUrl: fileUrl,
+    mediaType: mediaType,
+    thumbnailUrl: apiBadge.thumbnailUrl || apiBadge.thumbnail_url || null,
+    trigger_type: apiBadge.trigger_type,
+    trigger_type_display: apiBadge.trigger_type_display,
+    trigger_condition: apiBadge.trigger_condition,
+    is_active: apiBadge.is_active,
+    isEarned: isEarned, // Usa il valore di isEarned calcolato
+    created_at: apiBadge.created_at,
+  };
+}
+
+const preferredBadgeToDisplay = computed(() => dashboardStore.preferredBadge);
+
+const mappedPreferredBadge = computed(() => {
+  if (preferredBadgeToDisplay.value) {
+    // Applica la mappatura. Assicurati che preferredBadgeToDisplay.value non sia null.
+    // La funzione mapApiBadgeToFrontendBadge si aspetta un 'any', quindi va bene.
+    // Importante: assicurarsi che 'isEarned' sia gestito correttamente.
+    // Un badge preferito è per definizione "guadagnato".
+    const mapped = mapApiBadgeToFrontendBadge(preferredBadgeToDisplay.value);
+    // Sovrascrivi isEarned a true per sicurezza, dato che è il badge preferito.
+    // La funzione mapApiBadgeToFrontendBadge ora gestisce questo internamente.
+    // mapped.isEarned = true;
+    console.log('[DashboardView] Mapped Preferred Badge:', JSON.parse(JSON.stringify(mapped)));
+    return mapped;
+  }
+  return null;
+});
 
 // La logica di filtraggio dei quiz è spostata in QuizzesPageView.vue
 // const filterQuizzes = (quizzes: any[]) => {
@@ -115,10 +161,15 @@ const goToShop = () => {
       <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
         <!-- Colonna Sinistra: Ultimo Traguardo -->
         <div class="bg-white p-6 rounded-lg shadow-md text-center">
-          <h2 class="text-xl font-bold text-primary-dark mb-4 flex items-center justify-center"><span class="text-2xl mr-2">🏆</span> Ultimo Traguardo</h2>
-          <div v-if="dashboardStore.loading.badges" class="text-sm text-neutral-dark italic py-4">Caricamento traguardi...</div>
-          <AnimatedBadge v-else-if="latestBadge" :badge="latestBadge" class="mx-auto max-w-[theme(spacing.72)] mb-3"/>
-          <p v-else class="text-sm text-neutral-dark italic py-4">Nessun traguardo ancora raggiunto.</p>
+          <h2 class="text-xl font-bold text-primary-dark mb-4 flex items-center justify-center"><span class="text-2xl mr-2">🌟</span> Badge in Evidenza</h2>
+          <div v-if="dashboardStore.loading.preferredBadge || dashboardStore.loading.badges" class="text-sm text-neutral-dark italic py-4">Caricamento badge...</div>
+          <AnimatedBadge
+            v-else-if="mappedPreferredBadge"
+            :key="mappedPreferredBadge.id"
+            :badge="mappedPreferredBadge"
+            class="mx-auto max-w-[theme(spacing.72)] mb-3"
+          />
+          <p v-else class="text-sm text-neutral-dark italic py-4">Nessun badge preferito selezionato. Scegline uno dalla sezione Traguardi!</p>
           <router-link to="/badges" class="block text-sm text-primary hover:underline mt-3">Vedi tutti i traguardi</router-link>
         </div>
 

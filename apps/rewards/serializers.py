@@ -274,13 +274,23 @@ class BadgeSerializer(serializers.ModelSerializer):
 
 class EarnedBadgeSerializer(serializers.ModelSerializer):
     """ Serializer per visualizzare i Badge guadagnati da uno studente. """
-    # BadgeSerializer ora include 'is_earned', che sarà True in questo contesto.
     badge = BadgeSerializer(read_only=True)
+    is_preferred = serializers.SerializerMethodField()
 
     class Meta:
         model = EarnedBadge
-        fields = ['id', 'student', 'badge', 'earned_at']
+        fields = ['id', 'student', 'badge', 'earned_at', 'is_preferred']
         read_only_fields = fields
+
+    def get_is_preferred(self, obj: EarnedBadge) -> bool:
+        """
+        Verifica se questo badge guadagnato è il badge preferito dello studente.
+        """
+        # obj è un'istanza di EarnedBadge
+        student = obj.student
+        if hasattr(student, 'preferred_badge') and student.preferred_badge:
+            return student.preferred_badge.id == obj.badge.id
+        return False
 
 
 class SimpleBadgeSerializer(serializers.ModelSerializer):

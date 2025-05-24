@@ -192,6 +192,7 @@ erDiagram
         # GDPR: Campi aggiunti per tracciare accettazione policy
         datetime privacy_policy_accepted_at NULL
         datetime terms_of_service_accepted_at NULL
+        int preferred_badge_id FK NULL "REWARD(id) - Badge preferito (opzionale)"
     }
 
     STUDENT_GROUP { # NUOVA TABELLA
@@ -609,6 +610,7 @@ erDiagram
     *   `GET /api/student/shop/` (Ricompense includono `image_url`)
     *   `POST /api/student/shop/purchase/{reward_id}/`
     *   `GET /api/student/purchases/`
+    *   `PATCH /api/student/profile/set-preferred-badge/` (Body: `{"reward_id": X}` o `{"reward_id": null}`)
 *   **Docente - Gestione Gruppi:**
     *   `GET, POST /api/groups/`
     *   `GET, PUT, PATCH, DELETE /api/groups/{group_id}/`

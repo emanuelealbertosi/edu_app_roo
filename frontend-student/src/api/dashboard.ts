@@ -1,4 +1,5 @@
 import apiClient from './config';
+import type { Badge } from './rewards'; // Importa il tipo Badge da rewards.ts
 
 // Interfacce per TypeScript
 // NUOVA Interfaccia per i dati dei tentativi restituiti dalla dashboard API
@@ -77,8 +78,11 @@ export interface WalletInfo {
   }[];
 }
 
+// RIDEFINISCI PreferredBadgeData usando Badge
+export type PreferredBadgeData = Badge; // PreferredBadgeData è ora un alias di Badge
+
 /**
- * Servizio per recuperare i dati della dashboard dello studente
+* Servizio per recuperare i dati della dashboard dello studente
  */
 const DashboardService = {
   /**
@@ -121,6 +125,67 @@ const DashboardService = {
     } catch (error) {
       console.error('Error fetching wallet info:', error);
       throw error;
+    }
+  },
+
+  /**
+   * Recupera il badge preferito dello studente
+   */
+  async getPreferredBadge(): Promise<PreferredBadgeData | null> {
+    try {
+      const response = await apiClient.get('student/profile/preferred-badge/');
+      if (response.status === 204) {
+        return null; // Nessun badge preferito o fallback
+      }
+      return response.data as PreferredBadgeData;
+    } catch (error) {
+      // Se l'API restituisce 404 o 204, potrebbe essere gestito come null
+      // Qui gestiamo errori di rete o altri errori server
+      console.error('Error fetching preferred badge:', error);
+      // Non rilanciare l'errore per non bloccare il caricamento di altre parti della dashboard
+      // Lo store gestirà il caso di dati nulli.
+      return null;
+    }
+  },
+
+  /**
+   * Imposta il badge preferito per lo studente
+   * @param badgeId - L'ID del badge da impostare come preferito, o null per deselezionare.
+   */
+  async setPreferredBadge(badgeId: number | null): Promise<PreferredBadgeData | null> { // La risposta potrebbe contenere il nuovo badge o i dati studente
+    try {
+      const response = await apiClient.patch('student/profile/set-preferred-badge/', { badge_id: badgeId }); // Modificato reward_id in badge_id
+      // L'API PATCH /api/student/profile/set-preferred-badge/ dovrebbe restituire
+      // i dati del badge aggiornato (PreferredBadgeData) o null se deselezionato.
+      // Estraiamo il badge dalla risposta se presente, o potremmo dover chiamare getPreferredBadge di nuovo.
+      // Per ora, assumiamo che la risposta del PATCH non sia direttamente il badge,
+      // quindi lo store potrebbe dover ricaricare il badge o usare i dati studente.
+      // Idealmente, il backend PATCH potrebbe restituire direttamente il nuovo PreferredBadgeData o null.
+      // La view Django ora dovrebbe restituire direttamente l'oggetto Badge serializzato
+      // (tramite StudentCurrentBadgeSerializer) o 200 OK con null/oggetto vuoto se deselezionato e fallback.
+      if (response.status === 200) {
+        if (response.data && response.data.id) { // Assumendo che il badge serializzato abbia un id
+            return response.data as PreferredBadgeData;
+        } else if (response.data && Object.keys(response.data).length === 0 && !badgeId) { // Oggetto vuoto per deselezione senza fallback esplicito
+            return null;
+        } else if (!response.data && !badgeId){ // Nessun dato e deselezione
+             return null;
+        } else if (response.data && !response.data.id && !badgeId) { // Dati vuoti e deselezione
+            return null;
+        }
+        // Se badgeId era fornito ma response.data non è un badge valido, potrebbe essere un problema.
+        // Tuttavia, lo store Pinia ricaricherà lo stato da GET /preferred-badge/ se necessario.
+        // Per ora, se la risposta non è chiaramente un badge, restituiamo null per forzare il re-fetch
+        // o affidarci all'aggiornamento dello store basato sulla GET.
+        console.warn('setPreferredBadge: La risposta non era un oggetto badge atteso, si affida al re-fetch o allo stato esistente.');
+        return null; // O la view PATCH dovrebbe garantire una risposta PreferredBadgeData
+      }
+      // Se lo status non è 200, l'errore sarà gestito dal blocco catch.
+      // Questo return non dovrebbe essere raggiunto se c'è un errore HTTP.
+      return null;
+    } catch (error) {
+      console.error('Error setting preferred badge:', error);
+      throw error; // Rilancia l'errore per gestirlo nel componente/store chiamante
     }
   }
 };

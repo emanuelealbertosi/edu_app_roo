@@ -149,6 +149,17 @@ class Student(models.Model):
         help_text=_("Timestamp of when the deletion request was made.")
     )
 
+    # Campo per il badge preferito dallo studente
+    preferred_badge = models.ForeignKey(
+        'rewards.Badge',  # Modificato da Reward a Badge
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='preferring_students', # Mantenuto per ora, valutare se rinominare in futuro
+        verbose_name=_("Badge Preferito"),
+        help_text=_("Il badge che lo studente ha scelto di visualizzare come preferito.") # Help text aggiornato
+    )
+
     # Campi per gestione età e consenso parentale (GDPR Minori)
     date_of_birth = models.DateField(
         _("Date of Birth"),

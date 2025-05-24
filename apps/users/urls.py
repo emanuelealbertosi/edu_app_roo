@@ -8,7 +8,9 @@ from .views import (
     UserDataExportView, # Aggiunta view per export dati GDPR
     StudentProfileUpdateView, # Aggiunta view per aggiornamento profilo studente GDPR
     UserDataDeletionRequestView, # Aggiunta view per richiesta cancellazione dati GDPR
-    ParentalConsentVerificationView # Aggiunta view per verifica consenso parentale
+    ParentalConsentVerificationView, # Aggiunta view per verifica consenso parentale
+    SetPreferredBadgeView,
+    StudentCurrentBadgeView
 )
 
 # Crea un router e registra le nostre viewset
@@ -37,6 +39,9 @@ urlpatterns = [
     path('profile/my-data/', UserDataExportView.as_view(), name='user-data-export'),
     # URL per GDPR - Diritto di Rettifica (Profilo Studente)
     path('profile/me/', StudentProfileUpdateView.as_view(), name='student-profile-update'),
+    # URL per Studente per impostare il badge preferito
+    path('student/profile/set-preferred-badge/', SetPreferredBadgeView.as_view(), name='student-set-preferred-badge'), # PATCH
+    path('student/profile/preferred-badge/', StudentCurrentBadgeView.as_view(), name='student-get-preferred-badge'), # GET
     # URL per GDPR - Diritto alla Cancellazione (Richiesta)
     path('profile/request-deletion/', UserDataDeletionRequestView.as_view(), name='user-data-deletion-request'),
     # URL pubblico per la verifica del consenso parentale tramite token

@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import DashboardService from '@/api/dashboard';
+import DashboardService, { type PreferredBadgeData } from '@/api/dashboard'; // Importato PreferredBadgeData
 import RewardsService, { type EarnedBadge, type Badge } from '@/api/rewards'; // Importa RewardsService e tipi
 // Importa la nuova interfaccia per i tentativi e rimuovi Quiz
 import type { QuizAttemptDashboardItem, Pathway, WalletInfo } from '@/api/dashboard';
@@ -22,11 +22,13 @@ interface DashboardState {
   pathways: Pathway[];
   wallet: WalletInfo | null;
   earnedBadges: EarnedBadgeInfo[]; // Aggiunto stato per badge guadagnati
+  preferredBadge: PreferredBadgeData | null; // Nuovo stato per il badge preferito
   loading: {
     quizzes: boolean;
     pathways: boolean;
     wallet: boolean;
     badges: boolean; // Aggiunto loading per badge
+    preferredBadge: boolean; // Loading per il badge preferito
   };
   error: string | null;
 }
@@ -37,11 +39,13 @@ export const useDashboardStore = defineStore('dashboard', {
     pathways: [],
     wallet: null,
     earnedBadges: [], // Inizializza array vuoto
+    preferredBadge: null, // Inizializza preferredBadge
     loading: {
       quizzes: false,
       pathways: false,
       wallet: false,
       badges: false, // Inizializza loading badge
+      preferredBadge: false, // Inizializza loading preferredBadge
     },
     error: null
   }),
@@ -129,6 +133,10 @@ export const useDashboardStore = defineStore('dashboard', {
      // Assicura che isEarned sia true, dato che proviene dalla lista dei badge guadagnati.
      // Questo è più una misura di sicurezza; idealmente, latest.isEarned dovrebbe già essere true.
      return { ...latest, isEarned: true };
+  },
+  // Getter per il badge preferito
+  getPreferredBadge(state): PreferredBadgeData | null {
+    return state.preferredBadge;
   }
 },
 
@@ -143,7 +151,8 @@ export const useDashboardStore = defineStore('dashboard', {
         this.fetchQuizzes(),
         this.fetchPathways(),
         this.fetchWallet(),
-        this.fetchEarnedBadges() // Chiama la nuova action
+        this.fetchEarnedBadges(), // Chiama la nuova action
+        this.fetchPreferredBadge() // Chiama l'action per il badge preferito
       ]);
     },
 
@@ -234,6 +243,137 @@ export const useDashboardStore = defineStore('dashboard', {
         console.warn('Errore nel caricamento dei badge guadagnati, la dashboard continuerà a caricarsi.');
       } finally {
         this.loading.badges = false;
+      }
+    },
+
+    // Nuova action per recuperare il badge preferito
+    async fetchPreferredBadge() {
+      this.loading.preferredBadge = true;
+      this.error = null; // Resetta l'errore specifico per questa operazione
+      try {
+        const badgeDataFromService = await DashboardService.getPreferredBadge();
+        
+        if (badgeDataFromService) {
+          // Applica una mappatura robusta simile a quella in fetchEarnedBadges
+          // per garantire che tutti i campi siano presenti e correttamente nominati (camelCase).
+          // badgeDataFromService è l'equivalente di rawInnerBadge in fetchEarnedBadges.
+          this.preferredBadge = {
+            id: badgeDataFromService.id,
+            name: badgeDataFromService.name,
+            description: badgeDataFromService.description,
+            fileUrl: (() => {
+              let url = badgeDataFromService.fileUrl || (badgeDataFromService as any).file_url || null;
+              if (url && !url.startsWith('http') && !url.startsWith('/')) {
+                url = '/' + url;
+              }
+              return url;
+            })(),
+            mediaType: (() => {
+              const rawType = badgeDataFromService.mediaType || (badgeDataFromService as any).media_type;
+              if (typeof rawType === 'string') {
+                const upperType = rawType.toUpperCase();
+                if (upperType === 'VIDEO_MP4') return 'VIDEO_MP4';
+                if (upperType === 'IMAGE_GIF') return 'IMAGE_GIF';
+                if (upperType === 'IMAGE_STATIC') return 'IMAGE_STATIC';
+                return rawType; // Restituisci il tipo originale se non è uno dei noti
+              }
+              return 'IMAGE_STATIC'; // Default fallback
+            })(),
+            thumbnailUrl: badgeDataFromService.thumbnailUrl || (badgeDataFromService as any).thumbnail_url || null,
+            trigger_type: badgeDataFromService.trigger_type,
+            trigger_type_display: badgeDataFromService.trigger_type_display,
+            trigger_condition: badgeDataFromService.trigger_condition,
+            is_active: badgeDataFromService.is_active,
+            // Un badge preferito è per definizione guadagnato.
+            // Il backend dovrebbe già fornire isEarned: true tramite BadgeSerializer.
+            // Questa è una doppia sicurezza.
+            isEarned: typeof badgeDataFromService.isEarned === 'boolean' ? badgeDataFromService.isEarned : true,
+            created_at: badgeDataFromService.created_at,
+          };
+          
+          console.log(
+            '[DashboardStore] Preferred badge processed (with robust mapping):',
+            'ID:', this.preferredBadge.id,
+            'Name:', this.preferredBadge.name,
+            'isEarned:', this.preferredBadge.isEarned,
+            'fileUrl:', this.preferredBadge.fileUrl,
+            'mediaType:', this.preferredBadge.mediaType,
+            'thumbnailUrl:', this.preferredBadge.thumbnailUrl
+          );
+        } else {
+          this.preferredBadge = null;
+          console.log('[DashboardStore] No preferred badge fetched (null).');
+        }
+
+      } catch (error) {
+        console.error('Error in fetchPreferredBadge:', error);
+        // Potresti voler impostare un errore specifico per il badge preferito
+        // this.error = 'Errore nel caricamento del badge preferito';
+        // Per ora, logghiamo e non blocchiamo altre parti della dashboard
+        console.warn('Errore nel caricamento del badge preferito.');
+        this.preferredBadge = null; // Assicurati che sia null in caso di errore
+      } finally {
+        this.loading.preferredBadge = false;
+      }
+    },
+
+    // Nuova action per impostare il badge preferito
+    async setPreferredBadge(rewardId: number | null) {
+      // Idealmente, qui si potrebbe impostare uno stato di loading specifico se l'operazione è lunga
+      // this.loading.settingPreferredBadge = true;
+      this.error = null;
+      try {
+        const badgeDataFromService = await DashboardService.setPreferredBadge(rewardId);
+        
+        if (badgeDataFromService) {
+          // Applica la stessa mappatura robusta di fetchPreferredBadge
+          this.preferredBadge = {
+            id: badgeDataFromService.id,
+            name: badgeDataFromService.name,
+            description: badgeDataFromService.description,
+            fileUrl: (() => {
+              let url = badgeDataFromService.fileUrl || (badgeDataFromService as any).file_url || null;
+              if (url && !url.startsWith('http') && !url.startsWith('/')) {
+                url = '/' + url;
+              }
+              return url;
+            })(),
+            mediaType: (() => {
+              const rawType = badgeDataFromService.mediaType || (badgeDataFromService as any).media_type;
+              if (typeof rawType === 'string') {
+                const upperType = rawType.toUpperCase();
+                if (upperType === 'VIDEO_MP4') return 'VIDEO_MP4';
+                if (upperType === 'IMAGE_GIF') return 'IMAGE_GIF';
+                if (upperType === 'IMAGE_STATIC') return 'IMAGE_STATIC';
+                return rawType; // Restituisci il tipo originale se non è uno dei noti
+              }
+              return 'IMAGE_STATIC'; // Default fallback
+            })(),
+            thumbnailUrl: badgeDataFromService.thumbnailUrl || (badgeDataFromService as any).thumbnail_url || null,
+            trigger_type: badgeDataFromService.trigger_type,
+            trigger_type_display: badgeDataFromService.trigger_type_display,
+            trigger_condition: badgeDataFromService.trigger_condition,
+            is_active: badgeDataFromService.is_active,
+            isEarned: typeof badgeDataFromService.isEarned === 'boolean' ? badgeDataFromService.isEarned : true,
+            created_at: badgeDataFromService.created_at,
+          };
+          // Log per debug
+          console.log('[DashboardStore] Preferred badge set and updated in store (with mapping):', JSON.parse(JSON.stringify(this.preferredBadge)));
+        } else {
+          this.preferredBadge = null; // Se il servizio restituisce null
+          console.log('[DashboardStore] setPreferredBadge returned null, preferredBadge set to null.');
+        }
+
+        // AGGIUNTA: Richiama fetchEarnedBadges per aggiornare la lista dei trofei
+        await this.fetchEarnedBadges();
+      } catch (error) {
+        console.error('Error in setPreferredBadge:', error);
+        this.error = 'Errore nell\'impostazione del badge preferito';
+        // Non modifichiamo this.preferredBadge qui, così l'UI riflette ancora il vecchio stato
+        // fino a un eventuale refresh o nuovo tentativo riuscito.
+        throw error; // Rilancia l'errore per permettere al chiamante di gestirlo (es. UI)
+      } finally {
+        // this.loading.settingPreferredBadge = false;
       }
     }
   }
