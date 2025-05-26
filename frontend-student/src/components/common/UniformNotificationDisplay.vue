@@ -42,16 +42,16 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-// Assicurati che Notification sia importato se la sua definizione è nello store e usata esplicitamente
-import { useUiStore, type Notification } from '@/stores/ui';
+// Importa dallo store notification di frontend-student e usa i nuovi state/azioni per le notifiche uniformi
+import { useNotificationStore, type UniformNotification } from '@/stores/notification';
 
-const uiStore = useUiStore();
+const notificationStore = useNotificationStore();
 
-// Tipizzazione esplicita per chiarezza, specialmente dopo modifiche all'interfaccia Notification
-const notifications = computed(() => uiStore.notifications as Notification[]);
+// Usa il nuovo state uniformToastNotifications e la nuova action removeUniformToastNotification
+const notifications = computed(() => notificationStore.uniformToastNotifications as UniformNotification[]);
 
 const removeNotification = (id: string) => {
-  uiStore.removeNotification(id);
+  notificationStore.removeUniformToastNotification(id);
 };
 </script>
 
@@ -67,7 +67,8 @@ const removeNotification = (id: string) => {
 }
 
 /* Assicurati che lo z-index sia abbastanza alto per apparire sopra altri elementi */
+/* Potrebbe essere necessario un z-index più alto se NotificationContainer.vue per i badge ha uno z-index simile */
 .z-50 {
-  z-index: 50;
+  z-index: 50; /* Mantenuto da fe-lessons, valutare se aumentarlo a 51 o più per coesistere con l'altro container */
 }
 </style>

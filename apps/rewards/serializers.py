@@ -155,7 +155,7 @@ class MakeRewardAvailableSerializer(serializers.Serializer):
         if reward.teacher != teacher:
              raise ValidationError("Non puoi gestire la disponibilità di una ricompensa che non hai creato.")
         # Verifica che il docente che assegna sia il docente dello studente
-        if student and student.teacher != teacher:
+        if student and not student.is_managed_by(teacher):
              raise ValidationError("Non puoi rendere disponibile una ricompensa a uno studente che non gestisci.")
         if group and group.teacher != teacher:
              raise ValidationError("Non puoi rendere disponibile a un gruppo che non hai creato.")

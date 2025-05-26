@@ -11,7 +11,7 @@
     </div>
 
     <!-- Error State -->
-    <div v-else-if="error" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6" role="alert">
+    <div v-else-if="error && !isSaving" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6" role="alert">
       <strong class="font-bold">Errore!</strong>
       <span class="block sm:inline"> {{ error }}</span>
     </div>
@@ -37,6 +37,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'; // Rimosso reactive
+import { useUiStore } from '@/stores/ui';
 import { useRoute, useRouter } from 'vue-router';
 import { fetchRewardDetails, updateReward, makeRewardAvailable, revokeRewardAvailability, type RewardPayload } from '@/api/rewards';
 // Importa solo ciò che serve alla vista
@@ -58,6 +59,7 @@ interface RewardDataForForm {
 
 const route = useRoute();
 const router = useRouter();
+const uiStore = useUiStore();
 
 const rewardId = ref<number | null>(null);
 // const isEditing = computed(() => !!rewardId.value); // Non più necessario, è sempre true
@@ -79,12 +81,14 @@ onMounted(async () => {
     } else {
       console.error("ID Ricompensa non valido:", idParam);
       error.value = "ID Ricompensa non valido.";
+      uiStore.addNotification({ title: 'Errore Caricamento', message: error.value, type: 'error' });
       // Potresti reindirizzare o mostrare un errore più permanente
       // router.push({ name: 'rewards' });
     }
   } else {
       console.error("Accesso a RewardFormView senza ID.");
       error.value = "Questa pagina è accessibile solo per la modifica di una ricompensa esistente.";
+      uiStore.addNotification({ title: 'Errore Navigazione', message: error.value, type: 'error' });
       // Reindirizza alla lista o mostra errore
       // router.push({ name: 'rewards' });
   }
@@ -112,7 +116,9 @@ const loadRewardData = async (id: number) => {
 
   } catch (err: any) {
     console.error("Errore nel caricamento della ricompensa:", err);
-    error.value = err.response?.data?.detail || err.message || 'Errore nel caricamento dei dati della ricompensa.';
+    const message = err.response?.data?.detail || err.message || 'Errore nel caricamento dei dati della ricompensa.';
+    error.value = message;
+    uiStore.addNotification({ title: 'Errore Caricamento', message, type: 'error' });
   } finally {
     isLoading.value = false;
   }
@@ -122,84 +128,107 @@ const loadRewardData = async (id: number) => {
 // Gestore per l'evento 'save' emesso da RewardForm
 const handleSave = async (payload: { data: RewardPayload, specificStudents: number[], specificGroups: number[] }) => {
   if (!rewardId.value) {
-      error.value = "ID Ricompensa mancante per l'aggiornamento.";
+      const message = "ID Ricompensa mancante per l'aggiornamento.";
+      error.value = message;
+      uiStore.addNotification({ title: 'Errore Salvataggio', message, type: 'error' });
       return;
   }
 
   isSaving.value = true;
-  error.value = null;
+  error.value = null; // Resetta l'errore principale prima di tentare il salvataggio
+
+  let partialErrorsOccurred = false;
 
   try {
     // 1. Aggiorna i dati base della ricompensa
     await updateReward(rewardId.value, payload.data);
     console.log(`Ricompensa ${rewardId.value} aggiornata con i dati base.`);
+    uiStore.addNotification({ title: 'Successo', message: 'Dati ricompensa aggiornati.', type: 'success' });
 
-    // 2. Gestisci la disponibilità specifica (logica semplificata - solo aggiunta)
-    // ATTENZIONE: Questa logica semplificata potrebbe portare a duplicati o mancate revoche.
-    // Una soluzione robusta richiederebbe di ottenere lo stato attuale e fare una diff.
+
+    // 2. Gestisci la disponibilità specifica
     console.warn("Logica di aggiornamento disponibilità semplificata: verranno solo aggiunte le nuove selezioni.");
 
     const availabilityPromises: Promise<any>[] = [];
+    let studentAvailabilityErrorMessages: string[] = [];
+    let groupAvailabilityErrorMessages: string[] = [];
+
 
     if (payload.data.availability_type === 'SPECIFIC') {
-        // Aggiungi studenti selezionati (solo se non già presenti? L'API potrebbe gestire duplicati)
         payload.specificStudents.forEach(studentId => {
             availabilityPromises.push(
                 makeRewardAvailable(rewardId.value!, { student_id: studentId })
                     .catch(err => {
-                        console.error(`Errore aggiungendo disponibilità studente ${studentId}:`, err);
-                        // Non bloccare tutto, ma segnala l'errore parziale
-                        error.value = (error.value ? error.value + '; ' : '') + `Errore assegnando a studente ${studentId}`;
+                        const errorMessage = `Errore assegnando ricompensa a studente ${studentId}.`;
+                        console.error(`${errorMessage}:`, err);
+                        const detailMessage = err.response?.data?.detail || err.message || 'Dettaglio errore non disponibile.';
+                        uiStore.addNotification({
+                            title: 'Errore Assegnazione Studente',
+                            message: `${errorMessage} ${detailMessage}`,
+                            type: 'error',
+                        });
+                        studentAvailabilityErrorMessages.push(errorMessage);
+                        partialErrorsOccurred = true; 
                     })
             );
         });
 
-        // Aggiungi gruppi selezionati
         payload.specificGroups.forEach(groupId => {
             availabilityPromises.push(
                 makeRewardAvailable(rewardId.value!, { group_id: groupId })
                      .catch(err => {
-                        console.error(`Errore aggiungendo disponibilità gruppo ${groupId}:`, err);
-                         error.value = (error.value ? error.value + '; ' : '') + `Errore assegnando a gruppo ${groupId}`;
+                        const errorMessage = `Errore assegnando ricompensa a gruppo ${groupId}.`;
+                        console.error(`${errorMessage}:`, err);
+                        const detailMessage = err.response?.data?.detail || err.message || 'Dettaglio errore non disponibile.';
+                        uiStore.addNotification({
+                            title: 'Errore Assegnazione Gruppo',
+                            message: `${errorMessage} ${detailMessage}`,
+                            type: 'error',
+                        });
+                        groupAvailabilityErrorMessages.push(errorMessage);
+                        partialErrorsOccurred = true;
                     })
             );
         });
         // TODO: Aggiungere logica per REVOCARE studenti/gruppi deselezionati.
-        // Questo richiederebbe di sapere quali erano selezionati PRIMA della modifica.
-        // Potrebbe essere necessario passare lo stato iniziale a handleSave o ricaricarlo.
-
     } else if (payload.data.availability_type === 'ALL') {
-        // TODO: Idealmente, qui si dovrebbero revocare TUTTE le disponibilità specifiche esistenti.
         console.warn("Passaggio ad 'ALL': non sono state revocate le disponibilità specifiche precedenti.");
-        // Esempio (richiede API di revoca bulk o per ID):
-        // const currentAvailability = await fetchRewardAvailability(rewardId.value); // API ipotetica
-        // currentAvailability.students.forEach(sId => revokeRewardAvailability(rewardId.value, { student_id: sId }));
-        // currentAvailability.groups.forEach(gId => revokeRewardAvailability(rewardId.value, { group_id: gId }));
+        // TODO: Revocare TUTTE le disponibilità specifiche esistenti.
     }
 
     if (availabilityPromises.length > 0) {
         console.log(`Eseguo ${availabilityPromises.length} chiamate per aggiornare la disponibilità...`);
-        await Promise.all(availabilityPromises); // Attende il completamento di tutte le chiamate di aggiunta
+        await Promise.allSettled(availabilityPromises); // Usa allSettled per attendere tutte, anche in caso di errori
         console.log("Chiamate disponibilità completate.");
     }
 
+    if (partialErrorsOccurred) {
+        // Aggiorna il messaggio di errore principale per riflettere gli errori parziali
+        const combinedErrorMessages = [...studentAvailabilityErrorMessages, ...groupAvailabilityErrorMessages].join('; ');
+        error.value = `Salvataggio parziale. Errori: ${combinedErrorMessages}`;
+        // La notifica toast per ogni errore parziale è già stata inviata
+    }
+
+
     // Se non ci sono stati errori *parziali* durante l'aggiornamento della disponibilità, reindirizza
-    if (!error.value) {
+    if (!partialErrorsOccurred) {
         router.push({ name: 'rewards' }); // Torna alla lista
     } else {
-        // Se ci sono stati errori parziali, l'utente rimane sulla pagina per vederli
+        // L'utente rimane sulla pagina per vedere gli errori aggregati, le notifiche toast sono già state mostrate
         console.error("Errori parziali durante l'aggiornamento della disponibilità:", error.value);
     }
 
-  } catch (err: any) {
-    // Errore durante updateReward (errore principale, blocca il reindirizzamento)
+  } catch (err: any) { // Errore durante updateReward (errore principale)
     console.error("Errore durante l'aggiornamento della ricompensa (principale):", err);
+    let message;
     if (err.response?.data && typeof err.response.data === 'object') {
         const fieldErrors = Object.values(err.response.data).flat().join(' ');
-        error.value = fieldErrors || err.response.data.detail || 'Errore di validazione.';
+        message = fieldErrors || err.response.data.detail || 'Errore di validazione.';
     } else {
-        error.value = err.message || 'Errore sconosciuto durante il salvataggio.';
+        message = err.message || 'Errore sconosciuto durante il salvataggio.';
     }
+    error.value = message;
+    uiStore.addNotification({ title: 'Errore Salvataggio Ricompensa', message, type: 'error' });
   } finally {
     isSaving.value = false;
   }

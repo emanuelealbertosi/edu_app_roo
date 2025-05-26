@@ -1,10 +1,18 @@
 import { ref, computed } from 'vue';
 import { defineStore } from 'pinia';
-import type { Notification as ServerNotification, NotificationsState } from '@/types/notifications'; // Importa i nuovi tipi
-import { getNotificationsAPI, markNotificationAsReadAPI, markAllNotificationsAsReadAPI } from '@/api/notifications'; // Importa le nuove API
+import type { Notification as ServerNotification } from '@/types/notifications'; // Rimosso NotificationsState se non usato direttamente qui
+import { getNotificationsAPI, markNotificationAsReadAPI, markAllNotificationsAsReadAPI } from '@/api/notifications';
 
-// Interfaccia semplificata per il Badge (da allineare con l'API backend)
-// Duplichiamo l'interfaccia qui o la importiamo da un file condiviso
+// --- Interfaccia per Notifiche Toast Uniformi (come da piano) ---
+export interface UniformNotification {
+  id: string; // ID stringa
+  message: string;
+  type: 'success' | 'error' | 'info' | 'warning';
+  duration?: number; // in ms, default 5000ms
+  title?: string; // Titolo opzionale
+}
+
+// --- Interfacce Esistenti per Notifiche Badge e Server (MANTENUTE INVARIATE) ---
 interface BadgeInfo {
   id: number;
   name: string;
@@ -13,49 +21,67 @@ interface BadgeInfo {
   animation_class?: string | null;
 }
 
-// Interfaccia per una singola notifica TOAST locale
-export interface ToastNotification {
-  id: number;
+// Interfaccia per una singola notifica TOAST locale (USATA PER I BADGE)
+export interface LegacyToastNotification { // Rinominata per chiarezza
+  id: number; // ID numerico
   message: string;
   type: 'success' | 'error' | 'info' | 'warning' | 'badge';
   duration?: number;
-  icon?: string; // Per tipi standard
-  title?: string; // Per tipi standard
-  badgeInfo?: BadgeInfo; // Nuovo: campo specifico per le notifiche badge
+  icon?: string; 
+  title?: string; 
+  badgeInfo?: BadgeInfo;
 }
 
-// ID univoco per le notifiche TOAST
-let nextToastId = 0;
+let nextLegacyToastId = 0; // Per LegacyToastNotification
 
 export const useNotificationStore = defineStore('notification', () => {
-  // --- State per Notifiche TOAST Locali ---
-  const toastNotifications = ref<ToastNotification[]>([]);
-  const notifiedBadgeIds = ref(new Set<number>()); // Per tracciare badge già notificati via TOAST
+  // --- State per Notifiche TOAST Uniformi (NUOVO) ---
+  const uniformToastNotifications = ref<UniformNotification[]>([]);
 
-  // --- State per Notifiche persistenti dal Server (Campanella) ---
+  // --- State per Notifiche TOAST Locali Legacy (PER BADGE - MANTENUTO) ---
+  const legacyToastNotifications = ref<LegacyToastNotification[]>([]); // Rinominato ref
+  const notifiedBadgeIds = ref(new Set<number>()); 
+
+  // --- State per Notifiche persistenti dal Server (Campanella - MANTENUTO INVARIATO) ---
   const serverNotifications = ref<ServerNotification[]>([]);
   const unreadServerNotificationCount = ref<number>(0);
   const isLoadingServerNotifications = ref<boolean>(false);
   const serverNotificationsError = ref<string | null>(null);
 
-  // --- Azioni per Notifiche TOAST Locali ---
-  function addToastNotification(notification: Omit<ToastNotification, 'id'>) {
-    const id = nextToastId++;
+  // --- Azioni per Notifiche TOAST Uniformi (NUOVE) ---
+  function addUniformToastNotification(notification: Omit<UniformNotification, 'id'>) {
+    const id = Math.random().toString(36).substring(2, 9); // ID stringa
     const duration = notification.duration || 5000; // Default 5 secondi
 
-    toastNotifications.value.push({ ...notification, id });
-
+    uniformToastNotifications.value.push({ ...notification, id, duration });
+    
     setTimeout(() => {
-      removeToastNotification(id);
+      removeUniformToastNotification(id);
     }, duration);
   }
 
-  function addBadgeToastNotification(badge: BadgeInfo) {
+  function removeUniformToastNotification(id: string) {
+    uniformToastNotifications.value = uniformToastNotifications.value.filter(n => n.id !== id);
+  }
+
+  // --- Azioni per Notifiche TOAST Locali Legacy (PER BADGE - MANTENUTE E ADATTATE AL NOME DEL REF) ---
+  function addLegacyToastNotification(notification: Omit<LegacyToastNotification, 'id'>) { // Rinominata funzione per chiarezza
+    const id = nextLegacyToastId++;
+    const duration = notification.duration || 5000;
+
+    legacyToastNotifications.value.push({ ...notification, id }); // Usa legacyToastNotifications
+
+    setTimeout(() => {
+      removeLegacyToastNotification(id); // Usa la rimozione corretta
+    }, duration);
+  }
+
+  function addBadgeToastNotification(badge: BadgeInfo) { // MANTENUTA, usa addLegacyToastNotification
       if (notifiedBadgeIds.value.has(badge.id)) {
           console.log(`Badge ${badge.id} (${badge.name}) già notificato (toast), skip.`);
           return;
       }
-      addToastNotification({
+      addLegacyToastNotification({ // Chiama la versione legacy
           message: `Hai ottenuto il badge: ${badge.name}!`,
           type: 'badge',
           badgeInfo: badge,
@@ -64,11 +90,11 @@ export const useNotificationStore = defineStore('notification', () => {
       notifiedBadgeIds.value.add(badge.id);
   }
 
-  function removeToastNotification(id: number) {
-    toastNotifications.value = toastNotifications.value.filter(n => n.id !== id);
+  function removeLegacyToastNotification(id: number) { // Rinominata funzione per chiarezza
+    legacyToastNotifications.value = legacyToastNotifications.value.filter(n => n.id !== id); // Usa legacyToastNotifications
   }
 
-  // --- Getters per Notifiche persistenti dal Server ---
+  // --- Getters per Notifiche persistenti dal Server (MANTENUTI INVARIATI) ---
   const unreadServerNotifications = computed(() => 
     serverNotifications.value.filter(n => !n.is_read)
   );
@@ -77,21 +103,19 @@ export const useNotificationStore = defineStore('notification', () => {
     unreadServerNotificationCount.value > 0
   );
 
-  // --- Azioni per Notifiche persistenti dal Server ---
+  // --- Azioni per Notifiche persistenti dal Server (MANTENUTE INVARIATE, MA LE CHIAMATE A addToastNotification PER ERRORI VANNO AGGIORNATE) ---
   async function fetchServerNotifications(onlyUnread: boolean = false) {
     isLoadingServerNotifications.value = true;
     serverNotificationsError.value = null;
     try {
       const data = await getNotificationsAPI(onlyUnread);
-      // Se stiamo recuperando solo le non lette, potremmo voler solo aggiornare il conteggio
-      // e non sovrascrivere l'intero array se già popolato.
-      // Per semplicità iniziale, sovrascriviamo e ricalcoliamo.
       serverNotifications.value = data;
       unreadServerNotificationCount.value = data.filter(n => !n.is_read).length;
     } catch (error: any) {
       console.error('Failed to fetch server notifications:', error);
       serverNotificationsError.value = error.message || 'Errore nel recupero notifiche.';
-      // Mantenere i dati vecchi o svuotare? Per ora manteniamo.
+      // QUI: Usare il NUOVO sistema per notificare l'errore
+      addUniformToastNotification({ type: 'error', message: serverNotificationsError.value || 'Errore sconosciuto nel recupero notifiche.' });
     } finally {
       isLoadingServerNotifications.value = false;
     }
@@ -107,8 +131,8 @@ export const useNotificationStore = defineStore('notification', () => {
       }
     } catch (error: any) {
       console.error(`Failed to mark server notification ${notificationId} as read:`, error);
-      // Gestire l'errore, magari mostrando un toast di errore
-      addToastNotification({ type: 'error', message: 'Errore nel segnare la notifica come letta.' });
+      // QUI: Usare il NUOVO sistema per notificare l'errore
+      addUniformToastNotification({ type: 'error', message: (error as Error).message || 'Errore nel segnare la notifica come letta.' });
     }
   }
 
@@ -119,19 +143,25 @@ export const useNotificationStore = defineStore('notification', () => {
       unreadServerNotificationCount.value = 0;
     } catch (error: any) {
       console.error('Failed to mark all server notifications as read:', error);
-      addToastNotification({ type: 'error', message: 'Errore nel segnare tutte le notifiche come lette.' });
+      // QUI: Usare il NUOVO sistema per notificare l'errore
+      addUniformToastNotification({ type: 'error', message: (error as Error).message || 'Errore nel segnare tutte le notifiche come lette.' });
     }
   }
 
   return { 
-    // Toast notifications
-    toastNotifications, 
-    addToastNotification,
-    removeToastNotification,
-    addBadgeToastNotification,
+    // Notifiche Toast Uniformi (NUOVE)
+    uniformToastNotifications,
+    addUniformToastNotification,
+    removeUniformToastNotification,
+
+    // Notifiche Toast Legacy (PER BADGE - MANTENUTE)
+    legacyToastNotifications, // Espone il ref rinominato
+    addLegacyToastNotification, // Espone la funzione rinominata
+    removeLegacyToastNotification, // Espone la funzione rinominata
+    addBadgeToastNotification, // Questa rimane perché usa la logica legacy
     notifiedBadgeIds,
 
-    // Server (bell) notifications
+    // Notifiche Server (Campanella - MANTENUTE)
     serverNotifications,
     unreadServerNotificationCount,
     isLoadingServerNotifications,
@@ -139,7 +169,7 @@ export const useNotificationStore = defineStore('notification', () => {
     fetchServerNotifications,
     markServerNotificationAsRead,
     markAllServerNotificationsAsRead,
-    unreadServerNotifications, // getter
-    hasUnreadServerNotifications // getter
+    unreadServerNotifications, 
+    hasUnreadServerNotifications 
   };
 });

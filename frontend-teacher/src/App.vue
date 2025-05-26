@@ -7,6 +7,7 @@ import GlobalLoadingIndicator from '@/components/common/GlobalLoadingIndicator.v
 import BaseModal from '@/components/common/BaseModal.vue'; // CORRETTO: Importa BaseModal
 import AppFooter from '@/components/layout/AppFooter.vue'; // Importa il footer
 import { marked } from 'marked'; // Importa marked
+import UniformNotificationDisplay from '@/components/common/UniformNotificationDisplay.vue'; // Importa il nuovo componente notifiche
 // import NotificationContainer from '@/components/common/NotificationContainer.vue'; // Se esiste
 import {
   HomeIcon, // Dashboard
@@ -290,6 +291,7 @@ const toggleGestioneDidattica = () => {
 
 <template>
   <GlobalLoadingIndicator />
+<UniformNotificationDisplay />
   <!-- <NotificationContainer /> --> <!-- Se esiste -->
 
   <!-- Modale per le Policy -->

@@ -6,6 +6,7 @@ export interface Notification {
   message: string;
   type: 'success' | 'error' | 'info' | 'warning';
   duration?: number; // in ms
+title?: string; // Titolo opzionale per la notifica
 }
 
 export const useUiStore = defineStore('ui', () => {

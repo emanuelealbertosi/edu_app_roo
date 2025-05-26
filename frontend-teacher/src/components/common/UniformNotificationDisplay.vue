@@ -42,12 +42,13 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-// Assicurati che Notification sia importato se la sua definizione è nello store e usata esplicitamente
-import { useUiStore, type Notification } from '@/stores/ui';
+// Importa dallo store UI di frontend-teacher
+// L'interfaccia è definita come UniformNotification nello store, ma qui la importiamo come Notification per coerenza con il componente copiato.
+// TypeScript capirà che si riferisce a `UniformNotification` definita in `@/stores/ui`.
+import { useUiStore, type UniformNotification as Notification } from '@/stores/ui';
 
 const uiStore = useUiStore();
 
-// Tipizzazione esplicita per chiarezza, specialmente dopo modifiche all'interfaccia Notification
 const notifications = computed(() => uiStore.notifications as Notification[]);
 
 const removeNotification = (id: string) => {

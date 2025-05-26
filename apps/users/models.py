@@ -267,6 +267,18 @@ class Student(models.Model):
         """
         return check_password(raw_pin, self.pin_hash)
 
+    def is_managed_by(self, teacher_user):
+        """
+        Verifica se lo studente è gestito dal docente fornito,
+        controllando l'appartenenza ai gruppi di cui il docente è proprietario.
+        """
+        if not teacher_user or not hasattr(teacher_user, 'is_teacher') or not teacher_user.is_teacher:
+            return False
+        # student.group_memberships.all() ci dà tutte le iscrizioni ai gruppi dello studente
+        # membership.group ci dà l'istanza StudentGroup
+        # membership.group.owner è il docente proprietario del gruppo
+        return self.group_memberships.filter(group__owner=teacher_user).exists()
+
 
 class RegistrationToken(models.Model):
     """
@@ -304,7 +316,7 @@ class RegistrationToken(models.Model):
         help_text=_('Data e ora in cui il token è stato utilizzato per la registrazione.')
     )
     student = models.OneToOneField( # Un token può registrare un solo studente
-        Student,
+        'Student', # Riferimento stringa corretto
         on_delete=models.SET_NULL, # Se lo studente viene eliminato, non eliminare il token, ma scollega
         null=True,
         blank=True,
@@ -369,4 +381,3 @@ class RegistrationToken(models.Model):
 
         # Unisci la base URL e il path relativo
         return urljoin(base_url, registration_path)
-

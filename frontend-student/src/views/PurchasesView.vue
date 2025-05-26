@@ -48,13 +48,13 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="purchases-view px-4 md:px-8 py-8"> <!-- Rimosso container mx-auto, aggiunto padding laterale -->
+  <div class="purchases-view px-2 md:px-4 py-8"> <!-- Rimosso container mx-auto, aggiunto padding laterale -->
     <header class="purchases-header bg-accent text-neutral-lightest p-4 rounded-lg shadow-md mb-6"> <!-- Rimosso flex justify-between items-center -->
       <h1 class="text-2xl font-semibold flex items-center"><span class="text-3xl mr-3">📜</span> Storico Acquisti</h1>
       <!-- Pulsante "Torna alla Dashboard" rimosso -->
     </header>
 
-    <div class="container mx-auto"> <!-- Contenuto principale avvolto in container -->
+    <div class="w-full"> <!-- Contenuto principale avvolto in container -->
       <div v-if="isLoading" class="loading text-center py-10 text-neutral-dark">
       <p>Caricamento storico...</p>
     </div>

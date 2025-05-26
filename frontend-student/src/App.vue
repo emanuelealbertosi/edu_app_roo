@@ -5,6 +5,7 @@ import { useNotificationStore } from '@/stores/notification'; // Aggiunto Notifi
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router';
 import GlobalLoadingIndicator from '@/components/common/GlobalLoadingIndicator.vue';
 import NotificationContainer from '@/components/common/NotificationContainer.vue';
+import UniformNotificationDisplay from '@/components/common/UniformNotificationDisplay.vue'; // Per notifiche toast uniformi
 import ModalDialog from '@/components/common/ModalDialog.vue'; // Importa la modale
 import AppFooter from '@/components/layout/AppFooter.vue'; // Importa il nuovo footer
 import { marked } from 'marked'; // Importa marked
@@ -320,6 +321,7 @@ const handleContentInteraction = () => {
 </script>
 <template>
   <GlobalLoadingIndicator />
+<UniformNotificationDisplay /> <!-- Per notifiche toast uniformi -->
   <NotificationContainer />
 
   <!-- Modale per le Policy -->
