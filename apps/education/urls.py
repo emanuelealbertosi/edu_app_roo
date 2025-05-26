@@ -12,7 +12,8 @@ from .views import (
     # Nuovi ViewSet per Template Percorsi
     PathwayTemplateViewSet, PathwayQuizTemplateViewSet, TeacherQuizTemplateViewSet,
     TeacherQuestionTemplateViewSet, TeacherAnswerOptionTemplateViewSet, # Aggiungo i nuovi ViewSet nidificati
-    NotificationViewSet # NUOVO IMPORT PER NOTIFICHE
+    NotificationViewSet, # NUOVO IMPORT PER NOTIFICHE
+    QuizAttemptReviewView # Aggiunto per la revisione dei tentativi
 )
 
 # Router principale per le risorse top-level dell'app education
@@ -65,6 +66,7 @@ teacher_question_templates_router.register(r'options', TeacherAnswerOptionTempla
 # Combina tutti gli URL
 urlpatterns = [
     # URLs specifici per lo studente (devono precedere il router principale per matching corretto)
+path('attempts/<int:pk>/review/', QuizAttemptReviewView.as_view(), name='student-attempt-review'),
     # Il prefisso 'student/' verrà aggiunto in config/urls.py
     path('dashboard/quizzes/', StudentAssignedQuizzesView.as_view(), name='student-dashboard-quizzes'),
     path('dashboard/pathways/', StudentAssignedPathwaysView.as_view(), name='student-dashboard-pathways'),

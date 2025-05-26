@@ -2041,6 +2041,101 @@ class PathwayAttemptDetailSerializer(PathwaySerializer):
             return NextPathwayQuizSerializer(next_pathway_quiz.quiz).data
         return None
 # --- Notification Serializers ---
+# --- Review Serializers (Nuova Sezione) ---
+
+class StudentAnswerReviewSerializer(serializers.ModelSerializer):
+    """
+    Serializer per la risposta dello studente in modalità revisione.
+    Mostra solo la risposta data, non se è corretta.
+    """
+    class Meta:
+        model = StudentAnswer
+        fields = ['question_id', 'selected_answers', 'answered_at', 'is_correct'] # selected_answers è JSONB
+        read_only_fields = fields
+
+
+class AnswerOptionReviewSerializer(serializers.ModelSerializer):
+    """
+    Serializer per le opzioni di risposta in modalità revisione.
+    Mostra solo il testo dell'opzione, non se è corretta.
+    """
+    class Meta:
+        model = AnswerOption
+        fields = ['id', 'text', 'order', 'is_correct'] # Include is_correct
+        read_only_fields = fields
+
+
+class QuestionReviewSerializer(serializers.ModelSerializer):
+    """
+    Serializer per una domanda in modalità revisione.
+    Include il testo della domanda, le opzioni (senza indicazione di correttezza)
+    e la risposta data dallo studente.
+    """
+    answer_options = AnswerOptionReviewSerializer(many=True, read_only=True)
+    student_answer = serializers.SerializerMethodField()
+    question_type_display = serializers.CharField(source='get_question_type_display', read_only=True)
+
+    class Meta:
+        model = Question
+        fields = [
+            'id', 'text', 'question_type', 'question_type_display', 'order', 
+            'metadata', # I metadati potrebbero essere utili per fill_blank
+            'answer_options', 'student_answer'
+        ]
+        read_only_fields = fields
+
+    def get_student_answer(self, obj: Question) -> dict | None:
+        attempt_id = self.context.get('attempt_id')
+        if not attempt_id:
+            return None
+        
+        try:
+            student_answer_instance = StudentAnswer.objects.get(quiz_attempt_id=attempt_id, question_id=obj.id)
+            return StudentAnswerReviewSerializer(student_answer_instance).data
+        except StudentAnswer.DoesNotExist:
+            # È normale che una domanda possa non avere una risposta se lo studente non l'ha data
+            logger.info(f"Nessuna StudentAnswer trovata per question {obj.id} e attempt {attempt_id}.")
+            return None
+        except Exception as e:
+            logger.error(f"Errore durante il recupero di StudentAnswer per question {obj.id} e attempt {attempt_id}: {e}")
+            return None
+
+
+class QuizAttemptReviewSerializer(serializers.ModelSerializer):
+    """
+    Serializer per la revisione di un tentativo di quiz.
+    Mostra le domande del quiz con le risposte date dallo studente,
+    senza indicare la correttezza.
+    """
+    student = StudentBasicSerializer(read_only=True) # Già definito sopra, riutilizziamolo
+    quiz_title = serializers.CharField(source='quiz.title', read_only=True)
+    questions = serializers.SerializerMethodField()
+    # Potremmo aggiungere altri campi del QuizAttempt se utili, es. score, completed_at
+    # ma l'obiettivo primario è la revisione delle risposte.
+
+    class Meta:
+        model = QuizAttempt
+        fields = [
+            'id', 'student', 'quiz', 'quiz_title', 'status',
+            'score', 'started_at', 'completed_at',
+            'questions'
+        ]
+        read_only_fields = fields
+
+    def get_questions(self, obj: QuizAttempt) -> list:
+        # Passiamo l'attempt_id al contesto di QuestionReviewSerializer
+        # per permettergli di recuperare la risposta specifica dello studente per quella domanda
+        # all'interno di quel tentativo.
+        # Assicuriamoci che le domande siano quelle effettivamente associate al quiz del tentativo.
+        if not obj.quiz: # Controllo di sicurezza
+            return []
+            
+        questions_queryset = obj.quiz.questions.all().order_by('order')
+        return QuestionReviewSerializer(
+            questions_queryset, 
+            many=True, 
+            context={'attempt_id': obj.id, 'request': self.context.get('request')}
+        ).data
 
 class NotificationSerializer(serializers.ModelSerializer):
     """

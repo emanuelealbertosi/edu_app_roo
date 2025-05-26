@@ -1,4 +1,5 @@
 import apiClient from './config';
+import type { QuizAttemptReviewData } from '../types/education'; // Aggiunto per la revisione
 import type { StudentAnswerPayloadFillBlank, BlankDisplayConfig } from '../types/education'; // Import per FillBlank
 
 // Interfacce per TypeScript
@@ -222,6 +223,20 @@ const QuizService = {
       return response.data;
     } catch (error) {
       console.error(`Error completing attempt ${attemptId}:`, error);
+      throw error;
+    }
+  }, // Aggiunta virgola qui dopo il metodo completeAttempt
+
+  /**
+   * Ottiene i dettagli di un tentativo per la revisione (senza risposte corrette).
+   */
+  async getAttemptReviewDetails(attemptId: number): Promise<QuizAttemptReviewData> {
+    try {
+      // L'URL completo sarà gestito da apiClient, es. /api/student/attempts/{attemptId}/review/
+      const response = await apiClient.get(`student/attempts/${attemptId}/review/`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error fetching attempt review details for attempt ${attemptId}:`, error);
       throw error;
     }
   }

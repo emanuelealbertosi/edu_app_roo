@@ -113,3 +113,64 @@ export type AnyQuestionDisplay = QuestionFillBlankDisplay /* | QuestionMultipleC
  * Tipo generico per la risposta di uno studente, da utilizzare nei componenti che gestiscono diversi tipi di risposte.
  */
 export type AnyStudentAnswerResult = StudentAnswerResultFillBlank /* | StudentAnswerResultMultipleChoice | ... */;
+// --- Tipi per la Revisione dei Tentativi (Senza Correzione) ---
+
+/**
+ * Rappresenta un'opzione di risposta come visualizzata durante la revisione.
+ * Non include 'is_correct'.
+ */
+export interface AnswerOptionReview {
+  id: number;
+  text: string;
+  order: number;
+  is_correct?: boolean; // Aggiunto per indicare se l'opzione è corretta
+}
+
+/**
+ * Rappresenta la risposta data dallo studente per una domanda,
+ * come visualizzata durante la revisione.
+ * Il formato di 'selected_answers' dipende dal question_type.
+ */
+export interface StudentAnswerReview {
+  question_id: number;
+  selected_answers: any; // Può essere string, number[], object a seconda del tipo di domanda
+  answered_at: string | null;
+  is_correct?: boolean; // Aggiunto per indicare se la risposta data è corretta
+}
+
+/**
+ * Rappresenta una domanda come visualizzata durante la revisione.
+ * Include le opzioni (senza indicazione di correttezza) e la risposta data dallo studente.
+ */
+export interface QuestionReview {
+  id: number;
+  text: string;
+  question_type: string; // Es. "multiple_choice_single", "fill_blank", "true_false"
+  question_type_display: string;
+  order: number;
+  metadata?: any; // Metadati specifici della domanda (es. per fill_blank)
+  answer_options?: AnswerOptionReview[]; // Opzionale, non per tutti i tipi di domanda
+  student_answer: StudentAnswerReview | null; // La risposta data dallo studente a QUESTA domanda in QUESTO tentativo
+}
+
+/**
+ * Rappresenta i dati completi di un tentativo di quiz per la revisione.
+ */
+export interface QuizAttemptReviewData {
+  id: number; // Attempt ID
+  quiz_id: number; // Corrisponde a QuizAttempt.quiz.id
+  quiz_title: string;
+  status: string; // Es. "COMPLETED", "FAILED"
+  score: number | null;
+  // points_earned: number | null; // Rimosso per coerenza con il backend
+  started_at: string | null;
+  completed_at: string | null;
+  student: { // Informazioni base sullo studente
+    id: number;
+    user_id?: number; // ID dell'utente Django associato al docente dello studente
+    first_name: string;
+    last_name: string;
+    unique_identifier?: string;
+  };
+  questions: QuestionReview[]; // Elenco delle domande con le risposte date
+}

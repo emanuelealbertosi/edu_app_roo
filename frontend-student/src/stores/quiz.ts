@@ -1,25 +1,29 @@
 import { defineStore } from 'pinia';
 import QuizService from '@/api/quiz';
-import type { 
-  QuizDetails, 
-  QuizAttempt, 
-  AttemptDetails, 
+import type {
+  QuizDetails,
+  QuizAttempt,
+  AttemptDetails,
   Question,
   Answer
 } from '@/api/quiz';
+import type { QuizAttemptReviewData } from '@/types/education'; // Aggiunto per la revisione
 
 interface QuizState {
   currentQuiz: QuizDetails | null;
   currentAttempt: QuizAttempt | null;
   attemptDetails: AttemptDetails | null;
+currentAttemptReviewData: QuizAttemptReviewData | null; // NUOVO: Dati per la revisione
   currentQuestion: Question | null;
   loading: {
     quiz: boolean;
+attemptReview: boolean; // NUOVO: Flag di caricamento per la revisione
     attempt: boolean;
     question: boolean;
     answer: boolean;
   };
   error: string | null;
+  attemptReviewError: string | null; // NUOVO: Errore specifico per la revisione
   lastAnswerResult: {
     is_correct: boolean | null;
     message?: string;
@@ -32,13 +36,16 @@ export const useQuizStore = defineStore('quiz', {
     currentAttempt: null,
     attemptDetails: null,
     currentQuestion: null,
+    currentAttemptReviewData: null, // NUOVO
     loading: {
       quiz: false,
       attempt: false,
       question: false,
-      answer: false
+      answer: false,
+      attemptReview: false, // NUOVO
     },
     error: null,
+    attemptReviewError: null, // NUOVO
     lastAnswerResult: null
   }),
   
@@ -214,6 +221,30 @@ export const useQuizStore = defineStore('quiz', {
         this.loading.attempt = false;
       }
     },
+
+    /**
+     * Carica i dettagli di un tentativo per la revisione (senza risposte corrette).
+     */
+    async loadAttemptForReview(attemptId: number) {
+      this.loading.attemptReview = true;
+      this.attemptReviewError = null;
+      this.currentAttemptReviewData = null; // Resetta i dati precedenti
+
+      try {
+        // Assumendo che QuizService abbia un metodo getAttemptReviewDetails
+        this.currentAttemptReviewData = await QuizService.getAttemptReviewDetails(attemptId);
+      } catch (error) {
+        console.error(`Error loading attempt ${attemptId} for review:`, error);
+        // Potremmo voler distinguere gli errori di rete da quelli di API (es. 404, 403)
+        if (error instanceof Error) {
+            this.attemptReviewError = error.message || 'Errore nel caricamento della revisione del tentativo.';
+        } else {
+            this.attemptReviewError = 'Errore sconosciuto nel caricamento della revisione del tentativo.';
+        }
+      } finally {
+        this.loading.attemptReview = false;
+      }
+    },
     
     /**
      * Reset dello store
@@ -225,6 +256,8 @@ export const useQuizStore = defineStore('quiz', {
       this.currentQuestion = null;
       this.error = null;
       this.lastAnswerResult = null;
+      this.currentAttemptReviewData = null; // NUOVO
+      this.attemptReviewError = null; // NUOVO
     }
   }
 });

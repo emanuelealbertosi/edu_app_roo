@@ -7,6 +7,7 @@ import BaseModal from '@/components/common/BaseModal.vue'; // Importare la modal
 import QuizDetailsView from '@/views/QuizDetailsView.vue'; // Importare la vista dettagli
 import QuizAttemptView from '@/views/QuizAttemptView.vue'; // Importare la vista tentativo
 import QuizResultView from '@/views/QuizResultView.vue'; // Importare la vista risultati
+import QuizAttemptReviewModal from '@/components/quiz/QuizAttemptReviewModal.vue'; // NUOVO: Importa la modale di revisione
 import BaseButton from '@/components/common/BaseButton.vue'; // Importare BaseButton per il footer
 
 const props = defineProps<{
@@ -48,6 +49,10 @@ const attemptIdToContinue = ref<number | null>(null); // Ripristinato: ID del te
 // Stato per la modale dei risultati
 const attemptIdForResult = ref<number | null>(null);
 const isResultModalOpen = ref(false);
+
+// NUOVO: Stato per la modale di revisione
+const attemptIdForReview = ref<number | null>(null);
+const isReviewModalOpen = ref(false);
 
 // Computed per il titolo della modale dettagli (rinominato per chiarezza)
 // Computed per trovare il *tentativo* corrispondente all'ID del *quiz* selezionato
@@ -107,6 +112,21 @@ const handleAttemptCompleted = (attemptId: number) => {
 const closeResultModal = () => {
   isResultModalOpen.value = false;
   attemptIdForResult.value = null; // Reset immediato
+};
+
+// NUOVO: Funzioni per la modale di revisione
+const openReviewModal = (attemptId: number) => {
+  if (attemptId) { // Assicurati che attemptId sia valido
+    attemptIdForReview.value = attemptId;
+    isReviewModalOpen.value = true;
+  } else {
+    console.warn("[QuizList.vue] openReviewModal chiamato senza un attemptId valido.");
+  }
+};
+
+const closeReviewModal = () => {
+  isReviewModalOpen.value = false;
+  attemptIdForReview.value = null;
 };
 
 
@@ -310,13 +330,22 @@ onMounted(() => {
         </div>
 
         <!-- Footer della card con pulsante di azione -->
-        <div class="bg-gray-50 px-5 py-3 mt-auto">
+        <div class="bg-gray-50 px-5 py-3 mt-auto space-y-2">
           <button
             @click="handleQuizAction(attempt)"
             class="w-full text-center px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-medium rounded-md shadow-sm transition duration-150 ease-in-out"
             :disabled="getButtonDisabledState(attempt)"
           >
             {{ getButtonLabel(attempt) }}
+          </button>
+          
+          <!-- NUOVO: Pulsante "Rivedi Domande" -->
+          <button
+            v-if="(attempt.status === 'COMPLETED' || attempt.status === 'FAILED') && attempt.attempt_id"
+            @click="openReviewModal(attempt.attempt_id)"
+            class="w-full text-center px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-md shadow-sm transition duration-150 ease-in-out"
+          >
+            Rivedi Domande
           </button>
         </div>
       </div>
@@ -378,6 +407,13 @@ onMounted(() => {
         <BaseButton variant="primary" @click="closeResultModal">Chiudi</BaseButton>
       </template> -->
     </BaseModal>
+
+    <!-- NUOVO: Modale per la Revisione del Tentativo -->
+    <QuizAttemptReviewModal
+      :show="isReviewModalOpen"
+      :attempt-id="attemptIdForReview"
+      @close="closeReviewModal"
+    />
 
   </div>
 </template>

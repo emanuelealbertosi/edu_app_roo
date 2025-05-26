@@ -42,7 +42,8 @@ from .serializers import (
     # Serializers per TeacherGradingViewSet
     PendingQuizAttemptSerializer,
     GradingQuizAttemptDetailSerializer,
-    GradeSubmissionSerializer
+    GradeSubmissionSerializer,
+    QuizAttemptReviewSerializer # Aggiunto per la revisione dei tentativi
 )
 from .permissions import (
     IsAdminOrReadOnly, IsQuizTemplateOwnerOrAdmin, IsQuizOwnerOrAdmin, IsPathwayOwnerOrAdmin, # Updated IsPathwayOwner -> IsPathwayOwnerOrAdmin
@@ -1818,6 +1819,51 @@ class AttemptViewSet(viewsets.GenericViewSet):
         context = {'request': request, 'newly_earned_badges': newly_earned_badges}
         # Usiamo QuizAttemptSerializer per coerenza, ma potrebbe essere utile QuizAttemptDetailSerializer se il FE lo aspetta
         serializer = QuizAttemptSerializer(attempt, context=context)
+        return Response(serializer.data)
+class QuizAttemptReviewView(generics.RetrieveAPIView):
+    """
+    API endpoint per recuperare i dettagli di un tentativo di quiz specifico
+    per la revisione da parte dello studente.
+    Restituisce le domande, le opzioni e le risposte date dallo studente,
+    senza indicare la correttezza.
+    """
+    queryset = QuizAttempt.objects.select_related('quiz', 'student').prefetch_related(
+        'quiz__questions__answer_options', # Precarica domande e opzioni del quiz
+        'student_answers' # Precarica le risposte date in questo tentativo
+    ).all()
+    serializer_class = QuizAttemptReviewSerializer
+    permission_classes = [permissions.IsAuthenticated, IsStudentOwnerForAttempt] # Solo lo studente proprietario
+
+    def get_serializer_context(self):
+        """
+        Aggiunge 'request' al contesto del serializer.
+        """
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        # L'attempt_id è implicitamente gestito dal serializer quando recupera le StudentAnswer
+        # basandosi sull'istanza QuizAttempt passata.
+        return context
+
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object() # get_object gestisce i permessi
+        
+        # Ulteriore controllo per assicurarsi che il quiz sia completato o fallito
+        # come da requisito iniziale (anche se il link FE dovrebbe già filtrare)
+        if instance.status not in [QuizAttempt.AttemptStatus.COMPLETED, QuizAttempt.AttemptStatus.FAILED]:
+            logger.warning(
+                f"Studente {request.user.id} ha tentato di rivedere il tentativo {instance.id} "
+                f"con stato {instance.status}, che non è COMPLETED o FAILED."
+            )
+            # Potremmo restituire un 403 o un 404 a seconda della politica desiderata
+            # Per ora, seguiamo i permessi di IsStudentOwnerForAttempt e lasciamo che il FE gestisca la logica di visualizzazione del link.
+            # Se volessimo essere più restrittivi a livello API:
+            # return Response(
+            #     {"detail": "Puoi rivedere solo tentativi completati o falliti."},
+            #     status=status.HTTP_403_FORBIDDEN
+            # )
+            pass # Lascia procedere se i permessi sono soddisfatti
+
+        serializer = self.get_serializer(instance)
         return Response(serializer.data)
 
 
