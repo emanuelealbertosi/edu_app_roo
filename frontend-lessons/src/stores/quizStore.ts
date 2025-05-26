@@ -60,6 +60,7 @@ export const useQuizStore = defineStore('quiz', {
         }
         // Endpoint corretto per i docenti per recuperare i template quiz.
         const response = await apiClient.get(`/education/teacher/quiz-templates/${params.toString() ? '?' + params.toString() : ''}`);
+        console.log('[quizStore] fetchQuizTemplates API response.data:', JSON.parse(JSON.stringify(response.data)));
         this.quizTemplates = response.data as QuizTemplate[];
       } catch (err) {
         const error = err as any;

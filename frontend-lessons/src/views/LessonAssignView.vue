@@ -45,21 +45,14 @@
           <div v-if="loadingGroups" class="text-gray-500 italic">Caricamento gruppi...</div>
           <div v-else-if="errorGroups" class="text-red-600">{{ errorGroups }}</div>
           <div v-else-if="groups.length > 0">
-            <div class="space-y-2 max-h-60 overflow-y-auto border p-3 rounded-md">
-              <div v-for="group in groups" :key="group.id" class="flex items-center">
-                <input
-                  type="checkbox"
-                  :id="'group-' + group.id"
-                  :value="group.id"
-                  v-model="selectedGroupIds"
-                  class="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
-                />
-                <label :for="'group-' + group.id" class="ml-2 block text-sm text-gray-900">
-                  {{ group.name }}
-                </label>
-              </div>
-            </div>
-             <div class="text-sm text-gray-600 mt-2">
+            <button
+              type="button"
+              @click="isGroupModalOpen = true"
+              class="mb-3 px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            >
+              Seleziona Gruppi
+            </button>
+            <div class="text-sm text-gray-600">
               <span v-if="selectedGroupIds.length === 0">Nessun gruppo selezionato.</span>
               <span v-else-if="selectedGroupIds.length === 1">1 gruppo selezionato.</span>
               <span v-else>{{ selectedGroupIds.length }} gruppi selezionati.</span>
@@ -149,6 +142,15 @@
       @close="isStudentModalOpen = false"
       @update:selectedIds="updateSelectedStudents"
     />
+
+    <!-- Modale Selezione Gruppi -->
+    <GroupSelectionModal
+      :show="isGroupModalOpen"
+      :groups="groups"
+      :initial-selected-ids="selectedGroupIds"
+      @close="isGroupModalOpen = false"
+      @update:selectedIds="updateSelectedGroups"
+    />
   </div>
 </template>
 
@@ -161,7 +163,7 @@ import { useLessonStore } from '@/stores/lessons';
 import type { Lesson, Student, AssignmentResult } from '@/types/lezioni';
 import type { StudentGroup } from '@/types/groups';
 import StudentSelectionModal from '@/components/common/StudentSelectionModal.vue';
-// Potrebbe servire un GroupSelectionModal se la lista diventa lunga
+import GroupSelectionModal from '@/components/common/GroupSelectionModal.vue'; // Importa la nuova modale
 
 const route = useRoute()
 const router = useRouter(); // Istanzia il router
@@ -180,7 +182,7 @@ const assignmentAttempted = ref(false); // Flag per mostrare i messaggi di risul
 const assignmentError = ref<string | null>(null); // Errore generico dell'operazione
 const assignmentResultsSummary = ref<{ created: number; skipped: number; failed: number; details: string[] }>({ created: 0, skipped: 0, failed: 0, details: [] }); // Nuovo stato per riepilogo dettagliato
 const isStudentModalOpen = ref(false); // Stato per la modale studenti
-// Aggiungere isGroupModalOpen se si usa una modale per gruppi
+const isGroupModalOpen = ref(false); // Stato per la modale gruppi
 
 const loadingLesson = ref(true);
 const loadingStudents = ref(true);
@@ -346,6 +348,11 @@ const assignLessonToTargets = async () => {
 // Funzione per aggiornare gli studenti selezionati dalla modale
 const updateSelectedStudents = (newSelectedIds: number[]) => {
     selectedStudentIds.value = newSelectedIds;
+};
+
+// Funzione per aggiornare i gruppi selezionati dalla modale
+const updateSelectedGroups = (newSelectedIds: number[]) => {
+    selectedGroupIds.value = newSelectedIds;
 };
 
 // Rimosso computed isAssignmentPossible

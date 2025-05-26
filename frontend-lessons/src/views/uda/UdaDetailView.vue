@@ -175,6 +175,7 @@
             @move="handleMoveContent"
             @assign-lesson="handleAssignLesson"
             @edit-lesson="handleEditLesson"
+            @assign-quiz="handleAssignQuiz"
           ></UdaContentItemRenderer> <!-- Modificato in tag di chiusura esplicito -->
           <!--
             Event handlers (handleEditContent, etc.) and their logic need to be implemented
@@ -201,6 +202,23 @@
     @close="closeEditModal"
     @save="handleEditSave"
   ></LessonEditModal> <!-- CORRETTO: Tag di chiusura esplicito -->
+
+  <!-- Modale Assegna Lezione -->
+  <AssignLessonModal
+    :show="isAssignModalOpen"
+    :lesson-id="currentLessonIdToAssign"
+    @close="closeAssignModal"
+    @assignment-complete="handleAssignmentCompleted"
+  />
+
+  <!-- Modale Assegna Quiz (Placeholder) -->
+  <AssignQuizModal
+    v-if="isAssignQuizModalOpen"
+    :show="isAssignQuizModalOpen"
+    :quiz-template-id="currentQuizTemplateIdToAssign"
+    @close="closeAssignQuizModal"
+    @assignment-complete="handleQuizAssignmentCompleted"
+  />
 </template>
 
 <script setup lang="ts">
@@ -219,6 +237,8 @@ import { UDAContentType, UDATemplateContentType } from '@/types/uda'; // Rimosso
 import UdaContentItemRenderer from '@/components/uda/UdaContentItemRenderer.vue';
 import CollapsibleEditableSection from '@/components/uda/CollapsibleEditableSection.vue'; // IMPORTATO NUOVO COMPONENTE
 import LessonEditModal from '@/components/features/lezioni/LessonEditModal.vue'; // IMPORTATO MODALE
+import AssignLessonModal from '@/components/features/lezioni/AssignLessonModal.vue'; // IMPORTATO MODALE ASSEGNAZIONE
+import AssignQuizModal from '@/components/features/quiz/AssignQuizModal.vue'; // IMPORTATO MODALE ASSEGNAZIONE QUIZ
 import type { Lesson } from '@/types/lezioni'; // IMPORTATO TIPO Lesson
 import { useUiStore } from '@/stores/ui'; // CORRETTO: Importa da ui.ts
 import { PencilIcon } from '@heroicons/vue/24/outline';
@@ -241,6 +261,14 @@ const pageLoading = ref(true);
 const pageError = ref<string | null>(null);
 const isStatusUpdating = ref(false); // Ref per lo stato di aggiornamento dello status
 const lessonToEdit = ref<Lesson | null>(null); // Ref per la modale di modifica
+
+// Stato per la modale di assegnazione lezione
+const isAssignModalOpen = ref(false);
+const currentLessonIdToAssign = ref<number | null>(null);
+
+// Stato per la modale di assegnazione quiz
+const isAssignQuizModalOpen = ref(false);
+const currentQuizTemplateIdToAssign = ref<number | null>(null);
 
 // Computed property per accedere ai topics dallo store
 const allTopics = computed(() => topicStore.allTopics || []); // Accede alla proprietà esposta dallo store
@@ -394,6 +422,57 @@ const handleTeacherMarkedCompletedUpdate = (payload: { contentId: number, comple
 const handleActivityCompletedUpdate = (payload: { contentId: number, completed: boolean }) => {
   console.log('Activity completed update:', payload);
 };
+
+const handleAssignLesson = (lessonIdInput: number | string) => {
+  console.log(`Assign lesson with ID: ${lessonIdInput} from UdaDetailView`);
+  const idAsNumber = typeof lessonIdInput === 'string' ? parseInt(lessonIdInput, 10) : lessonIdInput;
+
+  if (isNaN(idAsNumber)) {
+    console.error(`Invalid lessonId: ${lessonIdInput}. Cannot open assign modal.`);
+    currentLessonIdToAssign.value = null;
+    // Potresti voler mostrare una notifica all'utente qui
+    uiStore.addNotification({ message: 'ID lezione non valido per l\'assegnazione.', type: 'error' });
+    return;
+  }
+  currentLessonIdToAssign.value = idAsNumber;
+  isAssignModalOpen.value = true;
+};
+
+const closeAssignModal = () => {
+  isAssignModalOpen.value = false;
+  currentLessonIdToAssign.value = null;
+};
+
+const handleAssignmentCompleted = () => {
+  uiStore.addNotification({ message: 'Lezione assegnata con successo!', type: 'success', duration: 3000 });
+  closeAssignModal();
+  // Potrebbe essere necessario ricaricare/aggiornare dati se l'assegnazione modifica lo stato visualizzato
+};
+
+const handleAssignQuiz = (quizTemplateIdInput: number | string) => {
+  console.log(`Assign quiz template with ID: ${quizTemplateIdInput} from UdaDetailView`);
+  const idAsNumber = typeof quizTemplateIdInput === 'string' ? parseInt(quizTemplateIdInput, 10) : quizTemplateIdInput;
+
+  if (isNaN(idAsNumber)) {
+    console.error(`Invalid quizTemplateId: ${quizTemplateIdInput}. Cannot open assign modal.`);
+    uiStore.addNotification({ message: 'ID template quiz non valido per l\'assegnazione.', type: 'error' });
+    return;
+  }
+  currentQuizTemplateIdToAssign.value = idAsNumber;
+  isAssignQuizModalOpen.value = true;
+};
+
+const closeAssignQuizModal = () => {
+  isAssignQuizModalOpen.value = false;
+  currentQuizTemplateIdToAssign.value = null;
+};
+
+const handleQuizAssignmentCompleted = () => {
+  uiStore.addNotification({ message: 'Quiz assegnato con successo!', type: 'success', duration: 3000 });
+  closeAssignQuizModal();
+  // Eventuale logica di refresh dati se necessario
+};
+
 
 // Funzione per gestire il cambio di stato
 const handleStatusChange = async (event: Event) => {
@@ -567,39 +646,6 @@ const handleSaveExportAnnotations = async (newHtml: string) => {
       throw e;
     }
   }
-};
-
-// Funzione per gestire il click sul bottone "Assegna"
-const handleAssignLesson = (lessonId: number) => {
-  if (!lessonId) {
-    console.error("ID Lezione non valido per l'assegnazione.");
-    uiStore.addNotification({ message: "ID Lezione non valido.", type: 'error' });
-    return;
-  }
-
-  const assignmentUrl = `/lezioni/${lessonId}/assegna`;
-  const lessonTitle = lessonStore.getLessonById(lessonId)?.title || `Lezione ${lessonId}`;
-  // const modalTitle = `Assegna ${lessonTitle}`; // Rimosso perché non utilizzato
-
-  // Naviga alla pagina di assegnazione nella stessa scheda usando router.push
-  router.push(assignmentUrl);
-  uiStore.addNotification({ message: `Navigazione alla pagina di assegnazione per '${lessonTitle}'.`, type: 'info', duration: 3000 });
-
-  // Codice commentato per eventuale implementazione futura di una modale (mantenuto per riferimento)
-  /*
-  // Verifica se uiStore ha un metodo per aprire modali generiche o iframe
-  if (typeof uiStore.openModal === 'function') { // Esempio: usare un metodo generico openModal
-    uiStore.openModal({
-      componentName: 'AssignLessonModal', // Un ipotetico componente wrapper per l'iframe o la logica di assegnazione
-      props: { lessonId: lessonId, url: assignmentUrl, title: modalTitle }
-    });
-  } else {
-    console.error("Nessun metodo per aprire modali trovato in uiStore.");
-    uiStore.addNotification({ message: "Impossibile aprire la modale di assegnazione.", type: 'error' });
-    // Fallback di emergenza se window.open fallisce o non è desiderato
-    // alert(`Apri manualmente: ${assignmentUrl}`);
-  }
-  */
 };
 
 // Funzione per gestire il click sul bottone "Modifica" Lezione -> Apre Modale

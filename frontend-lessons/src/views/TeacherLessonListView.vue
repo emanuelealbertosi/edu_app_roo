@@ -92,6 +92,13 @@
       @save="handleSave"
     />
 
+    <AssignLessonModal
+      :show="isAssignModalOpen"
+      :lesson-id="currentLessonIdToAssign"
+      @close="closeAssignModal"
+      @assignment-complete="handleAssignmentCompletion"
+    />
+
   </div>
 </template>
 
@@ -101,9 +108,11 @@ import { useRouter } from 'vue-router';
 import { useLessonStore } from '@/stores/lessons';
 import { useTopicStore } from '@/stores/topics';
 import { useSubjectStore } from '@/stores/subjects';
+import { useUiStore } from '@/stores/ui'; // Importa uiStore
 const searchQuery = ref('');
 import emitter from '@/eventBus'; // Importa l'event bus
 import LessonEditModal from '../components/features/lezioni/LessonEditModal.vue';
+import AssignLessonModal from '../components/features/lezioni/AssignLessonModal.vue'; // Importa la nuova modale
 const filteredLessons = computed(() => {
   const query = searchQuery.value.toLowerCase().trim();
   if (!query) {
@@ -130,12 +139,15 @@ import { PlusCircleIcon, PencilIcon, TrashIcon, DocumentTextIcon, UserPlusIcon }
 const lessonStore = useLessonStore();
 const topicStore = useTopicStore();
 const subjectStore = useSubjectStore();
+const uiStore = useUiStore(); // Istanzia uiStore
 const router = useRouter();
 
 const lessons = computed(() => lessonStore.lessons);
 
 const showAddModal = ref(false);
 const lessonToEdit = ref<Lesson | null>(null);
+const isAssignModalOpen = ref(false);
+const currentLessonIdToAssign = ref<number | null>(null);
 
 // Funzione chiamata dall'event bus per aprire il modale
 const handleOpenAddModalEvent = () => {
@@ -224,7 +236,29 @@ const handleSave = async (lessonData: { id?: number; title: string; topic: numbe
 };
 
 const gotoAssign = (lessonId: number) => {
-    router.push({ name: 'lesson-assign', params: { lessonId: lessonId.toString() } });
+    // router.push({ name: 'lesson-assign', params: { lessonId: lessonId.toString() } });
+    currentLessonIdToAssign.value = lessonId;
+    isAssignModalOpen.value = true;
+};
+
+const closeAssignModal = () => {
+  isAssignModalOpen.value = false;
+  currentLessonIdToAssign.value = null;
+};
+
+const handleAssignmentCompletion = (result: any) => {
+  // Qui puoi gestire il risultato dell'assegnazione, ad esempio mostrando una notifica
+  console.log('Risultato assegnazione dalla modale:', result);
+  if (result.error) {
+    uiStore.addNotification({ message: `Errore assegnazione: ${result.error}`, type: 'error' });
+  } else if (result.created > 0) {
+    uiStore.addNotification({ message: `${result.created} assegnazioni create con successo. Saltati: ${result.skipped}, Falliti: ${result.failed}.`, type: 'success' });
+  } else if (result.skipped > 0 || result.failed > 0) {
+     uiStore.addNotification({ message: `Nessuna nuova assegnazione. Saltati: ${result.skipped}, Falliti: ${result.failed}.`, type: 'warning' });
+  } else {
+    uiStore.addNotification({ message: 'Operazione di assegnazione completata, nessuna modifica effettuata.', type: 'info' });
+  }
+  // Non chiudiamo la modale qui, lo fa l'utente o la modale stessa dopo un successo chiaro.
 };
 
 const gotoContents = (lessonId: number) => {

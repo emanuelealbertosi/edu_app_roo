@@ -131,6 +131,18 @@
                <UserPlusIcon class="h-4 w-4" />
              </button>
           </div>
+          <!-- Pulsante Assegna Quiz -->
+          <div v-if="isUDAContext && (content.content_type === UDAContentType.QUIZ || content.content_type === UDATemplateContentType.QUIZ_TEMPLATE) && (content as QuizUDAContent).quiz_template && !props.isEditing" class="flex items-center space-x-1.5">
+            <button
+                @click="emitAssignQuiz"
+                type="button"
+                class="p-1.5 border border-transparent shadow-sm rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-green-500"
+                title="Assegna Quiz"
+            >
+                <UserPlusIcon class="h-4 w-4" />
+                <span class="sr-only">Assegna Quiz</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -173,7 +185,7 @@ import type {
 } from '@/types/uda';
 import { UDAContentType, UDATemplateContentType } from '@/types/uda';
 import { useUdaStore } from '@/stores/udaStore';
-import { CheckCircleIcon, XCircleIcon, PencilIcon, TrashIcon, PencilSquareIcon, DocumentTextIcon, UserPlusIcon } from '@heroicons/vue/24/outline';
+import { CheckCircleIcon, XCircleIcon, PencilIcon, TrashIcon, PencilSquareIcon, DocumentTextIcon, UserPlusIcon, PaperAirplaneIcon } from '@heroicons/vue/24/outline';
 
 import LessonContentDisplay from '@/components/uda/content-display/LessonContentDisplay.vue';
 import QuizContentDisplay from '@/components/uda/content-display/QuizContentDisplay.vue';
@@ -209,7 +221,7 @@ const props = defineProps({
   }
 });
 
-const emit = defineEmits(['edit', 'delete', 'move', 'update:teacher-marked-completed', 'update:activity-completed', 'assign-lesson', 'edit-lesson']);
+const emit = defineEmits(['edit', 'delete', 'move', 'update:teacher-marked-completed', 'update:activity-completed', 'assign-lesson', 'edit-lesson', 'assign-quiz']);
 
 const udaStore = useUdaStore();
 const isLoadingCompletion = ref(false);
@@ -344,6 +356,12 @@ const emitAssignLesson = () => {
 const emitEditLesson = () => {
   if (isUDAContext.value && props.content.content_type === UDAContentType.LESSON && props.content.lesson) {
     emit('edit-lesson', props.content.lesson);
+  }
+};
+
+const emitAssignQuiz = () => {
+  if (isUDAContext.value && (props.content.content_type === UDAContentType.QUIZ || props.content.content_type === UDATemplateContentType.QUIZ_TEMPLATE) && (props.content as QuizUDAContent).quiz_template) {
+    emit('assign-quiz', (props.content as QuizUDAContent).quiz_template);
   }
 };
 

@@ -71,7 +71,10 @@
           <!-- Tab Quiz -->
           <div v-show="activeTab === 'quizzes'">
             <h6 class="text-md font-semibold text-gray-700 mb-2">Seleziona Template Quiz</h6>
-            <div v-if="!quizTemplates.length" class="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded relative" role="alert">
+            <div v-if="errorLoadingContent" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+              {{ errorLoadingContent }}
+            </div>
+            <div v-else-if="!quizTemplates.length" class="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded relative" role="alert">
               Nessun template di quiz disponibile.
             </div>
             <ul v-else class="max-h-[40vh] overflow-y-auto border border-gray-300 rounded-md bg-white divide-y divide-gray-200">
@@ -133,7 +136,7 @@ const emit = defineEmits(['close', 'select']);
 const activeTab = ref<'lessons' | 'quizzes'>('lessons');
 const loading = ref(false);
 // lessons è ora una computed property
-const quizTemplates = ref<QuizTemplate[]>([]);
+// const quizTemplates = ref<QuizTemplate[]>([]); // Sostituito con computed
 const selectedItems = ref<RawSelectedContentItem[]>([]);
 const errorLoadingContent = ref<string | null>(null);
 const isConfirming = ref(false);
@@ -144,6 +147,7 @@ const uiStore = useUiStore();
 
 // lessons è ora una computed property che riflette direttamente lo store
 const lessons = computed(() => lessonStore.lessons);
+const quizTemplates = computed(() => quizStore.quizTemplates); // Aggiunta computed property per quizTemplates
 
 const loadInitialLessons = async () => {
   // Carica le lezioni solo se l'array nello store è vuoto all'inizio.
@@ -155,9 +159,12 @@ const loadInitialLessons = async () => {
 };
 
 const loadQuizTemplates = async () => {
-  await quizStore.fetchQuizTemplates();
-  quizTemplates.value = quizStore.quizTemplates;
-  console.log('[SelectExistingContentModal] Loaded quizTemplates:', JSON.parse(JSON.stringify(quizTemplates.value)));
+  // Chiama fetchQuizTemplates solo se lo store è vuoto.
+  // La computed property quizTemplates si aggiornerà automaticamente.
+  if (quizStore.quizTemplates.length === 0) {
+    await quizStore.fetchQuizTemplates();
+  }
+  // console.log('[SelectExistingContentModal] quizStore.quizTemplates (after potential fetch):', JSON.parse(JSON.stringify(quizStore.quizTemplates)));
 };
 
 onMounted(async () => {
@@ -167,7 +174,7 @@ onMounted(async () => {
     // Carica inizialmente le lezioni (o il tab attivo)
     if (activeTab.value === 'lessons') {
       await loadInitialLessons();
-    } else {
+    } else if (activeTab.value === 'quizzes') { // Essere espliciti
       await loadQuizTemplates();
     }
   } catch (error) {
@@ -193,9 +200,8 @@ watch(activeTab, async (newTab, oldTab) => {
         await lessonStore.fetchLessons();
       }
     } else if (newTab === 'quizzes') {
-      if (quizStore.quizTemplates.length === 0) { // Controlla lo store direttamente
-        await loadQuizTemplates();
-      }
+      // loadQuizTemplates ora gestisce internamente il controllo se fetchare o meno
+      await loadQuizTemplates();
     }
   } catch (error) {
     const errorMessage = (error instanceof Error) ? error.message : `Errore caricando ${newTab}.`;

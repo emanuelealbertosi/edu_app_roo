@@ -100,9 +100,8 @@ console.log('[DEBUG lessons.ts - WORKAROUND] Fine registrazione interceptor su l
 // Ora le definiamo qui o le adattiamo per usare localApiClient
 const fetchGroups = async () => {
  console.log('[DEBUG lessons.ts - WORKAROUND] Chiamata fetchGroups tramite localApiClient');
- // Questo endpoint era /groups/ (relativo a /api)
- // Assumendo che il backend gestisca i permessi per i gruppi
- return localApiClient.get('/groups/').then(res => res.data);
+ // L'endpoint corretto, come usato in fe-teacher e dovuto alla registrazione del router, è /groups/groups/
+ return localApiClient.get('/groups/groups/').then(res => res.data);
 };
 
 const assignLesson = async (lessonId: number, studentIds: number[], groupIds: number[]) => {
