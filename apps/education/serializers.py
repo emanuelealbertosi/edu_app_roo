@@ -110,6 +110,7 @@ class QuestionTemplateSerializer(serializers.ModelSerializer):
 class QuizTemplateSerializer(serializers.ModelSerializer):
     admin_username = serializers.CharField(source='admin.username', read_only=True, allow_null=True)
     teacher_username = serializers.CharField(source='teacher.username', read_only=True, allow_null=True)
+    question_templates = QuestionTemplateSerializer(many=True, read_only=True, source='questiontemplate_set') # Aggiunto per includere le domande
 
     class Meta:
         model = QuizTemplate
@@ -118,11 +119,13 @@ class QuizTemplateSerializer(serializers.ModelSerializer):
             'title', 'description',
             'subject', # Ripristinato CharField
             'topic',   # Ripristinato CharField
-            'metadata', 'created_at', 'card_background_color'
+            'metadata', 'created_at', 'card_background_color',
+            'question_templates' # Aggiunto il campo all'elenco dei campi
         ]
         read_only_fields = [
             'id', 'admin', 'admin_username', 'teacher', 'teacher_username',
             'created_at'
+            # 'question_templates' è implicitamente read_only a causa di QuestionTemplateSerializer
         ]
         # Rimosso extra_kwargs per _id
         # Rimosse definizioni subject_name, topic_name
@@ -939,24 +942,162 @@ class QuizTemplateUploadSerializer(serializers.Serializer):
     def _extract_text_from_pdf(self, file_obj: io.BytesIO) -> str:
         try:
             reader = PdfReader(file_obj)
-            text = ""
-            for page in reader.pages:
+            # Estrai tutto il testo grezzo pagina per pagina
+            raw_page_texts = []
+            for page_num, page in enumerate(reader.pages):
                 page_text = page.extract_text()
                 if page_text:
-                    text += page_text + "\n"
-            if not text:
-                 logger.warning("Nessun testo estratto dal PDF (template).")
-            return text
+                    raw_page_texts.append(page_text)
+                else:
+                    logger.debug(f"Nessun testo estratto dalla pagina PDF {page_num + 1} (template).")
+
+            if not raw_page_texts:
+                logger.warning("Nessun testo grezzo estratto da alcuna pagina del PDF (template).")
+                return ""
+
+            # Unisci il testo di tutte le pagine in un unico blocco
+            full_raw_text = "\n".join(raw_page_texts)
+            
+            # Dividi il testo grezzo in righe potenzialmente frammentate
+            fragmented_lines = full_raw_text.splitlines()
+            
+            reconstructed_lines = []
+            current_line_parts = []
+
+            # Definisci i pattern per l'inizio di una nuova sezione logica (domanda o opzione)
+            # Questi sono usati solo per la logica di unione, il parser principale ha i suoi.
+            # Si assume che una domanda inizi con "numero." e un'opzione con "lettera)" o "*lettera)".
+            # Questa è una semplificazione e potrebbe aver bisogno di aggiustamenti.
+            new_section_pattern = re.compile(r"^\s*((\d+\s*\.)|(\*?[a-zA-Z]\)\s*))")
+
+            for frag_line in fragmented_lines:
+                stripped_frag_line = frag_line.strip()
+                if not stripped_frag_line: # Salta le righe vuote risultanti dallo strip
+                    continue
+
+                # Se la parte corrente del buffer non è vuota E
+                # la nuova linea frammentata sembra l'inizio di una nuova sezione logica
+                # ALLORA finalizza la riga corrente nel buffer.
+                if current_line_parts and new_section_pattern.match(stripped_frag_line):
+                    reconstructed_lines.append(" ".join(current_line_parts))
+                    current_line_parts = [stripped_frag_line] # Inizia una nuova riga con il frammento corrente
+                else:
+                    # Altrimenti, aggiungi il frammento alla riga corrente in costruzione
+                    current_line_parts.append(stripped_frag_line)
+            
+            # Aggiungi l'ultima riga accumulata nel buffer
+            if current_line_parts:
+                reconstructed_lines.append(" ".join(current_line_parts))
+
+            if not reconstructed_lines:
+                logger.warning("Nessuna riga ricostruita dal testo del PDF (template).")
+                return ""
+            
+            final_text = "\n".join(reconstructed_lines)
+            logger.info(f"[_extract_text_from_pdf] Testo PDF ricostruito (prime 500 char): {final_text[:500]}")
+            return final_text
         except Exception as e:
-            logger.error(f"Errore estrazione testo PDF (template): {e}", exc_info=True)
-            raise ValidationError(f"Impossibile leggere il file PDF (template). Errore: {e}")
+            logger.error(f"Errore durante l'estrazione o la ricostruzione del testo PDF (template): {e}", exc_info=True)
+            raise ValidationError(f"Impossibile elaborare il file PDF (template). Errore: {e}")
 
     def _extract_text_from_docx(self, file_obj: io.BytesIO) -> str:
         try:
             document = DocxDocument(file_obj)
-            text = "\n".join([para.text for para in document.paragraphs if para.text])
-            if not text:
-                 logger.warning("Nessun testo estratto dal DOCX (template).")
+            processed_lines = []
+            question_counter = 1
+            # Regex per identificare una riga che inizia come un'opzione (A), *A), ecc.)
+            # Usato solo qui per decidere se anteporre un numero di domanda.
+            option_start_pattern = re.compile(r"^\s*(\*?[a-zA-Z]\))")
+            
+            logger.debug("[_extract_text_from_docx] Estraggo e processo testo dai paragrafi:")
+            for i, para in enumerate(document.paragraphs):
+                original_para_text = para.text
+                # Dividi il testo del paragrafo in righe individuali, poi processale
+                # Questo aiuta se un singolo paragrafo Word contiene più righe logiche (es. domanda + opzioni)
+                para_lines = original_para_text.splitlines()
+                
+                for line_num_in_para, line_text in enumerate(para_lines):
+                    stripped_line_text = line_text.strip()
+                    logger.debug(f"  Paragrafo {i}, Riga interna {line_num_in_para} (originale): '{line_text}'")
+                    logger.debug(f"  Paragrafo {i}, Riga interna {line_num_in_para} (stripped): '{stripped_line_text}'")
+
+                    if not stripped_line_text: # Salta righe completamente vuote
+                        continue
+
+                    # Se la riga NON sembra un'opzione, assumi sia una domanda e anteponi il contatore.
+                    # Questa è un'euristica forte.
+                    if not option_start_pattern.match(stripped_line_text):
+                        # Controlla se la riga precedente era un'opzione o se è la prima riga in assoluto
+                        # per decidere se incrementare il contatore.
+                        # Questa logica è imperfetta perché non sa se la "domanda" si estende su più righe.
+                        # Per ora, aggiungiamo il numero a ogni riga non-opzione.
+                        # Il parser _parse_quiz_text dovrà poi gestire correttamente queste righe numerate.
+                        # Una soluzione migliore sarebbe identificare l'inizio effettivo di una domanda.
+                        # Semplifichiamo: se non è un'opzione, la trattiamo come potenziale inizio di domanda.
+                        # Il parser _parse_quiz_text si aspetta "numero. testo"
+                        
+                        # Tentativo: anteponi il numero solo se la riga non inizia già con un numero seguito da punto.
+                        # Questo per evitare "1. 1. Testo" se l'utente ha scritto i numeri manualmente.
+                        if not re.match(r"^\s*\d+\s*\.", stripped_line_text):
+                             processed_line = f"{question_counter}. {stripped_line_text}"
+                             # Incrementa il contatore solo se abbiamo effettivamente aggiunto un numero
+                             # e se la riga precedente non era parte della stessa domanda (difficile da dire qui)
+                             # Per ora, incrementiamo sempre quando aggiungiamo un numero,
+                             # il parser a valle dovrà essere robusto.
+                             # Questa euristica è problematica se una domanda si estende su più righe.
+                             # La modifichiamo: il contatore si incrementa solo quando una riga *non* è un'opzione
+                             # e la riga *precedente* era un'opzione o non esisteva (inizio).
+                             # Questo è ancora complesso.
+                             #
+                             # Semplificazione drastica per ora:
+                             # Se la riga non è un'opzione, la consideriamo una domanda.
+                             # Il parser _parse_quiz_text si occuperà di raggruppare.
+                             # Il problema è che il parser si aspetta "1. Testo domanda" e poi le opzioni.
+                             # Se il testo del DOCX è:
+                             #   Testo domanda 1
+                             #   A) Opzione
+                             #   Testo domanda 2
+                             #   A) Opzione
+                             # Dobbiamo inserire "1. " e "2. "
+                             
+                             # Logica rivista:
+                             # Se la riga corrente non è un'opzione E
+                             # (la lista processed_lines è vuota OPPURE l'ultima riga aggiunta era un'opzione)
+                             # ALLORA considerala una nuova domanda.
+                             is_new_question_candidate = not option_start_pattern.match(stripped_line_text)
+                             
+                             if is_new_question_candidate:
+                                 # Controlla se l'ultima riga aggiunta era un'opzione o se è la prima riga
+                                 if not processed_lines or (processed_lines and option_start_pattern.match(processed_lines[-1].strip())):
+                                     # Evita di aggiungere "numero." se già presente
+                                     if not re.match(r"^\s*\d+\s*\.", stripped_line_text):
+                                         processed_line = f"{question_counter}. {stripped_line_text}"
+                                         question_counter += 1
+                                     else:
+                                         processed_line = stripped_line_text # Già numerata
+                                 else:
+                                     # Fa parte della domanda precedente (testo su più righe)
+                                     processed_line = stripped_line_text
+                             else: # È un'opzione
+                                 processed_line = stripped_line_text
+                        else: # La riga inizia già con "numero.", usala così com'è.
+                            processed_line = stripped_line_text
+                            # Tentativo di estrarre il numero per sincronizzare il contatore, se possibile
+                            match_num = re.match(r"^\s*(\d+)\s*\.", stripped_line_text)
+                            if match_num:
+                                question_counter = int(match_num.group(1)) + 1
+
+
+                    else: # La riga inizia come un'opzione
+                        processed_line = stripped_line_text
+                    
+                    processed_lines.append(processed_line)
+            
+            text = "\n".join(processed_lines)
+            if not text.strip():
+                 logger.warning("Nessun testo significativo estratto dal DOCX (template) dopo aver processato i paragrafi.")
+            else:
+                logger.info(f"[_extract_text_from_docx] Testo DOCX processato (prime 500 char): {text[:500]}")
             return text
         except Exception as e:
             logger.error(f"Errore estrazione testo DOCX (template): {e}", exc_info=True)
@@ -964,86 +1105,173 @@ class QuizTemplateUploadSerializer(serializers.Serializer):
 
     def _extract_text_from_md(self, file_obj: io.BytesIO) -> str:
         try:
-            md_content = file_obj.read().decode('utf-8')
-            text = re.sub('<[^<]+?>', '', md_parser.markdown(md_content)).strip()
-            if not text:
-                 logger.warning("Nessun testo estratto dal Markdown (template).")
+            # Leggi il contenuto del file MD come testo semplice
+            text = file_obj.read().decode('utf-8')
+            if not text.strip(): # Controlla se il testo è vuoto o solo spazi
+                 logger.warning("Nessun testo significativo estratto dal Markdown (template).")
+            else:
+                # Logga le prime 500 battute per debug
+                logger.info(f"[_extract_text_from_md] Testo MD estratto (prime 500 char): {text[:500]}")
             return text
         except Exception as e:
             logger.error(f"Errore estrazione testo Markdown (template): {e}", exc_info=True)
             raise ValidationError(f"Impossibile leggere il file Markdown (template). Errore: {e}")
 
     def _parse_quiz_text(self, text: str) -> list[dict]:
-        # Stessa logica di parsing di QuizUploadSerializer
-        questions = []
-        current_question = None
-        question_start_re = re.compile(r"^\s*(?:(\d+)\s*[.)])?\s*(.*)", re.MULTILINE)
-        option_re = re.compile(r"^\s*([A-Z])\s*[.)]\s*(.*)", re.MULTILINE)
-        empty_line_re = re.compile(r"^\s*$")
-        lines = text.splitlines()
-        question_counter = 0
+        """
+        Parses the extracted text to identify questions, their types, and options/answers.
+        Supports:
+        1. Multiple Choice (single/multiple correct)
+           1. Question text?
+           *A) Correct Option
+           B) Incorrect Option
+           *C) Another Correct Option (makes it multiple_choice_multiple)
+        2. Fill-in-the-Blank
+           2. Question with ___ blank and another ___ blank.
+           A) answer1_for_blank1;;alternative_answer1_for_blank1
+           B) answer1_for_blank2
+        3. Open Answer
+           3. Describe this open question.
 
-        for line in lines:
-            if empty_line_re.match(line):
-                continue
+        The 'order' field in the output corresponds to the question number found in the file.
+        """
+        final_questions = []
+        # Rimuove righe completamente vuote inizialmente e logga le prime righe
+        lines = [line for line in text.splitlines() if line.strip()]
+        logger.info(f"[_parse_quiz_text] Inizio parsing. Prime 10 righe (o meno) non vuote: {lines[:10]}")
+        if not lines:
+            logger.warning("[_parse_quiz_text] Nessuna riga non vuota nel testo fornito.")
+            return []
 
-            line_stripped = line.strip()
-            question_match = question_start_re.match(line)
-            option_match = option_re.match(line_stripped)
-            is_likely_question_start = question_match and question_match.group(1)
-            is_likely_option = option_match
+        question_pattern = re.compile(r"^\s*(\d+)\s*\.\s*(.+)") # Permette spazi tra numero e punto
+        option_pattern = re.compile(r"^\s*(\*?)([a-zA-Z])\)\s*(.+)")
 
-            if is_likely_question_start:
-                if current_question:
-                    questions.append(current_question)
-                question_number = int(question_match.group(1))
-                question_text = question_match.group(2).strip()
-                question_counter = question_number
-                current_question = {
-                    "text": question_text, "order": question_number, "options": [],
-                    "type": QuestionType.MULTIPLE_CHOICE_SINGLE
+        current_question_data = None
+        question_lines_buffer = [] # Buffer per le righe della domanda corrente (testo + opzioni)
+
+        def finalize_question(q_data, q_lines_buffer):
+            logger.debug(f"[_parse_quiz_text.finalize_question] Inizio finalizzazione per q_data: {q_data}, buffer: {q_lines_buffer}")
+            if not q_data:
+                logger.debug("[_parse_quiz_text.finalize_question] q_data è None, ritorno None.")
+                return None
+
+            # Pulisci il testo della domanda da eventuali escape sugli underscore
+            if q_data.get("text"):
+                original_text = q_data["text"]
+                # Sostituisce sequenze di '\_' con '_'
+                # Questo dovrebbe trasformare '\_\_\_' in '___' e '\_' in '_'
+                cleaned_text = original_text.replace('\\_', '_')
+                if cleaned_text != original_text:
+                    logger.info(f"[_parse_quiz_text.finalize_question] Testo domanda pulito da escape underscore. Originale: '{original_text[:100]}...', Pulito: '{cleaned_text[:100]}...'")
+                    q_data["text"] = cleaned_text
+            
+            question_text = q_data["text"] # Usa il testo potenzialmente pulito
+            is_fill_blank = "___" in question_text
+            
+            raw_options = []
+            for line_in_buffer in q_lines_buffer:
+                if option_pattern.match(line_in_buffer):
+                    raw_options.append(line_in_buffer)
+            logger.debug(f"[_parse_quiz_text.finalize_question] Raw options raccolte dal buffer: {raw_options}")
+
+            if is_fill_blank:
+                q_data["question_type"] = QuestionType.FILL_BLANK.value
+                blanks_answers_list = []
+                for raw_opt_line in raw_options:
+                    opt_match = option_pattern.match(raw_opt_line)
+                    if opt_match:
+                        answers_text = opt_match.group(3).strip()
+                        correct_answers_for_this_blank = [ans.strip() for ans in answers_text.split(";;")]
+                        blanks_answers_list.append(correct_answers_for_this_blank)
+                q_data["metadata"] = {"blanks": blanks_answers_list, "case_sensitive": False}
+                q_data["answer_options"] = []
+                logger.debug(f"[_parse_quiz_text.finalize_question] Tipo FILL_BLANK. Metadati: {q_data['metadata']}")
+            elif raw_options:
+                correct_answers_count = 0
+                option_order_counter = 0
+                parsed_options = []
+                for raw_opt_line in raw_options:
+                    opt_match = option_pattern.match(raw_opt_line)
+                    if opt_match:
+                        is_correct_marker = opt_match.group(1)
+                        option_text = opt_match.group(3).strip()
+                        is_correct = bool(is_correct_marker)
+                        if is_correct:
+                            correct_answers_count += 1
+                        option_order_counter += 1
+                        parsed_options.append({
+                            "text": option_text,
+                            "is_correct": is_correct,
+                            "order": option_order_counter
+                        })
+                
+                if parsed_options:
+                    q_data["answer_options"] = parsed_options
+                    if correct_answers_count > 1:
+                        q_data["question_type"] = QuestionType.MULTIPLE_CHOICE_MULTIPLE.value
+                    elif correct_answers_count == 1:
+                        q_data["question_type"] = QuestionType.MULTIPLE_CHOICE_SINGLE.value
+                    else:
+                        q_data["question_type"] = QuestionType.MULTIPLE_CHOICE_SINGLE.value
+                        logger.warning(f"[_parse_quiz_text.finalize_question] Domanda Multiple Choice '{q_data['text'][:50]}...' (ordine {q_data['order']}) ha opzioni ma nessuna segnata come corretta.")
+                    logger.debug(f"[_parse_quiz_text.finalize_question] Tipo MULTIPLE_CHOICE. Opzioni: {q_data['answer_options']}, Tipo finale: {q_data['question_type']}")
+                else:
+                    q_data["question_type"] = QuestionType.OPEN_ANSWER_MANUAL.value
+                    q_data["answer_options"] = []
+                    logger.debug(f"[_parse_quiz_text.finalize_question] Raw_options presenti ma nessuna opzione valida parsata. Tipo OPEN_ANSWER_MANUAL.")
+            else:
+                q_data["question_type"] = QuestionType.OPEN_ANSWER_MANUAL.value
+                q_data["answer_options"] = []
+                logger.debug(f"[_parse_quiz_text.finalize_question] No '___' e no raw_options. Tipo OPEN_ANSWER_MANUAL.")
+            
+            logger.debug(f"[_parse_quiz_text.finalize_question] Dati finalizzati: {q_data}")
+            return q_data
+
+        for line_idx, line_content in enumerate(lines):
+            line = line_content.strip()
+            logger.debug(f"[_parse_quiz_text] Processo riga {line_idx}: '{line}'")
+            
+            question_match = question_pattern.match(line)
+            if question_match:
+                logger.debug(f"[_parse_quiz_text] RIGA {line_idx} CORRISPONDE A QUESTION_PATTERN. Gruppi: {question_match.groups()}")
+                if current_question_data:
+                    logger.debug(f"[_parse_quiz_text] Finalizzo domanda precedente: {current_question_data.get('text')[:50]}...")
+                    processed_q = finalize_question(current_question_data, question_lines_buffer)
+                    if processed_q:
+                        final_questions.append(processed_q)
+                        logger.info(f"[_parse_quiz_text] AGGIUNTA DOMANDA PROCESSATA: {processed_q.get('text')[:50]}..., Tipo: {processed_q.get('question_type')}")
+                
+                question_number_str, question_text_from_line = question_match.groups()
+                current_question_data = {
+                    "text": question_text_from_line.strip(),
+                    "order": int(question_number_str),
+                    "answer_options": [], "metadata": {},
+                    "question_type": QuestionType.OPEN_ANSWER_MANUAL.value
                 }
-            elif is_likely_option and current_question:
-                option_letter = option_match.group(1)
-                option_text = option_match.group(2).strip()
-                current_question["options"].append({
-                    "text": option_text, "order": len(current_question["options"]) + 1, "is_correct": False
-                })
-            elif current_question:
-                 if current_question["options"] and not is_likely_question_start:
-                     current_question["options"][-1]["text"] += " " + line_stripped
-                 else:
-                     if current_question["options"] or not current_question["text"]:
-                         if current_question["text"]:
-                             questions.append(current_question)
-                         question_counter += 1
-                         current_question = {
-                             "text": line_stripped, "order": question_counter, "options": [],
-                             "type": QuestionType.MULTIPLE_CHOICE_SINGLE
-                         }
-                     else:
-                        current_question["text"] += " " + line_stripped
-            elif not current_question and line_stripped:
-                 question_counter += 1
-                 current_question = {
-                     "text": line_stripped, "order": question_counter, "options": [],
-                     "type": QuestionType.MULTIPLE_CHOICE_SINGLE
-                 }
+                question_lines_buffer = []
+                logger.debug(f"[_parse_quiz_text] Iniziata nuova domanda: {current_question_data}")
+            elif current_question_data:
+                logger.debug(f"[_parse_quiz_text] RIGA {line_idx} ('{line}') aggiunta al buffer per la domanda corrente: {current_question_data.get('text')[:50]}...")
+                question_lines_buffer.append(line)
+            else:
+                logger.debug(f"[_parse_quiz_text] RIGA {line_idx} ('{line}') ignorata (nessuna domanda corrente).")
+        
+        if current_question_data:
+            logger.debug(f"[_parse_quiz_text] Finalizzo l'ULTIMA domanda: {current_question_data.get('text')[:50]}...")
+            processed_q = finalize_question(current_question_data, question_lines_buffer)
+            if processed_q:
+                final_questions.append(processed_q)
+                logger.info(f"[_parse_quiz_text] AGGIUNTA ULTIMA DOMANDA PROCESSATA: {processed_q.get('text')[:50]}..., Tipo: {processed_q.get('question_type')}")
 
-        if current_question:
-            questions.append(current_question)
-
-        questions = [q for q in questions if q.get("text")]
-        questions.sort(key=lambda q: q.get("order", float('inf')))
-        for i, q in enumerate(questions):
-            q["order"] = i
-            if not q["options"]:
-                q["type"] = QuestionType.OPEN_ANSWER_MANUAL
-
-        if not questions:
-             raise ValidationError("Nessuna domanda valida trovata nel file. Verifica la formattazione.")
-
-        return questions
+        if not final_questions:
+            logger.warning("Nessuna domanda valida trovata nel file fornito dopo il parsing.")
+        else:
+            logger.info(f"[_parse_quiz_text] Parsing completato. Numero totale di domande trovate: {len(final_questions)}")
+            for i, fq in enumerate(final_questions):
+                 logger.debug(f"[_parse_quiz_text] Domanda finale {i+1}: {fq}")
+        
+        final_questions.sort(key=lambda q: q.get("order", float('inf')))
+        return final_questions
 
 
     @transaction.atomic
@@ -1111,9 +1339,9 @@ class QuizTemplateUploadSerializer(serializers.Serializer):
             question_template = QuestionTemplate(
                 quiz_template=quiz_template,
                 text=q_data['text'],
-                question_type=q_data['type'],
+                question_type=q_data['question_type'], # Utilizza la chiave corretta
                 order=q_data['order'],
-                metadata={}
+                metadata=q_data.get('metadata', {}) # Aggiungi i metadati parsati
             )
             questions_to_create.append(question_template)
 
@@ -1126,7 +1354,8 @@ class QuizTemplateUploadSerializer(serializers.Serializer):
                  logger.warning(f"Template Domanda '{q_data['text'][:50]}...' (ordine {q_data['order']}) non trovato dopo bulk_create. Impossibile aggiungere opzioni.")
                  continue
 
-             for opt_data in q_data['options']:
+             # Itera su 'answer_options' che è la chiave corretta dalla nuova logica di parsing
+             for opt_data in q_data.get('answer_options', []): # Usa .get con default lista vuota
                  option_template = AnswerOptionTemplate(
                      question_template=question_template_obj,
                      text=opt_data['text'],

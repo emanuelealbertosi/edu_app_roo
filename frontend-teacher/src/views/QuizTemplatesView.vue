@@ -29,6 +29,7 @@ import BaseButton from '@/components/common/BaseButton.vue';
 import BaseModal from '@/components/common/BaseModal.vue';
 import StudentSelectionModal from '@/components/features/assignment/StudentSelectionModal.vue';
 import GroupSelectionModal from '@/components/features/assignment/GroupSelectionModal.vue'; // Importa la nuova modale
+import QuizUploadForm from '@/components/QuizUploadForm.vue'; // Importa il componente per l'upload
 import { PlusCircleIcon, ArrowUpTrayIcon, XMarkIcon, CheckCircleIcon, PencilIcon, TrashIcon, PaperAirplaneIcon } from '@heroicons/vue/24/outline';
 
 const templates = ref<QuizTemplate[]>([]);
@@ -36,10 +37,11 @@ const isLoading = ref(false);
 const router = useRouter();
 const error = ref<string | null>(null);
 const showUploadForm = ref(false);
-const uploadFile = ref<File | null>(null);
-const uploadTitle = ref('');
-const isUploading = ref(false);
-const uploadError = ref<string | null>(null);
+// Le seguenti ref sono state rimosse perché gestite da QuizUploadForm.vue
+// const uploadFile = ref<File | null>(null);
+// const uploadTitle = ref('');
+// const isUploading = ref(false);
+// const uploadError = ref<string | null>(null);
 
 // --- Stato per la Modale di Assegnazione ---
 const isAssignModalOpen = ref(false);
@@ -155,42 +157,17 @@ const createNewQuizTemplate = () => {
 
 const toggleUploadForm = () => {
   showUploadForm.value = !showUploadForm.value;
-  uploadFile.value = null;
-  uploadTitle.value = '';
-  uploadError.value = null;
-  const fileInput = document.getElementById('templateFile') as HTMLInputElement;
-  if (fileInput) {
-      fileInput.value = '';
-  }
+  // Non è più necessario resettare i valori del form qui,
+  // QuizUploadForm gestirà il proprio stato.
 };
 
-const handleFileUpload = (event: Event) => {
-  const target = event.target as HTMLInputElement;
-  if (target.files && target.files[0]) {
-    uploadFile.value = target.files[0];
-    uploadError.value = null;
-  } else {
-    uploadFile.value = null;
-  }
-};
+// handleFileUpload e submitUploadForm sono stati rimossi
+// perché la logica di upload è ora in QuizUploadForm.vue
 
-const submitUploadForm = async () => {
-  if (!uploadFile.value || !uploadTitle.value) {
-    uploadError.value = 'Per favore, seleziona un file e inserisci un titolo.';
-    return;
-  }
-  isUploading.value = true;
-  uploadError.value = null;
-  try {
-    await uploadQuizTemplateFromFile(uploadFile.value, uploadTitle.value);
-    toggleUploadForm();
-    await loadTemplates();
-  } catch (err: any) {
-    console.error('Errore durante l\'upload del template:', err);
-    uploadError.value = `Errore upload: ${err.response?.data?.detail || err.response?.data?.file?.[0] || err.response?.data?.title?.[0] || err.message || 'Errore sconosciuto'}`;
-  } finally {
-    isUploading.value = false;
-  }
+const handleQuizUploadSuccess = async () => {
+  await loadTemplates();
+  toggleUploadForm(); // Chiude la sezione del form di upload
+  // Potresti voler mostrare un messaggio di successo globale qui, se necessario
 };
 
 // --- Funzioni per la Modale di Assegnazione ---
@@ -347,39 +324,18 @@ watch(assignmentTargetType, () => {
       </BaseButton>
     </div>
 
-    <div v-if="showUploadForm" class="upload-form mt-4 p-4 border border-neutral-DEFAULT rounded-lg bg-neutral-lightest shadow-sm mb-6">
-      <h2 class="text-lg font-semibold mb-3 text-neutral-darkest">Carica Template da File (.pdf, .docx, .md)</h2>
-      <form @submit.prevent="submitUploadForm">
-        <div class="mb-4">
-          <label for="templateTitle" class="block text-sm font-medium text-neutral-darker mb-1">Titolo del Template:</label>
-          <input type="text" id="templateTitle" v-model="uploadTitle" required class="shadow-sm focus:ring-primary focus:border-primary block w-full sm:text-sm border-neutral-DEFAULT rounded-md p-2">
-        </div>
-        <div class="mb-4">
-          <label for="templateFile" class="block text-sm font-medium text-neutral-darker mb-1">Seleziona File:</label>
-          <input type="file" id="templateFile" @change="handleFileUpload" accept=".pdf,.docx,.md" required class="block w-full text-sm text-neutral-darker file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 cursor-pointer">
-        </div>
-        <div class="flex justify-end space-x-3">
+    <div v-if="showUploadForm" class="upload-section mt-4 p-4 border border-neutral-DEFAULT rounded-lg bg-neutral-lightest shadow-sm mb-6">
+      <!-- Il titolo è ora gestito da QuizUploadForm -->
+      <QuizUploadForm @upload-successful="handleQuizUploadSuccess" />
+      <div class="mt-6 text-right">
            <BaseButton type="button" variant="secondary" @click="toggleUploadForm" class="flex items-center">
             <XMarkIcon class="h-5 w-5 mr-2" />
-            Annulla
+            Chiudi Sezione Upload
            </BaseButton>
-           <BaseButton type="submit" variant="success" :disabled="isUploading" class="flex items-center">
-             <span v-if="isUploading">
-               <svg class="animate-spin -ml-1 mr-2 h-5 w-5 inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-               </svg>
-               Caricamento...
-             </span>
-             <span v-else class="flex items-center">
-              <CheckCircleIcon class="h-5 w-5 mr-2" />
-              Carica Template
-             </span>
-           </BaseButton>
-        </div>
-        <p v-if="uploadError" class="text-error text-sm mt-3">{{ uploadError }}</p>
-      </form>
+      </div>
+      <!-- Eventuali messaggi di errore globali per l'upload potrebbero essere gestiti qui se QuizUploadForm non li copre tutti -->
     </div>
+
     <div v-if="isLoading" class="text-center py-10 text-neutral-dark">Caricamento template quiz...</div>
     <div v-else-if="error" class="bg-error/10 border border-error text-error px-4 py-3 rounded relative mb-6" role="alert">
        <strong class="font-bold">Errore!</strong>
