@@ -34,7 +34,10 @@ import {
   FolderIcon, // Per Corsi
   PuzzlePieceIcon, // Per UDA
   ChevronDoubleLeftIcon,
-  ChevronDoubleRightIcon
+  ChevronDoubleRightIcon,
+  ChevronUpIcon,
+  ChevronDownIcon,
+  WrenchScrewdriverIcon
 } from '@heroicons/vue/24/outline';
 
 const authStore = useAuthStore(); // Mantenuto per azione logout specifica
@@ -45,6 +48,10 @@ const isMobileMenuOpen = ref(false); // Stato per menu mobile
 const isSidebarExpandedState = ref(false); // Sidebar desktop espansa permanentemente
 const sidebarAsideRef = ref<HTMLElement | null>(null);
 const mobileMenuButtonRef = ref<HTMLElement | null>(null); // Ref per il bottone del menu mobile
+
+// Stati per sezioni menu contraibili
+const isManageQuizExpanded = ref(false);
+const isGestioneDidatticaExpanded = ref(false);
 
 const portalName = 'Portale Docente';
 
@@ -271,6 +278,14 @@ const handleContentInteraction = () => {
   }
 };
 
+const toggleManageQuiz = () => {
+  isManageQuizExpanded.value = !isManageQuizExpanded.value;
+};
+
+const toggleGestioneDidattica = () => {
+  isGestioneDidatticaExpanded.value = !isGestioneDidatticaExpanded.value;
+};
+
 </script>
 
 <template>
@@ -347,12 +362,60 @@ const handleContentInteraction = () => {
               <span class="ml-3 text-sm whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">Sfoglia Gruppi</span>
             </router-link>
           </li>
-           <!-- Quiz Templates -->
+          <!-- Gestione Quiz (Contraibile) -->
           <li class="mb-2">
-            <router-link :to="{ name: 'quiz-templates' }" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Quiz Templates">
-              <ClipboardDocumentListIcon class="h-5 w-5 flex-shrink-0" />
-              <span class="ml-3 text-sm whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">Quiz Templates</span>
-            </router-link>
+            <button @click="toggleManageQuiz" class="flex items-center justify-between w-full p-2 rounded hover:bg-secondary-light" title="Gestione Quiz" :aria-expanded="isManageQuizExpanded">
+              <div class="flex items-center">
+                <WrenchScrewdriverIcon class="h-5 w-5 flex-shrink-0" />
+                <span class="ml-3 text-sm whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">Gestione Quiz</span>
+              </div>
+              <ChevronDownIcon v-if="!isManageQuizExpanded" class="h-4 w-4 flex-shrink-0 transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }" />
+              <ChevronUpIcon v-else class="h-4 w-4 flex-shrink-0 transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }" />
+            </button>
+            <ul v-if="isManageQuizExpanded" class="pl-4 mt-1">
+              <!-- Quiz Templates -->
+              <li class="mb-2">
+                <router-link :to="{ name: 'quiz-templates' }" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Quiz Templates">
+                  <ClipboardDocumentListIcon class="h-5 w-5 flex-shrink-0" />
+                  <span class="ml-3 text-sm whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">Quiz Templates</span>
+                </router-link>
+              </li>
+              <!-- Quiz Assegnati -->
+              <li class="mb-2">
+                <router-link :to="{ name: 'assigned-quizzes' }" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Quiz Assegnati">
+                  <ClipboardDocumentCheckIcon class="h-5 w-5 flex-shrink-0" />
+                  <span class="ml-3 text-sm whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">Quiz Assegnati</span>
+                </router-link>
+              </li>
+              <!-- Ricompense -->
+              <li class="mb-2">
+                <router-link :to="{ name: 'rewards' }" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Ricompense">
+                  <GiftIcon class="h-5 w-5 flex-shrink-0" />
+                  <span class="ml-3 text-sm whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">Ricompense</span>
+                </router-link>
+              </li>
+              <!-- Valutazioni -->
+              <li class="mb-2">
+                <router-link :to="{ name: 'GradingDashboard' }" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Valutazioni">
+                  <PencilSquareIcon class="h-5 w-5 flex-shrink-0" />
+                  <span class="ml-3 text-sm whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">Valutazioni</span>
+                </router-link>
+              </li>
+              <!-- Consegne -->
+              <li class="mb-2">
+                <router-link :to="{ name: 'delivery' }" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Consegne">
+                  <InboxArrowDownIcon class="h-5 w-5 flex-shrink-0" />
+                  <span class="ml-3 text-sm whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">Consegne</span>
+                </router-link>
+              </li>
+              <!-- Progressi -->
+              <li class="mb-2">
+                <router-link :to="{ name: 'student-progress' }" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Progressi">
+                  <ChartBarIcon class="h-5 w-5 flex-shrink-0" />
+                  <span class="ml-3 text-sm whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">Progressi</span>
+                </router-link>
+              </li>
+            </ul>
           </li>
           <!-- Template Percorsi - Temporarily Hidden -->
           <!--
@@ -363,13 +426,6 @@ const handleContentInteraction = () => {
             </router-link>
           </li>
           -->
-          <!-- Quiz Assegnati -->
-          <li class="mb-2">
-            <router-link :to="{ name: 'assigned-quizzes' }" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Quiz Assegnati">
-              <ClipboardDocumentCheckIcon class="h-5 w-5 flex-shrink-0" />
-              <span class="ml-3 text-sm whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">Quiz Assegnati</span>
-            </router-link>
-          </li>
           <!-- Percorsi Assegnati - Temporarily Hidden -->
           <!--
           <li class="mb-2">
@@ -379,68 +435,48 @@ const handleContentInteraction = () => {
             </router-link>
           </li>
           -->
-          <!-- Ricompense -->
-          <li class="mb-2">
-            <router-link :to="{ name: 'rewards' }" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Ricompense">
-              <GiftIcon class="h-5 w-5 flex-shrink-0" />
-              <span class="ml-3 text-sm whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">Ricompense</span>
-            </router-link>
-          </li>
-          <!-- Valutazioni -->
-          <li class="mb-2">
-            <router-link :to="{ name: 'GradingDashboard' }" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Valutazioni">
-              <PencilSquareIcon class="h-5 w-5 flex-shrink-0" />
-              <span class="ml-3 text-sm whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">Valutazioni</span>
-            </router-link>
-          </li>
-          <!-- Consegne -->
-          <li class="mb-2">
-            <router-link :to="{ name: 'delivery' }" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Consegne">
-              <InboxArrowDownIcon class="h-5 w-5 flex-shrink-0" />
-              <span class="ml-3 text-sm whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">Consegne</span>
-            </router-link>
-          </li>
-          <!-- Progressi -->
-          <li class="mb-2">
-            <router-link :to="{ name: 'student-progress' }" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Progressi">
-              <ChartBarIcon class="h-5 w-5 flex-shrink-0" />
-              <span class="ml-3 text-sm whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">Progressi</span>
-            </router-link>
-          </li>
-
-          <!-- Sezione Gestione Didattica -->
-          <li class="mt-4 mb-1 px-2">
-            <span class="text-xs font-semibold text-neutral-400 whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">Gestione Didattica</span>
-          </li>
-          <li class="mb-2">
-            <router-link :to="{ name: 'EmbeddedTeacherSubjects' }" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Materie">
-              <TagIcon class="h-5 w-5 flex-shrink-0" />
-              <span class="ml-3 text-sm whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">Materie</span>
-            </router-link>
-          </li>
-          <li class="mb-2">
-            <router-link :to="{ name: 'EmbeddedTeacherTopics' }" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Argomenti">
-              <LightBulbIcon class="h-5 w-5 flex-shrink-0" />
-              <span class="ml-3 text-sm whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">Argomenti</span>
-            </router-link>
-          </li>
-          <li class="mb-2">
-            <router-link :to="{ name: 'EmbeddedTeacherLessonsList' }" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Lezioni">
-              <AcademicCapIcon class="h-5 w-5 flex-shrink-0" />
-              <span class="ml-3 text-sm whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">Lezioni</span>
-            </router-link>
-          </li>
-          <li class="mb-2">
-            <router-link :to="{ name: 'EmbeddedTeacherCourses' }" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Corsi">
-              <FolderIcon class="h-5 w-5 flex-shrink-0" />
-              <span class="ml-3 text-sm whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">Corsi</span>
-            </router-link>
-          </li>
-          <li class="mb-2">
-            <router-link :to="{ name: 'EmbeddedTeacherUdas' }" class="flex items-center p-2 rounded hover:bg-secondary-light" title="UDA">
-              <PuzzlePieceIcon class="h-5 w-5 flex-shrink-0" />
-              <span class="ml-3 text-sm whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">UDA</span>
-            </router-link>
+          <!-- Sezione Gestione Didattica (Contraibile) -->
+          <li class="mt-4 mb-1">
+            <button @click="toggleGestioneDidattica" class="flex items-center justify-between w-full p-2 rounded hover:bg-secondary-light" title="Gestione Didattica" :aria-expanded="isGestioneDidatticaExpanded">
+              <div class="flex items-center">
+                <BookOpenIcon class="h-5 w-5 flex-shrink-0" />
+                <span class="ml-3 text-sm whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">Gestione Didattica</span>
+              </div>
+              <ChevronDownIcon v-if="!isGestioneDidatticaExpanded" class="h-4 w-4 flex-shrink-0 text-neutral-400 transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }" />
+              <ChevronUpIcon v-else class="h-4 w-4 flex-shrink-0 text-neutral-400 transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }" />
+            </button>
+            <ul v-if="isGestioneDidatticaExpanded" class="pl-4 mt-1">
+              <li class="mb-2">
+                <router-link :to="{ name: 'EmbeddedTeacherSubjects' }" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Materie">
+                  <TagIcon class="h-5 w-5 flex-shrink-0" />
+                  <span class="ml-3 text-sm whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">Materie</span>
+                </router-link>
+              </li>
+              <li class="mb-2">
+                <router-link :to="{ name: 'EmbeddedTeacherTopics' }" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Argomenti">
+                  <LightBulbIcon class="h-5 w-5 flex-shrink-0" />
+                  <span class="ml-3 text-sm whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">Argomenti</span>
+                </router-link>
+              </li>
+              <li class="mb-2">
+                <router-link :to="{ name: 'EmbeddedTeacherLessonsList' }" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Lezioni">
+                  <AcademicCapIcon class="h-5 w-5 flex-shrink-0" />
+                  <span class="ml-3 text-sm whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">Lezioni</span>
+                </router-link>
+              </li>
+              <li class="mb-2">
+                <router-link :to="{ name: 'EmbeddedTeacherCourses' }" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Corsi">
+                  <FolderIcon class="h-5 w-5 flex-shrink-0" />
+                  <span class="ml-3 text-sm whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">Corsi</span>
+                </router-link>
+              </li>
+              <li class="mb-2">
+                <router-link :to="{ name: 'EmbeddedTeacherUdas' }" class="flex items-center p-2 rounded hover:bg-secondary-light" title="UDA">
+                  <PuzzlePieceIcon class="h-5 w-5 flex-shrink-0" />
+                  <span class="ml-3 text-sm whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">UDA</span>
+                </router-link>
+              </li>
+            </ul>
           </li>
         </ul>
       </nav>
@@ -502,12 +538,60 @@ const handleContentInteraction = () => {
                 <span class="ml-3 text-sm">Sfoglia Gruppi</span>
               </router-link>
             </li>
-             <!-- Quiz Templates -->
+            <!-- Gestione Quiz (Contraibile) -->
             <li class="mb-2">
-              <router-link :to="{ name: 'quiz-templates' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Quiz Templates">
-                <ClipboardDocumentListIcon class="h-5 w-5 flex-shrink-0" />
-                <span class="ml-3 text-sm">Quiz Templates</span>
-              </router-link>
+              <button @click="toggleManageQuiz" class="flex items-center justify-between w-full p-2 rounded hover:bg-secondary-light" title="Gestione Quiz" :aria-expanded="isManageQuizExpanded">
+                <div class="flex items-center">
+                  <WrenchScrewdriverIcon class="h-5 w-5 flex-shrink-0" />
+                  <span class="ml-3 text-sm">Gestione Quiz</span>
+                </div>
+                <ChevronDownIcon v-if="!isManageQuizExpanded" class="h-4 w-4 flex-shrink-0" />
+                <ChevronUpIcon v-else class="h-4 w-4 flex-shrink-0" />
+              </button>
+              <ul v-if="isManageQuizExpanded" class="pl-4 mt-1">
+                <!-- Quiz Templates -->
+                <li class="mb-2">
+                  <router-link :to="{ name: 'quiz-templates' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Quiz Templates">
+                    <ClipboardDocumentListIcon class="h-5 w-5 flex-shrink-0" />
+                    <span class="ml-3 text-sm">Quiz Templates</span>
+                  </router-link>
+                </li>
+                <!-- Quiz Assegnati -->
+                <li class="mb-2">
+                  <router-link :to="{ name: 'assigned-quizzes' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Quiz Assegnati">
+                    <ClipboardDocumentCheckIcon class="h-5 w-5 flex-shrink-0" />
+                    <span class="ml-3 text-sm">Quiz Assegnati</span>
+                  </router-link>
+                </li>
+                <!-- Ricompense -->
+                <li class="mb-2">
+                  <router-link :to="{ name: 'rewards' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Ricompense">
+                    <GiftIcon class="h-5 w-5 flex-shrink-0" />
+                    <span class="ml-3 text-sm">Ricompense</span>
+                  </router-link>
+                </li>
+                <!-- Valutazioni -->
+                <li class="mb-2">
+                  <router-link :to="{ name: 'GradingDashboard' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Valutazioni">
+                    <PencilSquareIcon class="h-5 w-5 flex-shrink-0" />
+                    <span class="ml-3 text-sm">Valutazioni</span>
+                  </router-link>
+                </li>
+                <!-- Consegne -->
+                <li class="mb-2">
+                  <router-link :to="{ name: 'delivery' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Consegne">
+                    <InboxArrowDownIcon class="h-5 w-5 flex-shrink-0" />
+                    <span class="ml-3 text-sm">Consegne</span>
+                  </router-link>
+                </li>
+                <!-- Progressi -->
+                <li class="mb-2">
+                  <router-link :to="{ name: 'student-progress' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Progressi">
+                    <ChartBarIcon class="h-5 w-5 flex-shrink-0" />
+                    <span class="ml-3 text-sm">Progressi</span>
+                  </router-link>
+                </li>
+              </ul>
             </li>
             <!-- Template Percorsi - Temporarily Hidden -->
             <!--
@@ -518,13 +602,6 @@ const handleContentInteraction = () => {
               </router-link>
             </li>
             -->
-            <!-- Quiz Assegnati -->
-            <li class="mb-2">
-              <router-link :to="{ name: 'assigned-quizzes' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Quiz Assegnati">
-                <ClipboardDocumentCheckIcon class="h-5 w-5 flex-shrink-0" />
-                <span class="ml-3 text-sm">Quiz Assegnati</span>
-              </router-link>
-            </li>
             <!-- Percorsi Assegnati - Temporarily Hidden -->
             <!--
             <li class="mb-2">
@@ -534,68 +611,48 @@ const handleContentInteraction = () => {
               </router-link>
             </li>
             -->
-            <!-- Ricompense -->
-            <li class="mb-2">
-              <router-link :to="{ name: 'rewards' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Ricompense">
-                <GiftIcon class="h-5 w-5 flex-shrink-0" />
-                <span class="ml-3 text-sm">Ricompense</span>
-              </router-link>
-            </li>
-            <!-- Valutazioni -->
-            <li class="mb-2">
-              <router-link :to="{ name: 'GradingDashboard' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Valutazioni">
-                <PencilSquareIcon class="h-5 w-5 flex-shrink-0" />
-                <span class="ml-3 text-sm">Valutazioni</span>
-              </router-link>
-            </li>
-            <!-- Consegne -->
-            <li class="mb-2">
-              <router-link :to="{ name: 'delivery' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Consegne">
-                <InboxArrowDownIcon class="h-5 w-5 flex-shrink-0" />
-                <span class="ml-3 text-sm">Consegne</span>
-              </router-link>
-            </li>
-            <!-- Progressi -->
-            <li class="mb-2">
-              <router-link :to="{ name: 'student-progress' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Progressi">
-                <ChartBarIcon class="h-5 w-5 flex-shrink-0" />
-                <span class="ml-3 text-sm">Progressi</span>
-              </router-link>
-            </li>
-
-            <!-- Sezione Gestione Didattica -->
-            <li class="mt-4 mb-1 px-2">
-              <span class="text-xs font-semibold text-neutral-400">Gestione Didattica</span>
-            </li>
-            <li class="mb-2">
-              <router-link :to="{ name: 'EmbeddedTeacherSubjects' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Materie">
-                <TagIcon class="h-5 w-5 flex-shrink-0" />
-                <span class="ml-3 text-sm">Materie</span>
-              </router-link>
-            </li>
-            <li class="mb-2">
-              <router-link :to="{ name: 'EmbeddedTeacherTopics' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Argomenti">
-                <LightBulbIcon class="h-5 w-5 flex-shrink-0" />
-                <span class="ml-3 text-sm">Argomenti</span>
-              </router-link>
-            </li>
-            <li class="mb-2">
-              <router-link :to="{ name: 'EmbeddedTeacherLessonsList' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Lezioni">
-                <AcademicCapIcon class="h-5 w-5 flex-shrink-0" />
-                <span class="ml-3 text-sm">Lezioni</span>
-              </router-link>
-            </li>
-            <li class="mb-2">
-              <router-link :to="{ name: 'EmbeddedTeacherCourses' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Corsi">
-                <FolderIcon class="h-5 w-5 flex-shrink-0" />
-                <span class="ml-3 text-sm">Corsi</span>
-              </router-link>
-            </li>
-            <li class="mb-2">
-              <router-link :to="{ name: 'EmbeddedTeacherUdas' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-secondary-light" title="UDA">
-                <PuzzlePieceIcon class="h-5 w-5 flex-shrink-0" />
-                <span class="ml-3 text-sm">UDA</span>
-              </router-link>
+            <!-- Sezione Gestione Didattica (Contraibile) -->
+            <li class="mt-4 mb-1">
+              <button @click="toggleGestioneDidattica" class="flex items-center justify-between w-full p-2 rounded hover:bg-secondary-light" title="Gestione Didattica" :aria-expanded="isGestioneDidatticaExpanded">
+                <div class="flex items-center">
+                  <BookOpenIcon class="h-5 w-5 flex-shrink-0" />
+                  <span class="ml-3 text-sm">Gestione Didattica</span>
+                </div>
+                <ChevronDownIcon v-if="!isGestioneDidatticaExpanded" class="h-4 w-4 flex-shrink-0 text-neutral-400" />
+                <ChevronUpIcon v-else class="h-4 w-4 flex-shrink-0 text-neutral-400" />
+              </button>
+              <ul v-if="isGestioneDidatticaExpanded" class="pl-4 mt-1">
+                <li class="mb-2">
+                  <router-link :to="{ name: 'EmbeddedTeacherSubjects' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Materie">
+                    <TagIcon class="h-5 w-5 flex-shrink-0" />
+                    <span class="ml-3 text-sm">Materie</span>
+                  </router-link>
+                </li>
+                <li class="mb-2">
+                  <router-link :to="{ name: 'EmbeddedTeacherTopics' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Argomenti">
+                    <LightBulbIcon class="h-5 w-5 flex-shrink-0" />
+                    <span class="ml-3 text-sm">Argomenti</span>
+                  </router-link>
+                </li>
+                <li class="mb-2">
+                  <router-link :to="{ name: 'EmbeddedTeacherLessonsList' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Lezioni">
+                    <AcademicCapIcon class="h-5 w-5 flex-shrink-0" />
+                    <span class="ml-3 text-sm">Lezioni</span>
+                  </router-link>
+                </li>
+                <li class="mb-2">
+                  <router-link :to="{ name: 'EmbeddedTeacherCourses' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Corsi">
+                    <FolderIcon class="h-5 w-5 flex-shrink-0" />
+                    <span class="ml-3 text-sm">Corsi</span>
+                  </router-link>
+                </li>
+                <li class="mb-2">
+                  <router-link :to="{ name: 'EmbeddedTeacherUdas' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded hover:bg-secondary-light" title="UDA">
+                    <PuzzlePieceIcon class="h-5 w-5 flex-shrink-0" />
+                    <span class="ml-3 text-sm">UDA</span>
+                  </router-link>
+                </li>
+              </ul>
             </li>
           </ul>
         </nav>
