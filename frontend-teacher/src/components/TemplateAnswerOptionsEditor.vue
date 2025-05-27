@@ -13,7 +13,7 @@
             type="checkbox"
             v-model="option.is_correct"
             :name="`correct_${questionTemplateId}`"
-            v-if="questionType === 'MC_MULTI'"
+            v-if="questionType === 'mc_multi'"
             @change="saveOption(option)" /> <!-- Spostato /> qui -->
            <!-- Rimossa riga 18 vuota -->
           <input
@@ -21,7 +21,7 @@
             :value="option.id"
             v-model="correctOptionId"
             :name="`correct_radio_${questionTemplateId}`"
-            v-if="questionType === 'MC_SINGLE' || questionType === 'TF'" /> <!-- Spostato /> qui -->
+            v-if="questionType === 'mc_single' || questionType === 'tf'" /> <!-- Spostato /> qui -->
           Corretta?
           <!-- Rimossa riga 26 vuota -->
         </label>
@@ -75,7 +75,7 @@ watch(() => props.questionTemplateId, loadOptions);
 
 // Watcher per aggiornare correctOptionId quando le opzioni cambiano (es. dopo caricamento)
 watch(options, (newOptions) => {
-    if (props.questionType === 'MC_SINGLE' || props.questionType === 'TF') {
+    if (props.questionType === 'mc_single' || props.questionType === 'tf') {
         const correctOption = newOptions.find(opt => opt.is_correct);
         correctOptionId.value = correctOption ? correctOption.id : null;
     }
@@ -83,7 +83,7 @@ watch(options, (newOptions) => {
 
 // Watcher per aggiornare is_correct quando correctOptionId cambia (per radio)
 watch(correctOptionId, (newCorrectId) => {
-    if (props.questionType === 'MC_SINGLE' || props.questionType === 'TF') {
+    if (props.questionType === 'mc_single' || props.questionType === 'tf') {
         options.value.forEach(opt => {
             const shouldBeCorrect = opt.id === newCorrectId;
             if (opt.is_correct !== shouldBeCorrect) {
@@ -158,7 +158,7 @@ async function saveOption(option: AnswerOptionTemplate) {
         options.value[index] = { ...options.value[index], ...updatedOption }; // Aggiorna con dati dal server
     }
      // Aggiorna correctOptionId se necessario (per radio button)
-     if ((props.questionType === 'MC_SINGLE' || props.questionType === 'TF') && updatedOption.is_correct) {
+     if ((props.questionType === 'mc_single' || props.questionType === 'tf') && updatedOption.is_correct) {
          correctOptionId.value = updatedOption.id;
      }
 

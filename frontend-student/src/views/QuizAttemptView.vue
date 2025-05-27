@@ -25,6 +25,7 @@ import OpenAnswerManualQuestion from '@/components/quiz/questions/OpenAnswerManu
 import { useAuthStore } from '@/stores/auth';
 import { useNotificationStore } from '@/stores/notification'; // Importa lo store notifiche
 import { useDashboardStore } from '@/stores/dashboard'; // <-- AGGIUNTO: Importa lo store dashboard
+import DOMPurify from 'dompurify';
 
 // Definiamo un tipo per lo stato interno di userAnswer.value, che riflette
 // i dati così come emessi dai componenti domanda.
@@ -390,6 +391,13 @@ const currentQuestionComponent = computed(() => {
   return componentRef ? componentRef.value : null; // Accedi a .value dello shallowRef
 });
 
+const sanitizedQuestionText = computed(() => {
+  if (currentQuestion.value?.text) {
+    return DOMPurify.sanitize(currentQuestion.value.text);
+  }
+  return '';
+});
+
 // Funzione per aggiornare la risposta dell'utente dal componente figlio
 function updateUserAnswer(answerData: UserProvidedAnswer | null) {
   userAnswer.value = answerData;
@@ -533,7 +541,7 @@ onUnmounted(() => {
                <!-- Blocco Domanda Effettivo -->
               <div :key="currentQuestion.id" class="question-container py-4 px-6"> <!-- Rimosso bg, border, padding extra, shadow -->
                 <h3 class="text-lg font-semibold text-purple-700 mb-3">Domanda {{ currentQuestion.order + 1 }}</h3>
-                <p v-if="currentQuestion.question_type !== 'fill_blank'" class="question-text text-gray-800 text-lg mb-5">{{ currentQuestion.text }}</p>
+                <div v-if="currentQuestion.question_type !== 'fill_blank'" class="question-text text-gray-800 text-lg mb-5 prose max-w-none dark:prose-invert" v-html="sanitizedQuestionText"></div>
 
                 <!-- Renderizza dinamicamente il componente domanda corretto -->
                 <div class="answer-area">

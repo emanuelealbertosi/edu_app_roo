@@ -1,9 +1,27 @@
 <template>
   <li class="template-question-editor bg-white p-3 md:p-4 rounded-lg shadow border border-neutral-DEFAULT flex justify-between items-center">
     <div class="question-info flex-grow mr-3 md:mr-4">
-      <span class="order font-semibold text-neutral-dark">({{ question.order }})</span>
-      <span class="text ml-2 text-neutral-darkest">{{ question.text }}</span>
-      <span class="type ml-2 text-xs px-2 py-0.5 rounded-full bg-primary-lightest text-primary-dark font-medium">{{ question.question_type_display || question.question_type }}</span>
+      <div>
+        <span class="order font-semibold text-neutral-dark">({{ question.order }})</span>
+        <span class="text ml-2 text-neutral-darkest">{{ question.text }}</span> <!-- Potrebbe essere necessario troncare o gestire l'HTML qui se il testo diventa troppo lungo -->
+        <span class="type ml-2 text-xs px-2 py-0.5 rounded-full bg-primary-lightest text-primary-dark font-medium">{{ question.question_type_display || question.question_type }}</span>
+      </div>
+      <div class="additional-info text-xs text-neutral-medium mt-1 ml-2 flex space-x-3">
+        <span v-if="question.num_answer_options !== undefined">Opzioni: {{ question.num_answer_options }}</span>
+        <span v-if="question.correct_answers_status && question.correct_answers_status !== 'N/A'">
+          Corrette: <span :class="{
+            'text-success': question.correct_answers_status === 'OK',
+            'text-warning': question.correct_answers_status === 'PARTIAL', // Se implementeremo PARTIAL
+            'text-error': question.correct_answers_status === 'MISSING'
+          }">{{ question.correct_answers_status }}</span>
+        </span>
+        <span v-if="question.fill_blank_status && question.fill_blank_status !== 'N/A' && (question.question_type === 'fill_blank' || question.question_type === 'FILL_BLANK')">
+          Fill-Blank: <span :class="{
+            'text-success': question.fill_blank_status === 'OK',
+            'text-error': question.fill_blank_status === 'MISSING'
+          }">{{ question.fill_blank_status }}</span>
+        </span>
+      </div>
     </div>
     <div class="question-actions flex items-center space-x-2 md:space-x-3">
       <button

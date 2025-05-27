@@ -222,7 +222,7 @@
 </template>
 
 <script setup lang="ts">
-import { useRoute, useRouter } from 'vue-router';
+import { useRoute } from 'vue-router';
 import { onMounted, computed, ref } from 'vue';
 import { useUdaStore } from '@/stores/udaStore';
 import { useCourseStore } from '@/stores/courseStore';
@@ -244,7 +244,7 @@ import { useUiStore } from '@/stores/ui'; // CORRETTO: Importa da ui.ts
 import { PencilIcon } from '@heroicons/vue/24/outline';
 
 const route = useRoute();
-const router = useRouter();
+// const router = useRouter(); // Rimosso perché non utilizzato
 const udaStore = useUdaStore();
 const courseStore = useCourseStore(); // Istanzia course store
 const subjectStore = useSubjectStore();

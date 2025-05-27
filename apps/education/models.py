@@ -19,11 +19,11 @@ logger = logging.getLogger(__name__)
 
 # Choices for Question Types (consistent with design doc)
 class QuestionType(models.TextChoices):
-    MULTIPLE_CHOICE_SINGLE = 'MC_SINGLE', _('Multiple Choice (Single Answer)')
-    MULTIPLE_CHOICE_MULTIPLE = 'MC_MULTI', _('Multiple Choice (Multiple Answers)')
-    TRUE_FALSE = 'TF', _('True/False')
-    FILL_BLANK = 'fill_blank', _('Fill in the Blank')
-    OPEN_ANSWER_MANUAL = 'OPEN_MANUAL', _('Open Answer (Manual Grading)')
+    MULTIPLE_CHOICE_SINGLE = 'mc_single', _('Multiple Choice (Single Answer)')
+    MULTIPLE_CHOICE_MULTIPLE = 'mc_multi', _('Multiple Choice (Multiple Answers)')
+    TRUE_FALSE = 'tf', _('True/False')
+    FILL_BLANK = 'fill_blank', _('Fill in the Blank') # Già minuscolo
+    OPEN_ANSWER_MANUAL = 'open_manual', _('Open Answer (Manual Grading)')
 
 
 # --- Template Models (Created by Admin) ---

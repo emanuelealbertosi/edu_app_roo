@@ -185,7 +185,7 @@ import type {
 } from '@/types/uda';
 import { UDAContentType, UDATemplateContentType } from '@/types/uda';
 import { useUdaStore } from '@/stores/udaStore';
-import { CheckCircleIcon, XCircleIcon, PencilIcon, TrashIcon, PencilSquareIcon, DocumentTextIcon, UserPlusIcon, PaperAirplaneIcon } from '@heroicons/vue/24/outline';
+import { CheckCircleIcon, XCircleIcon, PencilIcon, TrashIcon, PencilSquareIcon, DocumentTextIcon, UserPlusIcon } from '@heroicons/vue/24/outline';
 
 import LessonContentDisplay from '@/components/uda/content-display/LessonContentDisplay.vue';
 import QuizContentDisplay from '@/components/uda/content-display/QuizContentDisplay.vue';

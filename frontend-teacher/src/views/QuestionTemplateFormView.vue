@@ -23,17 +23,17 @@
     <form v-else @submit.prevent="saveQuestionTemplate" class="space-y-4">
       <div class="form-group">
         <label for="text" class="block text-sm font-medium text-gray-700 mb-1">Testo Domanda:</label>
-        <textarea id="text" v-model="questionData.text" required rows="4" class="mt-1 block w-full rounded-md border border-gray-400 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"></textarea>
+        <WysiwygEditor id="text" v-model="questionData.text" required />
       </div>
 
       <div class="form-group">
         <label for="question_type" class="block text-sm font-medium text-gray-700 mb-1">Tipo Domanda:</label>
         <select id="question_type" v-model="questionData.question_type" required class="mt-1 block w-full rounded-md border border-gray-400 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
-          <option value="MC_SINGLE">Scelta Multipla (Risposta Singola)</option>
-          <option value="MC_MULTI">Scelta Multipla (Risposte Multiple)</option>
-          <!-- <option value="TF">Vero/Falso</option> RIMOSSO -->
-          <option value="FILL_BLANK">Completamento Spazi Vuoti</option>
-          <option value="OPEN_MANUAL">Risposta Aperta (Correzione Manuale)</option>
+          <option value="mc_single">Scelta Multipla (Risposta Singola)</option>
+          <option value="mc_multi">Scelta Multipla (Risposte Multiple)</option>
+          <!-- <option value="tf">Vero/Falso</option> RIMOSSO -->
+          <option value="fill_blank">Completamento Spazi Vuoti</option>
+          <option value="open_manual">Risposta Aperta (Correzione Manuale)</option>
         </select>
       </div>
 
@@ -106,6 +106,7 @@ import {
     type QuestionTemplate, type QuestionTemplatePayload
 } from '@/api/templateQuestions';
 import TemplateAnswerOptionsEditor from '@/components/TemplateAnswerOptionsEditor.vue';
+import WysiwygEditor from '@/components/common/WysiwygEditor.vue'; // Importa il WysiwygEditor
 
 // Props & Emits per la modalità modale
 const props = defineProps({
@@ -149,12 +150,12 @@ const hasNextQuestion = computed(() => currentQuestionIndex.value !== -1 && curr
 // Rimosse variabili per metadata JSON manuale
 
 // Tipi di domanda che usano opzioni
-const OPTION_BASED_TYPES = ['MC_SINGLE', 'MC_MULTI']; // TF Rimosso
+const OPTION_BASED_TYPES = ['mc_single', 'mc_multi']; // TF Rimosso, valori in minuscolo
 const isOptionBasedType = computed(() => OPTION_BASED_TYPES.includes(questionData.question_type ?? '')); // Fallback a stringa vuota
 
 const questionData = reactive<Partial<QuestionTemplatePayload>>({ // Usiamo Partial per i dati iniziali
   text: '',
-  question_type: 'MC_SINGLE', // Default
+  question_type: 'mc_single', // Default in minuscolo
   metadata: {}, // Mantenuto per struttura dati, ma non più editabile manualmente qui
 });
 
@@ -290,7 +291,7 @@ onMounted(async () => {
 // Funzione helper per resettare i dati del form
 const resetFormData = () => {
     questionData.text = '';
-    questionData.question_type = 'MC_SINGLE';
+    questionData.question_type = 'mc_single'; // Default in minuscolo
     questionData.metadata = {};
 };
 

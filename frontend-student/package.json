@@ -20,6 +20,7 @@
     "@heroicons/vue": "^2.2.0",
     "@types/marked": "^5.0.2",
     "axios": "^1.8.4",
+    "dompurify": "^3.2.6",
     "marked": "^15.0.11",
     "pinia": "^3.0.1",
     "pinia-plugin-persistedstate": "^4.2.0",
@@ -29,6 +30,7 @@
   "devDependencies": {
     "@playwright/test": "^1.51.0",
     "@tsconfig/node22": "^22.0.0",
+    "@types/dompurify": "^3.0.5",
     "@types/jsdom": "^21.1.7",
     "@types/node": "^22.13.9",
     "@vitejs/plugin-vue": "^5.2.1",

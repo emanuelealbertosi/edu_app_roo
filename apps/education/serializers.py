@@ -60,14 +60,44 @@ class QuestionTemplateSerializer(serializers.ModelSerializer):
         read_only=True
     )
     question_type_display = serializers.CharField(source='get_question_type_display', read_only=True)
+    num_answer_options = serializers.SerializerMethodField()
+    correct_answers_status = serializers.SerializerMethodField()
+    fill_blank_status = serializers.SerializerMethodField()
 
     class Meta:
         model = QuestionTemplate
         fields = [
             'id', 'quiz_template', 'text', 'question_type', 'question_type_display',
-            'order', 'metadata', 'answer_options'
+            'order', 'metadata', 'answer_options',
+            'num_answer_options', 'correct_answers_status', 'fill_blank_status'
         ]
         read_only_fields = ['quiz_template']
+
+    def get_num_answer_options(self, obj: QuestionTemplate) -> int:
+        return obj.answer_option_templates.count()
+
+    def get_correct_answers_status(self, obj: QuestionTemplate) -> str:
+        # Assicurati che QuestionType sia accessibile qui, potrebbe essere necessario importarlo
+        # from .models import QuestionType (se non già importato globalmente nel file)
+        if obj.question_type in [QuestionType.MULTIPLE_CHOICE_SINGLE.value, QuestionType.TRUE_FALSE.value]:
+            if obj.answer_option_templates.filter(is_correct=True).exists():
+                return "OK"
+            return "MISSING"
+        elif obj.question_type == QuestionType.MULTIPLE_CHOICE_MULTIPLE.value:
+            if obj.answer_option_templates.filter(is_correct=True).exists():
+                return "OK" # Potrebbe essere "PARTIAL" se non tutte le corrette sono definite, ma per ora OK/MISSING
+            return "MISSING"
+        return "N/A" # Not Applicable for OPEN_MANUAL or FILL_BLANK in this context
+
+    def get_fill_blank_status(self, obj: QuestionTemplate) -> str:
+        if obj.question_type == QuestionType.FILL_BLANK.value:
+            if isinstance(obj.metadata, dict) and \
+               obj.metadata.get('text_with_placeholders') and \
+               isinstance(obj.metadata.get('blanks'), list) and \
+               len(obj.metadata.get('blanks')) > 0:
+                return "OK"
+            return "MISSING"
+        return "N/A"
 
     def to_internal_value(self, data):
         logger.info(f"[QuestionTemplateSerializer] to_internal_value START. Raw data type: {type(data)}")
