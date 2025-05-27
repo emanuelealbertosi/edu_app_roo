@@ -2,6 +2,7 @@
 import { ref, onMounted, computed } from 'vue';
 import RewardsService, { type Badge, type EarnedBadge } from '@/api/rewards'; // Assumiamo che le interfacce siano in rewards
 import AnimatedBadge from '@/components/common/AnimatedBadge.vue'; // Importa il nuovo componente
+import BadgeDetailModal from '@/components/common/BadgeDetailModal.vue'; // Importa la nuova modale
 import { useDashboardStore } from '@/stores/dashboard'; // Importa lo store della dashboard
 
 // State
@@ -9,6 +10,19 @@ const allBadges = ref<Badge[]>([]);
 const earnedBadges = ref<EarnedBadge[]>([]);
 const isLoading = ref(true);
 const error = ref<string | null>(null);
+
+const showBadgeModal = ref(false);
+const selectedBadge = ref<Badge | null>(null);
+
+const openBadgeModal = (badgeInfo: Badge) => {
+  selectedBadge.value = badgeInfo;
+  showBadgeModal.value = true;
+};
+
+const closeBadgeModal = () => {
+  showBadgeModal.value = false;
+  selectedBadge.value = null;
+};
 
 // Store Dashboard
 const dashboardStore = useDashboardStore();
@@ -165,7 +179,7 @@ async function handleSetPreferredBadge(badgeId: number) {
         :key="processedBadgeItem.id"
         class="badge-wrapper relative flex flex-col items-center"
       >
-        <AnimatedBadge :badge="processedBadgeItem" />
+        <AnimatedBadge :badge="processedBadgeItem" @open-modal="openBadgeModal" />
         
         <!-- Pulsante Stella per selezionare/deselezionare il badge preferito -->
         <button
@@ -199,6 +213,13 @@ async function handleSetPreferredBadge(badgeId: number) {
         <p>Nessun badge definito al momento.</p>
      </div>
   </div> <!-- Chiusura del div container mx-auto -->
+
+  <BadgeDetailModal
+    v-if="selectedBadge"
+    :show="showBadgeModal"
+    :badge="selectedBadge"
+    @close="closeBadgeModal"
+  />
 </div> <!-- Chiusura del div badges-view principale -->
 </template>
 

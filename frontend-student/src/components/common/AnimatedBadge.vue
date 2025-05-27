@@ -4,7 +4,10 @@
     :class="{ 'not-earned': !badge.isEarned }"
     :title="badge.description || badge.name"
   >
-    <div class="badge-icon-wrapper relative w-72 h-72 mx-auto mb-1 overflow-hidden rounded-full shadow-xl border-2 border-purple-300">
+    <div
+      class="badge-icon-wrapper relative w-72 h-72 mx-auto mb-1 overflow-hidden rounded-full shadow-xl border-2 border-purple-300 cursor-pointer"
+      @click="handleBadgeClick"
+    >
       <div v-if="!badge.isEarned" class="lock-overlay">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-8 h-8">
           <path fill-rule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v7a2 2 0 002 2h10a2 2 0 002-2v-7a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clip-rule="evenodd" />
@@ -54,20 +57,32 @@
 </template>
 
 <script setup lang="ts">
+import type { Badge } from '@/api/rewards'; // Importa il tipo Badge corretto
 
-interface BadgeInfo {
-  id: number;
-  name: string;
-  description?: string | null;
-  fileUrl?: string | null;
-  mediaType?: 'IMAGE_STATIC' | 'IMAGE_GIF' | 'VIDEO_MP4' | string;
-  thumbnailUrl?: string | null;
-  isEarned: boolean;
-}
+// Rimuoviamo l'interfaccia BadgeInfo locale e usiamo Badge importato
+// interface BadgeInfo {
+//   id: number;
+//   name: string;
+//   description?: string | null;
+//   fileUrl?: string | null;
+//   mediaType?: 'IMAGE_STATIC' | 'IMAGE_GIF' | 'VIDEO_MP4' | string;
+//   thumbnailUrl?: string | null;
+//   isEarned: boolean;
+// }
 
 const props = defineProps<{
-  badge: BadgeInfo;
+  badge: Badge; // Usa il tipo Badge importato
 }>();
+
+const emit = defineEmits<{
+  (e: 'open-modal', badgeInfo: Badge): void; // Emetti il tipo Badge importato
+}>();
+
+const handleBadgeClick = () => {
+  if (props.badge.isEarned) {
+    emit('open-modal', props.badge);
+  }
+};
 
 </script>
 

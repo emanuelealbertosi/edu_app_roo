@@ -6,6 +6,7 @@ import { useDashboardStore } from '@/stores/dashboard';
 import WalletCard from '@/components/WalletCard.vue';
 import BaseButton from '@/components/common/BaseButton.vue';
 import AnimatedBadge from '@/components/common/AnimatedBadge.vue';
+import BadgeDetailModal from '@/components/common/BadgeDetailModal.vue'; // Importa la nuova modale
 import type { Badge } from '@/api/rewards'; // Importa il tipo Badge
 
 const authStore = useAuthStore();
@@ -14,6 +15,19 @@ const router = useRouter();
 
 const isLoading = ref(true);
 const dashboardError = computed(() => dashboardStore.error);
+
+const showBadgeModal = ref(false);
+const selectedBadge = ref<Badge | null>(null);
+
+const openBadgeModal = (badgeInfo: Badge) => {
+  selectedBadge.value = badgeInfo;
+  showBadgeModal.value = true;
+};
+
+const closeBadgeModal = () => {
+  showBadgeModal.value = false;
+  selectedBadge.value = null;
+};
 
 // Funzione helper per mappare un singolo oggetto badge (potenzialmente da API con snake_case)
 // a un oggetto Badge con camelCase, come atteso dal frontend.
@@ -167,6 +181,7 @@ const goToShop = () => {
             v-else-if="mappedPreferredBadge"
             :key="mappedPreferredBadge.id"
             :badge="mappedPreferredBadge"
+            @open-modal="openBadgeModal"
             class="mx-auto max-w-[theme(spacing.72)] mb-3"
           />
           <p v-else class="text-sm text-neutral-dark italic py-4">Nessun badge preferito selezionato. Scegline uno dalla sezione Traguardi!</p>
@@ -189,6 +204,13 @@ const goToShop = () => {
       </div>
       -->
     </div>
+
+    <BadgeDetailModal
+      v-if="selectedBadge"
+      :show="showBadgeModal"
+      :badge="selectedBadge"
+      @close="closeBadgeModal"
+    />
   </div>
 </template>
 

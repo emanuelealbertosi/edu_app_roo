@@ -1,32 +1,32 @@
 <template>
   <div v-if="editor" class="border border-gray-300 rounded-md">
-    <div class="toolbar p-2 bg-gray-100 border-b border-gray-300 flex flex-wrap gap-2 items-center rounded-t-md" @click.stop @mousedown.stop>
-      <button @click="editor.chain().focus().toggleBold().run()" :class="{ 'is-active': editor.isActive('bold') }"
+    <div class="toolbar p-2 bg-gray-100 border-b border-gray-300 flex flex-wrap gap-2 items-center rounded-t-md" @click.stop @mousedown.stop @focus.stop @focusin.stop>
+      <button @click.stop="editor.chain().toggleBold().run()" :class="{ 'is-active': editor.isActive('bold') }"
         class="px-2 py-1 border rounded hover:bg-gray-200">
         B
       </button>
-      <button @click="editor.chain().focus().toggleItalic().run()" :class="{ 'is-active': editor.isActive('italic') }"
+      <button @click.stop="editor.chain().focus().toggleItalic().run()" :class="{ 'is-active': editor.isActive('italic') }"
         class="px-2 py-1 border rounded hover:bg-gray-200">
         I
       </button>
-      <button @click="editor.chain().focus().toggleUnderline().run()"
+      <button @click.stop="editor.chain().focus().toggleUnderline().run()"
         :class="{ 'is-active': editor.isActive('underline') }" class="px-2 py-1 border rounded hover:bg-gray-200">
         U
       </button>
-      <button @click="setLink" :class="{ 'is-active': editor.isActive('link') }"
+      <button @click.stop="setLink" :class="{ 'is-active': editor.isActive('link') }"
         class="px-2 py-1 border rounded hover:bg-gray-200">
         Link
       </button>
-      <button @click="editor.chain().focus().toggleBulletList().run()"
+      <button @click.stop="editor.chain().focus().toggleBulletList().run()"
         :class="{ 'is-active': editor.isActive('bulletList') }" class="px-2 py-1 border rounded hover:bg-gray-200">
         Lista Punt.
       </button>
-      <button @click="editor.chain().focus().toggleOrderedList().run()"
+      <button @click.stop="editor.chain().focus().toggleOrderedList().run()"
         :class="{ 'is-active': editor.isActive('orderedList') }" class="px-2 py-1 border rounded hover:bg-gray-200">
         Lista Num.
       </button>
 
-      <select @change="setColor($event.target.value)" class="px-2 py-1 border rounded hover:bg-gray-200 appearance-none">
+      <select @click.stop @change="setColor($event.target.value)" class="px-2 py-1 border rounded hover:bg-gray-200 appearance-none">
         <option value="">Colore</option>
         <option v-for="color in colorPalette" :key="color.value" :value="color.value" :style="{ color: color.value }">
           {{ color.name }}
@@ -59,7 +59,7 @@ const props = defineProps({
   },
 });
 
-const emit = defineEmits(['update:modelValue', 'blur']);
+const emit = defineEmits(['update:modelValue', 'blur', 'prompt-interaction-start', 'prompt-interaction-end']);
 
 const colorPalette = ref([
   { name: 'Nero', value: '#000000' },
@@ -118,7 +118,9 @@ onBeforeUnmount(() => {
 const setLink = () => {
   if (!editor.value) return;
   const previousUrl = editor.value.getAttributes('link').href;
+  emit('prompt-interaction-start');
   const url = window.prompt('URL', previousUrl);
+  emit('prompt-interaction-end');
 
   // cancelled
   if (url === null) {

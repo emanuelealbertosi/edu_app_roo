@@ -119,8 +119,8 @@
     </div>
 
     <!-- Modale per Aggiungere Domanda -->
-    <div v-if="isAddQuestionModalOpen" class="fixed inset-0 z-50 overflow-y-auto bg-black bg-opacity-50 flex items-center justify-center p-4">
-      <div class="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+    <div v-if="isAddQuestionModalOpen" class="fixed inset-0 z-50 overflow-y-auto bg-black bg-opacity-50 flex items-center justify-center p-4" @click="handleClickOutsideAddQuestionModal">
+      <div class="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto" @click.stop>
         <!-- Header Modale -->
         <div class="flex justify-between items-center p-4 border-b">
           <h2 class="text-xl font-semibold">Aggiungi Nuova Domanda al Template</h2>
@@ -137,7 +137,9 @@
             :template-id-prop="templateId ?? undefined"
             :is-in-modal="true"
             @close-modal="closeAddQuestionModal"
-            @question-created="handleQuestionCreatedInModal" />
+            @question-created="handleQuestionCreatedInModal"
+            @wysiwyg-prompt-start="isWysiwygPromptActive = true"
+            @wysiwyg-prompt-end="handleWysiwygPromptEnd" />
         </div>
       </div>
     </div>
@@ -264,6 +266,7 @@ const questionToEditId = ref<number | null>(null);
 const isConfigureBlankModalOpen = ref(false);
 const questionToConfigureBlankId = ref<number | null>(null);
 const currentQuestionForBlankConfig = ref<QuestionTemplate | null>(null);
+const isWysiwygPromptActive = ref(false); // Flag per interazione WYSIWYG
 
 const predefinedColors = ref([
   { name: 'Rosso Brillante', value: '#EF4444' }, // red-500
@@ -510,6 +513,24 @@ const addQuestion = () => {
 
 const closeAddQuestionModal = () => {
     isAddQuestionModalOpen.value = false;
+};
+
+const handleClickOutsideAddQuestionModal = (event: MouseEvent) => {
+    if (isWysiwygPromptActive.value) {
+        // Non chiudere la modale se il prompt del WYSIWYG è attivo o è appena stato chiuso,
+        // poiché il focus potrebbe tornare in modi imprevisti.
+        // isWysiwygPromptActive si resetterà a false sull'evento 'wysiwyg-prompt-end'.
+        return;
+    }
+    if (event.target === event.currentTarget) {
+        closeAddQuestionModal();
+    }
+};
+
+const handleWysiwygPromptEnd = () => {
+  setTimeout(() => {
+    isWysiwygPromptActive.value = false;
+  }, 100); // Ritarda il reset del flag di 100ms
 };
 
 // Funzione chiamata quando una domanda viene creata con successo nella modale

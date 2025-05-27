@@ -26,11 +26,19 @@ export interface QuestionMetadataFillBlankApi {
   case_sensitive?: boolean; // Opzionale durante lo svolgimento, presente nei risultati
   points?: number;
 }
+// Definiamo i tipi di domanda possibili, includendo varianti per robustezza
+// Sebbene il backend invii versioni maiuscole, il frontend normalizzerà a minuscolo.
+export type QuestionType =
+  | 'MC_SINGLE' | 'mc_single'
+  | 'MC_MULTI' | 'mc_multi'
+  | 'TF' | 'tf'
+  | 'FILL_BLANK' | 'fill_blank'
+  | 'OPEN_MANUAL' | 'open_manual';
 
 export interface Question {
   id: number;
   text: string;
-  question_type: 'MC_SINGLE' | 'MC_MULTI' | 'TF' | 'fill_blank' | 'OPEN_MANUAL';
+  question_type: QuestionType; // Utilizza il tipo QuestionType definito sopra
   question_type_display?: string | null;
   order: number;
   metadata: { // Questo metadata è un oggetto generico
@@ -68,8 +76,7 @@ export interface StudentAnswerResult {
   quiz_attempt: number;
   question: number; // ID della domanda
   question_text?: string; // Opzionale, potrebbe non essere sempre incluso
-  // Aggiornato per usare i valori effettivi del backend
-  question_type?: 'MC_SINGLE' | 'MC_MULTI' | 'TF' | 'FILL_BLANK' | 'OPEN_MANUAL'; // Opzionale
+  question_type?: QuestionType; // Utilizza il tipo QuestionType, opzionale
   selected_answers: any; // Formato dipende dal tipo di domanda
   is_correct: boolean | null;
   score: number | null;

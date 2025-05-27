@@ -20,10 +20,17 @@
     <div v-if="isLoading" class="loading">Caricamento dati domanda...</div>
     <div v-else-if="error" class="error-message">{{ error }}</div>
 
-    <form v-else @submit.prevent="saveQuestionTemplate" class="space-y-4">
+    <form v-else @submit.prevent="saveQuestionTemplate" @click.stop class="space-y-4">
       <div class="form-group">
         <label for="text" class="block text-sm font-medium text-gray-700 mb-1">Testo Domanda:</label>
-        <WysiwygEditor id="text" v-model="questionData.text" required />
+        <div>
+          <WysiwygEditor
+            id="text"
+            v-model="questionData.text"
+            :editable="true"
+            class="mt-1"
+          />
+        </div>
       </div>
 
       <div class="form-group">
@@ -106,7 +113,7 @@ import {
     type QuestionTemplate, type QuestionTemplatePayload
 } from '@/api/templateQuestions';
 import TemplateAnswerOptionsEditor from '@/components/TemplateAnswerOptionsEditor.vue';
-import WysiwygEditor from '@/components/common/WysiwygEditor.vue'; // Importa il WysiwygEditor
+import WysiwygEditor from '@/components/WysiwygEditor.vue'; // Importa l'editor
 
 // Props & Emits per la modalità modale
 const props = defineProps({

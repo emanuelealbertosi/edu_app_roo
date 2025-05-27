@@ -64,21 +64,22 @@ function getQuestionById(questionId: number): Question | undefined {
 }
 
 function getQuestionComponent(questionType: Question['question_type']) {
-  switch (questionType) {
-    case 'MC_SINGLE':
+  const normalizedQuestionType = questionType ? questionType.toLowerCase() : '';
+  switch (normalizedQuestionType) {
+    case 'mc_single':
       return MultipleChoiceSingleQuestion;
-    case 'MC_MULTI':
+    case 'mc_multi':
       return MultipleChoiceMultipleQuestion;
-    case 'TF':
+    case 'tf':
       return TrueFalseQuestion;
     case 'fill_blank':
       return FillBlankQuestion;
-    case 'OPEN_MANUAL':
+    case 'open_manual':
       return OpenAnswerManualQuestion;
     default:
       // Potrebbe restituire un componente di fallback o null
       // Per ora, se il tipo non è gestito, il template avrà un v-else
-      console.warn(`Componente non mappato per il tipo di domanda: ${questionType}`);
+      console.warn(`Componente non mappato per il tipo di domanda: ${questionType} (normalizzato: ${normalizedQuestionType})`);
       return null;
   }
 }

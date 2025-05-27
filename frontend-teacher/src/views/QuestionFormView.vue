@@ -26,8 +26,7 @@
       <!-- Question Text -->
       <div>
         <label for="text" class="block text-sm font-medium text-gray-700 mb-1">Testo Domanda</label>
-        <textarea id="text" v-model="questionData.text" required rows="4"
-                  class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"></textarea>
+        <WysiwygEditor id="text" v-model="questionData.text" :editable="true" class="mt-1" />
       </div>
 
       <!-- Question Type -->
@@ -111,6 +110,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { createQuestion, fetchQuestionDetails, updateQuestion, type QuestionPayload, fetchQuestions } from '@/api/questions';
 import AnswerOptionsEditor from '@/components/AnswerOptionsEditor.vue';
 import FillBlankQuestionEditor, { type FillBlankMetadata } from '@/components/questions/FillBlankQuestionEditor.vue';
+import WysiwygEditor from '@/components/common/WysiwygEditor.vue'; // Importa l'editor WYSIWYG
 import type { AnswerOption, Question } from '@/api/questions';
 
 const route = useRoute();

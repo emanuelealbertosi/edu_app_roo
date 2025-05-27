@@ -8,6 +8,7 @@ import QuizService, {
   type QuizAttempt,
   type Answer as ApiAnswer, // Rinomino Answer per evitare conflitti con il tipo interno
   type QuestionMetadataFillBlankApi,
+  type QuestionType, // AGGIUNTO: Import per il tipo QuestionType
   // Importo i tipi specifici per costruire UserProvidedAnswer
   type MultipleChoiceSingleAnswer,
   type MultipleChoiceMultipleAnswer,
@@ -155,7 +156,12 @@ async function fetchCurrentQuestion() {
   isLoading.value = true; // Potrebbe essere un loading diverso per la domanda
   error.value = null; // Resetta errore precedente
   try {
-    currentQuestion.value = await QuizService.getCurrentQuestion(attempt.value.id);
+    const questionData = await QuizService.getCurrentQuestion(attempt.value.id);
+    if (questionData && questionData.question_type) {
+      // Normalizza il question_type a minuscolo
+      questionData.question_type = questionData.question_type.toLowerCase() as QuestionType;
+    }
+    currentQuestion.value = questionData;
     userAnswer.value = null; // Resetta la risposta precedente
   } catch (err: any) {
     // Se l'API restituisce 404 o un errore specifico quando non ci sono più domande,
@@ -375,19 +381,26 @@ onMounted(() => {
 // Mappa i tipi di domanda ai componenti importati
 // Usiamo shallowRef per i componenti dinamici per ottimizzare le performance
 const questionComponentMap = {
-  'MC_SINGLE': shallowRef(MultipleChoiceSingleQuestion), // Aggiornato per corrispondere al backend
-  'MC_MULTI': shallowRef(MultipleChoiceMultipleQuestion), // Aggiornato per corrispondere al backend
-  'TF': shallowRef(TrueFalseQuestion), // Aggiornato per corrispondere al backend
-  'fill_blank': shallowRef(FillBlankQuestion), // Chiave aggiornata a minuscolo per corrispondenza backend
-  'OPEN_MANUAL': shallowRef(OpenAnswerManualQuestion), // Aggiornato per corrispondere al backend
-  // 'true_false': shallowRef(TrueFalseQuestion),
-  // 'fill_blank': shallowRef(FillBlankQuestion),
-  // 'open_answer_manual': shallowRef(OpenAnswerManualQuestion),
+  'mc_single': shallowRef(MultipleChoiceSingleQuestion),
+  'mc_multi': shallowRef(MultipleChoiceMultipleQuestion),
+  'tf': shallowRef(TrueFalseQuestion),
+  'fill_blank': shallowRef(FillBlankQuestion),
+  'open_manual': shallowRef(OpenAnswerManualQuestion),
+  // Manteniamo le vecchie chiavi per retrocompatibilità se necessario,
+  // ma la logica di accesso ora normalizza a minuscolo.
+  // 'MC_SINGLE': shallowRef(MultipleChoiceSingleQuestion),
+  // 'MC_MULTI': shallowRef(MultipleChoiceMultipleQuestion),
+  // 'TF': shallowRef(TrueFalseQuestion),
+  // 'OPEN_MANUAL': shallowRef(OpenAnswerManualQuestion),
 };
+
+// Definiamo un tipo per le chiavi della mappa dei componenti
+type QuestionComponentMapKeys = keyof typeof questionComponentMap;
 
 const currentQuestionComponent = computed(() => {
   if (!currentQuestion.value?.question_type) return null;
-  const componentRef = questionComponentMap[currentQuestion.value.question_type];
+  const questionTypeNormalized = currentQuestion.value.question_type.toLowerCase() as QuestionComponentMapKeys;
+  const componentRef = questionComponentMap[questionTypeNormalized];
   return componentRef ? componentRef.value : null; // Accedi a .value dello shallowRef
 });
 
@@ -541,7 +554,7 @@ onUnmounted(() => {
                <!-- Blocco Domanda Effettivo -->
               <div :key="currentQuestion.id" class="question-container py-4 px-6"> <!-- Rimosso bg, border, padding extra, shadow -->
                 <h3 class="text-lg font-semibold text-purple-700 mb-3">Domanda {{ currentQuestion.order + 1 }}</h3>
-                <div v-if="currentQuestion.question_type !== 'fill_blank'" class="question-text text-gray-800 text-lg mb-5 prose max-w-none dark:prose-invert" v-html="sanitizedQuestionText"></div>
+                <div class="question-text text-gray-800 text-lg mb-5 prose max-w-none dark:prose-invert" v-html="sanitizedQuestionText"></div>
 
                 <!-- Renderizza dinamicamente il componente domanda corretto -->
                 <div class="answer-area">

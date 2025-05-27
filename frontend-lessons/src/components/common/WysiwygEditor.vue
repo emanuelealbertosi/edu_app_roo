@@ -1,6 +1,6 @@
 <template>
   <div v-if="editor" class="border border-gray-300 rounded-md">
-    <div class="toolbar p-2 bg-gray-100 border-b border-gray-300 flex flex-wrap gap-2 items-center rounded-t-md">
+    <div @mousedown.prevent @click.stop class="toolbar p-2 bg-gray-100 border-b border-gray-300 flex flex-wrap gap-2 items-center rounded-t-md">
       <button @click="editor.chain().focus().toggleBold().run()" :class="{ 'is-active': editor.isActive('bold') }"
         class="px-2 py-1 border rounded hover:bg-gray-200">
         B
@@ -92,8 +92,8 @@ const editor = useEditor({
   onUpdate: () => {
     emit('update:modelValue', editor.value.getHTML());
   },
-  onBlur: () => {
-    emit('blur');
+  onBlur: ({ event }) => { // Tiptap passa un oggetto { editor, event }
+    // emit('blur', event); // Commentato per evitare errori stopPropagation durante unmount
   },
 });
 
