@@ -2,9 +2,24 @@
   <div class="activity-content-display p-3 bg-white rounded-b-md space-y-3 text-sm">
     <!-- Il titolo è gestito da UdaContentItemRenderer -->
     
-    <div v-if="props.content.estimated_hours" class="flex">
+    <div class="flex items-center">
       <strong class="w-28 flex-shrink-0 text-gray-700">Ore Stimate:</strong>
-      <span class="text-gray-600">{{ props.content.estimated_hours }}h</span>
+      <div v-if="!isEditingEstimatedHours" class="flex items-center">
+        <span class="text-gray-600 mr-2">{{ props.content.estimated_hours !== null && typeof props.content.estimated_hours !== 'undefined' ? props.content.estimated_hours + 'h' : 'N/D' }}</span>
+        <button @click="startEditingEstimatedHours" class="text-xs text-blue-500 hover:text-blue-700">(modifica)</button>
+      </div>
+      <div v-else class="flex items-center space-x-2">
+        <input
+          type="number"
+          step="0.1"
+          min="0"
+          v-model.number="editableEstimatedHours"
+          class="w-20 px-2 py-1 border border-gray-300 rounded text-sm"
+          placeholder="Ore"
+        />
+        <button @click="saveEstimatedHours" class="px-2 py-1 text-xs bg-green-500 hover:bg-green-600 text-white rounded">Salva</button>
+        <button @click="cancelEditingEstimatedHours" class="px-2 py-1 text-xs bg-gray-300 hover:bg-gray-400 rounded">Annulla</button>
+      </div>
     </div>
     <div class="flex items-center">
       <strong class="w-28 flex-shrink-0 text-gray-700">Ore Effettive:</strong>
@@ -79,6 +94,11 @@ const isEditingActualHours = ref(false);
 const editableActualHours = ref<number | undefined | null>(props.content.actual_hours);
 const originalActualHours = ref<number | undefined | null>(props.content.actual_hours);
 
+// State per la modifica delle ore stimate
+const isEditingEstimatedHours = ref(false);
+const editableEstimatedHours = ref<number | undefined | null>(props.content.estimated_hours);
+const originalEstimatedHours = ref<number | undefined | null>(props.content.estimated_hours);
+
 
 watch(() => props.content.activity_description, (newVal) => {
   if (!isEditingDescription.value) {
@@ -91,6 +111,13 @@ watch(() => props.content.actual_hours, (newVal) => {
   if (!isEditingActualHours.value) {
     editableActualHours.value = newVal;
     originalActualHours.value = newVal;
+  }
+});
+
+watch(() => props.content.estimated_hours, (newVal) => {
+  if (!isEditingEstimatedHours.value) {
+    editableEstimatedHours.value = newVal;
+    originalEstimatedHours.value = newVal;
   }
 });
 
@@ -171,6 +198,42 @@ const cancelEditingActualHours = () => {
   isEditingActualHours.value = false;
 };
 
+// --- Metodi per la modifica delle ore stimate ---
+const startEditingEstimatedHours = () => {
+  originalEstimatedHours.value = props.content.estimated_hours;
+  editableEstimatedHours.value = props.content.estimated_hours;
+  isEditingEstimatedHours.value = true;
+};
+
+const saveEstimatedHours = async () => {
+  const valueToSave = (typeof editableEstimatedHours.value === 'undefined' || editableEstimatedHours.value === null)
+                      ? null
+                      : Number(editableEstimatedHours.value);
+
+  if (valueToSave !== originalEstimatedHours.value) {
+    if (typeof props.content.id === 'undefined' || typeof props.content.uda_id === 'undefined') {
+      console.error('Cannot update estimated hours: content ID or UDA ID is undefined.');
+      return;
+    }
+    try {
+      const updatedData: Partial<Pick<ActivityUDAContent, 'estimated_hours'>> = {
+        estimated_hours: valueToSave,
+      };
+      await udaStore.updateContentInUda(props.content.uda_id, props.content.id, updatedData as UDAContent);
+      originalEstimatedHours.value = valueToSave;
+      isEditingEstimatedHours.value = false;
+    } catch (error) {
+      console.error('Failed to save estimated hours:', error);
+    }
+  } else {
+    isEditingEstimatedHours.value = false;
+  }
+};
+
+const cancelEditingEstimatedHours = () => {
+  editableEstimatedHours.value = originalEstimatedHours.value;
+  isEditingEstimatedHours.value = false;
+};
 </script>
 
 <style scoped>

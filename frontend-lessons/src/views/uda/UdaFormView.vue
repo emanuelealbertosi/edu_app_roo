@@ -390,6 +390,91 @@ watch(() => udaStore.currentUda?.contents, (newContents) => {
   }
 }, { deep: true });
 
+// Debounce function
+const debounce = (fn: Function, delay: number) => {
+  let timeoutId: ReturnType<typeof setTimeout>;
+  return function(...args: any[]) {
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => fn(...args), delay);
+  }
+}
+
+const handleAutoSave = async () => {
+  if (!isEditMode.value || !udaId.value) return;
+
+  const payload: UdaApiPayload = {
+    title: formData.value.title,
+    description: formData.value.description || undefined,
+    knowledge_html: formData.value.knowledge_html || undefined,
+    skills_html: formData.value.skills_html || undefined,
+    competences_html: formData.value.competences_html || undefined,
+    is_civic_education: formData.value.is_civic_education,
+    didactic_strategies_html: formData.value.didactic_strategies_html || undefined,
+    materials_tools_html: formData.value.materials_tools_html || undefined,
+    assessment_type_html: formData.value.assessment_type_html || undefined,
+    evaluation_html: formData.value.evaluation_html || undefined,
+    other_involved_subjects_text: formData.value.other_involved_subjects_text || undefined,
+    export_specific_annotations_html: formData.value.export_specific_annotations_html || undefined,
+    start_date: formData.value.start_date || undefined,
+    end_date: formData.value.end_date || undefined,
+    status: formData.value.status,
+    subject_ids: formData.value.subjects,
+    topic_ids: formData.value.topics,
+    course_id: formData.value.course || undefined,
+    order_in_course: formData.value.order_in_course || undefined,
+    contents: formData.value.contents.map(c => {
+      const { temp_id, lesson_title, quiz_title, ...contentToSave } = c as any;
+      return contentToSave;
+    })
+  };
+
+  Object.keys(payload).forEach(keyStr => {
+    const key = keyStr as keyof UdaApiPayload;
+    if (payload[key] === undefined) {
+      delete payload[key];
+    }
+  });
+
+  try {
+    await udaStore.updateUda(udaId.value, payload);
+    uiStore.addNotification({ message: 'Modifiche salvate automaticamente!', type: 'info', duration: 2000 });
+  } catch (error) {
+    console.error("Errore durante il salvataggio automatico dell'UDA:", error);
+    // Potresti voler mostrare un errore non invasivo
+  }
+};
+
+const debouncedAutoSave = debounce(handleAutoSave, 2000);
+
+watch(() => formData.value.contents, () => {
+  if (loadingInitialData.value) return;
+  debouncedAutoSave();
+}, { deep: true });
+
+watch(() => [
+  formData.value.title,
+  formData.value.description,
+  formData.value.knowledge_html,
+  formData.value.skills_html,
+  formData.value.competences_html,
+  formData.value.is_civic_education,
+  formData.value.didactic_strategies_html,
+  formData.value.materials_tools_html,
+  formData.value.assessment_type_html,
+  formData.value.evaluation_html,
+  formData.value.other_involved_subjects_text,
+  formData.value.export_specific_annotations_html,
+  formData.value.start_date,
+  formData.value.end_date,
+  formData.value.status,
+  formData.value.subjects,
+  formData.value.topics,
+  formData.value.course
+], () => {
+  if (loadingInitialData.value) return;
+  debouncedAutoSave();
+}, { deep: true });
+
 
 onMounted(async () => {
   loadingInitialData.value = true;
@@ -502,7 +587,17 @@ const handleSubmit = async () => {
       await udaStore.createUda(payload);
       uiStore.addNotification({ message: 'UDA creata con successo!', type: 'success' });
     }
-    router.push({ name: 'uda-list' });
+    if (isEditMode.value) {
+      // Non fare nulla, l'utente rimane sulla pagina
+    } else {
+      // Dopo la creazione, reindirizza alla modalità di modifica della nuova UDA
+      const newUdaId = udaStore.currentUda?.id;
+      if (newUdaId) {
+        router.push({ name: 'uda-edit', params: { id: newUdaId } });
+      } else {
+        router.push({ name: 'uda-list' });
+      }
+    }
   } catch (error) {
     console.error("Errore durante il salvataggio dell'UDA:", error);
     submitError.value = (error as Error).message || "Errore sconosciuto durante il salvataggio.";

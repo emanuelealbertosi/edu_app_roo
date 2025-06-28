@@ -117,25 +117,27 @@ class CourseViewSet(viewsets.ModelViewSet):
            other_subjects_display = uda_instance.other_involved_subjects_text
            if not other_subjects_display and uda_instance.subjects.exists():
                other_subjects_display = ", ".join([s.name for s in uda_instance.subjects.all()])
+           # Processa Lezioni
            lesson_contents_for_template = []
            lesson_contents_queryset = uda_instance.contents.filter(content_type='LESSON').select_related('lesson')
-           if lesson_contents_queryset.exists():
-               for lc in lesson_contents_queryset:
-                   hours_to_display_lc = None
-                   if lc.estimated_hours is not None:
-                       hours_to_display_lc = lc.estimated_hours
-                   elif lc.lesson and lc.lesson.estimated_hours is not None:
-                       hours_to_display_lc = lc.lesson.estimated_hours
-                   lc_hours_text = "N/D"
-                   if hours_to_display_lc is not None:
-                       try:
-                           lc_hours_text = f"{float(hours_to_display_lc):.1f}"
-                       except (ValueError, TypeError):
-                           lc_hours_text = "N/D (err)"
-                   lesson_contents_for_template.append({
-                       'lesson': lc.lesson,
-                       'hours_display_pdf': lc_hours_text
-                   })
+           for lc in lesson_contents_queryset:
+               lc_hours_text = f"{float(lc.estimated_hours):.1f}" if lc.estimated_hours is not None else "N/D"
+               lesson_contents_for_template.append({
+                   'lesson': lc.lesson,
+                   'hours_display_pdf': lc_hours_text
+               })
+
+           # Processa Attività
+           activity_contents_for_template = []
+           activity_contents_queryset = uda_instance.contents.filter(content_type='ACTIVITY')
+           for ac in activity_contents_queryset:
+               ac_estimated_hours_text = f"{float(ac.estimated_hours):.1f}" if ac.estimated_hours is not None else "N/D"
+               ac_actual_hours_text = f"{float(ac.actual_hours):.1f}" if ac.actual_hours is not None else "N/D"
+               activity_contents_for_template.append({
+                   'title': ac.activity_title or "Attività senza titolo",
+                   'estimated_hours_display': ac_estimated_hours_text,
+                   'actual_hours_display': ac_actual_hours_text,
+               })
            processed_udas.append({
                'title': uda_instance.title,
                'competences_html': uda_instance.competences_html,
@@ -150,6 +152,7 @@ class CourseViewSet(viewsets.ModelViewSet):
                'other_involved_subjects_display': other_subjects_display or "N/D",
                'is_civic_education': uda_instance.is_civic_education,
                'lesson_contents': lesson_contents_for_template,
+               'activity_contents': activity_contents_for_template,
                'description': uda_instance.description,
                'export_specific_annotations_html': uda_instance.export_specific_annotations_html,
            })
@@ -232,6 +235,25 @@ class CourseViewSet(viewsets.ModelViewSet):
                    row_cells_lc = table_lessons.add_row().cells
                    row_cells_lc[0].text = lc_data['lesson'].title if lc_data['lesson'] else "Lezione non specificata"
                    row_cells_lc[1].text = lc_data['hours_display_pdf']
+           # Aggiungi tabella Attività
+           if uda_data['activity_contents']:
+               document.add_heading('Attività Previste', level=3)
+               table_activities = document.add_table(rows=1, cols=3)
+               table_activities.style = 'TableGrid'
+               table_activities.alignment = WD_TABLE_ALIGNMENT.CENTER
+               hdr_cells_ac = table_activities.rows[0].cells
+               hdr_cells_ac[0].text = 'Titolo Attività'
+               hdr_cells_ac[1].text = 'Ore Stimate'
+               hdr_cells_ac[2].text = 'Ore Effettive'
+               for cell in hdr_cells_ac:
+                   cell.paragraphs[0].runs[0].bold = True
+               
+               for ac_data in uda_data['activity_contents']:
+                   row_cells_ac = table_activities.add_row().cells
+                   row_cells_ac[0].text = ac_data['title']
+                   row_cells_ac[1].text = ac_data['estimated_hours_display']
+                   row_cells_ac[2].text = ac_data['actual_hours_display']
+
            document.add_paragraph()
            if index < len(processed_udas) - 1:
                document.add_page_break()
@@ -265,25 +287,27 @@ class CourseViewSet(viewsets.ModelViewSet):
            if uda_instance.export_specific_annotations_html:
                annotations_text_for_pdf = uda_instance.export_specific_annotations_html
                is_html_annotations = True
+           # Processa Lezioni
            lesson_contents_for_template = []
            lesson_contents_queryset = uda_instance.contents.filter(content_type='LESSON').select_related('lesson')
-           if lesson_contents_queryset.exists():
-               for lc in lesson_contents_queryset:
-                   hours_to_display_lc = None
-                   if lc.estimated_hours is not None:
-                       hours_to_display_lc = lc.estimated_hours
-                   elif lc.lesson and lc.lesson.estimated_hours is not None:
-                       hours_to_display_lc = lc.lesson.estimated_hours
-                   lc_hours_text = "N/D"
-                   if hours_to_display_lc is not None:
-                       try:
-                           lc_hours_text = f"{float(hours_to_display_lc):.1f}"
-                       except (ValueError, TypeError):
-                           lc_hours_text = "N/D (err)"
-                   lesson_contents_for_template.append({
-                       'lesson': lc.lesson,
-                       'hours_display_pdf': lc_hours_text
-                   })
+           for lc in lesson_contents_queryset:
+               lc_hours_text = f"{float(lc.estimated_hours):.1f}" if lc.estimated_hours is not None else "N/D"
+               lesson_contents_for_template.append({
+                   'lesson': lc.lesson,
+                   'hours_display_pdf': lc_hours_text
+               })
+
+           # Processa Attività
+           activity_contents_for_template = []
+           activity_contents_queryset = uda_instance.contents.filter(content_type='ACTIVITY')
+           for ac in activity_contents_queryset:
+               ac_estimated_hours_text = f"{float(ac.estimated_hours):.1f}" if ac.estimated_hours is not None else "N/D"
+               ac_actual_hours_text = f"{float(ac.actual_hours):.1f}" if ac.actual_hours is not None else "N/D"
+               activity_contents_for_template.append({
+                   'title': ac.activity_title or "Attività senza titolo",
+                   'estimated_hours_display': ac_estimated_hours_text,
+                   'actual_hours_display': ac_actual_hours_text,
+               })
            processed_udas.append({
                'title': uda_instance.title,
                'competences_html': uda_instance.competences_html,
@@ -300,6 +324,7 @@ class CourseViewSet(viewsets.ModelViewSet):
                'is_html_annotations': is_html_annotations,
                'is_civic_education': uda_instance.is_civic_education,
                'lesson_contents': lesson_contents_for_template,
+               'activity_contents': activity_contents_for_template,
            })
 
        # Sanitizzazione del nome del corso più robusta

@@ -69,6 +69,26 @@
             </tbody>
         </table>
         {% endif %}
+
+        {% if uda.activity_contents %}
+        <h3>Attività Previste</h3>
+        <table class="no-break">
+            <thead>
+                <tr>
+                    <th>Titolo Attività</th>
+                    <th>Ore Stimate</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for ac in uda.activity_contents %}
+                <tr>
+                    <td>{{ ac.title }}</td>
+                    <td>{{ ac.estimated_hours_display }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
     </div>
     {% endfor %}
 </body>
