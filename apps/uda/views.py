@@ -434,8 +434,8 @@ class CourseViewSet(viewsets.ModelViewSet):
        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 class UDATemplateViewSet(viewsets.ModelViewSet):
-   """
-   ViewSet per gestire i Template UDA (UDATemplate).
+    """
+    ViewSet per gestire i Template UDA (UDATemplate).
     Permette CRUD sui template e gestione dei loro contenuti.
     """
     queryset = UDATemplate.objects.all()
