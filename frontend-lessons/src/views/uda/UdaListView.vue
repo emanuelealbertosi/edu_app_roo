@@ -142,13 +142,6 @@
               >
                 <EyeIcon class="h-5 w-5 inline-block" />
               </RouterLink>
-              <RouterLink
-                :to="{ name: 'uda-edit', params: { id: uda.id } }"
-                class="text-yellow-600 hover:text-yellow-900 transition duration-150 ease-in-out"
-                title="Modifica UDA"
-              >
-                <PencilIcon class="h-5 w-5 inline-block" />
-              </RouterLink>
               <button
                 @click="handleCopyUda(uda.id, uda.title)"
                 class="text-green-600 hover:text-green-900 transition duration-150 ease-in-out"
@@ -179,7 +172,7 @@ import { useCourseStore } from '@/stores/courseStore';
 import { useSubjectStore } from '@/stores/subjectStore';
 import { useTopicStore } from '@/stores/topicStore'; // Importa topicStore
 import { useUiStore } from '@/stores/ui';
-import { PencilIcon, TrashIcon, EyeIcon, DocumentDuplicateIcon, PlusCircleIcon } from '@heroicons/vue/24/outline'; // Aggiunto DocumentDuplicateIcon e PlusCircleIcon
+import { TrashIcon, EyeIcon, DocumentDuplicateIcon, PlusCircleIcon } from '@heroicons/vue/24/outline'; // Aggiunto DocumentDuplicateIcon e PlusCircleIcon
 import type { UDA } from '@/types/uda'; // Rimosso Course
 // import type { Subject } from '@/types/subject'; // Rimosso Subject
 // import type { Topic } from '@/types/topic'; // Importa Topic type - Non più utilizzato dopo aver commentato la riga 175

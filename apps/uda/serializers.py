@@ -258,16 +258,29 @@ class UDAContentSerializer(serializers.ModelSerializer):
     # Usa il LenientFileField personalizzato
     activity_attachment_url = LenientFileField(required=False, allow_null=True, use_url=True, allow_empty_file=True)
 
+    lesson_title = serializers.SerializerMethodField()
+    quiz_title = serializers.SerializerMethodField()
+
     class Meta:
         model = UDAContent
         fields = [
-            'id', 'content_type', 'lesson', 'quiz_template', # quiz_template ora usa QuizTemplateIdField
+            'id', 'content_type', 'lesson', 'quiz_template',
             'note_title', 'note_content',
             'activity_title', 'activity_description', 'activity_attachment_url', 'activity_completed',
-            'teacher_marked_completed', # Aggiunto come da piano
-            'order', 'estimated_hours', 'actual_hours' # Aggiunto actual_hours
+            'teacher_marked_completed',
+            'order', 'estimated_hours', 'actual_hours',
+            'lesson_title', 'quiz_title'  # Aggiunti i campi per l'output
         ]
-        # read_only_fields = ['id']
+
+    def get_lesson_title(self, obj):
+        if obj.content_type == 'LESSON' and obj.lesson:
+            return obj.lesson.title
+        return None
+
+    def get_quiz_title(self, obj):
+        if obj.content_type == 'QUIZ' and obj.quiz_template:
+            return obj.quiz_template.title
+        return None
 
     def validate(self, data):
         # Assicurati che logger sia accessibile qui

@@ -79,13 +79,13 @@
               >
                 <EyeIcon class="h-5 w-5 inline-block" />
               </RouterLink>
-              <RouterLink
-                :to="{ name: 'course-edit', params: { id: course.id } }"
-                class="text-yellow-600 hover:text-yellow-900 transition duration-150 ease-in-out"
-                title="Modifica Corso"
-              >
-                <PencilIcon class="h-5 w-5 inline-block" />
-              </RouterLink>
+              <button
+                 @click="handleCopyCourse(course)"
+                 class="text-green-600 hover:text-green-900 transition duration-150 ease-in-out"
+                 title="Copia Corso"
+               >
+                 <DocumentDuplicateIcon class="h-5 w-5 inline-block" />
+               </button>
               <button
                 @click="handleDeleteCourse(course.id)"
                 class="text-red-600 hover:text-red-900 transition duration-150 ease-in-out"
@@ -106,7 +106,7 @@ import { ref, onMounted, computed } from 'vue';
 import { RouterLink } from 'vue-router';
 import { useCourseStore } from '@/stores/courseStore';
 import { useUiStore } from '@/stores/ui'; // Importa uiStore
-import { PlusCircleIcon, EyeIcon, PencilIcon, TrashIcon } from '@heroicons/vue/24/outline';
+import { PlusCircleIcon, EyeIcon, TrashIcon, DocumentDuplicateIcon } from '@heroicons/vue/24/outline';
 
 const courseStore = useCourseStore();
 const uiStore = useUiStore(); // Istanzia uiStore
@@ -142,6 +142,18 @@ const handleDeleteCourse = async (courseId: number) => {
       uiStore.addNotification({ message: (err as Error).message || 'Errore durante l\'eliminazione del corso.', type: 'error', duration: 5000 });
     }
   }
+};
+
+const handleCopyCourse = async (course: { id: number; name: string }) => {
+ if (confirm(`Sei sicuro di voler copiare il corso "${course.name}"?`)) {
+   try {
+     await courseStore.copyCourse(course.id);
+     uiStore.addNotification({ message: 'Corso copiato con successo!', type: 'success', duration: 3000 });
+   } catch (err) {
+     console.error("Errore durante la copia del corso:", err);
+     uiStore.addNotification({ message: (err as Error).message || 'Errore durante la copia del corso.', type: 'error', duration: 5000 });
+   }
+ }
 };
 </script>
 

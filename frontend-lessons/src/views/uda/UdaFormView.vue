@@ -200,6 +200,8 @@ import { useUdaStore } from '@/stores/udaStore';
 import { useCourseStore } from '@/stores/courseStore';
 import { useSubjectStore } from '@/stores/subjectStore';
 import { useTopicStore } from '@/stores/topicStore';
+import { useLessonStore } from '@/stores/lessons';
+import { useQuizStore } from '@/stores/quizStore';
 import { useUiStore } from '@/stores/ui';
 import UdaContentEditor from '@/components/uda/UdaContentEditor.vue';
 import WysiwygEditor from '@/components/WysiwygEditor.vue'; // Importa l'editor
@@ -264,6 +266,8 @@ const udaStore = useUdaStore();
 const courseStore = useCourseStore();
 const subjectStore = useSubjectStore();
 const topicStore = useTopicStore();
+const lessonStore = useLessonStore();
+const quizStore = useQuizStore();
 const uiStore = useUiStore();
 
 const udaId = computed(() => route.params.id ? Number(route.params.id) : null);
@@ -276,7 +280,7 @@ const submitButtonText = computed(() => isEditMode.value ? 'Salva Modifiche' : '
 const loadingInitialData = ref(false);
 const initialError = ref<string | null>(null);
 const isSubmitting = ref(false);
-// const initialLoadComplete = ref(false); // Rimosso completamente
+const initialLoadComplete = ref(false);
 const submitError = ref<string | null>(null);
 
 watch(initialError, (newValue, oldValue) => {
@@ -447,7 +451,7 @@ const handleAutoSave = async () => {
 const debouncedAutoSave = debounce(handleAutoSave, 2000);
 
 watch(() => formData.value.contents, () => {
-  if (loadingInitialData.value) return;
+  if (!initialLoadComplete.value) return;
   debouncedAutoSave();
 }, { deep: true });
 
@@ -471,7 +475,7 @@ watch(() => [
   formData.value.topics,
   formData.value.course
 ], () => {
-  if (loadingInitialData.value) return;
+  if (!initialLoadComplete.value) return;
   debouncedAutoSave();
 }, { deep: true });
 
@@ -490,6 +494,8 @@ onMounted(async () => {
       await udaStore.fetchUda(udaId.value);
       const udaToEdit = udaStore.currentUda;
       if (udaToEdit) {
+        const enrichedContents = await enrichContents(udaToEdit.contents);
+
         // Attendi il prossimo ciclo di aggiornamento DOM prima di popolare il form
         // per dare tempo alle opzioni del select (es. corsi) di essere renderizzate.
         formData.value.title = udaToEdit.title;
@@ -505,41 +511,58 @@ onMounted(async () => {
         formData.value.evaluation_html = udaToEdit.evaluation_html || null;
         formData.value.other_involved_subjects_text = udaToEdit.other_involved_subjects_text || null;
         formData.value.export_specific_annotations_html = udaToEdit.export_specific_annotations_html || null;
+        
         formData.value.start_date = udaToEdit.start_date || null;
         formData.value.end_date = udaToEdit.end_date || null;
         formData.value.status = udaToEdit.status;
-        // Popola prima subjects
-        formData.value.subjects = udaToEdit.subjects ? [...udaToEdit.subjects] : [];
-        
         formData.value.course = udaToEdit.course || null;
         formData.value.order_in_course = udaToEdit.order_in_course || null;
-        formData.value.contents = udaToEdit.contents ? JSON.parse(JSON.stringify(udaToEdit.contents)) : [];
         
-        // Se ci sono materie, attendi il caricamento dei relativi argomenti disponibili
-        // Il watch su formData.subjects si occuperà di chiamare fetchTopicsBySubject
-        // e resetterà formData.topics temporaneamente.
-        if (formData.value.subjects && formData.value.subjects.length > 0) {
+        // Popola materie e argomenti
+        formData.value.subjects = udaToEdit.subjects || [];
+        if (formData.value.subjects.length > 0) {
           await topicStore.fetchTopicsBySubject(formData.value.subjects[0]);
+          formData.value.topics = udaToEdit.topics || [];
+        } else {
+          formData.value.topics = [];
         }
-        
-        // Attendi che Vue processi gli aggiornamenti DOM e i watch
-        await nextTick();
-        
-        // Ora ripopola formData.topics con i valori corretti dell'UDA.
-        // Questo sovrascriverà il reset fatto dal watch se necessario.
-        formData.value.topics = udaToEdit.topics ? [...udaToEdit.topics] : [];
+
+        formData.value.contents = enrichedContents;
       } else {
         initialError.value = `UDA con ID ${udaId.value} non trovata.`;
+        console.error(initialError.value);
       }
     }
-
   } catch (error) {
-    console.error("Errore caricamento dati form UDA:", error);
-    initialError.value = (error as Error).message || "Errore sconosciuto durante il caricamento.";
+    console.error("Errore durante il caricamento iniziale dei dati UDA:", error);
+    initialError.value = "Impossibile caricare i dati necessari per la pagina.";
   } finally {
     loadingInitialData.value = false;
+    // Imposta il flag a true solo dopo che tutti i dati sono stati caricati e popolati
+    nextTick(() => {
+      initialLoadComplete.value = true;
+    });
   }
 });
+
+const enrichContents = async (contents: UDAContent[]): Promise<UDAContent[]> => {
+  if (!contents) return [];
+
+  const enriched = await Promise.all(
+    contents.map(async (content) => {
+      const newContent = { ...content };
+      if (newContent.content_type === 'LESSON' && newContent.lesson) {
+        await lessonStore.fetchLesson(newContent.lesson);
+        newContent.lesson_title = lessonStore.currentLesson?.title || 'Titolo Lezione non trovato';
+      } else if (newContent.content_type === 'QUIZ' && newContent.quiz_template) {
+        await quizStore.fetchQuizTemplate(newContent.quiz_template);
+        newContent.quiz_title = quizStore.currentQuizTemplate?.title || 'Titolo Quiz non trovato';
+      }
+      return newContent;
+    })
+  );
+  return JSON.parse(JSON.stringify(enriched));
+};
 
 const handleSubmit = async () => {
   isSubmitting.value = true;

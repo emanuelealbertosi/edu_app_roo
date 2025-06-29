@@ -104,6 +104,23 @@ export const useCourseStore = defineStore('course', {
       }
     },
 
+    async copyCourse(courseId: number): Promise<Course | undefined> {
+      this.loading = true;
+      this.error = null;
+      try {
+        const newCourse = await courseService.copyCourse(courseId);
+        // Per semplicità, ricarichiamo la lista dei corsi per vedere la copia.
+        // In alternativa, si potrebbe aggiungere 'newCourse' all'array 'this.courses'.
+        await this.fetchCourses();
+        return newCourse;
+      } catch (err) {
+        this.error = (err as Error).message || 'Failed to copy course';
+        throw err;
+      } finally {
+        this.loading = false;
+      }
+    },
+
     async fetchUdasForCourse(courseId: number): Promise<UDA[]> {
       this.loading = true; // Potrebbe essere un loading specifico per le UDA del corso
       this.error = null;

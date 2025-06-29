@@ -2,44 +2,36 @@
   <div class="activity-content-display p-3 bg-white rounded-b-md space-y-3 text-sm">
     <!-- Il titolo è gestito da UdaContentItemRenderer -->
     
-    <div class="flex items-center">
-      <strong class="w-28 flex-shrink-0 text-gray-700">Ore Stimate:</strong>
-      <div v-if="!isEditingEstimatedHours" class="flex items-center">
-        <span class="text-gray-600 mr-2">{{ props.content.estimated_hours !== null && typeof props.content.estimated_hours !== 'undefined' ? props.content.estimated_hours + 'h' : 'N/D' }}</span>
-        <button @click="startEditingEstimatedHours" class="text-xs text-blue-500 hover:text-blue-700">(modifica)</button>
-      </div>
-      <div v-else class="flex items-center space-x-2">
-        <input
-          type="number"
-          step="0.1"
-          min="0"
-          v-model.number="editableEstimatedHours"
-          class="w-20 px-2 py-1 border border-gray-300 rounded text-sm"
-          placeholder="Ore"
-        />
-        <button @click="saveEstimatedHours" class="px-2 py-1 text-xs bg-green-500 hover:bg-green-600 text-white rounded">Salva</button>
-        <button @click="cancelEditingEstimatedHours" class="px-2 py-1 text-xs bg-gray-300 hover:bg-gray-400 rounded">Annulla</button>
-      </div>
-    </div>
-    <div class="flex items-center">
-      <strong class="w-28 flex-shrink-0 text-gray-700">Ore Effettive:</strong>
-      <div v-if="!isEditingActualHours" class="flex items-center">
-        <span class="text-gray-600 mr-2">{{ props.content.actual_hours !== null && typeof props.content.actual_hours !== 'undefined' ? props.content.actual_hours + 'h' : 'N/D' }}</span>
-        <button @click="startEditingActualHours" class="text-xs text-blue-500 hover:text-blue-700">(modifica)</button>
-      </div>
-      <div v-else class="flex items-center space-x-2">
-        <input
-          type="number"
-          step="0.1"
-          min="0"
-          v-model.number="editableActualHours"
-          class="w-20 px-2 py-1 border border-gray-300 rounded text-sm"
-          placeholder="Ore"
-        />
-        <button @click="saveActualHours" class="px-2 py-1 text-xs bg-green-500 hover:bg-green-600 text-white rounded">Salva</button>
-        <button @click="cancelEditingActualHours" class="px-2 py-1 text-xs bg-gray-300 hover:bg-gray-400 rounded">Annulla</button>
-      </div>
-    </div>
+   <div class="flex items-center">
+     <strong class="w-28 flex-shrink-0 text-gray-700">Ore Stimate:</strong>
+     <div class="flex items-center space-x-2">
+       <input
+         type="number"
+         step="0.1"
+         min="0"
+         v-model.number="editableEstimatedHours"
+         @input="onEstimatedHoursInput"
+         class="w-20 px-2 py-1 border border-gray-300 rounded text-sm"
+         placeholder="Ore"
+       />
+       <span v-if="isSavingEstimatedHours" class="text-xs text-gray-500">Salvataggio...</span>
+     </div>
+   </div>
+   <div class="flex items-center">
+     <strong class="w-28 flex-shrink-0 text-gray-700">Ore Effettive:</strong>
+     <div class="flex items-center space-x-2">
+       <input
+         type="number"
+         step="0.1"
+         min="0"
+         v-model.number="editableActualHours"
+         @input="onActualHoursInput"
+         class="w-20 px-2 py-1 border border-gray-300 rounded text-sm"
+         placeholder="Ore"
+       />
+       <span v-if="isSavingActualHours" class="text-xs text-gray-500">Salvataggio...</span>
+     </div>
+   </div>
 
     <!-- Modifica descrizione attività -->
     <div class="mt-2"> <!-- Aggiunto margin top per separare -->
@@ -90,14 +82,14 @@ const editableDescription = ref(props.content.activity_description || '');
 const originalDescription = ref(props.content.activity_description || '');
 
 // State per la modifica delle ore effettive
-const isEditingActualHours = ref(false);
 const editableActualHours = ref<number | undefined | null>(props.content.actual_hours);
-const originalActualHours = ref<number | undefined | null>(props.content.actual_hours);
+const isSavingActualHours = ref(false);
+let debounceActualHoursTimer: number | undefined;
 
 // State per la modifica delle ore stimate
-const isEditingEstimatedHours = ref(false);
 const editableEstimatedHours = ref<number | undefined | null>(props.content.estimated_hours);
-const originalEstimatedHours = ref<number | undefined | null>(props.content.estimated_hours);
+const isSavingEstimatedHours = ref(false);
+let debounceEstimatedHoursTimer: number | undefined;
 
 
 watch(() => props.content.activity_description, (newVal) => {
@@ -108,17 +100,11 @@ watch(() => props.content.activity_description, (newVal) => {
 });
 
 watch(() => props.content.actual_hours, (newVal) => {
-  if (!isEditingActualHours.value) {
-    editableActualHours.value = newVal;
-    originalActualHours.value = newVal;
-  }
+  editableActualHours.value = newVal;
 });
 
 watch(() => props.content.estimated_hours, (newVal) => {
-  if (!isEditingEstimatedHours.value) {
-    editableEstimatedHours.value = newVal;
-    originalEstimatedHours.value = newVal;
-  }
+  editableEstimatedHours.value = newVal;
 });
 
 // --- Metodi per la modifica della descrizione ---
@@ -159,80 +145,65 @@ const cancelDescriptionEditing = () => {
 };
 
 // --- Metodi per la modifica delle ore effettive ---
-const startEditingActualHours = () => {
-  originalActualHours.value = props.content.actual_hours;
-  editableActualHours.value = props.content.actual_hours;
-  isEditingActualHours.value = true;
+const onActualHoursInput = () => {
+  clearTimeout(debounceActualHoursTimer);
+  debounceActualHoursTimer = window.setTimeout(() => {
+    saveActualHours();
+  }, 1500);
 };
 
 const saveActualHours = async () => {
-  console.log('[ActivityContentDisplay] saveActualHours called. editableActualHours:', editableActualHours.value);
+  isSavingActualHours.value = true;
   const valueToSave = (typeof editableActualHours.value === 'undefined' || editableActualHours.value === null)
                       ? null
                       : Number(editableActualHours.value);
 
-  if (valueToSave !== originalActualHours.value) {
-    if (typeof props.content.id === 'undefined' || typeof props.content.uda_id === 'undefined') {
-      console.error('Cannot update actual hours: content ID or UDA ID is undefined.');
-      // TODO: Mostrare un messaggio di errore all'utente
-      return;
-    }
-    try {
-      const updatedData: Partial<Pick<ActivityUDAContent, 'actual_hours'>> = {
-        actual_hours: valueToSave,
-      };
-      await udaStore.updateContentInUda(props.content.uda_id, props.content.id, updatedData as UDAContent);
-      originalActualHours.value = valueToSave;
-      isEditingActualHours.value = false;
-    } catch (error) {
-      console.error('Failed to save actual hours:', error);
-      // TODO: Gestire lo stato di errore per l'UI
-    }
-  } else {
-    isEditingActualHours.value = false;
+  if (typeof props.content.id === 'undefined' || typeof props.content.uda_id === 'undefined') {
+    console.error('Cannot update actual hours: content ID or UDA ID is undefined.');
+    isSavingActualHours.value = false;
+    return;
+  }
+  try {
+    const updatedData: Partial<Pick<ActivityUDAContent, 'actual_hours'>> = {
+      actual_hours: valueToSave,
+    };
+    await udaStore.updateContentInUda(props.content.uda_id, props.content.id, updatedData as UDAContent);
+  } catch (error) {
+    console.error('Failed to save actual hours:', error);
+  } finally {
+    isSavingActualHours.value = false;
   }
 };
 
-const cancelEditingActualHours = () => {
-  editableActualHours.value = originalActualHours.value;
-  isEditingActualHours.value = false;
-};
-
 // --- Metodi per la modifica delle ore stimate ---
-const startEditingEstimatedHours = () => {
-  originalEstimatedHours.value = props.content.estimated_hours;
-  editableEstimatedHours.value = props.content.estimated_hours;
-  isEditingEstimatedHours.value = true;
+const onEstimatedHoursInput = () => {
+  clearTimeout(debounceEstimatedHoursTimer);
+  debounceEstimatedHoursTimer = window.setTimeout(() => {
+    saveEstimatedHours();
+  }, 1500);
 };
 
 const saveEstimatedHours = async () => {
+  isSavingEstimatedHours.value = true;
   const valueToSave = (typeof editableEstimatedHours.value === 'undefined' || editableEstimatedHours.value === null)
                       ? null
                       : Number(editableEstimatedHours.value);
 
-  if (valueToSave !== originalEstimatedHours.value) {
-    if (typeof props.content.id === 'undefined' || typeof props.content.uda_id === 'undefined') {
-      console.error('Cannot update estimated hours: content ID or UDA ID is undefined.');
-      return;
-    }
-    try {
-      const updatedData: Partial<Pick<ActivityUDAContent, 'estimated_hours'>> = {
-        estimated_hours: valueToSave,
-      };
-      await udaStore.updateContentInUda(props.content.uda_id, props.content.id, updatedData as UDAContent);
-      originalEstimatedHours.value = valueToSave;
-      isEditingEstimatedHours.value = false;
-    } catch (error) {
-      console.error('Failed to save estimated hours:', error);
-    }
-  } else {
-    isEditingEstimatedHours.value = false;
+  if (typeof props.content.id === 'undefined' || typeof props.content.uda_id === 'undefined') {
+    console.error('Cannot update estimated hours: content ID or UDA ID is undefined.');
+    isSavingEstimatedHours.value = false;
+    return;
   }
-};
-
-const cancelEditingEstimatedHours = () => {
-  editableEstimatedHours.value = originalEstimatedHours.value;
-  isEditingEstimatedHours.value = false;
+  try {
+    const updatedData: Partial<Pick<ActivityUDAContent, 'estimated_hours'>> = {
+      estimated_hours: valueToSave,
+    };
+    await udaStore.updateContentInUda(props.content.uda_id, props.content.id, updatedData as UDAContent);
+  } catch (error) {
+    console.error('Failed to save estimated hours:', error);
+  } finally {
+    isSavingEstimatedHours.value = false;
+  }
 };
 </script>
 

@@ -37,6 +37,11 @@ export const courseService = {
     await apiClient.post(`${BASE_URL}${courseId}/udas/reorder/`, { uda_ids: udaIds });
   },
 
+  async copyCourse(courseId: number): Promise<Course> {
+    const response = await apiClient.post(`${BASE_URL}${courseId}/copy/`);
+    return response.data;
+  },
+
   async exportUdas(courseId: number, format: 'docx' | 'pdf'): Promise<void> {
     try {
       // L'URL del backend è ora separato per docx e pdf

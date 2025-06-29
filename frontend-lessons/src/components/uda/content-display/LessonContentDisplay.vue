@@ -18,21 +18,17 @@
       </div>
       <div class="flex items-center">
         <strong class="w-24 flex-shrink-0 text-gray-700">Ore Effettive:</strong>
-        <div v-if="!isEditingActualHours" class="flex items-center">
-          <span class="text-gray-600 mr-2">{{ props.content.actual_hours !== null && typeof props.content.actual_hours !== 'undefined' ? props.content.actual_hours + 'h' : 'N/D' }}</span>
-          <button @click="startEditingActualHours" class="text-xs text-blue-500 hover:text-blue-700">(modifica)</button>
-        </div>
-        <div v-else class="flex items-center space-x-2">
+        <div class="flex items-center space-x-2">
           <input
             type="number"
             step="0.1"
             min="0"
             v-model.number="editableActualHours"
+            @input="onActualHoursInput"
             class="w-20 px-2 py-1 border border-gray-300 rounded text-sm"
             placeholder="Ore"
           />
-          <button @click="saveActualHours" class="px-2 py-1 text-xs bg-green-500 hover:bg-green-600 text-white rounded">Salva</button>
-          <button @click="cancelEditingActualHours" class="px-2 py-1 text-xs bg-gray-300 hover:bg-gray-400 rounded">Annulla</button>
+          <span v-if="isSaving" class="text-xs text-gray-500">Salvataggio...</span>
         </div>
       </div>
     </div>
@@ -73,16 +69,12 @@ const lesson = ref<Lesson | null>(null);
 const isLoading = ref(false); // Per il caricamento dei dettagli della lezione
 
 // State per la modifica delle ore effettive
-const isEditingActualHours = ref(false);
 const editableActualHours = ref<number | undefined | null>(props.content.actual_hours);
-const originalActualHours = ref<number | undefined | null>(props.content.actual_hours);
-
+const isSaving = ref(false);
+let debounceTimer: number | undefined;
 
 watch(() => props.content.actual_hours, (newVal) => {
-  if (!isEditingActualHours.value) {
     editableActualHours.value = newVal;
-    originalActualHours.value = newVal;
-  }
 });
 
 const displayEstimatedHours = computed(() => {
@@ -166,45 +158,39 @@ watch(() => props.content, (newContentValue) => {
 }, { deep: true, immediate: false }); // immediate: false per evitare doppio log con onMounted se props.content è già lì
 
 // --- Metodi per la modifica delle ore effettive ---
-const startEditingActualHours = () => {
-  originalActualHours.value = props.content.actual_hours;
-  editableActualHours.value = props.content.actual_hours;
-  isEditingActualHours.value = true;
+const onActualHoursInput = () => {
+  clearTimeout(debounceTimer);
+  debounceTimer = window.setTimeout(() => {
+    saveActualHours();
+  }, 1500); // 1.5 secondi di debounce
 };
 
 const saveActualHours = async () => {
+  isSaving.value = true;
   console.log('[LessonContentDisplay] saveActualHours called. editableActualHours:', editableActualHours.value);
   const valueToSave = (typeof editableActualHours.value === 'undefined' || editableActualHours.value === null)
                       ? null
                       : Number(editableActualHours.value);
 
-  if (valueToSave !== originalActualHours.value) {
-    if (typeof props.content.id === 'undefined' || typeof props.content.uda_id === 'undefined') {
-      console.error('Cannot update actual hours: content ID or UDA ID is undefined. Props.content:', props.content);
-      // TODO: Mostrare un messaggio di errore all'utente
-      return;
-    }
-    try {
-      const updatedData: Partial<Pick<LessonUDAContent, 'actual_hours' | 'lesson'>> = { // Aggiunto 'lesson' al Pick
-        actual_hours: valueToSave,
-        lesson: props.content.lesson, // Aggiungi l'ID della lezione
-      };
-      // Usiamo UDAContent per il tipo nel payload dello store, dato che actual_hours è un campo base
-      await udaStore.updateContentInUda(props.content.uda_id, props.content.id, updatedData as UDAContent);
-      originalActualHours.value = valueToSave;
-      isEditingActualHours.value = false;
-    } catch (error) {
-      console.error('Failed to save actual hours for lesson content:', error);
-      // TODO: Gestire lo stato di errore per l'UI
-    }
-  } else {
-    isEditingActualHours.value = false;
+  if (typeof props.content.id === 'undefined' || typeof props.content.uda_id === 'undefined') {
+    console.error('Cannot update actual hours: content ID or UDA ID is undefined. Props.content:', props.content);
+    isSaving.value = false;
+    // TODO: Mostrare un messaggio di errore all'utente
+    return;
   }
-};
 
-const cancelEditingActualHours = () => {
-  editableActualHours.value = originalActualHours.value;
-  isEditingActualHours.value = false;
+  try {
+    const updatedData: Partial<Pick<LessonUDAContent, 'actual_hours' | 'lesson'>> = {
+      actual_hours: valueToSave,
+      lesson: props.content.lesson,
+    };
+    await udaStore.updateContentInUda(props.content.uda_id, props.content.id, updatedData as UDAContent);
+  } catch (error) {
+    console.error('Failed to save actual hours for lesson content:', error);
+    // TODO: Gestire lo stato di errore per l'UI
+  } finally {
+    isSaving.value = false;
+  }
 };
 </script>
 

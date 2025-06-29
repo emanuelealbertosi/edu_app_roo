@@ -212,7 +212,7 @@ class CourseViewSet(viewsets.ModelViewSet):
            row_cells[1].text = processed_value
            row_cells[0].paragraphs[0].runs[0].bold = True
        for index, uda_data in enumerate(processed_udas):
-           document.add_heading(f'UdA n. {index + 1}: {uda_data["title"]}', level=2)
+           document.add_heading(f'UDA n. {index + 1}: {uda_data["title"]}', level=2)
            
            p_periodo = document.add_paragraph()
            p_periodo.add_run(f"Periodo: dal {uda_data['start_date']} al {uda_data['end_date']}").italic = True
@@ -225,8 +225,8 @@ class CourseViewSet(viewsets.ModelViewSet):
 
            add_table_row_docx(table_details, 'Descrizione', uda_data['description'], is_html=True)
            add_table_row_docx(table_details, 'Tempi (durata in ore)', f"{uda_data['total_estimated_hours_display']} ore", is_html=False)
-           add_table_row_docx(table_details, 'Competenze attese a livello di UdA', uda_data['competences_html'])
            add_table_row_docx(table_details, 'Argomenti Uda', uda_data['topics_string'], is_html=False)
+           add_table_row_docx(table_details, 'Competenze attese a livello di UdA', uda_data['competences_html'])
            add_table_row_docx(table_details, 'Conoscenze ADA (sapere)', uda_data['knowledge_html'])
            add_table_row_docx(table_details, 'Abilità-Capacità ADA (saper fare)', uda_data['skills_html'])
            add_table_row_docx(table_details, 'Strategie didattiche', uda_data['didactic_strategies_html'])
@@ -409,9 +409,33 @@ class CourseViewSet(viewsets.ModelViewSet):
            logger.error(f"Eccezione durante la generazione del PDF per corso {course.id}: {e}", exc_info=True)
            return HttpResponse(f"Errore interno del server durante la generazione del PDF: {str(e)}", status=500)
 
+   @action(detail=True, methods=['post'], url_path='copy')
+   @transaction.atomic
+   def copy(self, request, pk=None):
+       """
+       Crea una copia di un Corso, incluse tutte le sue UDA.
+       """
+       original_course = self.get_object()
+       
+       # 1. Crea la copia del corso
+       new_course = Course.objects.create(
+           teacher=request.user,
+           name=f"Copia di {original_course.name}",
+           description=original_course.description
+       )
+       
+       # 2. Recupera e copia le UDA
+       udas_to_copy = original_course.uda_set.all().order_by('order_in_course')
+       for original_uda in udas_to_copy:
+           # 3. Usa la funzione helper per copiare ogni UDA e associarla al nuovo corso
+           _copy_uda_instance(original_uda, new_course, request.user)
+           
+       serializer = self.get_serializer(new_course)
+       return Response(serializer.data, status=status.HTTP_201_CREATED)
+
 class UDATemplateViewSet(viewsets.ModelViewSet):
-    """
-    ViewSet per gestire i Template UDA (UDATemplate).
+   """
+   ViewSet per gestire i Template UDA (UDATemplate).
     Permette CRUD sui template e gestione dei loro contenuti.
     """
     queryset = UDATemplate.objects.all()
@@ -462,6 +486,56 @@ class UDATemplateViewSet(viewsets.ModelViewSet):
         elif request.method == 'DELETE':
             content.delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+def _copy_uda_instance(original_uda, new_course, teacher):
+    """
+    Funzione helper per copiare un'istanza di UDA.
+    Crea una copia profonda dell'UDA, dei suoi contenuti e delle relazioni M2M.
+    Associa la nuova UDA al corso specificato.
+    """
+    new_uda = UDA.objects.create(
+        teacher=teacher,
+        title=f"Copia di {original_uda.title}",
+        description=original_uda.description,
+        start_date=original_uda.start_date,
+        end_date=original_uda.end_date,
+        status='TODO',
+        course=new_course,  # Associa al nuovo corso passato come argomento
+        order_in_course=original_uda.order_in_course if new_course else None,
+        source_template=None,
+        is_civic_education=original_uda.is_civic_education,
+        didactic_strategies_html=original_uda.didactic_strategies_html,
+        materials_tools_html=original_uda.materials_tools_html,
+        assessment_type_html=original_uda.assessment_type_html,
+        evaluation_html=original_uda.evaluation_html,
+        other_involved_subjects_text=original_uda.other_involved_subjects_text,
+        export_specific_annotations_html=original_uda.export_specific_annotations_html,
+        competences_html=original_uda.competences_html,
+        knowledge_html=original_uda.knowledge_html,
+        skills_html=original_uda.skills_html
+    )
+    new_uda.subjects.set(original_uda.subjects.all())
+    new_uda.topics.set(original_uda.topics.all())
+
+    original_contents = original_uda.contents.all().order_by('order')
+    for original_content in original_contents:
+        UDAContent.objects.create(
+            uda=new_uda,
+            content_type=original_content.content_type,
+            lesson=original_content.lesson,
+            quiz_template=original_content.quiz_template,
+            note_title=original_content.note_title,
+            note_content=original_content.note_content,
+            activity_title=original_content.activity_title,
+            activity_description=original_content.activity_description,
+            activity_attachment_url=original_content.activity_attachment_url,
+            activity_completed=False,
+            teacher_marked_completed=False,
+            order=original_content.order,
+            estimated_hours=original_content.estimated_hours
+        )
+    return new_uda
 
 
 class UDAViewSet(viewsets.ModelViewSet):
@@ -606,46 +680,8 @@ class UDAViewSet(viewsets.ModelViewSet):
         La nuova UDA non sarà associata a nessun corso.
         """
         original_uda = self.get_object()
-        new_uda = UDA.objects.create(
-            teacher=request.user,
-            title=f"Copia di {original_uda.title}",
-            description=original_uda.description,
-            start_date=original_uda.start_date,
-            end_date=original_uda.end_date,
-            status='TODO',
-            course=None,
-            order_in_course=None,
-            source_template=None,
-            is_civic_education=original_uda.is_civic_education,
-            didactic_strategies_html=original_uda.didactic_strategies_html,
-            materials_tools_html=original_uda.materials_tools_html,
-            assessment_type_html=original_uda.assessment_type_html,
-            evaluation_html=original_uda.evaluation_html,
-            other_involved_subjects_text=original_uda.other_involved_subjects_text,
-            export_specific_annotations_html=original_uda.export_specific_annotations_html,
-            competences_html=original_uda.competences_html,
-            knowledge_html=original_uda.knowledge_html,
-            skills_html=original_uda.skills_html
-        )
-        new_uda.subjects.set(original_uda.subjects.all())
-        new_uda.topics.set(original_uda.topics.all())
-        original_contents = original_uda.contents.all().order_by('order')
-        for original_content in original_contents:
-            UDAContent.objects.create(
-                uda=new_uda,
-                content_type=original_content.content_type,
-                lesson=original_content.lesson,
-                quiz_template=original_content.quiz_template,
-                note_title=original_content.note_title,
-                note_content=original_content.note_content,
-                activity_title=original_content.activity_title,
-                activity_description=original_content.activity_description,
-                activity_attachment_url=original_content.activity_attachment_url,
-                activity_completed=False,
-                teacher_marked_completed=False,
-                order=original_content.order,
-                estimated_hours=original_content.estimated_hours
-            )
-        new_uda.refresh_from_db()
-        serializer = UDASerializer(new_uda, context={'request': request})
+        # Chiama la funzione helper per creare la copia
+        new_uda = _copy_uda_instance(original_uda, new_course=None, teacher=request.user)
+        
+        serializer = self.get_serializer(new_uda)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
