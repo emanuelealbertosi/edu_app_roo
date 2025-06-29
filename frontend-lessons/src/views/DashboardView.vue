@@ -25,17 +25,17 @@
             <ul class="space-y-2">
                 <!-- Link per Admin/Teacher -->
                 <template v-if="sharedAuthStore.userRole === 'TEACHER' || sharedAuthStore.userRole === 'ADMIN'">
-                    <li><router-link :to="{ name: 'subjects' }" class="text-blue-600 hover:underline">Materie</router-link></li>
-                    <li><router-link :to="{ name: 'topics' }" class="text-blue-600 hover:underline">Argomenti</router-link></li>
-                    <li v-if="sharedAuthStore.userRole === 'TEACHER'"><router-link :to="{ name: 'teacher-lessons' }" class="text-blue-600 hover:underline">Gestione Lezioni</router-link></li>
-                    <li><router-link :to="{ name: 'course-list' }" class="text-blue-600 hover:underline">Corsi</router-link></li>
-                    <li><router-link :to="{ name: 'uda-list' }" class="text-blue-600 hover:underline">Unità Didattiche</router-link></li>
+                    <li><router-link :to="{ name: 'subjects' }" @click="forceNavigate({ name: 'subjects' })" class="text-blue-600 hover:underline">Materie</router-link></li>
+                    <li><router-link :to="{ name: 'topics' }" @click="forceNavigate({ name: 'topics' })" class="text-blue-600 hover:underline">Argomenti</router-link></li>
+                    <li v-if="sharedAuthStore.userRole === 'TEACHER'"><router-link :to="{ name: 'teacher-lessons' }" @click="forceNavigate({ name: 'teacher-lessons' })" class="text-blue-600 hover:underline">Gestione Lezioni</router-link></li>
+                    <li><router-link :to="{ name: 'course-list' }" @click="forceNavigate({ name: 'course-list' })" class="text-blue-600 hover:underline">Corsi</router-link></li>
+                    <li><router-link :to="{ name: 'uda-list' }" @click="forceNavigate({ name: 'uda-list' })" class="text-blue-600 hover:underline">Unità Didattiche</router-link></li>
                     <li><a href="/dashboard" class="text-blue-600 hover:underline">Gestione Quiz (Altra App)</a></li>
                 </template>
 
                 <!-- Link per Studente -->
                 <template v-if="sharedAuthStore.userRole === 'STUDENT'">
-                    <li><router-link :to="{ name: 'assigned-lessons' }" class="text-blue-600 hover:underline">Lezioni Assegnate</router-link></li>
+                    <li><router-link :to="{ name: 'assigned-lessons' }" @click="forceNavigate({ name: 'assigned-lessons' })" class="text-blue-600 hover:underline">Lezioni Assegnate</router-link></li>
                     <li><a :href="studentAppUrl" class="text-blue-600 hover:underline">I Miei Quiz (App Studenti)</a></li>
                 </template>
             </ul>
@@ -51,12 +51,16 @@
 <script setup lang="ts">
 import { computed } from 'vue'; // Aggiunto computed
 import { useSharedAuthStore } from '@/stores/sharedAuth'; // Importa lo store condiviso
-// import { useRouter } from 'vue-router'; // Rimosso useRouter perché non utilizzato
+import { useRouter, type RouteLocationRaw } from 'vue-router';
 
 const sharedAuthStore = useSharedAuthStore(); // Usa lo store condiviso
-// const router = useRouter(); // Rimosso perché non utilizzato
+const router = useRouter();
 
 const studentAppUrl = computed(() => (import.meta.env.VITE_STUDENT_APP_URL as string | undefined) || '/studenti/');
+
+const forceNavigate = (location: RouteLocationRaw) => {
+  router.push(location);
+};
 
 const handleLogout = () => {
   sharedAuthStore.clearAuthData();

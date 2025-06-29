@@ -2,7 +2,7 @@
 import { ref, computed, onMounted, watch, onBeforeUnmount } from 'vue'; // Aggiunto watch, onBeforeUnmount
 import { useAuthStore } from '@/stores/auth';
 import { useNotificationStore } from '@/stores/notification'; // Aggiunto NotificationStore
-import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router';
+import { RouterLink, RouterView, useRoute, useRouter, type RouteLocationRaw } from 'vue-router';
 import GlobalLoadingIndicator from '@/components/common/GlobalLoadingIndicator.vue';
 import NotificationContainer from '@/components/common/NotificationContainer.vue';
 import UniformNotificationDisplay from '@/components/common/UniformNotificationDisplay.vue'; // Per notifiche toast uniformi
@@ -255,6 +255,15 @@ const goToProfile = () => {
   router.push({ name: 'Profile' });
 };
 
+const forceNavigate = (location: RouteLocationRaw) => {
+  router.push(location);
+};
+
+const forceNavigateAndCloseMobileMenu = (location: RouteLocationRaw) => {
+  router.push(location);
+  toggleMobileMenu();
+};
+
 const toggleNotificationsDropdown = () => {
   isNotificationsOpen.value = !isNotificationsOpen.value;
   if (isNotificationsOpen.value && authStore.isAuthenticated) {
@@ -365,14 +374,14 @@ const handleContentInteraction = () => {
         <ul>
           <!-- Dashboard -->
           <li class="mb-3">
-            <router-link :to="{ name: 'dashboard' }" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700" title="Dashboard">
+            <router-link :to="{ name: 'dashboard' }" @click="forceNavigate({ name: 'dashboard' })" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700" title="Dashboard">
               <HomeIcon class="h-6 w-6 flex-shrink-0" />
               <span class="ml-3 whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">Dashboard</span>
             </router-link>
           </li>
           <!-- I Miei Quiz -->
           <li class="mb-3">
-            <router-link :to="{ name: 'QuizzesPage' }" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700 relative" :title="newQuizzesTooltip">
+            <router-link :to="{ name: 'QuizzesPage' }" @click="forceNavigate({ name: 'QuizzesPage' })" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700 relative" :title="newQuizzesTooltip">
               <QuestionMarkCircleIcon class="h-6 w-6 flex-shrink-0" />
               <span class="ml-3 whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">I Miei Quiz</span>
               <span v-if="newQuizzesCount > 0"
@@ -383,7 +392,7 @@ const handleContentInteraction = () => {
           </li>
           <!-- Le Mie Lezioni (incorporate) -->
           <li class="mb-3">
-            <router-link :to="{ name: 'EmbeddedLessons' }" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700 relative" :title="newLessonsTooltip">
+            <router-link :to="{ name: 'EmbeddedLessons' }" @click="forceNavigate({ name: 'EmbeddedLessons' })" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700 relative" :title="newLessonsTooltip">
               <BookOpenIcon class="h-6 w-6 flex-shrink-0" />
               <span class="ml-3 whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">Le Mie Lezioni</span>
               <span v-if="newLessonsCount > 0"
@@ -394,21 +403,21 @@ const handleContentInteraction = () => {
           </li>
           <!-- Shop -->
           <li class="mb-3">
-            <router-link :to="{ name: 'shop' }" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700" title="Shop">
+            <router-link :to="{ name: 'shop' }" @click="forceNavigate({ name: 'shop' })" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700" title="Shop">
               <ShoppingCartIcon class="h-6 w-6 flex-shrink-0" />
               <span class="ml-3 whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">Shop</span>
             </router-link>
           </li>
           <!-- Acquisti -->
           <li class="mb-3">
-            <router-link :to="{ name: 'purchases' }" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700" title="Acquisti">
+            <router-link :to="{ name: 'purchases' }" @click="forceNavigate({ name: 'purchases' })" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700" title="Acquisti">
               <CreditCardIcon class="h-6 w-6 flex-shrink-0" />
               <span class="ml-3 whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">Acquisti</span>
             </router-link>
           </li>
           <!-- Traguardi -->
           <li class="mb-3">
-            <router-link :to="{ name: 'Badges' }" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700" title="Traguardi">
+            <router-link :to="{ name: 'Badges' }" @click="forceNavigate({ name: 'Badges' })" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700" title="Traguardi">
               <TrophyIcon class="h-6 w-6 flex-shrink-0" />
               <span class="ml-3 whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">Traguardi</span>
             </router-link>
@@ -447,14 +456,14 @@ const handleContentInteraction = () => {
           <ul>
             <!-- Dashboard -->
             <li class="mb-3">
-              <router-link :to="{ name: 'dashboard' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700" title="Dashboard">
+              <router-link :to="{ name: 'dashboard' }" @click="forceNavigateAndCloseMobileMenu({ name: 'dashboard' })" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700" title="Dashboard">
                 <HomeIcon class="h-6 w-6 flex-shrink-0" />
                 <span class="ml-3">Dashboard</span>
               </router-link>
             </li>
             <!-- I Miei Quiz -->
             <li class="mb-3">
-              <router-link :to="{ name: 'QuizzesPage' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700 relative" :title="newQuizzesTooltip">
+              <router-link :to="{ name: 'QuizzesPage' }" @click="forceNavigateAndCloseMobileMenu({ name: 'QuizzesPage' })" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700 relative" :title="newQuizzesTooltip">
                 <QuestionMarkCircleIcon class="h-6 w-6 flex-shrink-0" />
                 <span class="ml-3">I Miei Quiz</span>
                 <span v-if="newQuizzesCount > 0"
@@ -465,7 +474,7 @@ const handleContentInteraction = () => {
             </li>
             <!-- Le Mie Lezioni (incorporate) -->
             <li class="mb-3">
-              <router-link :to="{ name: 'EmbeddedLessons' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700 relative" :title="newLessonsTooltip">
+              <router-link :to="{ name: 'EmbeddedLessons' }" @click="forceNavigateAndCloseMobileMenu({ name: 'EmbeddedLessons' })" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700 relative" :title="newLessonsTooltip">
                 <BookOpenIcon class="h-6 w-6 flex-shrink-0" />
                 <span class="ml-3">Le Mie Lezioni</span>
                 <span v-if="newLessonsCount > 0"
@@ -476,21 +485,21 @@ const handleContentInteraction = () => {
             </li>
             <!-- Shop -->
             <li class="mb-3">
-              <router-link :to="{ name: 'shop' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700" title="Shop">
+              <router-link :to="{ name: 'shop' }" @click="forceNavigateAndCloseMobileMenu({ name: 'shop' })" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700" title="Shop">
                 <ShoppingCartIcon class="h-6 w-6 flex-shrink-0" />
                 <span class="ml-3">Shop</span>
               </router-link>
             </li>
             <!-- Acquisti -->
             <li class="mb-3">
-              <router-link :to="{ name: 'purchases' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700" title="Acquisti">
+              <router-link :to="{ name: 'purchases' }" @click="forceNavigateAndCloseMobileMenu({ name: 'purchases' })" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700" title="Acquisti">
                 <CreditCardIcon class="h-6 w-6 flex-shrink-0" />
                 <span class="ml-3">Acquisti</span>
               </router-link>
             </li>
             <!-- Traguardi -->
             <li class="mb-3">
-              <router-link :to="{ name: 'Badges' }" @click="toggleMobileMenu" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700" title="Traguardi">
+              <router-link :to="{ name: 'Badges' }" @click="forceNavigateAndCloseMobileMenu({ name: 'Badges' })" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700" title="Traguardi">
                 <TrophyIcon class="h-6 w-6 flex-shrink-0" />
                 <span class="ml-3">Traguardi</span>
               </router-link>

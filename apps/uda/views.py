@@ -121,10 +121,12 @@ class CourseViewSet(viewsets.ModelViewSet):
            lesson_contents_for_template = []
            lesson_contents_queryset = uda_instance.contents.filter(content_type='LESSON').select_related('lesson')
            for lc in lesson_contents_queryset:
-               lc_hours_text = f"{float(lc.estimated_hours):.1f}" if lc.estimated_hours is not None else "N/D"
+               lc_estimated_hours_text = f"{float(lc.estimated_hours):.1f}" if lc.estimated_hours is not None else "N/D"
+               lc_actual_hours_text = f"{float(lc.actual_hours):.1f}" if lc.actual_hours is not None else "n/d"
                lesson_contents_for_template.append({
                    'lesson': lc.lesson,
-                   'hours_display_pdf': lc_hours_text
+                   'estimated_hours_display': lc_estimated_hours_text,
+                   'actual_hours_display': lc_actual_hours_text,
                })
 
            # Processa Attività
@@ -132,14 +134,27 @@ class CourseViewSet(viewsets.ModelViewSet):
            activity_contents_queryset = uda_instance.contents.filter(content_type='ACTIVITY')
            for ac in activity_contents_queryset:
                ac_estimated_hours_text = f"{float(ac.estimated_hours):.1f}" if ac.estimated_hours is not None else "N/D"
-               ac_actual_hours_text = f"{float(ac.actual_hours):.1f}" if ac.actual_hours is not None else "N/D"
+               ac_actual_hours_text = f"{float(ac.actual_hours):.1f}" if ac.actual_hours is not None else "n/d"
                activity_contents_for_template.append({
                    'title': ac.activity_title or "Attività senza titolo",
                    'estimated_hours_display': ac_estimated_hours_text,
                    'actual_hours_display': ac_actual_hours_text,
                })
+           
+           # Processa Note
+           note_contents_for_template = []
+           note_contents_queryset = uda_instance.contents.filter(content_type='NOTE')
+           for nc in note_contents_queryset:
+               note_contents_for_template.append({
+                   'title': nc.note_title or "Nota senza titolo",
+                   'description': nc.note_content or "",
+               })
+
            processed_udas.append({
                'title': uda_instance.title,
+               'start_date': uda_instance.start_date.strftime('%d/%m/%Y') if uda_instance.start_date else 'N/D',
+               'end_date': uda_instance.end_date.strftime('%d/%m/%Y') if uda_instance.end_date else 'N/D',
+               'description': uda_instance.description,
                'competences_html': uda_instance.competences_html,
                'topics_string': ", ".join([topic.name for topic in uda_instance.topics.all()]),
                'knowledge_html': uda_instance.knowledge_html,
@@ -153,7 +168,7 @@ class CourseViewSet(viewsets.ModelViewSet):
                'is_civic_education': uda_instance.is_civic_education,
                'lesson_contents': lesson_contents_for_template,
                'activity_contents': activity_contents_for_template,
-               'description': uda_instance.description,
+               'note_contents': note_contents_for_template,
                'export_specific_annotations_html': uda_instance.export_specific_annotations_html,
            })
 
@@ -198,44 +213,51 @@ class CourseViewSet(viewsets.ModelViewSet):
            row_cells[0].paragraphs[0].runs[0].bold = True
        for index, uda_data in enumerate(processed_udas):
            document.add_heading(f'UdA n. {index + 1}: {uda_data["title"]}', level=2)
+           
+           p_periodo = document.add_paragraph()
+           p_periodo.add_run(f"Periodo: dal {uda_data['start_date']} al {uda_data['end_date']}").italic = True
+           
            table_details = document.add_table(rows=0, cols=2)
            table_details.style = 'TableGrid'
            table_details.alignment = WD_TABLE_ALIGNMENT.CENTER
            table_details.columns[0].width = Inches(2.0)
            table_details.columns[1].width = Inches(4.5)
+
+           add_table_row_docx(table_details, 'Descrizione', uda_data['description'], is_html=True)
+           add_table_row_docx(table_details, 'Tempi (durata in ore)', f"{uda_data['total_estimated_hours_display']} ore", is_html=False)
            add_table_row_docx(table_details, 'Competenze attese a livello di UdA', uda_data['competences_html'])
            add_table_row_docx(table_details, 'Argomenti Uda', uda_data['topics_string'], is_html=False)
            add_table_row_docx(table_details, 'Conoscenze ADA (sapere)', uda_data['knowledge_html'])
            add_table_row_docx(table_details, 'Abilità-Capacità ADA (saper fare)', uda_data['skills_html'])
-           add_table_row_docx(table_details, 'Tempi (durata in ore)', f"{uda_data['total_estimated_hours_display']} ore", is_html=False)
            add_table_row_docx(table_details, 'Strategie didattiche', uda_data['didactic_strategies_html'])
            add_table_row_docx(table_details, 'Materiali e strumenti', uda_data['materials_tools_html'])
            add_table_row_docx(table_details, 'Tipo di verifiche', uda_data['assessment_type_html'])
            add_table_row_docx(table_details, 'Valutazione', uda_data['evaluation_html'])
-           add_table_row_docx(table_details, 'Altre Discipline coinvolte', uda_data['other_involved_subjects_display'], is_html=False)
-           annotations_text_docx = uda_data['export_specific_annotations_html']
-           is_html_annotations_docx = bool(uda_data['export_specific_annotations_html'])
-           if not annotations_text_docx:
-               annotations_text_docx = uda_data['description']
-               is_html_annotations_docx = False
-           add_table_row_docx(table_details, 'Annotazioni', annotations_text_docx, is_html=is_html_annotations_docx)
+           add_table_row_docx(table_details, 'Discipline Coinvolte', uda_data['other_involved_subjects_display'], is_html=False)
+           
+           if uda_data['export_specific_annotations_html']:
+               add_table_row_docx(table_details, 'Annotazioni', uda_data['export_specific_annotations_html'], is_html=True)
+
            if uda_data['is_civic_education']:
                add_table_row_docx(table_details, 'Educazione Civica', 'Sì, parte del percorso', is_html=False)
+
            if uda_data['lesson_contents']:
                document.add_heading('Lezioni Previste', level=3)
-               table_lessons = document.add_table(rows=1, cols=2)
+               table_lessons = document.add_table(rows=1, cols=3)
                table_lessons.style = 'TableGrid'
                table_lessons.alignment = WD_TABLE_ALIGNMENT.CENTER
                hdr_cells = table_lessons.rows[0].cells
                hdr_cells[0].text = 'Titolo Lezione'
                hdr_cells[1].text = 'Durata Stimata (ore)'
-               hdr_cells[0].paragraphs[0].runs[0].bold = True
-               hdr_cells[1].paragraphs[0].runs[0].bold = True
+               hdr_cells[2].text = 'Durata Effettiva (ore)'
+               for cell in hdr_cells:
+                   cell.paragraphs[0].runs[0].bold = True
                for lc_data in uda_data['lesson_contents']:
                    row_cells_lc = table_lessons.add_row().cells
                    row_cells_lc[0].text = lc_data['lesson'].title if lc_data['lesson'] else "Lezione non specificata"
-                   row_cells_lc[1].text = lc_data['hours_display_pdf']
-           # Aggiungi tabella Attività
+                   row_cells_lc[1].text = lc_data['estimated_hours_display']
+                   row_cells_lc[2].text = lc_data['actual_hours_display']
+
            if uda_data['activity_contents']:
                document.add_heading('Attività Previste', level=3)
                table_activities = document.add_table(rows=1, cols=3)
@@ -253,6 +275,18 @@ class CourseViewSet(viewsets.ModelViewSet):
                    row_cells_ac[0].text = ac_data['title']
                    row_cells_ac[1].text = ac_data['estimated_hours_display']
                    row_cells_ac[2].text = ac_data['actual_hours_display']
+
+           if uda_data['note_contents']:
+               document.add_heading('Note', level=3)
+               for note_data in uda_data['note_contents']:
+                   document.add_paragraph(note_data['title'], style='Intense Quote') # Usa uno stile per il titolo della nota
+                   # Pulisci e aggiungi la descrizione HTML
+                   if note_data['description']:
+                       soup = BeautifulSoup(note_data['description'], 'html.parser')
+                       # Aggiungi il testo pulito, preservando i paragrafi
+                       for p in soup.find_all(['p', 'li']):
+                            document.add_paragraph(p.get_text(strip=True), style='List Paragraph')
+                   document.add_paragraph() # Spazio dopo ogni nota
 
            document.add_paragraph()
            if index < len(processed_udas) - 1:
