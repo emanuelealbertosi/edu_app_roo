@@ -425,7 +425,7 @@ class CourseViewSet(viewsets.ModelViewSet):
        )
        
        # 2. Recupera e copia le UDA
-       udas_to_copy = original_course.uda_set.all().order_by('order_in_course')
+       udas_to_copy = original_course.udas.all().order_by('order_in_course')
        for original_uda in udas_to_copy:
            # 3. Usa la funzione helper per copiare ogni UDA e associarla al nuovo corso
            _copy_uda_instance(original_uda, new_course, request.user)
