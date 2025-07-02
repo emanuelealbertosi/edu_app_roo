@@ -12,6 +12,7 @@ RUN npm install
 # Copia il resto del codice sorgente
 COPY . .
 
+
 # Costruisci l'applicazione per la produzione
 # Passa l'URL dell'API come argomento di build (può essere sovrascritto da docker-compose)
 # Utilizziamo /api/ come valore predefinito per sfruttare il proxy Nginx

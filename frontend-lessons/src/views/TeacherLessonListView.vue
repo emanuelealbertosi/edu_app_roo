@@ -34,12 +34,48 @@
       <table class="min-w-full divide-y divide-gray-200">
         <thead class="bg-gray-50">
           <tr>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Titolo</th>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Argomento</th>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Materia</th>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ore Stimate</th>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stato</th>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data Creazione</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer transition-colors duration-200 hover:text-blue-600" @click="sortBy('title')">
+              Titolo
+              <span v-if="sortKey === 'title'">
+                <ChevronUpIcon v-if="sortOrder === 'asc'" class="h-4 w-4 inline-block" />
+                <ChevronDownIcon v-else class="h-4 w-4 inline-block" />
+              </span>
+            </th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer transition-colors duration-200 hover:text-blue-600" @click="sortBy('topic')">
+              Argomento
+              <span v-if="sortKey === 'topic'">
+                <ChevronUpIcon v-if="sortOrder === 'asc'" class="h-4 w-4 inline-block" />
+                <ChevronDownIcon v-else class="h-4 w-4 inline-block" />
+              </span>
+            </th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer transition-colors duration-200 hover:text-blue-600" @click="sortBy('subject')">
+              Materia
+              <span v-if="sortKey === 'subject'">
+                <ChevronUpIcon v-if="sortOrder === 'asc'" class="h-4 w-4 inline-block" />
+                <ChevronDownIcon v-else class="h-4 w-4 inline-block" />
+              </span>
+            </th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer transition-colors duration-200 hover:text-blue-600" @click="sortBy('estimated_hours')">
+              Ore Stimate
+              <span v-if="sortKey === 'estimated_hours'">
+                <ChevronUpIcon v-if="sortOrder === 'asc'" class="h-4 w-4 inline-block" />
+                <ChevronDownIcon v-else class="h-4 w-4 inline-block" />
+              </span>
+            </th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer transition-colors duration-200 hover:text-blue-600" @click="sortBy('is_published')">
+              Stato
+              <span v-if="sortKey === 'is_published'">
+                <ChevronUpIcon v-if="sortOrder === 'asc'" class="h-4 w-4 inline-block" />
+                <ChevronDownIcon v-else class="h-4 w-4 inline-block" />
+              </span>
+            </th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer transition-colors duration-200 hover:text-blue-600" @click="sortBy('created_at')">
+              Data Creazione
+              <span v-if="sortKey === 'created_at'">
+                <ChevronUpIcon v-if="sortOrder === 'asc'" class="h-4 w-4 inline-block" />
+                <ChevronDownIcon v-else class="h-4 w-4 inline-block" />
+              </span>
+            </th>
             <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Azioni</th>
           </tr>
         </thead>
@@ -113,27 +149,64 @@ const searchQuery = ref('');
 import emitter from '@/eventBus'; // Importa l'event bus
 import LessonEditModal from '../components/features/lezioni/LessonEditModal.vue';
 import AssignLessonModal from '../components/features/lezioni/AssignLessonModal.vue'; // Importa la nuova modale
+// La ricerca e l'ordinamento sono ora gestiti interamente lato client per coerenza.
 const filteredLessons = computed(() => {
   const query = searchQuery.value.toLowerCase().trim();
-  if (!query) {
-    return lessons.value;
-  }
-  return lessons.value.filter(lesson => {
-    const topicName = getTopicName(lesson.topic).toLowerCase();
-    const subjectName = getSubjectNameFromTopic(lesson.topic).toLowerCase();
-    const status = (lesson.is_published ? 'pubblicata' : 'bozza').toLowerCase();
-    const title = lesson.title.toLowerCase();
-    const estimatedHours = lesson.estimated_hours ? lesson.estimated_hours.toString() : '';
 
-    return title.includes(query) ||
-           topicName.includes(query) ||
-           subjectName.includes(query) ||
-           status.includes(query) ||
-           (query && estimatedHours.includes(query)); // Aggiunta ricerca per ore stimate se query non è vuota
+  // 1. Filtra le lezioni in base alla query di ricerca
+  const filtered = query
+    ? lessons.value.filter(lesson => {
+        const topicName = getTopicName(lesson.topic).toLowerCase();
+        const subjectName = getSubjectNameFromTopic(lesson.topic).toLowerCase();
+        const status = (lesson.is_published ? 'pubblicata' : 'bozza').toLowerCase();
+        const title = lesson.title.toLowerCase();
+        const estimatedHours = lesson.estimated_hours ? lesson.estimated_hours.toString() : '';
+
+        return title.includes(query) ||
+               topicName.includes(query) ||
+               subjectName.includes(query) ||
+               status.includes(query) ||
+               (query && estimatedHours.includes(query));
+      })
+    : lessons.value;
+
+  // 2. Ordina l'array filtrato (o completo)
+  return filtered.slice().sort((a, b) => {
+    let valA: any;
+    let valB: any;
+
+    // Assegna i valori da confrontare in base a sortKey
+    switch (sortKey.value) {
+      case 'topic':
+        valA = getTopicName(a.topic);
+        valB = getTopicName(b.topic);
+        break;
+      case 'subject':
+        valA = getSubjectNameFromTopic(a.topic);
+        valB = getSubjectNameFromTopic(b.topic);
+        break;
+      default:
+        valA = a[sortKey.value as keyof Lesson];
+        valB = b[sortKey.value as keyof Lesson];
+    }
+
+    // Gestione per diversi tipi di dato
+    if (typeof valA === 'string' && typeof valB === 'string') {
+      valA = valA.toLowerCase();
+      valB = valB.toLowerCase();
+    }
+    
+    if (valA < valB) {
+      return sortOrder.value === 'asc' ? -1 : 1;
+    }
+    if (valA > valB) {
+      return sortOrder.value === 'asc' ? 1 : -1;
+    }
+    return 0;
   });
 });
-import type { Lesson } from '@/types/lezioni'; // Rimossi Topic e Subject non usati qui
-import { PlusCircleIcon, PencilIcon, TrashIcon, DocumentTextIcon, UserPlusIcon } from '@heroicons/vue/24/outline';
+import type { Lesson } from '@/types/lezioni';
+import { PlusCircleIcon, PencilIcon, TrashIcon, DocumentTextIcon, UserPlusIcon, ChevronUpIcon, ChevronDownIcon } from '@heroicons/vue/24/outline';
 
 
 const lessonStore = useLessonStore();
@@ -148,6 +221,10 @@ const showAddModal = ref(false);
 const lessonToEdit = ref<Lesson | null>(null);
 const isAssignModalOpen = ref(false);
 const currentLessonIdToAssign = ref<number | null>(null);
+
+// Stato per l'ordinamento
+const sortKey = ref('created_at');
+const sortOrder = ref('desc');
 
 // Funzione chiamata dall'event bus per aprire il modale
 const handleOpenAddModalEvent = () => {
@@ -165,6 +242,7 @@ const openAddModalDirectly = () => {
 onMounted(async () => {
   await subjectStore.fetchSubjects();
   await topicStore.fetchTopics();
+  // Carica tutte le lezioni, l'ordinamento è gestito localmente
   await lessonStore.fetchLessons();
   // Registra il listener per l'evento
   emitter.on('open-add-lesson-modal', handleOpenAddModalEvent);
@@ -264,6 +342,17 @@ const handleAssignmentCompletion = (result: any) => {
 const gotoContents = (lessonId: number) => {
      // Usa il nome della rotta definito nel router
     router.push({ name: 'lesson-contents', params: { lessonId: lessonId.toString() } });
+};
+
+const sortBy = (key: string) => {
+  if (sortKey.value === key) {
+    sortOrder.value = sortOrder.value === 'asc' ? 'desc' : 'asc';
+  } else {
+    sortKey.value = key;
+    sortOrder.value = 'asc';
+  }
+  // L'ordinamento viene applicato reattivamente dalla computed property `filteredLessons`.
+  // Non è più necessaria una chiamata API.
 };
 
 </script>

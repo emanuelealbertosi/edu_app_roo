@@ -12,6 +12,7 @@ RUN npm install
 # Copia il resto del codice sorgente
 COPY . .
 
+
 # Costruisci l'applicazione per la produzione
 # Rimosso ARG/ENV VITE_API_BASE_URL. L'URL base verrà gestito da api.ts
 # usando import.meta.env.VITE_API_BASE_URL (da .env.local) o il fallback '/api'.

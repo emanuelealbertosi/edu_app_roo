@@ -1,5 +1,5 @@
 import logging
-from rest_framework import viewsets, permissions, status, serializers
+from rest_framework import viewsets, permissions, status, serializers, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError, PermissionDenied as DRFPermissionDenied
@@ -142,6 +142,17 @@ class TopicViewSet(viewsets.ModelViewSet):
 class LessonViewSet(viewsets.ModelViewSet):
     """ API endpoint per le Lezioni (Lessons), nidificato sotto Topic. """
     permission_classes = [IsAuthenticated, (IsTeacherUser | IsAdminUser)]
+    filter_backends = [filters.OrderingFilter]
+    ordering_fields = [
+        'title',
+        'topic__subject__name', # Ordinamento per nome materia
+        'topic__name',          # Ordinamento per nome argomento
+        'estimated_hours',
+        'is_published',
+        'created_at'
+    ]
+    # Default ordering
+    ordering = ['-created_at']
 
     def get_serializer_class(self):
         # Usa serializer diversi per lettura e scrittura
@@ -150,13 +161,32 @@ class LessonViewSet(viewsets.ModelViewSet):
         return LessonSerializer # Per list, retrieve
 
     def get_queryset(self):
-        """ Filtra lezioni per l'argomento specificato nell'URL. """
+        """
+        Filtra lezioni per l'argomento specificato nell'URL (se presente),
+        altrimenti restituisce tutte le lezioni del docente loggato.
+        L'ordinamento viene applicato manualmente per garantire il funzionamento.
+        """
+        user = self.request.user
         topic_pk = self.kwargs.get('topic_pk')
-        if not topic_pk:
-            return Lesson.objects.none()
-        queryset = Lesson.objects.filter(topic_id=topic_pk)
-        # if not self.request.user.is_admin:
-        #     queryset = queryset.filter(creator=self.request.user) # Docente vede solo le sue lezioni?
+
+        if topic_pk:
+            # Se la richiesta è nidificata sotto un argomento, filtra per quello
+            queryset = Lesson.objects.filter(topic_id=topic_pk)
+        else:
+            # Altrimenti, restituisce tutte le lezioni create dall'utente
+            queryset = Lesson.objects.filter(creator=user)
+
+        # Applica ordinamento manualmente dalla query string
+        ordering = self.request.query_params.get('ordering')
+        if ordering:
+            # Valida che il campo di ordinamento sia tra quelli consentiti
+            allowed_fields = self.ordering_fields
+            # Rimuove il prefisso opzionale '-' per il controllo del nome del campo
+            clean_ordering_field = ordering[1:] if ordering.startswith('-') else ordering
+            if clean_ordering_field in allowed_fields:
+                queryset = queryset.order_by(ordering)
+
+        # Ottimizzazione query
         return queryset.select_related('topic__subject', 'creator').prefetch_related('contents')
 
     def perform_create(self, serializer):

@@ -29,20 +29,29 @@ Questo metodo builda le immagini direttamente con il tuo username Docker Hub e u
 
 *   **Build Backend:**
     ```bash
-    docker build -t albertosiemanuele/edu-app-backend:tuo_tag_specifico .
+    docker build -t albertosiemanuele/edu-app-backend:v21 .
     ```
 *   **Build Frontend Studente:**
     ```bash
-    docker build -t albertosiemanuele/edu-app-frontend-student:tuo_tag_specifico ./frontend-student
+    docker build -t albertosiemanuele/edu-app-frontend-student:v21 ./frontend-student
+	docker build -t albertosiemanuele/edu-app-frontend-student:v21 --build-arg VITE_LESSONS_APP_URL="https://www.eduapp.it/lezioni/" frontend-student/
+
+
     ```
 *   **Build Frontend Docente:**
     ```bash
-    docker build -t albertosiemanuele/edu-app-frontend-teacher:tuo_tag_specifico ./frontend-teacher
+    docker build -t albertosiemanuele/edu-app-frontend-teacher:v21 ./frontend-teacher
+	docker build -t albertosiemanuele/edu-app-frontend-teacher:v21 --build-arg VITE_LESSONS_APP_URL="https://www.eduapp.it/lezioni/" frontend-teacher/
+
+
     ```
 *   **Build Frontend Lezioni:**
     ```bash
-    docker build -t albertosiemanuele/edu-app-frontend-lessons:tuo_tag_specifico ./frontend-lessons
-    ```
+    docker build -t albertosiemanuele/edu-app-frontend-lessons:v21 ./frontend-lessons
+  ```
+
+docker build -t albertosiemanuele/edu-app-frontend-teacher:v18 --build-arg VITE_LESSONS_APP_URL="https://www.eduapp.it/lezioni/" frontend-teacher/
+docker build -t albertosiemanuele/edu-app-frontend-student:v18 --build-arg VITE_LESSONS_APP_URL="https://www.eduapp.it/lezioni/" frontend-student/
 
 ---
 
@@ -95,7 +104,8 @@ docker compose -f docker-compose.local-prod-test.yml --env-file .env.localprod u
     ```bash
     docker compose -f docker-compose.local-prod-test.yml --env-file .env.localprod up
     ```
-
+restart in prod
+docker compose -f docker-compose.prod.static.yml --env-file .env.prod restart
 ### Riavvio di Tutti i Servizi
 *   Se i servizi sono già in esecuzione:
     ```bash
@@ -105,6 +115,9 @@ docker compose -f docker-compose.local-prod-test.yml --env-file .env.localprod u
     ```bash
     docker compose -f docker-compose.local-prod-test.yml --env-file .env.localprod stop
     docker compose -f docker-compose.local-prod-test.yml --env-file .env.localprod start
+	
+	    docker compose -f docker-compose.prod.static.yml --env-file .env.prod stop
+
     ```
 
 ### Avvio Singolo di un Servizio (e sue dipendenze)
@@ -130,10 +143,10 @@ Ti verranno chiesti username e password.
 ### Passo 3.2: Pushare le Immagini Taggate
 Assicurati che `tuo_tag_specifico` sia lo stesso usato nei comandi `docker build -t`.
 ```bash
-docker push albertosiemanuele/edu-app-backend:tuo_tag_specifico
-docker push albertosiemanuele/edu-app-frontend-student:tuo_tag_specifico
-docker push albertosiemanuele/edu-app-frontend-teacher:tuo_tag_specifico
-docker push albertosiemanuele/edu-app-frontend-lessons:tuo_tag_specifico
+docker push albertosiemanuele/edu-app-backend:v21
+docker push albertosiemanuele/edu-app-frontend-student:v21
+docker push albertosiemanuele/edu-app-frontend-teacher:v21
+docker push albertosiemanuele/edu-app-frontend-lessons:v21
 ```
 
 ---
@@ -157,6 +170,8 @@ docker compose -f docker-compose.local-prod-test.yml exec backend python manage.
 Se hai bisogno di creare nuove migrazioni (es. `python manage.py makemigrations nome_app`), il comando sarebbe:
 ```bash
 docker compose -f docker-compose.local-prod-test.yml exec backend python manage.py makemigrations nome_tua_app
+docker compose -f docker-compose.prod.static.yml exec backend python manage.py makemigrations
+
 ```
 Sostituisci `nome_tua_app` con il nome dell'app Django per cui vuoi creare le migrazioni.
 
@@ -207,6 +222,7 @@ I comandi `docker system prune` e `docker image prune` di default **non** rimuov
 
 ---
 
+
 ## 6. Diagramma Architetturale Semplificato
 (Il diagramma rimane concettualmente lo stesso, ma i nomi delle immagini usate da `docker compose up` dipenderanno dalle modifiche apportate al file compose come descritto nella Sezione 2.)
 
@@ -239,3 +255,6 @@ graph TD
         NP -- serve files da --> MD
         NP -- serve files da --> SD
     end
+	
+	
+	

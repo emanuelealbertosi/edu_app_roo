@@ -146,14 +146,23 @@ export const useLessonStore = defineStore('lessons', {
 
   actions: {
     // --- Azioni Lezioni ---
-    async fetchLessons(topicId: number | null = null) { // Filtro opzionale per argomento
+    async fetchLessons(options: { topicId?: number | null, ordering?: string | null } = {}) {
+      const { topicId = null, ordering = null } = options;
       this.isLoading = true;
       this.error = null;
-      // Aggiunto prefisso /lezioni/
-      let url = '/lezioni/lessons/';
-       if (topicId !== null) {
-        url += `?topic_id=${topicId}`; // Endpoint backend deve supportare questo filtro
+      
+      const params = new URLSearchParams();
+      if (topicId !== null) {
+        params.append('topic_id', topicId.toString());
       }
+      if (ordering) {
+        params.append('ordering', ordering);
+      }
+
+      // Costruisce l'URL in modo sicuro
+      const queryString = params.toString();
+      const url = `/lezioni/lessons/${queryString ? '?' + queryString : ''}`;
+
       try {
         // Questo endpoint restituirà le lezioni in base ai permessi (es. solo quelle del docente)
         const response = await localApiClient.get(url); // USA localApiClient
