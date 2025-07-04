@@ -4,31 +4,41 @@
       <h1 class="text-2xl font-semibold">Consegna Ricompense</h1> <!-- Rimosso stile individuale -->
     </div>
 
-    <div v-if="isLoading" class="text-center py-10 text-neutral-dark">Caricamento consegne pendenti...</div> <!-- Stile loading aggiornato -->
-    <div v-if="error" class="bg-error/10 border border-error text-error px-4 py-3 rounded relative mb-6" role="alert"> <!-- Stile errore aggiornato -->
+    <!-- Filtri e Ordinamento -->
+    <div class="flex flex-col md:flex-row gap-4 mb-6">
+      <div class="flex-grow">
+        <input
+          type="text"
+          v-model="searchQuery"
+          placeholder="Cerca per nome ricompensa o studente..."
+          class="mt-1 block w-full px-3 py-2 bg-white border border-neutral-DEFAULT rounded-md shadow-sm placeholder-neutral-dark focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
+        />
+      </div>
+    </div>
+
+    <div v-if="isLoading" class="text-center py-10 text-neutral-dark">Caricamento consegne pendenti...</div>
+    <div v-if="error" class="bg-error/10 border border-error text-error px-4 py-3 rounded relative mb-6" role="alert">
        <strong class="font-bold">Errore!</strong>
        <span class="block sm:inline"> {{ error }}</span>
     </div>
 
-    <div v-if="!isLoading && pendingDeliveries.length === 0" class="text-center py-10 text-neutral-dark"> <!-- Stile empty message aggiornato -->
-      Nessuna ricompensa in attesa di consegna.
+    <div v-if="!isLoading && filteredAndSortedDeliveries.length === 0" class="text-center py-10 text-neutral-dark">
+      <span v-if="searchQuery">Nessun risultato per "{{ searchQuery }}".</span>
+      <span v-else>Nessuna ricompensa in attesa di consegna.</span>
     </div>
 
-    <!-- Styled List Container -->
-    <div v-else class="delivery-list space-y-4"> <!-- Use space-y for gap -->
-      <!-- Styled List Item Card -->
-      <div v-for="purchase in pendingDeliveries" :key="purchase.id" class="delivery-item bg-white p-4 rounded-lg shadow-md border border-neutral-DEFAULT"> <!-- Stili card aggiornati -->
-        <h3 class="text-lg font-semibold mb-2 text-neutral-darkest">{{ purchase.reward_info.name }}</h3> <!-- Stile testo aggiornato -->
-        <p class="text-sm text-neutral-darker mb-1"><strong class="font-medium text-neutral-darkest">Studente:</strong> {{ purchase.student_info.full_name }} ({{ purchase.student_info.student_code }})</p> <!-- Stili testo aggiornati -->
-        <p class="text-sm text-neutral-darker mb-1"><strong class="font-medium text-neutral-darkest">Acquistato il:</strong> {{ formatDate(purchase.purchased_at) }}</p> <!-- Stili testo aggiornati -->
-        <p class="text-sm text-neutral-darker mb-3"><strong class="font-medium text-neutral-darkest">Costo:</strong> {{ purchase.points_spent }} punti</p> <!-- Stili testo aggiornati -->
-        <!-- Styled Actions Area -->
-        <div class="delivery-actions mt-3 pt-3 border-t border-neutral-DEFAULT flex flex-col sm:flex-row sm:items-center sm:space-x-3 space-y-2 sm:space-y-0"> <!-- Stile bordo aggiornato -->
+    <div v-else class="delivery-list space-y-4">
+      <div v-for="purchase in filteredAndSortedDeliveries" :key="purchase.id" class="delivery-item bg-white p-4 rounded-lg shadow-md border border-neutral-DEFAULT">
+        <h3 class="text-lg font-semibold mb-2 text-neutral-darkest">{{ purchase.reward_info.name }}</h3>
+        <p class="text-sm text-neutral-darker mb-1"><strong class="font-medium text-neutral-darkest">Studente:</strong> {{ purchase.student_info.full_name }} ({{ purchase.student_info.student_code }})</p>
+        <p class="text-sm text-neutral-darker mb-1"><strong class="font-medium text-neutral-darkest">Acquistato il:</strong> {{ formatDate(purchase.purchased_at) }}</p>
+        <p class="text-sm text-neutral-darker mb-3"><strong class="font-medium text-neutral-darkest">Costo:</strong> {{ purchase.points_spent }} punti</p>
+        <div class="delivery-actions mt-3 pt-3 border-t border-neutral-DEFAULT flex flex-col sm:flex-row sm:items-center sm:space-x-3 space-y-2 sm:space-y-0">
           <textarea
             v-model="deliveryNotes[purchase.id]"
             placeholder="Note sulla consegna (opzionale)"
             class="shadow-sm focus:ring-primary focus:border-primary block w-full sm:flex-grow text-sm border-neutral-DEFAULT rounded-md p-2 resize-none h-16 sm:h-auto"
-          ></textarea> <!-- Stili textarea aggiornati -->
+          ></textarea>
           <BaseButton
             variant="success"
             size="sm"
@@ -52,15 +62,64 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, reactive } from 'vue';
-import { fetchPendingDeliveries, markRewardAsDelivered, type RewardPurchaseDetails } from '@/api/rewards'; // Assumendo che le funzioni API esistano
-import BaseButton from '@/components/common/BaseButton.vue'; // Importa BaseButton
+import { ref, onMounted, reactive, computed } from 'vue';
+import { fetchPendingDeliveries, markRewardAsDelivered, type RewardPurchaseDetails } from '@/api/rewards';
+import BaseButton from '@/components/common/BaseButton.vue';
 
 const isLoading = ref(true);
 const error = ref<string | null>(null);
-const pendingDeliveries = ref<RewardPurchaseDetails[]>([]); // Usa un tipo dettagliato se disponibile
+const pendingDeliveries = ref<RewardPurchaseDetails[]>([]);
 const deliveryNotes = reactive<Record<number, string>>({});
 const isDelivering = reactive<Record<number, boolean>>({});
+const searchQuery = ref('');
+const sortKey = ref('purchased_at');
+const sortOrder = ref('desc');
+
+const filteredAndSortedDeliveries = computed(() => {
+  const query = searchQuery.value.toLowerCase().trim();
+
+  const filtered = query
+    ? pendingDeliveries.value.filter(p => {
+        const rewardName = p.reward_info.name.toLowerCase();
+        const studentName = p.student_info.full_name.toLowerCase();
+        const studentCode = p.student_info.student_code.toLowerCase();
+        return rewardName.includes(query) || studentName.includes(query) || studentCode.includes(query);
+      })
+    : pendingDeliveries.value;
+
+  return filtered.slice().sort((a, b) => {
+    let valA: any;
+    let valB: any;
+
+    switch (sortKey.value) {
+      case 'reward_name':
+        valA = a.reward_info.name.toLowerCase();
+        valB = b.reward_info.name.toLowerCase();
+        break;
+      case 'student_name':
+        valA = a.student_info.full_name.toLowerCase();
+        valB = b.student_info.full_name.toLowerCase();
+        break;
+      case 'points_spent':
+        valA = a.points_spent;
+        valB = b.points_spent;
+        break;
+      case 'purchased_at':
+      default:
+        valA = new Date(a.purchased_at).getTime();
+        valB = new Date(b.purchased_at).getTime();
+        break;
+    }
+
+    if (valA < valB) {
+      return sortOrder.value === 'asc' ? -1 : 1;
+    }
+    if (valA > valB) {
+      return sortOrder.value === 'asc' ? 1 : -1;
+    }
+    return 0;
+  });
+});
 
 onMounted(async () => {
   await loadPendingDeliveries();

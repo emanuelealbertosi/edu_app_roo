@@ -24,6 +24,16 @@
     </div>
 
 
+    <!-- Campo di Ricerca -->
+    <div class="mb-4">
+      <input
+        type="text"
+        v-model="searchQuery"
+        placeholder="Cerca argomenti per nome o descrizione..."
+        class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+      />
+    </div>
+
     <div v-if="topicStore.isLoading" class="text-center text-gray-500 py-10">
       Caricamento argomenti...
     </div>
@@ -33,18 +43,27 @@
       <span class="block sm:inline"> {{ topicStore.error }}</span>
     </div>
 
-    <div v-if="!topicStore.isLoading && topics.length > 0" class="bg-white shadow-md rounded-lg overflow-hidden">
+    <div v-if="!topicStore.isLoading && filteredAndSortedTopics.length > 0" class="bg-white shadow-md rounded-lg overflow-hidden">
       <table class="min-w-full divide-y divide-gray-200">
         <thead class="bg-gray-50">
           <tr>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nome Argomento</th>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Materia</th>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Descrizione</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer transition-colors duration-200 hover:text-blue-600" @click="sortBy('name')">
+              Nome Argomento
+              <span v-if="sortKey === 'name'"><ChevronUpIcon v-if="sortOrder === 'asc'" class="h-4 w-4 inline-block" /><ChevronDownIcon v-else class="h-4 w-4 inline-block" /></span>
+            </th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer transition-colors duration-200 hover:text-blue-600" @click="sortBy('subject')">
+              Materia
+              <span v-if="sortKey === 'subject'"><ChevronUpIcon v-if="sortOrder === 'asc'" class="h-4 w-4 inline-block" /><ChevronDownIcon v-else class="h-4 w-4 inline-block" /></span>
+            </th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer transition-colors duration-200 hover:text-blue-600" @click="sortBy('description')">
+              Descrizione
+              <span v-if="sortKey === 'description'"><ChevronUpIcon v-if="sortOrder === 'asc'" class="h-4 w-4 inline-block" /><ChevronDownIcon v-else class="h-4 w-4 inline-block" /></span>
+            </th>
             <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Azioni</th>
           </tr>
         </thead>
         <tbody class="bg-white divide-y divide-gray-200">
-          <tr v-for="topic in topics" :key="topic.id" class="hover:bg-gray-50">
+          <tr v-for="topic in filteredAndSortedTopics" :key="topic.id" class="hover:bg-gray-50">
             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
               <a href="#" @click.prevent="editTopic(topic as Topic)" class="text-indigo-600 hover:text-indigo-900 hover:underline" title="Modifica Argomento">
                 {{ topic.name }}
@@ -65,8 +84,9 @@
       </table>
     </div>
 
-     <div v-if="!topicStore.isLoading && topics.length === 0 && !topicStore.error" class="text-center text-gray-500 py-10">
-       Nessun argomento trovato per la materia selezionata.
+     <div v-if="!topicStore.isLoading && filteredAndSortedTopics.length === 0 && !topicStore.error" class="text-center text-gray-500 py-10">
+        <span v-if="searchQuery || selectedSubjectId">Nessun argomento trovato per i filtri applicati.</span>
+        <span v-else>Nessun argomento trovato.</span>
      </div>
 
      <TopicEditModal
@@ -88,16 +108,56 @@ import { useSubjectStore } from '@/stores/subjects';
 import emitter from '@/eventBus'; // Importa l'event bus
 import TopicEditModal from '../components/features/lezioni/TopicEditModal.vue';
 import type { Topic } from '@/types/lezioni'; // Rimosso Subject non usato qui
-import { PlusCircleIcon, PencilIcon, TrashIcon } from '@heroicons/vue/24/outline';
+import { PlusCircleIcon, PencilIcon, TrashIcon, ChevronUpIcon, ChevronDownIcon } from '@heroicons/vue/24/outline';
 
 const topicStore = useTopicStore();
 const subjectStore = useSubjectStore();
 
-const topics = computed(() => topicStore.topics);
 const selectedSubjectId = ref<number | null>(null);
-
 const showAddModal = ref(false);
 const topicToEdit = ref<Topic | null>(null);
+const searchQuery = ref('');
+const sortKey = ref('name');
+const sortOrder = ref('asc');
+
+const filteredAndSortedTopics = computed(() => {
+  // 1. Filtro per materia
+  const bySubject = selectedSubjectId.value
+    ? topicStore.topics.filter(t => t.subject === selectedSubjectId.value)
+    : topicStore.topics;
+
+  // 2. Filtro per query di ricerca
+  const query = searchQuery.value.toLowerCase().trim();
+  const bySearch = query
+    ? bySubject.filter(topic =>
+        (topic.name?.toLowerCase() || '').includes(query) ||
+        (topic.description?.toLowerCase() || '').includes(query)
+      )
+    : bySubject;
+
+  // 3. Ordinamento
+  return bySearch.slice().sort((a, b) => {
+    let valA: any;
+    let valB: any;
+
+    if (sortKey.value === 'subject') {
+      valA = getSubjectName(a.subject);
+      valB = getSubjectName(b.subject);
+    } else {
+      valA = a[sortKey.value as keyof Topic];
+      valB = b[sortKey.value as keyof Topic];
+    }
+
+    if (typeof valA === 'string') valA = valA.toLowerCase();
+    if (typeof valB === 'string') valB = valB.toLowerCase();
+    if (valA === null || valA === undefined) valA = '';
+    if (valB === null || valB === undefined) valB = '';
+
+    if (valA < valB) return sortOrder.value === 'asc' ? -1 : 1;
+    if (valA > valB) return sortOrder.value === 'asc' ? 1 : -1;
+    return 0;
+  });
+});
 
 // Funzione chiamata dall'event bus per aprire il modale
 const handleOpenAddModalEvent = () => {
@@ -134,7 +194,16 @@ onUnmounted(() => {
 });
 
 const loadTopicsForSubject = () => {
-  topicStore.fetchTopics(selectedSubjectId.value);
+  // La logica è ora gestita dalla computed property, non è necessario ricaricare
+};
+
+const sortBy = (key: 'name' | 'subject' | 'description') => {
+  if (sortKey.value === key) {
+    sortOrder.value = sortOrder.value === 'asc' ? 'desc' : 'asc';
+  } else {
+    sortKey.value = key;
+    sortOrder.value = 'asc';
+  }
 };
 
 // Rimosso selectedSubjectName non utilizzato
@@ -162,7 +231,7 @@ const confirmDelete = async (topic: Topic) => {
         topicStore.error = null;
     }
     // Ricarica gli argomenti per la materia corrente dopo l'eliminazione
-    await loadTopicsForSubject();
+    // Non è più necessario ricaricare qui, la computed property gestirà il filtro
   }
 };
 
@@ -182,7 +251,7 @@ const handleSave = async (topicData: { id?: number; name: string; subject: numbe
 
     if (success) {
         closeModal();
-        await loadTopicsForSubject(); // Ricarica per vedere le modifiche
+        // Non è più necessario ricaricare, la computed property si aggiornerà
     } else {
          alert(`Errore durante il salvataggio: ${topicStore.error}`);
          topicStore.error = null;

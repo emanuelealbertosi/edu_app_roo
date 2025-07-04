@@ -12,37 +12,45 @@
     <!-- Stile titolo aggiornato -->
     <h2 class="text-xl font-semibold mb-4 mt-8 text-neutral-darkest">Studenti Esistenti</h2>
     <!-- Stile loading aggiornato -->
+    <!-- Filtro -->
+    <div class="mb-4">
+      <input
+        type="text"
+        v-model="searchQuery"
+        placeholder="Cerca per nome, cognome o codice studente..."
+        class="mt-1 block w-full px-3 py-2 bg-white border border-neutral-DEFAULT rounded-md shadow-sm placeholder-neutral-dark focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
+      />
+    </div>
+
     <div v-if="isLoading" class="text-center py-10 text-neutral-dark">Caricamento studenti...</div>
-    <!-- Stile errore aggiornato -->
     <div v-else-if="error" class="bg-error/10 border border-error text-error px-4 py-3 rounded relative mb-6" role="alert">
       <strong class="font-bold">Errore!</strong>
       <span class="block sm:inline"> Errore nel caricamento degli studenti: {{ error }}</span>
     </div>
-    <!-- Responsive Table Container -->
-    <div v-else-if="students.length > 0" class="overflow-x-auto shadow-md rounded-lg mt-6">
-      <!-- Stile tabella aggiornato -->
+    
+    <div v-else-if="filteredAndSortedStudents.length > 0" class="overflow-x-auto shadow-md rounded-lg mt-6">
       <table class="min-w-full divide-y divide-neutral-DEFAULT bg-white">
-        <!-- Stile thead aggiornato -->
         <thead class="bg-neutral-lightest">
           <tr>
-            <!-- Stile th aggiornato -->
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider">Nome</th>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider">Cognome</th>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider">Codice Studente</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider cursor-pointer hover:text-primary" @click="sortBy('first_name')">
+              Nome
+              <span v-if="sortKey === 'first_name'"><ChevronUpIcon v-if="sortOrder === 'asc'" class="h-4 w-4 inline-block" /><ChevronDownIcon v-else class="h-4 w-4 inline-block" /></span>
+            </th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider cursor-pointer hover:text-primary" @click="sortBy('last_name')">
+              Cognome
+              <span v-if="sortKey === 'last_name'"><ChevronUpIcon v-if="sortOrder === 'asc'" class="h-4 w-4 inline-block" /><ChevronDownIcon v-else class="h-4 w-4 inline-block" /></span>
+            </th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider cursor-pointer hover:text-primary" @click="sortBy('student_code')">
+              Codice Studente
+              <span v-if="sortKey === 'student_code'"><ChevronUpIcon v-if="sortOrder === 'asc'" class="h-4 w-4 inline-block" /><ChevronDownIcon v-else class="h-4 w-4 inline-block" /></span>
+            </th>
             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider">Gruppi</th>
             <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-neutral-darker uppercase tracking-wider">Azioni</th>
-            <!-- Rimosso come da richiesta -->
-            <!-- <th>Username</th> -->
-            <!-- Aggiungere altre colonne se necessario -->
           </tr>
         </thead>
-        <!-- Stile tbody aggiornato -->
         <tbody class="bg-white divide-y divide-neutral-DEFAULT">
-          <!-- Stile tr aggiornato -->
-          <tr v-for="student in students" :key="student.id" class="hover:bg-neutral-lightest transition-colors duration-150">
-            <!-- Stile td aggiornato -->
+          <tr v-for="student in filteredAndSortedStudents" :key="student.id" class="hover:bg-neutral-lightest transition-colors duration-150">
             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-neutral-darkest">{{ student.first_name }}</td>
-            <!-- Stile td aggiornato -->
             <td class="px-6 py-4 whitespace-nowrap text-sm text-neutral-darker">{{ student.last_name }}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-neutral-darker">{{ student.student_code }}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-neutral-darker">
@@ -70,33 +78,59 @@
                 </RouterLink>
               </div>
             </td>
-            <!-- Rimosso come da richiesta -->
-            <!-- <td>{{ student.username }}</td> -->
-            <!-- Aggiungere altre celle se necessario -->
           </tr>
         </tbody>
       </table>
     </div>
-    <!-- Stile no students aggiornato -->
     <div v-else class="text-center py-10 text-neutral-dark">
-      Nessuno studente trovato.
+      <span v-if="searchQuery">Nessuno studente trovato per "{{ searchQuery }}".</span>
+      <span v-else>Nessuno studente trovato.</span>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, nextTick } from 'vue'; // Aggiungi nextTick
+import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
-import { getMyStudents } from '@/api/students'; // Usa il nome corretto della funzione
-import type { Student } from '@/types/users'; // Importa il tipo dalla sua fonte originale
-// Rimosso import per createRegistrationToken
-import BaseButton from '@/components/common/BaseButton.vue'; // Importa BaseButton
-import { EyeIcon, ChartBarIcon } from '@heroicons/vue/24/outline'; // Aggiunto ChartBarIcon
- 
-const students = ref<Student[]>([]); // Conterrà l'elenco degli studenti
-const isLoading = ref(false); // Stato di caricamento
-const error = ref<string | null>(null); // Messaggio di errore caricamento studenti
+import { getMyStudents } from '@/api/students';
+import type { Student } from '@/types/users';
+import BaseButton from '@/components/common/BaseButton.vue';
+import { ChartBarIcon, ChevronUpIcon, ChevronDownIcon } from '@heroicons/vue/24/outline';
+
+const students = ref<Student[]>([]);
+const isLoading = ref(false);
+const error = ref<string | null>(null);
 const router = useRouter();
+const searchQuery = ref('');
+const sortKey = ref('last_name');
+const sortOrder = ref('asc');
+
+const filteredAndSortedStudents = computed(() => {
+  const query = searchQuery.value.toLowerCase().trim();
+
+  const filtered = query
+    ? students.value.filter(s => {
+        const firstName = s.first_name.toLowerCase();
+        const lastName = s.last_name.toLowerCase();
+        const studentCode = s.student_code.toLowerCase();
+        return firstName.includes(query) || lastName.includes(query) || studentCode.includes(query);
+      })
+    : students.value;
+
+  return filtered.slice().sort((a, b) => {
+    let valA: any = a[sortKey.value as keyof Student];
+    let valB: any = b[sortKey.value as keyof Student];
+
+    if (typeof valA === 'string' && typeof valB === 'string') {
+      valA = valA.toLowerCase();
+      valB = valB.toLowerCase();
+    }
+    
+    if (valA < valB) return sortOrder.value === 'asc' ? -1 : 1;
+    if (valA > valB) return sortOrder.value === 'asc' ? 1 : -1;
+    return 0;
+  });
+});
 
 // Rimosso stato per generazione link
 
@@ -119,10 +153,16 @@ onMounted(async () => {
 // Rimosse funzioni generateRegistrationLink e copyLinkToClipboard
 
 const viewStudentDetails = (studentId: number) => {
-  // TODO: Questa funzione potrebbe essere usata per navigare a una vista di modifica dettagli studente,
-  // per ora il link diretto ai progressi è più utile.
   console.log(`TODO: Implementare navigazione a dettagli/modifica per studente ID: ${studentId}`);
-  // router.push({ name: 'student-edit-detail', params: { studentId: studentId.toString() } }); // Esempio se esistesse
+};
+
+const sortBy = (key: string) => {
+  if (sortKey.value === key) {
+    sortOrder.value = sortOrder.value === 'asc' ? 'desc' : 'asc';
+  } else {
+    sortKey.value = key;
+    sortOrder.value = 'asc';
+  }
 };
 </script>
 

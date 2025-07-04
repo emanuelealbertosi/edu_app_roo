@@ -13,6 +13,16 @@
       </BaseButton>
     </div>
 
+    <!-- Filtro -->
+    <div class="mb-4">
+      <input
+        type="text"
+        v-model="searchQuery"
+        placeholder="Cerca per nome o descrizione..."
+        class="mt-1 block w-full px-3 py-2 bg-white border border-neutral-DEFAULT rounded-md shadow-sm placeholder-neutral-dark focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
+      />
+    </div>
+
     <!-- Loading Indicator -->
     <GlobalLoadingIndicator :is-loading="isLoadingList" />
 
@@ -26,25 +36,29 @@
     </div>
 
     <!-- Groups Table -->
-    <div v-if="!isLoadingList && groups.length > 0" class="overflow-x-auto bg-white shadow-md rounded-lg">
+    <div v-if="!isLoadingList && filteredAndSortedGroups.length > 0" class="overflow-x-auto bg-white shadow-md rounded-lg">
       <table class="min-w-full divide-y divide-gray-200">
         <thead class="bg-gray-50">
           <tr>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-primary" @click="sortBy('name')">
               Nome Gruppo
+              <span v-if="sortKey === 'name'"><ChevronUpIcon v-if="sortOrder === 'asc'" class="h-4 w-4 inline-block" /><ChevronDownIcon v-else class="h-4 w-4 inline-block" /></span>
             </th>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-primary" @click="sortBy('description')">
               Descrizione
+              <span v-if="sortKey === 'description'"><ChevronUpIcon v-if="sortOrder === 'asc'" class="h-4 w-4 inline-block" /><ChevronDownIcon v-else class="h-4 w-4 inline-block" /></span>
             </th>
-            <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-primary" @click="sortBy('student_count')">
               Studenti
+              <span v-if="sortKey === 'student_count'"><ChevronUpIcon v-if="sortOrder === 'asc'" class="h-4 w-4 inline-block" /><ChevronDownIcon v-else class="h-4 w-4 inline-block" /></span>
             </th>
-            <!-- Nuova Intestazione Colonna -->
-            <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-primary" @click="sortBy('pending_requests_count')">
               Richieste
+              <span v-if="sortKey === 'pending_requests_count'"><ChevronUpIcon v-if="sortOrder === 'asc'" class="h-4 w-4 inline-block" /><ChevronDownIcon v-else class="h-4 w-4 inline-block" /></span>
             </th>
-             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-primary" @click="sortBy('created_at')">
               Creato il
+              <span v-if="sortKey === 'created_at'"><ChevronUpIcon v-if="sortOrder === 'asc'" class="h-4 w-4 inline-block" /><ChevronDownIcon v-else class="h-4 w-4 inline-block" /></span>
             </th>
             <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
               Azioni
@@ -52,7 +66,7 @@
           </tr>
         </thead>
         <tbody class="bg-white divide-y divide-gray-200">
-          <tr v-for="group in groups" :key="group.id">
+          <tr v-for="group in filteredAndSortedGroups" :key="group.id">
             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
               {{ group.name }}
             </td>
@@ -62,7 +76,6 @@
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
               {{ group.student_count ?? 'N/A' }}
             </td>
-            <!-- Nuova Cella Dati -->
             <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
                <span v-if="group.pending_requests_count && group.pending_requests_count > 0" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800" title="Richieste di accesso pendenti">
                  {{ group.pending_requests_count }}
@@ -86,26 +99,57 @@
     </div>
 
     <!-- No Groups Message -->
-    <div v-if="!isLoadingList && groups.length === 0 && !error" class="text-center text-gray-500 mt-6">
-      Nessun gruppo trovato. Creane uno nuovo!
+    <div v-if="!isLoadingList && filteredAndSortedGroups.length === 0 && !error" class="text-center text-gray-500 mt-6">
+      <span v-if="searchQuery">Nessun gruppo trovato per "{{ searchQuery }}".</span>
+      <span v-else>Nessun gruppo trovato. Creane uno nuovo!</span>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, computed } from 'vue';
+import { onMounted, computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { storeToRefs } from 'pinia';
 import { useGroupStore } from '@/stores/groups';
 import BaseButton from '@/components/common/BaseButton.vue';
 import GlobalLoadingIndicator from '@/components/common/GlobalLoadingIndicator.vue';
-import { PlusCircleIcon, EyeIcon, TrashIcon } from '@heroicons/vue/24/outline';
+import { PlusCircleIcon, EyeIcon, TrashIcon, ChevronUpIcon, ChevronDownIcon } from '@heroicons/vue/24/outline';
 
 const router = useRouter();
 const groupStore = useGroupStore();
 
 // Use storeToRefs to keep reactivity
 const { groups, isLoadingList, error } = storeToRefs(groupStore);
+
+const searchQuery = ref('');
+const sortKey = ref('created_at');
+const sortOrder = ref('desc');
+
+const filteredAndSortedGroups = computed(() => {
+  const query = searchQuery.value.toLowerCase().trim();
+
+  const filtered = query
+    ? groups.value.filter(g => {
+        const name = g.name.toLowerCase();
+        const description = g.description?.toLowerCase() || '';
+        return name.includes(query) || description.includes(query);
+      })
+    : groups.value;
+
+  return filtered.slice().sort((a, b) => {
+    let valA: any = a[sortKey.value as keyof typeof a] ?? 0;
+    let valB: any = b[sortKey.value as keyof typeof b] ?? 0;
+
+    if (typeof valA === 'string' && typeof valB === 'string') {
+      valA = valA.toLowerCase();
+      valB = valB.toLowerCase();
+    }
+    
+    if (valA < valB) return sortOrder.value === 'asc' ? -1 : 1;
+    if (valA > valB) return sortOrder.value === 'asc' ? 1 : -1;
+    return 0;
+  });
+});
 
 // Fetch groups when the component is mounted
 onMounted(() => {
@@ -115,13 +159,11 @@ onMounted(() => {
 // --- Methods ---
 
 const goToCreateGroup = () => {
-  // TODO: Define the route '/groups/create' later
-  router.push({ name: 'GroupCreate' }); // Assuming named route
+  router.push({ name: 'GroupCreate' });
 };
 
 const goToGroupDetail = (groupId: number) => {
-  // TODO: Define the route '/groups/:id' later
-  router.push({ name: 'GroupDetail', params: { id: groupId } }); // Assuming named route
+  router.push({ name: 'GroupDetail', params: { id: groupId } });
 };
 
 const goToEditGroup = (groupId: number) => {
@@ -145,7 +187,16 @@ const formatDate = (dateString: string) => {
     });
   } catch (e) {
     console.error("Error formatting date:", e);
-    return dateString; // Fallback to original string
+    return dateString;
+  }
+};
+
+const sortBy = (key: string) => {
+  if (sortKey.value === key) {
+    sortOrder.value = sortOrder.value === 'asc' ? 'desc' : 'asc';
+  } else {
+    sortKey.value = key;
+    sortOrder.value = 'asc';
   }
 };
 

@@ -127,29 +127,28 @@ export const useUdaStore = defineStore('uda', {
       }
     },
 
-    async updateUda(udaId: number, udaData: Partial<Omit<UDA, 'id' | 'teacher' | 'created_at' | 'updated_at' | 'contents' | 'topics' | 'subject' | 'subjects' | 'course'>> & { topics?: number[], subject_ids?: number[], course_id?: number | null, knowledge_html?: string | null, skills_html?: string | null, competences_html?: string | null, is_civic_education?: boolean, didactic_strategies_html?: string | null, materials_tools_html?: string | null, assessment_type_html?: string | null, evaluation_html?: string | null, other_involved_subjects_text?: string | null, export_specific_annotations_html?: string | null }): Promise<UDA | undefined> {
-      this.loading = true;
+    async updateUda(
+      udaId: number,
+      udaData: Partial<Omit<UDA, 'id' | 'teacher' | 'created_at' | 'updated_at' | 'contents' | 'topics' | 'subject' | 'subjects' | 'course'>> & { topics?: number[], subject_ids?: number[], course_id?: number | null, knowledge_html?: string | null, skills_html?: string | null, competences_html?: string | null, is_civic_education?: boolean, didactic_strategies_html?: string | null, materials_tools_html?: string | null, assessment_type_html?: string | null, evaluation_html?: string | null, other_involved_subjects_text?: string | null, export_specific_annotations_html?: string | null },
+      options: { silent?: boolean } = {}
+    ): Promise<UDA | undefined> {
+      if (!options.silent) {
+        this.loading = true;
+      }
       this.error = null;
       try {
         const payload = { ...udaData } as any; // Usiamo 'any' temporaneamente
         
-        // Gestione di topics: se presente in udaData, lo processiamo.
-        // Se udaData.topics è un array (anche vuoto), lo usiamo.
-        // Se è un array di oggetti, mappiamo a ID.
-        // Se è undefined, non lo includiamo nel payload per PATCH parziali.
         if (udaData.topics !== undefined) {
             if (Array.isArray(udaData.topics) && udaData.topics.length > 0 && typeof udaData.topics[0] === 'object' && udaData.topics[0] !== null && 'id' in udaData.topics[0]) {
                 payload.topics = udaData.topics.map((t: any) => t.id);
             } else {
-                payload.topics = udaData.topics; // Sarà un array di ID o un array vuoto
+                payload.topics = udaData.topics;
             }
         } else {
-            delete payload.topics; // Assicurati che non venga inviato se non fornito
+            delete payload.topics;
         }
 
-        // Gestione di subject_ids: se presente in udaData, lo processiamo.
-        // Se udaData.subject_ids è un array (anche vuoto), lo usiamo.
-        // Se è undefined, non lo includiamo nel payload per PATCH parziali.
         if (udaData.subject_ids !== undefined) {
              if (!Array.isArray(udaData.subject_ids)) {
                 console.warn('subject_ids is defined but not an array in updateUda, setting to empty array.');
@@ -158,27 +157,32 @@ export const useUdaStore = defineStore('uda', {
                 payload.subject_ids = udaData.subject_ids;
             }
         } else {
-            delete payload.subject_ids; // Assicurati che non venga inviato se non fornito
+            delete payload.subject_ids;
         }
         
-        // Rimuoviamo il vecchio subject_id se presente per errore
         delete payload.subject_id;
 
         const updatedUda = await udaService.updateUda(udaId, payload as Partial<UDA>);
-        const index = this.udas.findIndex((u: UDA) => u.id === udaId);
-        if (index !== -1) {
-          this.udas[index] = updatedUda;
+        
+        if (!options.silent) {
+          const index = this.udas.findIndex((u: UDA) => u.id === udaId);
+          if (index !== -1) {
+            this.udas[index] = updatedUda;
+          }
+          if (this.currentUda?.id === udaId) {
+            this.currentUda = updatedUda;
+          }
         }
-        if (this.currentUda?.id === udaId) {
-          this.currentUda = updatedUda;
-        }
+        
         return updatedUda;
       } catch (err) {
         this.error = (err as Error).message || `Failed to update UDA ${udaId}`;
         console.error(err);
         throw err;
       } finally {
-        this.loading = false;
+        if (!options.silent) {
+          this.loading = false;
+        }
       }
     },
 

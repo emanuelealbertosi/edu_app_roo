@@ -41,6 +41,13 @@
                 <ChevronDownIcon v-else class="h-4 w-4 inline-block" />
               </span>
             </th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer transition-colors duration-200 hover:text-blue-600" @click="sortBy('description')">
+             Descrizione
+             <span v-if="sortKey === 'description'">
+               <ChevronUpIcon v-if="sortOrder === 'asc'" class="h-4 w-4 inline-block" />
+               <ChevronDownIcon v-else class="h-4 w-4 inline-block" />
+             </span>
+           </th>
             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer transition-colors duration-200 hover:text-blue-600" @click="sortBy('topic')">
               Argomento
               <span v-if="sortKey === 'topic'">
@@ -84,6 +91,7 @@
             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600 hover:text-blue-800 cursor-pointer" @click="gotoContents(lesson.id)">
               {{ lesson.title }}
             </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ lesson.description }}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ getTopicName(lesson.topic) }}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ getSubjectNameFromTopic(lesson.topic) }}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -160,9 +168,11 @@ const filteredLessons = computed(() => {
         const subjectName = getSubjectNameFromTopic(lesson.topic).toLowerCase();
         const status = (lesson.is_published ? 'pubblicata' : 'bozza').toLowerCase();
         const title = lesson.title.toLowerCase();
+        const description = lesson.description ? lesson.description.toLowerCase() : '';
         const estimatedHours = lesson.estimated_hours ? lesson.estimated_hours.toString() : '';
 
         return title.includes(query) ||
+               description.includes(query) ||
                topicName.includes(query) ||
                subjectName.includes(query) ||
                status.includes(query) ||

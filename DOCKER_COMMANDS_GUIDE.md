@@ -180,6 +180,8 @@ Sostituisci `nome_tua_app` con il nome dell'app Django per cui vuoi creare le mi
 *   Per visualizzare i log del backend in tempo reale e seguirli (utile per il debug):
     ```bash
     docker compose -f docker-compose.local-prod-test.yml logs -f backend
+	docker compose -f docker-compose.prod.static.yml logs -f backend
+
     ```
 *   Per visualizzare tutti i log storici del backend:
     ```bash

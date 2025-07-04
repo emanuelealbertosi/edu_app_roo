@@ -172,7 +172,8 @@
         /> <!-- Aggiunto is-editing per mostrare i controlli di modifica/eliminazione -->
       </div>
 
-      <div class="flex justify-end space-x-3 pt-4">
+      <div class="flex justify-end items-center space-x-4 pt-4">
+        <SaveStatusIndicator :status="saveStatus" />
         <RouterLink :to="{ name: 'uda-list' }" class="flex items-center border border-gray-300 hover:bg-gray-100 text-gray-700 font-medium py-2 px-4 rounded-md shadow-sm">
           <XMarkIcon class="h-5 w-5 sm:mr-2" />
           <span class="hidden sm:inline">Annulla</span>
@@ -204,12 +205,15 @@ import { useLessonStore } from '@/stores/lessons';
 import { useQuizStore } from '@/stores/quizStore';
 import { useUiStore } from '@/stores/ui';
 import UdaContentEditor from '@/components/uda/UdaContentEditor.vue';
-import WysiwygEditor from '@/components/WysiwygEditor.vue'; // Importa l'editor
+import WysiwygEditor from '@/components/WysiwygEditor.vue';
+import SaveStatusIndicator from '@/components/common/SaveStatusIndicator.vue';
 import { type UDA, type UDAContent } from '@/types/uda';
 import type { Course as CourseType } from '@/types/uda'; // Course è in uda.ts, rinominato per evitare conflitto
 import type { Subject as SubjectType } from '@/types/subject'; // Rinominato
 import type { Topic as TopicType } from '@/types/topic'; // Rinominato
 import { XMarkIcon, CheckCircleIcon } from '@heroicons/vue/24/outline';
+
+type SaveStatus = 'IDLE' | 'DIRTY' | 'SAVING' | 'SAVED' | 'ERROR';
 
 interface UdaFormData {
   title: string;
@@ -282,6 +286,7 @@ const initialError = ref<string | null>(null);
 const isSubmitting = ref(false);
 const initialLoadComplete = ref(false);
 const submitError = ref<string | null>(null);
+const saveStatus = ref<SaveStatus>('IDLE');
 
 watch(initialError, (newValue, oldValue) => {
   console.log(`[UdaFormView] initialError cambiato da '${oldValue}' a '${newValue}'`);
@@ -386,13 +391,8 @@ const exportSpecificAnnotationsHtmlForEditor = computed({
 // Non sono più necessari i watch per sincronizzare formData.topics/subjects con selectedTopicIds/selectedSubjectIds
 // perché usiamo formData.topics/subjects direttamente come v-model.
 
-watch(() => udaStore.currentUda?.contents, (newContents) => {
-  if (isEditMode.value && udaId.value && udaStore.currentUda && udaStore.currentUda.id === udaId.value) {
-    if (newContents && JSON.stringify(newContents) !== JSON.stringify(formData.value.contents)) {
-      formData.value.contents = JSON.parse(JSON.stringify(newContents));
-    }
-  }
-}, { deep: true });
+// Rimosso watch su udaStore.currentUda?.contents per prevenire il reset del form.
+// I dati vengono caricati solo in onMounted e poi il formData vive di vita propria.
 
 // Debounce function
 const debounce = (fn: Function, delay: number) => {
@@ -404,7 +404,9 @@ const debounce = (fn: Function, delay: number) => {
 }
 
 const handleAutoSave = async () => {
-  if (!isEditMode.value || !udaId.value) return;
+  if (!isEditMode.value || !udaId.value || saveStatus.value === 'SAVING') return;
+
+  saveStatus.value = 'SAVING';
 
   const payload: UdaApiPayload = {
     title: formData.value.title,
@@ -440,20 +442,29 @@ const handleAutoSave = async () => {
   });
 
   try {
-    await udaStore.updateUda(udaId.value, payload);
-    uiStore.addNotification({ message: 'Modifiche salvate automaticamente!', type: 'info', duration: 2000 });
+    await udaStore.updateUda(udaId.value, payload, { silent: true });
+    saveStatus.value = 'SAVED';
   } catch (error) {
     console.error("Errore durante il salvataggio automatico dell'UDA:", error);
-    // Potresti voler mostrare un errore non invasivo
+    saveStatus.value = 'ERROR';
   }
 };
 
-const debouncedAutoSave = debounce(handleAutoSave, 2000);
+const debouncedAutoSave = debounce(handleAutoSave, 3000);
 
-watch(() => formData.value.contents, () => {
-  if (!initialLoadComplete.value) return;
-  debouncedAutoSave();
-}, { deep: true });
+watch(saveStatus, (newStatus) => {
+  if (newStatus === 'DIRTY') {
+    debouncedAutoSave();
+  }
+});
+
+const setDirty = () => {
+  if (initialLoadComplete.value && saveStatus.value !== 'DIRTY') {
+    saveStatus.value = 'DIRTY';
+  }
+}
+
+watch(() => formData.value.contents, setDirty, { deep: true });
 
 watch(() => [
   formData.value.title,
@@ -474,10 +485,7 @@ watch(() => [
   formData.value.subjects,
   formData.value.topics,
   formData.value.course
-], () => {
-  if (!initialLoadComplete.value) return;
-  debouncedAutoSave();
-}, { deep: true });
+], setDirty, { deep: true });
 
 
 onMounted(async () => {

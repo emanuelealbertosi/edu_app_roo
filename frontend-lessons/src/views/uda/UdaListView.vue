@@ -43,41 +43,53 @@
       <table class="min-w-full divide-y divide-gray-200">
         <thead class="bg-gray-50">
           <tr>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer transition-colors duration-200 hover:text-blue-600" @click="sortBy('title')">
               Titolo
+              <span v-if="sortKey === 'title'"><ChevronUpIcon v-if="sortOrder === 'asc'" class="h-4 w-4 inline-block" /><ChevronDownIcon v-else class="h-4 w-4 inline-block" /></span>
             </th>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer transition-colors duration-200 hover:text-blue-600" @click="sortBy('description')">
               Descrizione
+              <span v-if="sortKey === 'description'"><ChevronUpIcon v-if="sortOrder === 'asc'" class="h-4 w-4 inline-block" /><ChevronDownIcon v-else class="h-4 w-4 inline-block" /></span>
             </th>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer transition-colors duration-200 hover:text-blue-600" @click="sortBy('status')">
               Stato
+              <span v-if="sortKey === 'status'"><ChevronUpIcon v-if="sortOrder === 'asc'" class="h-4 w-4 inline-block" /><ChevronDownIcon v-else class="h-4 w-4 inline-block" /></span>
             </th>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer transition-colors duration-200 hover:text-blue-600" @click="sortBy('course_name')">
               Corso
+              <span v-if="sortKey === 'course_name'"><ChevronUpIcon v-if="sortOrder === 'asc'" class="h-4 w-4 inline-block" /><ChevronDownIcon v-else class="h-4 w-4 inline-block" /></span>
             </th>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer transition-colors duration-200 hover:text-blue-600" @click="sortBy('course_teacher_username')">
               Creato da (Corso)
+              <span v-if="sortKey === 'course_teacher_username'"><ChevronUpIcon v-if="sortOrder === 'asc'" class="h-4 w-4 inline-block" /><ChevronDownIcon v-else class="h-4 w-4 inline-block" /></span>
             </th>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer transition-colors duration-200 hover:text-blue-600" @click="sortBy('topics_display')">
               Argomenti
+              <span v-if="sortKey === 'topics_display'"><ChevronUpIcon v-if="sortOrder === 'asc'" class="h-4 w-4 inline-block" /><ChevronDownIcon v-else class="h-4 w-4 inline-block" /></span>
             </th>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer transition-colors duration-200 hover:text-blue-600" @click="sortBy('subjects_display')">
               Materie
+              <span v-if="sortKey === 'subjects_display'"><ChevronUpIcon v-if="sortOrder === 'asc'" class="h-4 w-4 inline-block" /><ChevronDownIcon v-else class="h-4 w-4 inline-block" /></span>
             </th>
-            <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer transition-colors duration-200 hover:text-blue-600" @click="sortBy('contents')">
               Contenuti
+              <span v-if="sortKey === 'contents'"><ChevronUpIcon v-if="sortOrder === 'asc'" class="h-4 w-4 inline-block" /><ChevronDownIcon v-else class="h-4 w-4 inline-block" /></span>
             </th>
-            <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer transition-colors duration-200 hover:text-blue-600" @click="sortBy('lesson_count')">
               N. Lez.
+              <span v-if="sortKey === 'lesson_count'"><ChevronUpIcon v-if="sortOrder === 'asc'" class="h-4 w-4 inline-block" /><ChevronDownIcon v-else class="h-4 w-4 inline-block" /></span>
             </th>
-            <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer transition-colors duration-200 hover:text-blue-600" @click="sortBy('total_lesson_estimated_hours')">
               Ore Lez.
+              <span v-if="sortKey === 'total_lesson_estimated_hours'"><ChevronUpIcon v-if="sortOrder === 'asc'" class="h-4 w-4 inline-block" /><ChevronDownIcon v-else class="h-4 w-4 inline-block" /></span>
             </th>
-            <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer transition-colors duration-200 hover:text-blue-600" @click="sortBy('total_estimated_hours')">
               Ore Stimate Tot.
+              <span v-if="sortKey === 'total_estimated_hours'"><ChevronUpIcon v-if="sortOrder === 'asc'" class="h-4 w-4 inline-block" /><ChevronDownIcon v-else class="h-4 w-4 inline-block" /></span>
             </th>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer transition-colors duration-200 hover:text-blue-600" @click="sortBy('start_date')">
               Date (Inizio/Fine)
+              <span v-if="sortKey === 'start_date'"><ChevronUpIcon v-if="sortOrder === 'asc'" class="h-4 w-4 inline-block" /><ChevronDownIcon v-else class="h-4 w-4 inline-block" /></span>
             </th>
             <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
               Azioni
@@ -172,7 +184,7 @@ import { useCourseStore } from '@/stores/courseStore';
 import { useSubjectStore } from '@/stores/subjectStore';
 import { useTopicStore } from '@/stores/topicStore'; // Importa topicStore
 import { useUiStore } from '@/stores/ui';
-import { TrashIcon, EyeIcon, DocumentDuplicateIcon, PlusCircleIcon } from '@heroicons/vue/24/outline'; // Aggiunto DocumentDuplicateIcon e PlusCircleIcon
+import { TrashIcon, EyeIcon, DocumentDuplicateIcon, PlusCircleIcon, ChevronUpIcon, ChevronDownIcon } from '@heroicons/vue/24/outline'; // Aggiunto icone ordinamento
 import type { UDA } from '@/types/uda'; // Rimosso Course
 // import type { Subject } from '@/types/subject'; // Rimosso Subject
 // import type { Topic } from '@/types/topic'; // Importa Topic type - Non più utilizzato dopo aver commentato la riga 175
@@ -184,6 +196,8 @@ const topicStore = useTopicStore(); // Istanzia topicStore
 const uiStore = useUiStore();
 const router = useRouter(); // Istanza del router
 const searchQuery = ref('');
+const sortKey = ref('start_date'); // Ordinamento di default
+const sortOrder = ref('desc');
 
 // Arricchisce le UDA con dettagli (es. nome corso, nome materia, nomi argomenti)
 const enrichedUdas = computed(() => {
@@ -215,29 +229,59 @@ const enrichedUdas = computed(() => {
 });
 
 
-// Filtra le UDA arricchite in base alla query di ricerca
+// Filtra e ordina le UDA
 const filteredUdas = computed(() => {
   const query = searchQuery.value.toLowerCase().trim();
-  if (!query) {
-    return enrichedUdas.value;
-  }
+  
+  // 1. Filtra
+  const filtered = query
+    ? enrichedUdas.value.filter(uda => {
+        const title = uda.title?.toLowerCase() || '';
+        const description = uda.description?.toLowerCase() || '';
+        const status = uda.status?.toLowerCase() || '';
+        const courseName = uda.course_name?.toLowerCase() || '';
+        const teacherUsername = uda.course_teacher_username?.toLowerCase() || '';
+        const subjects = uda.subjects_display?.join(' ').toLowerCase() || '';
+        const topics = uda.topics_display?.join(' ').toLowerCase() || '';
 
-  return enrichedUdas.value.filter(uda => {
-    const title = uda.title?.toLowerCase() || '';
-    const description = uda.description?.toLowerCase() || '';
-    const status = uda.status?.toLowerCase() || '';
-    const courseName = uda.course_name?.toLowerCase() || '';
-    const teacherUsername = uda.course_teacher_username?.toLowerCase() || '';
-    const subjects = uda.subjects_display?.join(' ').toLowerCase() || '';
-    const topics = uda.topics_display?.join(' ').toLowerCase() || '';
+        return title.includes(query) ||
+               description.includes(query) ||
+               status.includes(query) ||
+               courseName.includes(query) ||
+               teacherUsername.includes(query) ||
+               subjects.includes(query) ||
+               topics.includes(query);
+      })
+    : enrichedUdas.value;
 
-    return title.includes(query) ||
-           description.includes(query) ||
-           status.includes(query) ||
-           courseName.includes(query) ||
-           teacherUsername.includes(query) ||
-           subjects.includes(query) ||
-           topics.includes(query);
+  // 2. Ordina
+  return filtered.slice().sort((a, b) => {
+    let valA: any;
+    let valB: any;
+
+    const key = sortKey.value;
+
+    // Gestione chiavi speciali
+    if (key === 'contents') {
+      valA = a.contents?.length || 0;
+      valB = b.contents?.length || 0;
+    } else if (key === 'topics_display' || key === 'subjects_display') {
+      valA = a[key]?.join(', ') || '';
+      valB = b[key]?.join(', ') || '';
+    } else {
+      valA = a[key as keyof typeof a];
+      valB = b[key as keyof typeof b];
+    }
+
+    // Normalizzazione per confronto
+    if (typeof valA === 'string') valA = valA.toLowerCase();
+    if (typeof valB === 'string') valB = valB.toLowerCase();
+    if (valA === null || valA === undefined) valA = '';
+    if (valB === null || valB === undefined) valB = '';
+
+    if (valA < valB) return sortOrder.value === 'asc' ? -1 : 1;
+    if (valA > valB) return sortOrder.value === 'asc' ? 1 : -1;
+    return 0;
   });
 });
 
@@ -255,6 +299,15 @@ onMounted(async () => {
     uiStore.addNotification({ message: `Errore caricamento dati: ${(error as Error).message}`, type: 'error'});
   }
 });
+
+const sortBy = (key: string) => {
+  if (sortKey.value === key) {
+    sortOrder.value = sortOrder.value === 'asc' ? 'desc' : 'asc';
+  } else {
+    sortKey.value = key;
+    sortOrder.value = 'asc';
+  }
+};
 
 const confirmDeleteSingleUda = async (udaId: number, udaTitle: string) => {
   const confirmed = window.confirm(`Sei sicuro di voler eliminare l'UDA "${udaTitle}" (ID: ${udaId})? L'azione non è reversibile.`);

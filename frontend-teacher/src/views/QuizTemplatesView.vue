@@ -30,18 +30,16 @@ import BaseModal from '@/components/common/BaseModal.vue';
 import StudentSelectionModal from '@/components/features/assignment/StudentSelectionModal.vue';
 import GroupSelectionModal from '@/components/features/assignment/GroupSelectionModal.vue'; // Importa la nuova modale
 import QuizUploadForm from '@/components/QuizUploadForm.vue'; // Importa il componente per l'upload
-import { PlusCircleIcon, ArrowUpTrayIcon, XMarkIcon, CheckCircleIcon, PencilIcon, TrashIcon, PaperAirplaneIcon } from '@heroicons/vue/24/outline';
+import { PlusCircleIcon, ArrowUpTrayIcon, XMarkIcon, CheckCircleIcon, PencilIcon, TrashIcon, PaperAirplaneIcon, ChevronUpIcon, ChevronDownIcon } from '@heroicons/vue/24/outline';
 
 const templates = ref<QuizTemplate[]>([]);
 const isLoading = ref(false);
 const router = useRouter();
 const error = ref<string | null>(null);
 const showUploadForm = ref(false);
-// Le seguenti ref sono state rimosse perché gestite da QuizUploadForm.vue
-// const uploadFile = ref<File | null>(null);
-// const uploadTitle = ref('');
-// const isUploading = ref(false);
-// const uploadError = ref<string | null>(null);
+const searchQuery = ref('');
+const sortKey = ref('created_at');
+const sortOrder = ref('desc');
 
 // --- Stato per la Modale di Assegnazione ---
 const isAssignModalOpen = ref(false);
@@ -305,6 +303,43 @@ watch(assignmentTargetType, () => {
     selectedGroupIds.value = [];
 });
 
+const filteredAndSortedTemplates = computed(() => {
+  const query = searchQuery.value.toLowerCase().trim();
+
+  const filtered = query
+    ? templates.value.filter(t => {
+        const title = t.title.toLowerCase();
+        const description = t.description?.toLowerCase() || '';
+        const subject = t.subject?.toLowerCase() || '';
+        const topic = t.topic?.toLowerCase() || '';
+        return title.includes(query) || description.includes(query) || subject.includes(query) || topic.includes(query);
+      })
+    : templates.value;
+
+  return filtered.slice().sort((a, b) => {
+    let valA: any = a[sortKey.value as keyof QuizTemplate] ?? '';
+    let valB: any = b[sortKey.value as keyof QuizTemplate] ?? '';
+
+    if (typeof valA === 'string' && typeof valB === 'string') {
+      valA = valA.toLowerCase();
+      valB = valB.toLowerCase();
+    }
+    
+    if (valA < valB) return sortOrder.value === 'asc' ? -1 : 1;
+    if (valA > valB) return sortOrder.value === 'asc' ? 1 : -1;
+    return 0;
+  });
+});
+
+const sortBy = (key: string) => {
+  if (sortKey.value === key) {
+    sortOrder.value = sortOrder.value === 'asc' ? 'desc' : 'asc';
+  } else {
+    sortKey.value = key;
+    sortOrder.value = 'asc';
+  }
+};
+
 </script>
 
 <template>
@@ -336,26 +371,51 @@ watch(assignmentTargetType, () => {
       <!-- Eventuali messaggi di errore globali per l'upload potrebbero essere gestiti qui se QuizUploadForm non li copre tutti -->
     </div>
 
+    <!-- Filtro -->
+    <div class="mb-4">
+      <input
+        type="text"
+        v-model="searchQuery"
+        placeholder="Cerca per titolo, descrizione, materia o argomento..."
+        class="mt-1 block w-full px-3 py-2 bg-white border border-neutral-DEFAULT rounded-md shadow-sm placeholder-neutral-dark focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
+      />
+    </div>
+
     <div v-if="isLoading" class="text-center py-10 text-neutral-dark">Caricamento template quiz...</div>
     <div v-else-if="error" class="bg-error/10 border border-error text-error px-4 py-3 rounded relative mb-6" role="alert">
        <strong class="font-bold">Errore!</strong>
        <span class="block sm:inline"> Errore nel caricamento dei template quiz: {{ error }}</span>
     </div>
-    <div v-else-if="templates.length > 0" class="shadow-md rounded-lg mt-6">
+    <div v-else-if="filteredAndSortedTemplates.length > 0" class="shadow-md rounded-lg mt-6">
       <table class="min-w-full divide-y divide-neutral-DEFAULT bg-white">
         <thead class="bg-neutral-lightest">
           <tr>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider">Titolo</th>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider">Descrizione</th>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider">Materia</th>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider">Argomento</th>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider">Creato il</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider cursor-pointer hover:text-primary" @click="sortBy('title')">
+              Titolo
+              <span v-if="sortKey === 'title'"><ChevronUpIcon v-if="sortOrder === 'asc'" class="h-4 w-4 inline-block" /><ChevronDownIcon v-else class="h-4 w-4 inline-block" /></span>
+            </th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider cursor-pointer hover:text-primary" @click="sortBy('description')">
+              Descrizione
+              <span v-if="sortKey === 'description'"><ChevronUpIcon v-if="sortOrder === 'asc'" class="h-4 w-4 inline-block" /><ChevronDownIcon v-else class="h-4 w-4 inline-block" /></span>
+            </th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider cursor-pointer hover:text-primary" @click="sortBy('subject')">
+              Materia
+              <span v-if="sortKey === 'subject'"><ChevronUpIcon v-if="sortOrder === 'asc'" class="h-4 w-4 inline-block" /><ChevronDownIcon v-else class="h-4 w-4 inline-block" /></span>
+            </th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider cursor-pointer hover:text-primary" @click="sortBy('topic')">
+              Argomento
+              <span v-if="sortKey === 'topic'"><ChevronUpIcon v-if="sortOrder === 'asc'" class="h-4 w-4 inline-block" /><ChevronDownIcon v-else class="h-4 w-4 inline-block" /></span>
+            </th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider cursor-pointer hover:text-primary" @click="sortBy('created_at')">
+              Creato il
+              <span v-if="sortKey === 'created_at'"><ChevronUpIcon v-if="sortOrder === 'asc'" class="h-4 w-4 inline-block" /><ChevronDownIcon v-else class="h-4 w-4 inline-block" /></span>
+            </th>
             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider">Azioni Modifica</th>
             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider">Azioni Assegnazione</th>
           </tr>
         </thead>
         <tbody class="bg-white divide-y divide-neutral-DEFAULT">
-          <tr v-for="template in templates" :key="template.id" class="hover:bg-neutral-lightest transition-colors duration-150">
+          <tr v-for="template in filteredAndSortedTemplates" :key="template.id" class="hover:bg-neutral-lightest transition-colors duration-150">
             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-neutral-darkest">{{ template.title }}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-neutral-darker">{{ template.description || '-' }}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-neutral-darker">{{ template.subject || '-' }}</td>
@@ -379,7 +439,8 @@ watch(assignmentTargetType, () => {
       </table>
     </div>
     <div v-else class="text-center py-10 text-neutral-dark">
-      Nessun template di quiz trovato.
+      <span v-if="searchQuery">Nessun template trovato per "{{ searchQuery }}".</span>
+      <span v-else>Nessun template di quiz trovato.</span>
     </div>
 
     <!-- Modale di Assegnazione -->

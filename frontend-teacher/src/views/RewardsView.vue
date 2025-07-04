@@ -11,38 +11,78 @@
       </BaseButton>
     </div>
 
-    <div v-if="isLoading" class="text-center py-10 text-neutral-dark">Caricamento ricompense...</div> <!-- Stile loading aggiornato -->
-    <div v-else-if="error" class="bg-error/10 border border-error text-error px-4 py-3 rounded relative mb-6" role="alert"> <!-- Stile errore aggiornato -->
+    <!-- Campo di Ricerca -->
+    <div class="mb-4">
+      <input
+        type="text"
+        v-model="searchQuery"
+        placeholder="Cerca ricompense per nome, descrizione..."
+        class="mt-1 block w-full px-3 py-2 bg-white border border-neutral-DEFAULT rounded-md shadow-sm placeholder-neutral-dark focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
+      />
+    </div>
+
+    <div v-if="isLoading" class="text-center py-10 text-neutral-dark">Caricamento ricompense...</div>
+    <div v-else-if="error" class="bg-error/10 border border-error text-error px-4 py-3 rounded relative mb-6" role="alert">
       <strong class="font-bold">Errore!</strong>
       <span class="block sm:inline"> Errore nel caricamento delle ricompense: {{ error }}</span>
     </div>
-    <!-- Responsive Table Container -->
-    <div v-else-if="rewards.length > 0" class="overflow-x-auto shadow-md rounded-lg mt-6">
-      <table class="min-w-full divide-y divide-neutral-DEFAULT bg-white"> <!-- Stile tabella aggiornato -->
-        <thead class="bg-neutral-lightest"> <!-- Stile thead aggiornato -->
+    
+    <div v-else-if="filteredAndSortedRewards.length > 0" class="overflow-x-auto shadow-md rounded-lg mt-6">
+      <table class="min-w-full divide-y divide-neutral-DEFAULT bg-white">
+        <thead class="bg-neutral-lightest">
           <tr>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider">Nome</th> <!-- Stile th aggiornato -->
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider">Descrizione</th>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider">Costo (Punti)</th>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider">Stato</th>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider">Disponibilità</th> <!-- NUOVA COLONNA -->
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider cursor-pointer hover:text-primary" @click="sortBy('name')">
+              Nome
+              <span v-if="sortKey === 'name'">
+                <ChevronUpIcon v-if="sortOrder === 'asc'" class="h-4 w-4 inline-block" />
+                <ChevronDownIcon v-else class="h-4 w-4 inline-block" />
+              </span>
+            </th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider cursor-pointer hover:text-primary" @click="sortBy('description')">
+              Descrizione
+              <span v-if="sortKey === 'description'">
+                <ChevronUpIcon v-if="sortOrder === 'asc'" class="h-4 w-4 inline-block" />
+                <ChevronDownIcon v-else class="h-4 w-4 inline-block" />
+              </span>
+            </th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider cursor-pointer hover:text-primary" @click="sortBy('cost_points')">
+              Costo (Punti)
+              <span v-if="sortKey === 'cost_points'">
+                <ChevronUpIcon v-if="sortOrder === 'asc'" class="h-4 w-4 inline-block" />
+                <ChevronDownIcon v-else class="h-4 w-4 inline-block" />
+              </span>
+            </th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider cursor-pointer hover:text-primary" @click="sortBy('is_active')">
+              Stato
+              <span v-if="sortKey === 'is_active'">
+                <ChevronUpIcon v-if="sortOrder === 'asc'" class="h-4 w-4 inline-block" />
+                <ChevronDownIcon v-else class="h-4 w-4 inline-block" />
+              </span>
+            </th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider cursor-pointer hover:text-primary" @click="sortBy('availability_type')">
+              Disponibilità
+              <span v-if="sortKey === 'availability_type'">
+                <ChevronUpIcon v-if="sortOrder === 'asc'" class="h-4 w-4 inline-block" />
+                <ChevronDownIcon v-else class="h-4 w-4 inline-block" />
+              </span>
+            </th>
             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider">Azioni</th>
           </tr>
         </thead>
-        <tbody class="bg-white divide-y divide-neutral-DEFAULT"> <!-- Stile tbody aggiornato -->
-          <tr v-for="reward in rewards" :key="reward.id" class="hover:bg-neutral-lightest transition-colors duration-150"> <!-- Stile tr aggiornato -->
-            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-neutral-darkest">{{ reward.name }}</td> <!-- Stile td aggiornato -->
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-neutral-darker">{{ reward.description || '-' }}</td> <!-- Stile td aggiornato -->
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-neutral-darker">{{ reward.cost_points }}</td> <!-- Stile td aggiornato -->
+        <tbody class="bg-white divide-y divide-neutral-DEFAULT">
+          <tr v-for="reward in filteredAndSortedRewards" :key="reward.id" class="hover:bg-neutral-lightest transition-colors duration-150">
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-neutral-darkest">{{ reward.name }}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-neutral-darker">{{ reward.description || '-' }}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-neutral-darker">{{ reward.cost_points }}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm">
-              <span :class="reward.is_active ? 'text-success-dark' : 'text-error'"> <!-- Colori stato aggiornati -->
+              <span :class="reward.is_active ? 'text-success-dark' : 'text-error'">
                 {{ reward.is_active ? 'Attiva' : 'Non Attiva' }}
               </span>
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-neutral-darker"> <!-- NUOVA CELLA -->
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-neutral-darker">
                {{ reward.availability_type === 'ALL' ? 'Tutti' : 'Specifica' }}
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2"> <!-- Spazio ok -->
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
               <BaseButton variant="warning" size="sm" @click="editReward(reward.id)" class="p-2" title="Modifica Ricompensa">
                 <PencilIcon class="h-5 w-5" />
               </BaseButton>
@@ -64,8 +104,9 @@
         </tbody>
       </table>
     </div>
-    <div v-else class="text-center py-10 text-neutral-dark"> <!-- Stile no rewards aggiornato -->
-      Nessuna ricompensa trovata.
+    <div v-else class="text-center py-10 text-neutral-dark">
+      <span v-if="searchQuery">Nessuna ricompensa trovata per "{{ searchQuery }}".</span>
+      <span v-else>Nessuna ricompensa trovata.</span>
     </div>
   </div>
 
@@ -86,19 +127,22 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { fetchRewards, deleteRewardApi, type Reward } from '@/api/rewards';
 import BaseButton from '@/components/common/BaseButton.vue';
 // Importa le modali
 import RewardAvailabilityModal from '@/components/features/rewards/RewardAvailabilityModal.vue';
 import RewardCreateModal from '@/components/features/rewards/RewardCreateModal.vue'; // Importa la modale di creazione
-import { PlusCircleIcon, PencilIcon, UsersIcon, TrashIcon } from '@heroicons/vue/24/outline';
+import { PlusCircleIcon, PencilIcon, UsersIcon, TrashIcon, ChevronUpIcon, ChevronDownIcon } from '@heroicons/vue/24/outline';
 
 const router = useRouter();
 const rewards = ref<Reward[]>([]);
 const isLoading = ref(false);
 const error = ref<string | null>(null);
+const searchQuery = ref('');
+const sortKey = ref('name');
+const sortOrder = ref('asc');
 
 // Stato per la modale di creazione
 const isCreateModalOpen = ref(false);
@@ -106,6 +150,36 @@ const isCreateModalOpen = ref(false);
 // Stato per la modale di disponibilità
 const isAvailabilityModalOpen = ref(false);
 const selectedRewardForAvailability = ref<Reward | null>(null);
+
+const filteredAndSortedRewards = computed(() => {
+  const query = searchQuery.value.toLowerCase().trim();
+
+  const filtered = query
+    ? rewards.value.filter(reward => {
+        const name = reward.name.toLowerCase();
+        const description = reward.description ? reward.description.toLowerCase() : '';
+        return name.includes(query) || description.includes(query);
+      })
+    : rewards.value;
+
+  return filtered.slice().sort((a, b) => {
+    let valA: any = a[sortKey.value as keyof Reward];
+    let valB: any = b[sortKey.value as keyof Reward];
+
+    if (typeof valA === 'string' && typeof valB === 'string') {
+      valA = valA.toLowerCase();
+      valB = valB.toLowerCase();
+    }
+    
+    if (valA < valB) {
+      return sortOrder.value === 'asc' ? -1 : 1;
+    }
+    if (valA > valB) {
+      return sortOrder.value === 'asc' ? 1 : -1;
+    }
+    return 0;
+  });
+});
 
 const loadRewards = async () => {
   isLoading.value = true;
@@ -121,6 +195,15 @@ const loadRewards = async () => {
 };
 
 onMounted(loadRewards);
+
+const sortBy = (key: string) => {
+  if (sortKey.value === key) {
+    sortOrder.value = sortOrder.value === 'asc' ? 'desc' : 'asc';
+  } else {
+    sortKey.value = key;
+    sortOrder.value = 'asc';
+  }
+};
 
 // --- Gestione Modale Creazione ---
 const createNewReward = () => {
