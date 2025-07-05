@@ -117,7 +117,7 @@ const selectedSubjectId = ref<number | null>(null);
 const showAddModal = ref(false);
 const topicToEdit = ref<Topic | null>(null);
 const searchQuery = ref('');
-const sortKey = ref('name');
+const sortKey = ref<'name' | 'subject' | 'description'>('name');
 const sortOrder = ref('asc');
 
 const filteredAndSortedTopics = computed(() => {
@@ -139,13 +139,14 @@ const filteredAndSortedTopics = computed(() => {
   return bySearch.slice().sort((a, b) => {
     let valA: any;
     let valB: any;
+    const key = sortKey.value;
 
-    if (sortKey.value === 'subject') {
+    if (key === 'subject') {
       valA = getSubjectName(a.subject);
       valB = getSubjectName(b.subject);
     } else {
-      valA = a[sortKey.value as keyof Topic];
-      valB = b[sortKey.value as keyof Topic];
+      valA = a[key];
+      valB = b[key];
     }
 
     if (typeof valA === 'string') valA = valA.toLowerCase();

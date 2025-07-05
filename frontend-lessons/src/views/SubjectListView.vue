@@ -93,7 +93,7 @@ const subjectStore = useSubjectStore();
 const subjectToEdit = ref<Subject | null>(null);
 const showAddModal = ref(false);
 const searchQuery = ref('');
-const sortKey = ref('name');
+const sortKey = ref<'name' | 'description'>('name');
 const sortOrder = ref('asc');
 
 const filteredAndSortedSubjects = computed(() => {
@@ -107,8 +107,8 @@ const filteredAndSortedSubjects = computed(() => {
     : subjectStore.subjects;
 
   return filtered.slice().sort((a, b) => {
-    let valA = a[sortKey.value as keyof Subject] as any;
-    let valB = b[sortKey.value as keyof Subject] as any;
+    let valA = a[sortKey.value];
+    let valB = b[sortKey.value];
 
     if (typeof valA === 'string') valA = valA.toLowerCase();
     if (typeof valB === 'string') valB = valB.toLowerCase();

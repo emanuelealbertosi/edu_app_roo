@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch, onBeforeUnmount } from 'vue'; // Aggiunto watch, onBeforeUnmount
 import { useAuthStore } from '@/stores/auth';
-import { useNotificationStore } from '@/stores/notification'; // Aggiunto NotificationStore
+import { useNotificationStore } from '@/stores/notification';
+import { useAnnouncementStore } from '@/stores/announcement'; // Importa lo store degli avvisi
 import { RouterLink, RouterView, useRoute, useRouter, type RouteLocationRaw } from 'vue-router';
 import GlobalLoadingIndicator from '@/components/common/GlobalLoadingIndicator.vue';
 import NotificationContainer from '@/components/common/NotificationContainer.vue';
 import UniformNotificationDisplay from '@/components/common/UniformNotificationDisplay.vue'; // Per notifiche toast uniformi
+import AnnouncementModal from '@/components/common/AnnouncementModal.vue'; // Importa la modale degli avvisi
 import ModalDialog from '@/components/common/ModalDialog.vue'; // Importa la modale
 import AppFooter from '@/components/layout/AppFooter.vue'; // Importa il nuovo footer
 import { marked } from 'marked'; // Importa marked
@@ -19,6 +21,7 @@ import {
 
 const authStore = useAuthStore();
 const notificationStore = useNotificationStore(); // Istanziato NotificationStore
+const announcementStore = useAnnouncementStore(); // Istanzia lo store degli avvisi
 const route = useRoute();
 const router = useRouter();
 const isMobileMenuOpen = ref(false);
@@ -290,6 +293,7 @@ onMounted(async () => { // Aggiunto async
 
   if (authStore.isAuthenticated) {
     notificationStore.fetchServerNotifications();
+    announcementStore.fetchAnnouncements(); // Recupera gli avvisi
     // I conteggi ora vengono recuperati da initializeAuth o dopo il login
   }
   // Rimuoviamo la simulazione setTimeout, i conteggi sono gestiti dallo store
@@ -298,13 +302,14 @@ onMounted(async () => { // Aggiunto async
 // TODO: Considerare se un watch su authStore.isAuthenticated è ancora necessario
 // per fetchare i conteggi, dato che login() e initializeAuth() ora li gestiscono.
 // Potrebbe essere utile se lo stato di autenticazione cambia per altri motivi.
-// watch(() => authStore.isAuthenticated, (newVal) => {
-//   if (newVal) {
-//     authStore.fetchUnreadQuizzesCount();
-//     authStore.fetchUnreadLessonsCount();
-//     notificationStore.fetchServerNotifications();
-//   }
-// });
+watch(() => authStore.isAuthenticated, (newVal) => {
+  if (newVal) {
+    // authStore.fetchUnreadQuizzesCount(); // Già gestito da initializeAuth e login
+    // authStore.fetchUnreadLessonsCount(); // Già gestito da initializeAuth e login
+    notificationStore.fetchServerNotifications();
+    announcementStore.fetchAnnouncements(); // Recupera gli avvisi al login
+  }
+});
 
 const isEffectivelyExpanded = computed(() => isSidebarExpandedState.value);
 
@@ -331,6 +336,7 @@ const handleContentInteraction = () => {
 <template>
   <GlobalLoadingIndicator />
 <UniformNotificationDisplay /> <!-- Per notifiche toast uniformi -->
+  <AnnouncementModal /> <!-- Aggiungi la modale degli avvisi -->
   <NotificationContainer />
 
   <!-- Modale per le Policy -->

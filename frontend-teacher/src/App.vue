@@ -2,9 +2,11 @@
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'; // Importa watch, onMounted, onBeforeUnmount
 import { useAuthStore } from '@/stores/auth'; // Store specifico Teacher (per logout e checkAuth)
 import { useSharedAuthStore } from '@/stores/sharedAuth'; // Importa store condiviso
+import { useAnnouncementStore } from '@/stores/announcement'; // Importa lo store degli avvisi
 import { RouterLink, RouterView, useRoute, useRouter, type RouteLocationRaw } from 'vue-router';
 import GlobalLoadingIndicator from '@/components/common/GlobalLoadingIndicator.vue';
 import BaseModal from '@/components/common/BaseModal.vue'; // CORRETTO: Importa BaseModal
+import AnnouncementModal from '@/components/common/AnnouncementModal.vue'; // Importa la modale degli avvisi
 import AppFooter from '@/components/layout/AppFooter.vue'; // Importa il footer
 import { marked } from 'marked'; // Importa marked
 import UniformNotificationDisplay from '@/components/common/UniformNotificationDisplay.vue'; // Importa il nuovo componente notifiche
@@ -43,6 +45,7 @@ import {
 
 const authStore = useAuthStore(); // Mantenuto per azione logout specifica
 const sharedAuth = useSharedAuthStore(); // Usa store condiviso per stato auth
+const announcementStore = useAnnouncementStore(); // Istanzia lo store degli avvisi
 const route = useRoute();
 const router = useRouter();
 const isMobileMenuOpen = ref(false); // Stato per menu mobile
@@ -257,15 +260,19 @@ watch(route, (to) => {
   console.log(`[App.vue Watch Route] Navigated to: ${to.path}, Route Name: ${String(to.name)}, IsAuthenticated: ${sharedAuth.isAuthenticated}`);
 }, { immediate: true, deep: true }); // immediate per log iniziale, deep non strettamente necessario ma sicuro
 
-// Hook onMounted per controllare l'autenticazione all'avvio
-// onMounted(async () => {
-//   console.log('[App.vue onMounted] Component mounted. Checking authentication status...');
-//   // Chiama l'azione dallo store authTeacher per verificare e recuperare il profilo
-//   // se è presente un token valido nello store condiviso (caricato da localStorage).
-//   // QUESTA LOGICA È STATA SPOSTATA IN main.ts PER GARANTIRE CHE VENGA ESEGUITA PRIMA DEL MOUNT DELL'APP
-//   // await authStore.checkAuthAndFetchProfile();
-//   // console.log('[App.vue onMounted] Authentication check complete.');
-// });
+// Hook onMounted per recuperare dati iniziali
+onMounted(() => {
+  if (sharedAuth.isAuthenticated) {
+    announcementStore.fetchAnnouncements();
+  }
+});
+
+// Watch per reagire al login/logout
+watch(() => sharedAuth.isAuthenticated, (isAuth) => {
+  if (isAuth) {
+    announcementStore.fetchAnnouncements();
+  }
+});
 
 const isEffectivelyExpanded = computed(() => isSidebarExpandedState.value);
 
@@ -301,6 +308,7 @@ const toggleGestioneDidattica = () => {
 <template>
   <GlobalLoadingIndicator />
 <UniformNotificationDisplay />
+  <AnnouncementModal /> <!-- Aggiungi la modale degli avvisi -->
   <!-- <NotificationContainer /> --> <!-- Se esiste -->
 
   <!-- Modale per le Policy -->
