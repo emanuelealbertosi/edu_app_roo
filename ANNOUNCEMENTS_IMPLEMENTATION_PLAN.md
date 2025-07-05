@@ -18,54 +18,40 @@ Implementare un sistema di gestione avvisi nell'admin di Django per creare messa
 
 ---
 
-## 2. Lavoro Completato (Backend - Fase 1)
+## 2. Lavoro Completato (Backend)
 
-La struttura di base del backend è stata implementata con successo.
+L'intera infrastruttura backend per il sistema di avvisi è stata implementata con successo e versionata sul branch `announcements`.
 
 - **Creazione App Django:**
-  - È stata creata manualmente una nuova app Django chiamata `announcements` all'interno della directory `apps/`.
+  - È stata creata manualmente una nuova app Django chiamata `announcements`.
 
 - **Definizione Modelli (`models.py`):**
-  - **`Announcement`**: Modello per contenere i dati dell'avviso, inclusi `title`, `content`, `is_active`, `is_important`, e `target_audience`.
-  - **`UserAnnouncementView`**: Modello per tracciare la relazione tra un utente/studente e un avviso, memorizzando se l'utente ha scelto di non vederlo più (`do_not_show_again`). Gestisce correttamente la distinzione tra `User` (docenti/admin) e `Student`.
+  - **`Announcement`**: Modello per contenere i dati dell'avviso.
+  - **`UserAnnouncementView`**: Modello per tracciare le interazioni degli utenti con gli avvisi.
 
 - **Configurazione Admin (`admin.py`):**
-  - I modelli `Announcement` e `UserAnnouncementView` sono stati registrati nell'interfaccia di amministrazione di Django, consentendo la gestione completa degli avvisi direttamente dal pannello admin.
+  - I modelli sono stati registrati nell'interfaccia di amministrazione di Django per una facile gestione.
 
-- **Registrazione App (`settings.py`):**
-  - La nuova app `announcements` è stata aggiunta alla lista `INSTALLED_APPS` per integrarla nel progetto.
+- **Registrazione e Migrazioni:**
+  - L'app è stata registrata in `settings.py` e le migrazioni del database sono state create e applicate.
 
-- **Migrazioni Database:**
-  - È stato generato il file di migrazione iniziale (`0001_initial.py`) per i nuovi modelli.
-  - La migrazione è stata applicata con successo al database, creando le tabelle necessarie.
+- **Implementazione API (`views.py`, `urls.py`, `serializers.py`):**
+  - **`GET /api/announcements/`**: Endpoint per recuperare la lista degli avvisi pertinenti per l'utente loggato.
+  - **`POST /api/announcements/{id}/mark-as-read/`**: Endpoint per registrare la visualizzazione di un avviso.
+  - **`POST /api/announcements/{id}/do-not-show-again/`**: Endpoint per permettere all'utente di nascondere permanentemente un avviso.
+  - Gli URL sono stati registrati e resi disponibili a livello di progetto.
+
+- **Controllo Versioni (Git):**
+  - È stato creato un nuovo branch `announcements`.
+  - Tutte le modifiche sono state committate e pushate sul repository remoto.
 
 ---
 
 ## 3. Prossimi Passi (Next Steps)
 
-### 3.1. Backend - Fase 2 (API)
+### 3.1. Frontend (Docente & Studente)
 
-- **Potenziamento Serializers (`serializers.py`):**
-  - Creare serializer più specifici per le operazioni di lettura e scrittura, se necessario (es. un serializer di sola lettura che includa dati correlati).
-
-- **Implementazione Viste API (`views.py`):**
-  - **`AnnouncementListView`**: Creare un endpoint API (`GET /api/announcements/`) che restituisca la lista degli avvisi attivi pertinenti per l'utente autenticato (docente o studente). La logica dovrà:
-    - Filtrare gli avvisi in base al `target_audience`.
-    - Escludere gli avvisi che l'utente ha contrassegnato con "Non mostrare più" (verificando in `UserAnnouncementView`).
-    - Rispettare l'ordinamento (`is_important`, `created_at`).
-  - **`MarkAsReadView`**: Creare un endpoint API (`POST /api/announcements/{id}/mark-as-read/`) che permetta al frontend di notificare che un utente ha chiuso un avviso.
-  - **`DoNotShowAgainView`**: Creare un endpoint API (`POST /api/announcements/{id}/do-not-show-again/`) per impostare il flag `do_not_show_again` a `True` per un utente e un avviso specifici.
-
-- **Configurazione URL (`urls.py`):**
-  - Registrare le nuove viste API per renderle accessibili.
-
-- **Gestione Permessi (`permissions.py`):**
-  - Assicurarsi che solo gli utenti autenticati (siano essi `User` o `Student`) possano accedere agli endpoint.
-
-- **Scrittura Test:**
-  - Creare test unitari e di integrazione per i nuovi modelli, le viste API e la logica di business.
-
-### 3.2. Frontend (Docente & Studente)
+Il backend è ora pronto. Il prossimo passo è l'integrazione con le applicazioni frontend.
 
 - **Servizio API:**
   - Creare o aggiornare un servizio API (es. `announcementService.ts`) per comunicare con i nuovi endpoint del backend.
