@@ -1,4 +1,5 @@
 import logging # Import logging
+import datetime # Importa datetime per timezone.utc
 from rest_framework import viewsets, permissions, status, serializers, generics, parsers # Import generics AND parsers
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -216,7 +217,7 @@ class PathwayTemplateViewSet(viewsets.ModelViewSet):
             try:
                 due_date = timezone.datetime.fromisoformat(due_date_str.replace('Z', '+00:00'))
                 if timezone.is_naive(due_date):
-                    due_date = timezone.make_aware(due_date, timezone.utc)
+                    due_date = timezone.make_aware(due_date, datetime.timezone.utc)
                 if due_date < timezone.now():
                      raise ValidationError("La data di scadenza non può essere nel passato.")
             except (ValueError, ValidationError) as e:
@@ -483,7 +484,7 @@ class TeacherQuizTemplateViewSet(viewsets.ModelViewSet):
                 due_date = timezone.datetime.fromisoformat(due_date_str.replace('Z', '+00:00'))
                 # Rendi timezone-aware se non lo è (assumendo UTC se non specificato)
                 if timezone.is_naive(due_date):
-                    due_date = timezone.make_aware(due_date, timezone.utc)
+                    due_date = timezone.make_aware(due_date, datetime.timezone.utc)
                 # Verifica che la data non sia nel passato
                 if due_date < timezone.now():
                      raise ValidationError("La data di scadenza non può essere nel passato.")
