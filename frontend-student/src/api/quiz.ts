@@ -33,7 +33,7 @@ export type QuestionType =
   | 'MC_MULTI' | 'mc_multi'
   | 'TF' | 'tf'
   | 'FILL_BLANK' | 'fill_blank'
-  | 'OPEN_MANUAL' | 'open_manual';
+  | 'OPEN_ANSWER_MANUAL' | 'open_answer_manual';
 
 export interface Question {
   id: number;
@@ -203,16 +203,19 @@ const QuizService = {
    * Invia una risposta per una domanda
    */
   async submitAnswer(
-    attemptId: number, 
-    questionId: number, 
+    attemptId: number,
+    questionId: number,
+    questionType: QuestionType,
     answer: Answer
   ): Promise<{ is_correct: boolean | null; message?: string }> {
     try {
-      // Aggiunto prefisso completo relativo a /api/
-      const response = await apiClient.post(`student/attempts/${attemptId}/submit-answer/`, {
+      const payload = {
         question_id: questionId,
-        selected_answers: answer
-      });
+        question_type: questionType,
+        selected_answers: answer,
+      };
+      // Aggiunto prefisso completo relativo a /api/
+      const response = await apiClient.post(`student/attempts/${attemptId}/submit-answer/`, payload);
       return response.data;
     } catch (error) {
       console.error(`Error submitting answer for question ${questionId}:`, error);

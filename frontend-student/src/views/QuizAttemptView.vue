@@ -246,6 +246,7 @@ async function submitAnswerHandler() {
     const result = await QuizService.submitAnswer(
       attempt.value.id,
       currentQuestion.value.id,
+      currentQuestion.value.question_type, // Aggiunto per coerenza
       payloadForApi // Ora payloadForApi è sempre di tipo Answer (che include FillBlankApiPayload)
     );
     console.log("Risposta inviata, risultato API:", result); // Log per debug
@@ -370,6 +371,9 @@ async function loadOrStartAttempt() {
 }
 
 onMounted(() => {
+  // Blocca lo scroll del body quando la modale è aperta
+  document.body.style.overflow = 'hidden';
+
   // Imposta il primo gradiente
   currentBackgroundClass.value = backgroundGradients[backgroundIndex.value];
 
@@ -385,7 +389,7 @@ const questionComponentMap = {
   'mc_multi': shallowRef(MultipleChoiceMultipleQuestion),
   'tf': shallowRef(TrueFalseQuestion),
   'fill_blank': shallowRef(FillBlankQuestion),
-  'open_manual': shallowRef(OpenAnswerManualQuestion),
+  'open_answer_manual': shallowRef(OpenAnswerManualQuestion),
   // Manteniamo le vecchie chiavi per retrocompatibilità se necessario,
   // ma la logica di accesso ora normalizza a minuscolo.
   // 'MC_SINGLE': shallowRef(MultipleChoiceSingleQuestion),
@@ -455,10 +459,12 @@ const handleClose = () => {
 
 // Modifica onUnmounted per pulire anche il timeout del feedback
 onUnmounted(() => {
+  // Ripristina lo scroll del body quando la modale viene chiusa
+  document.body.style.overflow = '';
+
   if (feedbackTimeoutId.value) {
     clearTimeout(feedbackTimeoutId.value);
   }
-  // ... (eventuale cleanup overflow body se necessario qui) ...
 });
 
 </script>

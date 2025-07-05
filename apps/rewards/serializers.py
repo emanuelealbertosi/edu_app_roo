@@ -155,10 +155,46 @@ class MakeRewardAvailableSerializer(serializers.Serializer):
         if reward.teacher != teacher:
              raise ValidationError("Non puoi gestire la disponibilità di una ricompensa che non hai creato.")
         # Verifica che il docente che assegna sia il docente dello studente
-        if student and not student.is_managed_by(teacher):
-             raise ValidationError("Non puoi rendere disponibile una ricompensa a uno studente che non gestisci.")
-        if group and group.teacher != teacher:
-             raise ValidationError("Non puoi rendere disponibile a un gruppo che non hai creato.")
+        # Verifica che il docente che assegna abbia accesso allo studente o al gruppo
+        if student:
+            # La logica di is_managed_by deve considerare sia i gruppi di proprietà che quelli condivisi.
+            # Assumiamo che is_managed_by sia stato aggiornato per riflettere questa logica.
+            # Se is_managed_by non è aggiornabile, replichiamo la logica qui.
+            from apps.student_groups.models import GroupAccessRequest
+            
+            # ID dei gruppi di cui il docente è proprietario
+            owned_group_ids = set(StudentGroup.objects.filter(owner=teacher).values_list('id', flat=True))
+            
+            # ID dei gruppi a cui il docente ha accesso approvato
+            approved_group_ids = set(GroupAccessRequest.objects.filter(
+                requesting_teacher=teacher,
+                status=GroupAccessRequest.AccessStatus.APPROVED
+            ).values_list('group_id', flat=True))
+
+            all_accessible_group_ids = owned_group_ids.union(approved_group_ids)
+            
+            # Verifica se lo studente appartiene ad almeno uno dei gruppi accessibili
+            is_managed = student.group_memberships.filter(group_id__in=all_accessible_group_ids).exists()
+
+            if not is_managed:
+                raise ValidationError("Non puoi rendere disponibile una ricompensa a uno studente che non gestisci.")
+
+        if group:
+            # Il campo corretto è 'owner', non 'teacher'
+            is_owner = (group.owner == teacher)
+            
+            # Verifica se l'insegnante ha accesso approvato al gruppo
+            has_approved_access = False
+            if not is_owner:
+                from apps.student_groups.models import GroupAccessRequest
+                has_approved_access = GroupAccessRequest.objects.filter(
+                    requesting_teacher=teacher,
+                    group=group,
+                    status=GroupAccessRequest.AccessStatus.APPROVED
+                ).exists()
+
+            if not is_owner and not has_approved_access:
+                raise ValidationError("Non puoi rendere disponibile una ricompensa a un gruppo che non gestisci.")
 
         # Controlla duplicati
         availability_exists = RewardAvailability.objects.filter(

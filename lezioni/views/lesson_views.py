@@ -152,26 +152,42 @@ class LessonViewSet(viewsets.ModelViewSet):
         if Student and student_ids:
             # students = Student.objects.filter(id__in=student_ids, teacher_id=request.user.id) # RIGA ORIGINALE CON ERRORE
 
-            # Nuova logica per validare gli studenti
-            # Filtra gli studenti richiesti per ID e poi verifica l'associazione con l'insegnante
-            # tramite l'appartenenza a un gruppo di cui l'insegnante è proprietario.
-            potential_students_qs = Student.objects.filter(id__in=student_ids)
-            
-            current_valid_students_list = []
-            processed_valid_student_ids_set = set()
+            # Logica di validazione esplicita e frammentata per massima robustezza.
+            # 1. Otteniamo tutti gli ID degli studenti a cui il docente ha accesso,
+            #    sia tramite gruppi di proprietà sia tramite gruppi condivisi.
 
-            for student_obj in potential_students_qs:
-                # Verifica se lo studente è in almeno un gruppo di proprietà del docente.
-                # Si assume che 'group_memberships' (campo di Student) sia una relazione
-                # (es. ManyToManyField o related_name) che porta a oggetti StudentGroup,
-                # e che StudentGroup abbia un campo 'owner' che si riferisce a request.user.
-                if hasattr(student_obj, 'group_memberships') and student_obj.group_memberships.filter(group__owner=request.user).exists():
-                    current_valid_students_list.append(student_obj)
-                    processed_valid_student_ids_set.add(student_obj.id)
+            # IDs dei gruppi di cui il docente è proprietario
+            owned_group_ids = set(StudentGroup.objects.filter(owner=request.user).values_list('id', flat=True))
+
+            # IDs dei gruppi a cui il docente ha accesso approvato
+            approved_group_ids = set()
+            if GroupAccessRequest:
+                approved_group_ids = set(GroupAccessRequest.objects.filter(
+                    requesting_teacher=request.user,
+                    status=GroupAccessRequest.AccessStatus.APPROVED
+                ).values_list('group_id', flat=True))
+
+            # Unione di tutti gli ID dei gruppi accessibili
+            all_accessible_group_ids = owned_group_ids.union(approved_group_ids)
+
+            # Se non ci sono gruppi accessibili, non ci possono essere studenti gestiti
+            if not all_accessible_group_ids:
+                managed_student_ids = set()
+            else:
+                # Otteniamo tutti gli studenti che appartengono a uno qualsiasi dei gruppi accessibili
+                managed_student_ids = set(
+                    Student.objects.filter(
+                        group_memberships__group_id__in=all_accessible_group_ids
+                    ).values_list('id', flat=True)
+                )
+
+            # 2. Verifichiamo quali degli studenti richiesti sono in questo set.
+            # Recuperiamo gli oggetti Student solo per gli ID validi.
+            valid_ids_to_check = [sid for sid in student_ids if sid in managed_student_ids]
+            valid_students = list(Student.objects.filter(id__in=valid_ids_to_check))
             
-            valid_students = current_valid_students_list # Questa è la lista di oggetti Student validi
-            # invalid_student_ids sono quelli richiesti ma non trovati validi (o non appartenenti ai gruppi del docente)
-            invalid_student_ids = [sid for sid in student_ids if sid not in processed_valid_student_ids_set]
+            # 3. Gli ID non validi sono quelli richiesti ma non presenti nel set di studenti gestiti.
+            invalid_student_ids = [sid for sid in student_ids if sid not in managed_student_ids]
 
         valid_groups = []
         invalid_group_ids = []
@@ -206,7 +222,8 @@ class LessonViewSet(viewsets.ModelViewSet):
                 assignment, created = LessonAssignment.objects.get_or_create(
                     lesson=lesson,
                     student=student,
-                    defaults={'group': None} # Assicura che group sia None se si crea per studente
+                    # Aggiunto 'assigned_by' per coerenza e robustezza
+                    defaults={'group': None, 'assigned_by': request.user}
                 )
                 if created:
                     results["student_assignments"]["created"].append({'student': student.id})
@@ -222,7 +239,8 @@ class LessonViewSet(viewsets.ModelViewSet):
                 assignment, created = LessonAssignment.objects.get_or_create(
                     lesson=lesson,
                     group=group,
-                    defaults={'student': None} # Assicura che student sia None se si crea per gruppo
+                    # Aggiunto 'assigned_by' per coerenza e robustezza
+                    defaults={'student': None, 'assigned_by': request.user}
                 )
                 if created:
                     results["group_assignments"]["created"].append({'group': group.id})

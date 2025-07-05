@@ -1527,8 +1527,8 @@ class AttemptViewSet(viewsets.GenericViewSet):
         validation_error = None
         valid_data_for_storage = {} # Dati validati da salvare
 
-        q_type = question.question_type
-        if q_type in [QuestionType.MULTIPLE_CHOICE_SINGLE, QuestionType.TRUE_FALSE]:
+        q_type = question.question_type.lower() if question.question_type else ""
+        if q_type in [QuestionType.MULTIPLE_CHOICE_SINGLE.lower(), QuestionType.TRUE_FALSE.lower()]:
             # Modificato per aspettarsi 'answer_option_id'
             if not isinstance(selected_answers_data, dict) or 'answer_option_id' not in selected_answers_data:
                 validation_error = "Per questo tipo di domanda, 'selected_answers' deve essere un dizionario con chiave 'answer_option_id'."
@@ -1547,7 +1547,7 @@ class AttemptViewSet(viewsets.GenericViewSet):
                         # Dati validi per il salvataggio
                         valid_data_for_storage = {'answer_option_id': selected_id} # Modificato per salvare la chiave corretta
 
-        elif q_type == QuestionType.MULTIPLE_CHOICE_MULTIPLE:
+        elif q_type == QuestionType.MULTIPLE_CHOICE_MULTIPLE.lower():
             # Modificato per aspettarsi 'answer_option_ids'
             if not isinstance(selected_answers_data, dict) or 'answer_option_ids' not in selected_answers_data:
                 validation_error = "Per questo tipo di domanda, 'selected_answers' deve essere un dizionario con chiave 'answer_option_ids'."
@@ -1568,7 +1568,7 @@ class AttemptViewSet(viewsets.GenericViewSet):
                         # Dati validi per il salvataggio
                         valid_data_for_storage = {'answer_option_ids': sorted(list(submitted_ids_set))} # Salva come lista ordinata
 
-        elif q_type == QuestionType.FILL_BLANK:
+        elif q_type == QuestionType.FILL_BLANK.lower():
             # Modificato per aspettarsi 'answers' come lista di stringhe
             if not isinstance(selected_answers_data, dict) or 'answers' not in selected_answers_data:
                  validation_error = "Per questo tipo di domanda, 'selected_answers' deve essere un dizionario con chiave 'answers'."
@@ -1586,7 +1586,7 @@ class AttemptViewSet(viewsets.GenericViewSet):
                         # Dati validi per il salvataggio
                         valid_data_for_storage = {'answers': answers} # Modificato per salvare la chiave corretta
 
-        elif q_type == QuestionType.OPEN_ANSWER_MANUAL:
+        elif q_type == QuestionType.OPEN_ANSWER_MANUAL.lower():
             # Modificato per aspettarsi 'text'
             if not isinstance(selected_answers_data, dict) or 'text' not in selected_answers_data:
                  validation_error = "Per questo tipo di domanda, 'selected_answers' deve essere un dizionario con chiave 'text'."
