@@ -74,6 +74,7 @@ INSTALLED_APPS = [
     'lezioni.apps.LezioniConfig', # Aggiunta nuova app lezioni
     'apps.student_groups.apps.StudentGroupsConfig', # Aggiunta app per gruppi studenti
     'apps.uda.apps.UdaConfig', # Aggiunta app per Unità Didattiche Apprendimento
+    'apps.announcements.apps.AnnouncementsConfig', # Aggiunta app per avvisi
 ]
 
 MIDDLEWARE = [
