@@ -3,7 +3,7 @@
     <div class="question-info flex-grow mr-3 md:mr-4">
       <div>
         <span class="order font-semibold text-neutral-dark">({{ question.order }})</span>
-        <span class="text ml-2 text-neutral-darkest">{{ question.text }}</span> <!-- Potrebbe essere necessario troncare o gestire l'HTML qui se il testo diventa troppo lungo -->
+        <span class="text ml-2 text-neutral-darkest" v-html="question.text"></span> <!-- Potrebbe essere necessario troncare o gestire l'HTML qui se il testo diventa troppo lungo -->
         <span class="type ml-2 text-xs px-2 py-0.5 rounded-full bg-primary-lightest text-primary-dark font-medium">{{ question.question_type_display || question.question_type }}</span>
       </div>
       <div class="additional-info text-xs text-neutral-medium mt-1 ml-2 flex space-x-3">

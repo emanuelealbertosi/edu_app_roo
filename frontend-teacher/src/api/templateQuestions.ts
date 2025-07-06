@@ -23,6 +23,9 @@ export interface QuestionTemplate {
   order: number;
   metadata: Record<string, any> | null;
   answer_options?: AnswerOptionTemplate[]; // Opzioni nested (read-only in list/detail?)
+  num_answer_options?: number;
+  correct_answers_status?: 'OK' | 'MISSING' | 'PARTIAL' | 'N/A';
+  fill_blank_status?: 'OK' | 'MISSING' | 'N/A';
 }
 
 // Payload per creare/aggiornare QuestionTemplate

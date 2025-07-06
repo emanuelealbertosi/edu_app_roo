@@ -580,6 +580,10 @@ erDiagram
     *   `GET, PUT, PATCH, DELETE /api/students/{student_id}/`
 *   **Docente - Gestione Contenuti:**
    *   **Nota UI:** Durante la creazione/modifica di un Quiz o Quiz Template (se il docente può creare template), l'interfaccia (`fe-teacher`) permetterà di selezionare opzionalmente una Materia (dall'elenco delle materie del docente definite in `fe-lessons`) e, successivamente, un Argomento (filtrato in base alla materia scelta, anch'esso da `fe-lessons`). La selezione avverrà tramite menu a tendina.
+   *   **Nota UI - Creazione Domanda Template (`fe-teacher`):** Quando un docente crea una nuova domanda per un template di quiz e seleziona come tipo `multiple_choice_single` o `multiple_choice_multiple`:
+        *   L'interfaccia per aggiungere le opzioni di risposta deve essere visualizzata immediatamente all'interno della modale.
+        *   La modale non potrà essere chiusa (né tramite il pulsante di conferma "Crea Domanda" né tramite "Annulla") se non è stata aggiunta almeno una opzione di risposta. Un messaggio di avviso informerà l'utente di questo vincolo.
+        *   Non è obbligatorio specificare quale sia la risposta corretta per poter salvare la domanda con le sue opzioni.
    *   `GET, POST /api/quizzes/` (Payload POST e risposta GET includono `subject_id`, `topic_id`, `image_url`. GET lista include `subject_name`, `subject_color_placeholder`)
    *   `POST /api/quizzes/create-from-template/` (Il payload potrebbe includere `subject_id` e `topic_id` per sovrascrivere quelli del template, se presenti, o per aggiungerli se il template non li ha)
    *   `GET, PUT, PATCH, DELETE /api/quizzes/{quiz_id}/` (+ sub-routes domande/opzioni; Payload e risposta includono `subject_id`, `topic_id`, `image_url`. GET include `subject_name`, `subject_color_placeholder`)

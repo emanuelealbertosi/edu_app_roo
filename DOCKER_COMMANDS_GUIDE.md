@@ -29,25 +29,25 @@ Questo metodo builda le immagini direttamente con il tuo username Docker Hub e u
 
 *   **Build Backend:**
     ```bash
-    docker build -t albertosiemanuele/edu-app-backend:v21 .
+    docker build -t albertosiemanuele/edu-app-backend:v22 .
     ```
 *   **Build Frontend Studente:**
     ```bash
-    docker build -t albertosiemanuele/edu-app-frontend-student:v21 ./frontend-student
-	docker build -t albertosiemanuele/edu-app-frontend-student:v21 --build-arg VITE_LESSONS_APP_URL="https://www.eduapp.it/lezioni/" frontend-student/
+    docker build -t albertosiemanuele/edu-app-frontend-student:v22 ./frontend-student
+	docker build -t albertosiemanuele/edu-app-frontend-student:v22 --build-arg VITE_LESSONS_APP_URL="https://www.eduapp.it/lezioni/" frontend-student/
 
 
     ```
 *   **Build Frontend Docente:**
     ```bash
-    docker build -t albertosiemanuele/edu-app-frontend-teacher:v21 ./frontend-teacher
-	docker build -t albertosiemanuele/edu-app-frontend-teacher:v21 --build-arg VITE_LESSONS_APP_URL="https://www.eduapp.it/lezioni/" frontend-teacher/
+    docker build -t albertosiemanuele/edu-app-frontend-teacher:v22 ./frontend-teacher
+	docker build -t albertosiemanuele/edu-app-frontend-teacher:v22 --build-arg VITE_LESSONS_APP_URL="https://www.eduapp.it/lezioni/" frontend-teacher/
 
 
     ```
 *   **Build Frontend Lezioni:**
     ```bash
-    docker build -t albertosiemanuele/edu-app-frontend-lessons:v21 ./frontend-lessons
+    docker build -t albertosiemanuele/edu-app-frontend-lessons:v22 ./frontend-lessons
   ```
 
 docker build -t albertosiemanuele/edu-app-frontend-teacher:v18 --build-arg VITE_LESSONS_APP_URL="https://www.eduapp.it/lezioni/" frontend-teacher/
@@ -93,6 +93,8 @@ Una volta che il file `docker-compose.local-prod-test.yml` è stato aggiornato p
 
 docker compose -f docker-compose.local-prod-test.yml --env-file .env.localprod build
 
+docker compose -f docker-compose.local-prod-test.yml --env-file .env.localprod build frontend-lessons
+
 docker compose -f docker-compose.local-prod-test.yml --env-file .env.localprod up -d --build
 
 *   In background (detached mode):
@@ -124,6 +126,8 @@ docker compose -f docker-compose.prod.static.yml --env-file .env.prod restart
 *   **Avvio Backend:**
     ```bash
     docker compose -f docker-compose.local-prod-test.yml --env-file .env.localprod up -d backend
+	docker compose -f docker-compose.local-prod-test.yml --env-file .env.localprod up -d backend
+
     ```
 *   *(Similmente per `frontend-student`, `frontend-teacher` e `frontend-lessons`)*
 
@@ -143,10 +147,10 @@ Ti verranno chiesti username e password.
 ### Passo 3.2: Pushare le Immagini Taggate
 Assicurati che `tuo_tag_specifico` sia lo stesso usato nei comandi `docker build -t`.
 ```bash
-docker push albertosiemanuele/edu-app-backend:v21
-docker push albertosiemanuele/edu-app-frontend-student:v21
-docker push albertosiemanuele/edu-app-frontend-teacher:v21
-docker push albertosiemanuele/edu-app-frontend-lessons:v21
+docker push albertosiemanuele/edu-app-backend:v22
+docker push albertosiemanuele/edu-app-frontend-student:v22
+docker push albertosiemanuele/edu-app-frontend-teacher:v22
+docker push albertosiemanuele/edu-app-frontend-lessons:v22
 ```
 
 ---

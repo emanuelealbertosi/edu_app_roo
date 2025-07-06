@@ -45,6 +45,9 @@
 <script setup lang="ts">
 import { watch, onUnmounted } from 'vue';
 
+// Contatore globale per tutte le istanze di BaseModal
+let openModalCount = 0;
+
 interface Props {
   show: boolean; // Prop per controllare la visibilità
   title?: string; // Titolo opzionale
@@ -58,35 +61,37 @@ const closeModal = () => {
   emit('close');
 };
 
-// Gestione overflow body per evitare scroll pagina sottostante
-watch(() => props.show, (newValue) => {
-  if (typeof document !== 'undefined') { // Verifica per SSR/Build
-    if (newValue) {
+// Gestione robusta dell'overflow del body
+watch(() => props.show, (isShown, wasShown) => {
+  if (typeof document === 'undefined') return;
+
+  if (isShown && !wasShown) {
+    // La modale si sta aprendo
+    if (openModalCount === 0) {
       document.body.style.overflow = 'hidden';
-    } else {
-      // Ripristino immediato, ma controlla sempre se altre modali sono aperte
-      // Questo previene il problema se questa modale si chiude mentre un'altra è ancora attiva.
-      const openModals = document.querySelectorAll('.fixed.inset-0.z-50.flex').length; // Selettore più specifico per modali attive
-      // Se non ci sono altre modali visibili (o questa è l'ultima che sta per diventare non visibile)
-      if (openModals === 0 || (openModals === 1 && !props.show)) { // props.show sarà false qui
-         document.body.style.overflow = '';
-      }
+    }
+    openModalCount++;
+  } else if (!isShown && wasShown) {
+    // La modale si sta chiudendo
+    openModalCount--;
+    if (openModalCount === 0) {
+      document.body.style.overflow = '';
     }
   }
-}, { immediate: false });
+}, { immediate: true }); // `immediate` per gestire lo stato iniziale
 
-// Cleanup: Assicurati di rimuovere lo stile se il componente viene smontato mentre è aperto
+// Cleanup: Assicurati di decrementare il contatore se il componente viene smontato mentre è aperto
 onUnmounted(() => {
-  if (typeof document !== 'undefined') {
-     // Controlla se un'altra modale è ancora aperta prima di ripristinare
-     const openModals = document.querySelectorAll('.fixed.inset-0.z-50').length;
-     // Se questa è l'ultima modale che si sta smontando
-     if (props.show && openModals <= 1) {
-        document.body.style.overflow = '';
-     }
+  if (typeof document === 'undefined') return;
+
+  // Se la modale era visibile quando è stata smontata
+  if (props.show) {
+    openModalCount--;
+    if (openModalCount === 0) {
+      document.body.style.overflow = '';
+    }
   }
 });
-
 </script>
 
 <style scoped>
