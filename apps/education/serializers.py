@@ -1185,35 +1185,46 @@ class QuizTemplateUploadSerializer(serializers.Serializer):
                 logger.debug("[_parse_quiz_text.finalize_question] q_data è None, ritorno None.")
                 return None
 
-            # Pulisci il testo della domanda da eventuali escape sugli underscore
-            if q_data.get("text"):
-                original_text = q_data["text"]
-                # Sostituisce sequenze di '\_' con '_'
-                # Questo dovrebbe trasformare '\_\_\_' in '___' e '\_' in '_'
-                cleaned_text = original_text.replace('\\_', '_')
-                if cleaned_text != original_text:
-                    logger.info(f"[_parse_quiz_text.finalize_question] Testo domanda pulito da escape underscore. Originale: '{original_text[:100]}...', Pulito: '{cleaned_text[:100]}...'")
-                    q_data["text"] = cleaned_text
+            # Pulisci il testo iniziale della domanda da eventuali escape sugli underscore
+            initial_text = q_data.get("text", "")
+            cleaned_initial_text = initial_text.replace('\\_', '_')
             
-            question_text = q_data["text"] # Usa il testo potenzialmente pulito
-            is_fill_blank = "___" in question_text
-            
+            # Separa le righe di continuazione del testo dalle opzioni nel buffer
+            question_text_continuations = []
             raw_options = []
             for line_in_buffer in q_lines_buffer:
                 if option_pattern.match(line_in_buffer):
                     raw_options.append(line_in_buffer)
-            logger.debug(f"[_parse_quiz_text.finalize_question] Raw options raccolte dal buffer: {raw_options}")
+                else:
+                    # Questa è una riga di continuazione del testo della domanda
+                    cleaned_line = line_in_buffer.replace('\\_', '_')
+                    question_text_continuations.append(cleaned_line)
 
+            # Unisci tutte le parti del testo della domanda
+            full_question_text_parts = [cleaned_initial_text] + question_text_continuations
+            q_data["text"] = " ".join(part for part in full_question_text_parts if part).strip()
+            
+            logger.debug(f"[_parse_quiz_text.finalize_question] Testo domanda completo: '{q_data['text']}'")
+            logger.debug(f"[_parse_quiz_text.finalize_question] Raw options raccolte: {raw_options}")
+
+            question_text = q_data["text"]
+            is_fill_blank = "___" in question_text
+            
             if is_fill_blank:
                 q_data["question_type"] = QuestionType.FILL_BLANK.value
-                blanks_answers_list = []
-                for raw_opt_line in raw_options:
+                blanks_config_list = []
+                for i, raw_opt_line in enumerate(raw_options):
                     opt_match = option_pattern.match(raw_opt_line)
                     if opt_match:
                         answers_text = opt_match.group(3).strip()
-                        correct_answers_for_this_blank = [ans.strip() for ans in answers_text.split(";;")]
-                        blanks_answers_list.append(correct_answers_for_this_blank)
-                q_data["metadata"] = {"blanks": blanks_answers_list, "case_sensitive": False}
+                        correct_answers = [ans.strip() for ans in answers_text.split(";;")]
+                        blanks_config_list.append({
+                            # L'ID non è cruciale qui ma aiuta la coerenza
+                            "id": f"blank_{i}",
+                            "order": i,
+                            "correct_answers": correct_answers
+                        })
+                q_data["metadata"] = {"blanks": blanks_config_list, "case_sensitive": False}
                 q_data["answer_options"] = []
                 logger.debug(f"[_parse_quiz_text.finalize_question] Tipo FILL_BLANK. Metadati: {q_data['metadata']}")
             elif raw_options:

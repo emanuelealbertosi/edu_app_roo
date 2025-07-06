@@ -48,14 +48,18 @@
 
 
       <!-- Sezione Opzioni Risposta (solo per tipi compatibili) -->
-      <div v-if="isOptionBasedType" class="options-section">
-        <h2>Opzioni di Risposta Template</h2>
+      <!-- Sezione Opzioni Risposta (solo per tipi compatibili) -->
+      <div v-if="isOptionBasedType && questionId" class="options-section border-t pt-4 mt-4">
+        <h2 class="text-lg font-semibold mb-2">Opzioni di Risposta Template</h2>
+        <p v-if="isAwaitingOptions" class="text-sm text-blue-600 bg-blue-50 p-2 rounded-md mb-3">
+          Domanda creata. Aggiungi almeno un'opzione di risposta prima di chiudere.
+        </p>
         <TemplateAnswerOptionsEditor
-             v-if="quizTemplateId && questionId"
-             :quiz-template-id="quizTemplateId"
-             :question-template-id="questionId"
-             :question-type="questionData.question_type ?? ''"
-           />
+           :quiz-template-id="quizTemplateId!"
+           :question-template-id="questionId"
+           :question-type="questionData.question_type ?? ''"
+           @update:options-count="count => optionsCount = count"
+         />
       </div>
 
 
@@ -87,16 +91,17 @@
         <button
           type="button"
           @click="cancel"
+          :disabled="isSaving"
           class="btn btn-secondary"
         >
-          {{ isEditing ? 'Torna al Template' : 'Annulla Creazione' }}
+          {{ buttonCancelText }}
         </button>
         <button
           type="submit"
-          :disabled="isSaving"
+          :disabled="isSaving || (isOptionBasedType && isEditing && optionsCount === 0)"
           class="btn btn-success"
         >
-          {{ isSaving ? 'Salvataggio...' : (isEditing ? 'Salva Modifiche' : 'Crea Domanda') }}
+          {{ isSaving ? 'Salvataggio...' : buttonSubmitText }}
         </button>
       </div>
     </form>
@@ -145,6 +150,10 @@ const isSaving = ref(false);
 const error = ref<string | null>(null);
 const autoSaveStatus = ref<'idle' | 'saving' | 'saved' | 'error'>('idle');
 
+// Stato per il flusso di creazione domanda con opzioni
+const optionsCount = ref(0);
+const isAwaitingOptions = ref(false); // True dopo la creazione di una domanda che richiede opzioni
+
 // Stato per la navigazione sequenziale
 const allQuestionIds = ref<number[]>([]); // Da popolare (es. con chiamata API)
 const currentQuestionIndex = computed(() => {
@@ -159,6 +168,19 @@ const hasNextQuestion = computed(() => currentQuestionIndex.value !== -1 && curr
 // Tipi di domanda che usano opzioni
 const OPTION_BASED_TYPES = ['mc_single', 'mc_multi']; // TF Rimosso, valori in minuscolo
 const isOptionBasedType = computed(() => OPTION_BASED_TYPES.includes(questionData.question_type ?? '')); // Fallback a stringa vuota
+
+const buttonSubmitText = computed(() => {
+  if (isAwaitingOptions.value) return 'Fine';
+  if (isEditing.value) return 'Salva Modifiche';
+  if (isOptionBasedType.value) return 'Continua e Aggiungi Opzioni';
+  return 'Crea Domanda';
+});
+
+const buttonCancelText = computed(() => {
+  if (isAwaitingOptions.value) return 'Annulla';
+  if (isEditing.value) return 'Torna al Template';
+  return 'Annulla Creazione';
+});
 
 const questionData = reactive<Partial<QuestionTemplatePayload>>({ // Usiamo Partial per i dati iniziali
   text: '',
@@ -287,6 +309,7 @@ onMounted(async () => {
   } else {
       // Modalità Creazione (in modale o no)
       questionId.value = null; // Assicura che sia null
+      isAwaitingOptions.value = false; // Resetta lo stato
       resetFormData();
       allQuestionIds.value = []; // No navigazione in creazione
   }
@@ -321,48 +344,63 @@ const loadQuestionTemplateData = async (qtId: number, qId: number) => {
 
 const saveQuestionTemplate = async () => {
   if (!quizTemplateId.value) {
-      error.value = "ID Template Quiz mancante.";
-      return;
+    error.value = "ID Template Quiz mancante.";
+    return;
   }
-  // Rimosso controllo metadataError
+
+  // Validazione: se siamo in modifica/attesa opzioni e non ci sono opzioni
+  if (isOptionBasedType.value && (isEditing.value || isAwaitingOptions.value) && optionsCount.value === 0) {
+    alert("Per questo tipo di domanda, è obbligatorio inserire almeno un'opzione di risposta prima di salvare.");
+    return;
+  }
 
   isSaving.value = true;
   error.value = null;
 
-  // Usa direttamente questionData.metadata (che è già un oggetto)
   const finalMetadata = questionData.metadata || {};
-
-
   const payload: QuestionTemplatePayload = {
-    text: questionData.text as string, // Type assertion
-    question_type: questionData.question_type as string, // Type assertion
+    text: questionData.text as string,
+    question_type: questionData.question_type as string,
     metadata: finalMetadata,
   };
 
   try {
-    // Usa quizTemplateId.value e questionId.value (che ora è un ref)
-    if (isEditing.value && questionId.value && quizTemplateId.value) {
-      // --- MODIFICA ---
-      await updateTeacherQuestionTemplate(quizTemplateId.value, questionId.value, payload);
+    // --- FLUSSO DI CREAZIONE (1° step per domande con opzioni) ---
+    if (!isEditing.value && isOptionBasedType.value) {
+      const newQuestion = await createTeacherQuestionTemplate(quizTemplateId.value, payload);
+      // NON chiudiamo la modale, ma passiamo alla fase di aggiunta opzioni
+      questionId.value = newQuestion.id; // Imposta l'ID per attivare l'editor opzioni
+      isAwaitingOptions.value = true; // Attiva lo stato di attesa opzioni
+      isInitialLoadDone.value = true; // Abilita autosave per le modifiche successive
+
+    // --- FLUSSO DI MODIFICA o FINE CREAZIONE CON OPZIONI ---
+    } else if (isEditing.value) {
+      // L'autosave potrebbe aver già salvato, ma un salvataggio finale è sicuro.
+      await updateTeacherQuestionTemplate(quizTemplateId.value, questionId.value!, payload);
       if (props.isInModal) {
-        emit('question-updated'); // Emetti evento specifico per update in modale
+        // Se stavamo creando una domanda con opzioni, emettiamo 'question-created'
+        // per segnalare al genitore di chiudere e ricaricare.
+        // Altrimenti, è un normale aggiornamento.
+        if (isAwaitingOptions.value) {
+          emit('question-created');
+        } else {
+          emit('question-updated');
+        }
       } else {
-        // Mostra feedback salvataggio manuale riuscito (fuori modale)
         autoSaveStatus.value = 'saved';
         setTimeout(() => { autoSaveStatus.value = 'idle'; }, 2000);
       }
-    } else if (!isEditing.value && quizTemplateId.value) {
-      // --- CREAZIONE ---
+
+    // --- FLUSSO DI CREAZIONE (per domande senza opzioni) ---
+    } else if (!isEditing.value && !isOptionBasedType.value) {
       await createTeacherQuestionTemplate(quizTemplateId.value, payload);
       if (props.isInModal) {
-        emit('question-created'); // Emetti evento specifico per create in modale
+        emit('question-created'); // Chiude la modale
       } else {
-        // Naviga solo se stiamo creando FUORI dalla modale
         router.push({ name: 'quiz-template-edit', params: { id: quizTemplateId.value.toString() } });
       }
     } else {
-        // Caso imprevisto (es. manca quizTemplateId o questionId in modifica)
-        throw new Error("Stato non valido per il salvataggio.");
+      throw new Error("Stato non valido per il salvataggio.");
     }
   } catch (err: any) {
     console.error("Errore salvataggio domanda template:", err);
@@ -380,6 +418,12 @@ const saveQuestionTemplate = async () => {
 };
 
 const cancel = () => {
+  // Validazione: non si può annullare se si è in attesa di opzioni e non ne è stata inserita nessuna
+  if (props.isInModal && isAwaitingOptions.value && optionsCount.value === 0) {
+    alert("Devi aggiungere almeno un'opzione di risposta prima di poter chiudere la modale.");
+    return;
+  }
+
   if (props.isInModal) {
     emit('close-modal'); // Emetti evento per chiudere la modale
   } else {

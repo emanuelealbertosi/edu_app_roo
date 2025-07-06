@@ -44,7 +44,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, defineProps, reactive, watch, computed } from 'vue';
+import { ref, onMounted, defineProps, reactive, watch, computed, defineEmits } from 'vue';
 import {
     fetchTeacherAnswerOptionTemplates, createTeacherAnswerOptionTemplate,
     updateTeacherAnswerOptionTemplate, deleteTeacherAnswerOptionTemplate,
@@ -56,6 +56,8 @@ const props = defineProps<{
   questionTemplateId: number;
   questionType: string; // Necessario per gestire radio/checkbox
 }>();
+
+const emit = defineEmits(['update:optionsCount']);
 
 const options = ref<AnswerOptionTemplate[]>([]);
 const isLoading = ref(false);
@@ -97,6 +99,11 @@ watch(correctOptionId, (newCorrectId) => {
     }
 });
 
+// Notifica al genitore il numero di opzioni ogni volta che cambia
+watch(() => options.value.length, (newCount) => {
+  emit('update:optionsCount', newCount);
+}, { immediate: true });
+
 
 async function loadOptions() {
   if (!props.quizTemplateId || !props.questionTemplateId) return;
@@ -126,6 +133,7 @@ async function addOption() {
     const newOption = await createTeacherAnswerOptionTemplate(props.quizTemplateId, props.questionTemplateId, payload);
     options.value.push(newOption); // Aggiungi alla lista locale
     newOptionText.value = ''; // Pulisci input
+    // Il watcher su options.value.length si occuperà di emettere l'evento
   } catch (err: any) {
     console.error("Errore aggiunta opzione template:", err);
     addError.value = `Errore aggiunta: ${err.response?.data?.detail || err.message || 'Errore sconosciuto'}`;
@@ -184,6 +192,7 @@ async function deleteOption(optionId: number | undefined) {
   try {
     await deleteTeacherAnswerOptionTemplate(props.quizTemplateId, props.questionTemplateId, optionId);
     options.value = options.value.filter(opt => opt.id !== optionId); // Rimuovi dalla lista locale
+    // Il watcher su options.value.length si occuperà di emettere l'evento
   } catch (err: any) {
     console.error(`Errore eliminazione opzione template ${optionId}:`, err);
     addError.value = `Errore eliminazione: ${err.response?.data?.detail || err.message || 'Errore sconosciuto'}`;
