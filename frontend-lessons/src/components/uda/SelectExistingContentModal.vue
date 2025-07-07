@@ -55,7 +55,13 @@
          </div>
          <!-- Tab Lezioni -->
          <div v-show="activeTab === 'lessons'">
-           <h6 class="text-md font-semibold text-gray-700 mb-2">Seleziona Lezioni</h6>
+           <div class="flex justify-between items-center mb-2">
+             <h6 class="text-md font-semibold text-gray-700">Seleziona Lezioni</h6>
+              <button @click="showCreateLessonModal = true" type="button" class="flex items-center px-3 py-1.5 bg-blue-600 text-white rounded-md shadow-sm hover:bg-blue-700 transition duration-150 ease-in-out text-xs font-medium">
+                <PlusCircleIcon class="h-4 w-4 sm:mr-1" />
+                <span class="hidden sm:inline">Crea Nuova Lezione</span>
+              </button>
+           </div>
            <div v-if="!filteredLessons.length" class="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded relative" role="alert">
              Nessuna lezione trovata.
            </div>
@@ -195,6 +201,15 @@
       </div>
     </div>
   </div>
+
+  <LessonEditModal
+    v-if="showCreateLessonModal"
+    :lesson="null"
+    :topics="topicStore.topics"
+    :is-saving="isSavingLesson"
+    @close="showCreateLessonModal = false"
+    @save="handleNewLessonSaved"
+  />
 </template>
 
 <script setup lang="ts">
@@ -211,8 +226,9 @@ import { UDAContentType } from '@/types/uda'; // Importa l'enum
 import type { SelectedContentItem, RawSelectedContentItem } from '@/types/uda';
 import type { Topic } from '@/types/topic';
 import type { Subject } from '@/types/subject';
-import { ChevronUpIcon, ChevronDownIcon } from '@heroicons/vue/24/outline';
+import { ChevronUpIcon, ChevronDownIcon, PlusCircleIcon } from '@heroicons/vue/24/outline';
 import type { Lesson } from '@/types/lezioni';
+import LessonEditModal from '@/components/features/lezioni/LessonEditModal.vue';
 
 const emit = defineEmits(['close', 'select']);
 
@@ -223,6 +239,8 @@ const loading = ref(false);
 const selectedItems = ref<RawSelectedContentItem[]>([]);
 const errorLoadingContent = ref<string | null>(null);
 const isConfirming = ref(false);
+const showCreateLessonModal = ref(false);
+const isSavingLesson = ref(false);
 
 const lessonStore = useLessonStore();
 const quizStore = useQuizStore();
@@ -414,13 +432,34 @@ const confirmSelection = async () => {
   }
 };
 
+const handleNewLessonSaved = async (lessonData: { id?: number; title: string; topic: number; description?: string; is_published?: boolean; estimated_hours?: number | null }) => {
+  isSavingLesson.value = true;
+  const newLesson = await lessonStore.addLesson(lessonData);
+  isSavingLesson.value = false;
+
+  if (newLesson) {
+    showCreateLessonModal.value = false;
+    const newItem: RawSelectedContentItem = {
+      type: UDAContentType.LESSON,
+      id: newLesson.id,
+      title: newLesson.title,
+      estimated_hours: newLesson.estimated_hours
+    };
+    selectedItems.value.push(newItem);
+    uiStore.addNotification({ message: `Lezione "${newLesson.title}" creata e aggiunta alla selezione.`, type: 'success' });
+  } else {
+    alert(`Errore durante la creazione della lezione: ${lessonStore.error}`);
+    uiStore.addNotification({ message: `Errore durante la creazione della lezione: ${lessonStore.error}`, type: 'error' });
+  }
+};
+
 const getTopicName = (topicId: number): string => {
-    const topic = topicStore.allTopics.find((t: Topic) => t.id === topicId);
+    const topic = topicStore.getTopicById(topicId);
     return topic ? topic.name : 'N/D';
 };
 
 const getSubjectNameFromTopic = (topicId: number): string => {
-    const topic = topicStore.allTopics.find((t: Topic) => t.id === topicId);
+    const topic = topicStore.getTopicById(topicId);
     if (!topic) return 'N/D';
     const subject = subjectStore.subjects.find((s: Subject) => s.id === topic.subject);
     return subject ? subject.name : 'N/D';

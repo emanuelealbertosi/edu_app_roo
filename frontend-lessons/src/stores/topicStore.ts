@@ -4,18 +4,14 @@ import type { Topic } from '@/types/topic';
 import apiClient from '@/services/apiClient'; // Da decommentare
 
 interface TopicState {
-  // Potremmo voler memorizzare gli argomenti in una mappa per materia per efficienza
-  // topicsBySubjectId: Record<number, Topic[]>; 
-  // Per semplicità ora usiamo un array singolo e filtriamo, 
-  // ma per molte materie/argomenti una mappa sarebbe meglio.
-  allTopics: Topic[]; // Contiene tutti gli argomenti caricati, da diverse materie
+  topics: Topic[];
   loading: boolean;
   error: string | null;
 }
 
 export const useTopicStore = defineStore('topic', () => {
   const state = ref<TopicState>({
-    allTopics: [],
+    topics: [],
     loading: false,
     error: null,
   });
@@ -28,40 +24,28 @@ export const useTopicStore = defineStore('topic', () => {
   // Questo approccio ricalcola ogni volta, per performance migliori si potrebbe memoizzare
   // o strutturare 'allTopics' come una mappa { subjectId: Topic[] }
   function getTopicsForSubject(subjectId: number): Topic[] {
-    return state.value.allTopics.filter(topic => topic.subject === subjectId);
+    return state.value.topics.filter(topic => topic.subject === subjectId);
   }
 
   function getTopicById(id: number): Topic | undefined {
-    return state.value.allTopics.find(topic => topic.id === id);
+    return state.value.topics.find(topic => topic.id === id);
   }
 
   // Actions
-  async function fetchTopics() { // Rinomina da fetchAllTopics
-    if (state.value.allTopics.length > 5 && !state.value.error) { // Evita ricaricamenti se già un buon numero è presente
-        // console.log('A sufficient number of topics already loaded or loading.');
-        // return;
+  async function fetchTopics() {
+    if (state.value.topics.length > 0 && !state.value.error) {
+        return;
     }
     console.log('Fetching all topics...');
     state.value.loading = true;
     state.value.error = null;
     try {
-      // Esegui la chiamata API reale per ottenere tutti gli argomenti
-      // Assicurati che l'endpoint '/lezioni/topics/' sia corretto e restituisca tutti gli argomenti
       const response = await apiClient.get('/lezioni/topics/');
-      state.value.allTopics = response.data as Topic[];
-      
-      // Rimuovi o commenta i dati mock e la logica di unione
-      // const mockAllTopics: Topic[] = [ ... ];
-      // const existingIds = new Set(state.value.allTopics.map(t => t.id));
-      // const newTopics = mockAllTopics.filter(t => !existingIds.has(t.id));
-      // state.value.allTopics.push(...newTopics);
-
-      console.log('All topics fetched from API:', state.value.allTopics);
-
+      state.value.topics = response.data as Topic[];
+      console.log('All topics fetched from API:', state.value.topics);
     } catch (err) {
       console.error('Error fetching all topics:', err);
       state.value.error = (err as Error).message || 'Failed to fetch all topics';
-      // Non resettare allTopics qui, per non perdere quelli già caricati da fetchTopicsBySubject
     } finally {
       state.value.loading = false;
     }
@@ -82,9 +66,10 @@ export const useTopicStore = defineStore('topic', () => {
       const fetchedTopics = response.data as Topic[];
       // Rimuove i vecchi argomenti per la stessa materia prima di aggiungere i nuovi
       // per evitare duplicati se questa action viene chiamata più volte per la stessa materia.
-      state.value.allTopics = state.value.allTopics.filter(topic => topic.subject !== subjectId); // Corretto subject_id -> subject
-      // Aggiunge i nuovi argomenti
-      state.value.allTopics.push(...fetchedTopics);
+      // Unisci i nuovi argomenti a quelli esistenti, evitando duplicati
+      const existingIds = new Set(state.value.topics.map(t => t.id));
+      const newTopics = fetchedTopics.filter(t => !existingIds.has(t.id));
+      state.value.topics.push(...newTopics);
 
       
       console.log(`Topics fetched for subject ID ${subjectId}:`, fetchedTopics);
@@ -100,7 +85,7 @@ export const useTopicStore = defineStore('topic', () => {
 
   function clearTopics() {
     // Usato per resettare gli argomenti, ad esempio quando la materia viene deselezionata
-    state.value.allTopics = []; // O potremmo voler pulire solo per una materia specifica
+    state.value.topics = [];
     state.value.error = null;
   }
 
@@ -109,7 +94,7 @@ export const useTopicStore = defineStore('topic', () => {
     loading,
     error,
     // State esposto direttamente (o tramite computed)
-    allTopics: computed(() => state.value.allTopics), // ESPORRE allTopics
+    topics: computed(() => state.value.topics),
     // Getters
     getTopicsForSubject,
     getTopicById,

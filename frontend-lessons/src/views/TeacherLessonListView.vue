@@ -234,6 +234,7 @@
       v-if="showAddModal || lessonToEdit"
       :lesson="lessonToEdit"
       :topics="topicStore.topics"
+      :is-saving="isSaving"
       @close="closeModal"
       @save="handleSave"
     />
@@ -258,6 +259,12 @@
       @assign="handleAssignToGroup"
     />
 
+    <IFrameModal
+      v-if="showIframeModal"
+      :src="iframeSrc"
+      title="Gestisci Contenuti Lezione"
+      @close="handleCloseIframeModal"
+    />
   </div>
 </template>
 
@@ -273,6 +280,7 @@ import LessonEditModal from '../components/features/lezioni/LessonEditModal.vue'
 import AssignLessonModal from '../components/features/lezioni/AssignLessonModal.vue';
 import LessonGroupModal from '../components/features/lezioni/LessonGroupModal.vue';
 import AssignToGroupModal from '../components/features/lezioni/AssignToGroupModal.vue';
+import IFrameModal from '@/components/common/IFrameModal.vue';
 import type { Lesson, LessonGroup } from '@/types/lezioni';
 import { PlusCircleIcon, PencilIcon, TrashIcon, DocumentTextIcon, UserPlusIcon, ChevronUpIcon, ChevronDownIcon, FolderIcon, ChevronRightIcon, XCircleIcon } from '@heroicons/vue/24/outline';
 
@@ -289,6 +297,9 @@ const showAddModal = ref(false);
 const lessonToEdit = ref<Lesson | null>(null);
 const isAssignModalOpen = ref(false);
 const currentLessonIdToAssign = ref<number | null>(null);
+const isSaving = ref(false);
+const showIframeModal = ref(false);
+const iframeSrc = ref('');
 
 // Stato per l'ordinamento
 const sortKey = ref('created_at');
@@ -387,22 +398,20 @@ const closeModal = () => {
 };
 
 const handleSave = async (lessonData: { id?: number; title: string; topic: number; description?: string; is_published?: boolean; estimated_hours?: number | null }) => {
+    isSaving.value = true;
     let success = false;
-    let savedLesson: Lesson | null = null;
 
     if (lessonData.id) {
         success = await lessonStore.updateLesson(lessonData.id, lessonData);
     } else {
-        savedLesson = await lessonStore.addLesson(lessonData);
-        success = !!savedLesson;
+        const newLesson = await lessonStore.addLesson(lessonData);
+        success = !!newLesson;
     }
+
+    isSaving.value = false;
 
     if (success) {
         closeModal();
-        // Non è necessario chiamare fetchLessons() qui.
-        // Le azioni addLesson/updateLesson nello store dovrebbero aver già aggiornato
-        // l'array `lessons` in modo reattivo, e la `computed property` `lessons`
-        // in questo componente dovrebbe riflettere tali cambiamenti.
     } else {
          alert(`Errore durante il salvataggio: ${lessonStore.error}`);
          lessonStore.error = null;
@@ -436,8 +445,13 @@ const handleAssignmentCompletion = (result: any) => {
 };
 
 const gotoContents = (lessonId: number) => {
-     // Usa il nome della rotta definito nel router
-    router.push({ name: 'lesson-contents', params: { lessonId: lessonId.toString() } });
+  iframeSrc.value = `/lezioni/${lessonId}/contenuti`;
+  showIframeModal.value = true;
+};
+
+const handleCloseIframeModal = () => {
+  showIframeModal.value = false;
+  iframeSrc.value = '';
 };
 
 const sortBy = (key: string) => {

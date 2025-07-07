@@ -169,6 +169,8 @@
           context="uda"
           :uda-id="isEditMode && udaId ? udaId : undefined"
           :is-editing="true"
+          @edit-lesson="handleEditLesson"
+          @edit-lesson-contents="handleEditLessonContents"
         /> <!-- Aggiunto is-editing per mostrare i controlli di modifica/eliminazione -->
       </div>
 
@@ -191,6 +193,22 @@
       </div>
       <div v-if="submitError" class="text-red-600 mt-2 text-sm">{{ submitError }}</div>
     </form>
+
+    <LessonEditModal
+      v-if="showLessonEditModal"
+      :lesson="lessonToEdit"
+      :topics="topicStore.topics"
+      :is-saving="isSubmitting"
+      @close="handleCloseLessonEditModal"
+      @save="handleSaveLesson"
+    />
+
+    <IFrameModal
+      v-if="showIframeModal"
+      :src="iframeSrc"
+      title="Modifica Contenuti Lezione"
+      @close="handleCloseIframeModal"
+    />
   </div>
 </template>
 
@@ -207,6 +225,8 @@ import { useUiStore } from '@/stores/ui';
 import UdaContentEditor from '@/components/uda/UdaContentEditor.vue';
 import WysiwygEditor from '@/components/WysiwygEditor.vue';
 import SaveStatusIndicator from '@/components/common/SaveStatusIndicator.vue';
+import LessonEditModal from '@/components/features/lezioni/LessonEditModal.vue';
+import IFrameModal from '@/components/common/IFrameModal.vue';
 import { type UDA, type UDAContent } from '@/types/uda';
 import type { Course as CourseType } from '@/types/uda'; // Course è in uda.ts, rinominato per evitare conflitto
 import type { Subject as SubjectType } from '@/types/subject'; // Rinominato
@@ -287,6 +307,17 @@ const isSubmitting = ref(false);
 const initialLoadComplete = ref(false);
 const submitError = ref<string | null>(null);
 const saveStatus = ref<SaveStatus>('IDLE');
+
+const showLessonEditModal = ref(false);
+const editingLessonId = ref<number | null>(null);
+
+const lessonToEdit = computed(() => {
+  if (!editingLessonId.value) return null;
+  return lessonStore.lessons.find(l => l.id === editingLessonId.value) || null;
+});
+
+const showIframeModal = ref(false);
+const iframeSrc = ref('');
 
 watch(initialError, (newValue, oldValue) => {
   console.log(`[UdaFormView] initialError cambiato da '${oldValue}' a '${newValue}'`);
@@ -494,7 +525,9 @@ onMounted(async () => {
   try {
     const promises = [
       subjectStore.fetchSubjects(),
-      courseStore.fetchCourses()
+      courseStore.fetchCourses(),
+      lessonStore.fetchLessons(),
+      topicStore.fetchTopics()
     ];
     await Promise.all(promises);
 
@@ -638,6 +671,53 @@ const handleSubmit = async () => {
   }
 };
 
+const handleEditLesson = (lessonId: number) => {
+  editingLessonId.value = lessonId;
+  showLessonEditModal.value = true;
+};
+
+const handleCloseLessonEditModal = () => {
+  showLessonEditModal.value = false;
+  editingLessonId.value = null;
+};
+
+const handleSaveLesson = async (lessonData: any) => {
+  try {
+    let savedLesson;
+    if (lessonData.id) {
+      savedLesson = await lessonStore.updateLesson(lessonData.id, lessonData);
+    } else {
+      savedLesson = await lessonStore.addLesson(lessonData);
+    }
+
+    if (savedLesson) {
+      // Aggiorna il titolo nella lista dei contenuti dell'UDA
+      formData.value.contents = formData.value.contents.map(content => {
+        if (content.content_type === 'LESSON' && content.lesson === savedLesson.id) {
+          return { ...content, lesson_title: savedLesson.title };
+        }
+        return content;
+      });
+    }
+
+    handleCloseLessonEditModal();
+    uiStore.addNotification({ message: 'Lezione salvata con successo.', type: 'success' });
+
+  } catch (error) {
+    console.error("Errore durante il salvataggio della lezione:", error);
+    uiStore.addNotification({ message: 'Errore durante il salvataggio della lezione.', type: 'error' });
+  }
+};
+
+const handleEditLessonContents = (lessonId: number) => {
+  iframeSrc.value = `/lezioni/${lessonId}/contenuti`;
+  showIframeModal.value = true;
+};
+
+const handleCloseIframeModal = () => {
+  showIframeModal.value = false;
+  iframeSrc.value = '';
+};
 </script>
 
 <style scoped>

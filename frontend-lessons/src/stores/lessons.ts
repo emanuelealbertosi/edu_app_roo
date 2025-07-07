@@ -230,11 +230,11 @@ export const useLessonStore = defineStore('lessons', {
             if (this.currentLesson?.id === lessonId) {
                  this.currentLesson = { ...this.currentLesson, ...response.data };
             }
-            return true;
+            return response.data as Lesson;
         } catch (err: any) {
             console.error("Errore nell'aggiornamento della lezione:", err);
             this.error = err.response?.data?.detail || err.message || 'Errore sconosciuto';
-            return false;
+            return null;
         } finally {
             this.isLoading = false;
         }

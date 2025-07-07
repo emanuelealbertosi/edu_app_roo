@@ -1,6 +1,6 @@
 <template>
   <div class="lesson-content-manager">
-    <button @click="goBack" class="back-button">&larr; Indietro</button>
+    <button v-if="!isInIframe" @click="goBack" class="back-button">&larr; Indietro</button>
 
     <div v-if="lessonStore.isLoading">Caricamento dati lezione...</div>
     <div v-else-if="lessonStore.error && !lesson" class="error-message">
@@ -162,6 +162,14 @@ onMounted(loadLessonData);
 watch(() => route.params.lessonId, loadLessonData);
 
 const lesson = computed(() => lessonStore.currentLesson);
+
+const isInIframe = computed(() => {
+  try {
+    return window.self !== window.top;
+  } catch (e) {
+    return true;
+  }
+});
 
 const sortedContents = computed(() => {
     if (!lesson.value || !lesson.value.contents) return [];

@@ -176,6 +176,7 @@
             @assign-lesson="handleAssignLesson"
             @edit-lesson="handleEditLesson"
             @assign-quiz="handleAssignQuiz"
+            @edit-lesson-contents="handleEditLessonContents"
           ></UdaContentItemRenderer> <!-- Modificato in tag di chiusura esplicito -->
           <!--
             Event handlers (handleEditContent, etc.) and their logic need to be implemented
@@ -198,7 +199,7 @@
   <LessonEditModal
     v-if="lessonToEdit"
     :lesson="lessonToEdit"
-    :topics="allTopics"
+    :topics="topicStore.topics"
     @close="closeEditModal"
     @save="handleEditSave"
   ></LessonEditModal> <!-- CORRETTO: Tag di chiusura esplicito -->
@@ -218,6 +219,14 @@
     :quiz-template-id="currentQuizTemplateIdToAssign"
     @close="closeAssignQuizModal"
     @assignment-complete="handleQuizAssignmentCompleted"
+  />
+
+  <!-- Modale IFrame per modifica contenuti lezione -->
+  <IFrameModal
+    v-if="showIframeModal"
+    :src="iframeSrc"
+    title="Modifica Contenuti Lezione"
+    @close="handleCloseIframeModal"
   />
 </template>
 
@@ -239,6 +248,7 @@ import CollapsibleEditableSection from '@/components/uda/CollapsibleEditableSect
 import LessonEditModal from '@/components/features/lezioni/LessonEditModal.vue'; // IMPORTATO MODALE
 import AssignLessonModal from '@/components/features/lezioni/AssignLessonModal.vue'; // IMPORTATO MODALE ASSEGNAZIONE
 import AssignQuizModal from '@/components/features/quiz/AssignQuizModal.vue'; // IMPORTATO MODALE ASSEGNAZIONE QUIZ
+import IFrameModal from '@/components/common/IFrameModal.vue'; // IMPORTATO MODALE IFrame
 import type { Lesson } from '@/types/lezioni'; // IMPORTATO TIPO Lesson
 import { useUiStore } from '@/stores/ui'; // CORRETTO: Importa da ui.ts
 import { PencilIcon } from '@heroicons/vue/24/outline';
@@ -270,8 +280,9 @@ const currentLessonIdToAssign = ref<number | null>(null);
 const isAssignQuizModalOpen = ref(false);
 const currentQuizTemplateIdToAssign = ref<number | null>(null);
 
-// Computed property per accedere ai topics dallo store
-const allTopics = computed(() => topicStore.allTopics || []); // Accede alla proprietà esposta dallo store
+// Stato per la modale IFrame
+const showIframeModal = ref(false);
+const iframeSrc = ref('');
 
 
 // Mantieni le computed per i dati, ma non per lo stato di caricamento/errore della pagina
@@ -471,6 +482,20 @@ const handleQuizAssignmentCompleted = () => {
   uiStore.addNotification({ message: 'Quiz assegnato con successo!', type: 'success', duration: 3000 });
   closeAssignQuizModal();
   // Eventuale logica di refresh dati se necessario
+};
+
+const handleEditLessonContents = (lessonId: number) => {
+  console.log(`Request to edit contents for lesson ID: ${lessonId}`);
+  iframeSrc.value = `/lezioni/${lessonId}/contenuti?modal=true`;
+  showIframeModal.value = true;
+};
+
+const handleCloseIframeModal = () => {
+  showIframeModal.value = false;
+  iframeSrc.value = '';
+  // Potrebbe essere necessario un refresh dei dati se i contenuti sono cambiati
+  // uiStore.addNotification({ message: 'Contenuti aggiornati.', type: 'info' });
+  // onMounted(); // Attenzione: ricarica tutto
 };
 
 

@@ -22,6 +22,8 @@
           @move="handleMoveContent"
           @update:teacher-marked-completed="handleTeacherMarkedCompletedUpdate"
           @update:activity-completed="handleActivityCompletedUpdate"
+          @edit-lesson="handleEditLesson"
+          @edit-lesson-contents="handleEditLessonContents"
           class="mb-3"
         ></UdaContentItemRenderer>
       </div>
@@ -133,7 +135,7 @@ const props = defineProps({
   }
 });
 
-const emit = defineEmits(['update:modelValue']);
+const emit = defineEmits(['update:modelValue', 'edit-lesson', 'edit-lesson-contents']);
 const udaStore = useUdaStore(); // Istanza dello store
 
 const localContents = ref<ContentItem[]>([]);
@@ -493,6 +495,14 @@ const handleDeleteContent = async (contentToDelete: ContentItem) => {
     });
   }
   recalculateOrder();
+};
+
+const handleEditLesson = (lessonId: number) => {
+  emit('edit-lesson', lessonId);
+};
+
+const handleEditLessonContents = (lessonId: number) => {
+  emit('edit-lesson-contents', lessonId);
 };
 
 const handleMoveContent = (contentToMove: ContentItem, direction: -1 | 1) => {

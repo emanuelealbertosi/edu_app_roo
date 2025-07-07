@@ -78,24 +78,27 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, computed } from 'vue';
-import { useSubjectStore } from '@/stores/subjects'; // Serve per nome materia in optgroup
+import { ref, watch, computed, onMounted, PropType } from 'vue';
+import { useSubjectStore } from '@/stores/subjectStore';
+import { useTopicStore } from '@/stores/topicStore';
+import { useLessonStore } from '@/stores/lessons';
+import type { Topic, Lesson } from '@/types/lezioni';
 
-interface Topic { id: number; name: string; subject: number; }
-// interface Subject { id: number; name: string; } // Rimosso - non utilizzato in questo file
-interface Lesson {
-    id: number;
-    title: string;
-    description: string;
-    topic: number; // ID argomento
-    is_published: boolean;
-    estimated_hours?: number | null; // Aggiunto estimated_hours
-}
 
-const props = defineProps<{
-  lesson: Lesson | null;
-  topics: Topic[];
-}>();
+const props = defineProps({
+  lesson: {
+    type: Object as PropType<Lesson | null>,
+    default: null
+  },
+  topics: {
+    type: Array as PropType<Topic[]>,
+    required: true
+  },
+  isSaving: {
+    type: Boolean,
+    default: false
+  }
+});
 
 const emit = defineEmits<{
   (e: 'close'): void;
@@ -111,37 +114,50 @@ const editableLesson = ref({
     estimated_hours: undefined as number | undefined | null, // Aggiunto
 });
 const formError = ref<string | null>(null);
-const isSaving = ref(false);
 const subjectStore = useSubjectStore();
+const topicStore = useTopicStore();
+const lessonStore = useLessonStore();
 
-const isEditing = computed(() => !!props.lesson);
+const isEditing = computed(() => !!(props.lesson && props.lesson.id));
 
 watch(() => props.lesson, (newLesson) => {
   if (newLesson) {
+    // Modal in modalità "Modifica"
     editableLesson.value = {
-        ...newLesson,
-        topic: newLesson.topic || '',
-        estimated_hours: newLesson.estimated_hours === null ? undefined : newLesson.estimated_hours // Gestisce null dal backend
+      id: newLesson.id,
+      title: newLesson.title,
+      description: newLesson.description || '',
+      topic: newLesson.topic || '',
+      is_published: newLesson.is_published,
+      estimated_hours: newLesson.estimated_hours
     };
   } else {
+    // Modal in modalità "Crea"
     editableLesson.value = {
-        id: undefined,
-        title: '',
-        description: '',
-        topic: '',
-        is_published: false,
-        estimated_hours: undefined
+      id: undefined,
+      title: '',
+      description: '',
+      topic: '',
+      is_published: false,
+      estimated_hours: undefined
     };
   }
-  formError.value = null;
 }, { immediate: true });
 
-const groupedTopics = computed(() => {
-    const groups: { [key: string]: { subjectName: string; topics: Topic[] } } = {};
-    if (!subjectStore.subjects.length) {
-        subjectStore.fetchSubjects();
-    }
 
+onMounted(async () => {
+  // Le materie sono necessarie per raggruppare gli argomenti nel menu a discesa.
+  if (subjectStore.subjects.length === 0) {
+    await subjectStore.fetchSubjects();
+  }
+});
+
+const groupedTopics = computed(() => {
+    if (!props.topics || props.topics.length === 0) {
+        return [];
+    }
+    const groups: { [key: string]: { subjectName: string; topics: Topic[] } } = {};
+    
     props.topics.forEach(topic => {
         const subject = subjectStore.subjects.find(s => s.id === topic.subject);
         const subjectName = subject ? subject.name : 'Senza Materia';
@@ -173,8 +189,6 @@ const submitForm = () => {
     return;
   }
 
-  isSaving.value = true;
-
   const dataToSave: { id?: number; title: string; topic: number; description?: string; is_published?: boolean; estimated_hours?: number | null } = {
       title: editableLesson.value.title,
       topic: editableLesson.value.topic as number,
@@ -189,7 +203,6 @@ const submitForm = () => {
   }
 
   emit('save', dataToSave);
-  isSaving.value = false;
 };
 
 </script>

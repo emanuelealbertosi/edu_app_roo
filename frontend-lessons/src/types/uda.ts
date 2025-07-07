@@ -170,7 +170,7 @@ export interface UDATemplate {
 // Tipi per gli item selezionati nella modale
 // RawSelectedContentItem rappresenta ciò che viene selezionato PRIMA della trasformazione (es. un QuizTemplate)
 export type RawSelectedContentItem =
-  | { type: UDAContentType.LESSON; id: number; title: string; }
+  | { type: UDAContentType.LESSON; id: number; title: string; estimated_hours?: number | null; }
   | { type: 'QUIZ_TEMPLATE'; id: number; title: string; }; // Stringa letterale perché non è un UDAContentType finale
 
 // SelectedContentItem rappresenta ciò che viene emesso DOPO la trasformazione (es. un Quiz concreto)

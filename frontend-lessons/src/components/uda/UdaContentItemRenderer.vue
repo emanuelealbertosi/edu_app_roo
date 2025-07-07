@@ -85,7 +85,9 @@
             
             
             <div v-if="isEditing" class="flex items-center space-x-1.5">
+              <!-- Pulsante di modifica generico per tutti i tipi tranne Lezione -->
               <button
+                v-if="!isLesson"
                 @click="emit('edit', content)"
                 type="button"
                 class="p-1.5 border border-gray-300 shadow-sm rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-indigo-500"
@@ -93,6 +95,25 @@
               >
                 <PencilIcon class="h-4 w-4 text-gray-500" />
               </button>
+              <!-- Pulsanti specifici per Lezione in modalità modifica -->
+              <template v-if="isLesson">
+                <button
+                  @click="emitEditLesson"
+                  type="button"
+                  class="p-1.5 border border-gray-300 shadow-sm rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-indigo-500"
+                  title="Modifica Lezione"
+                >
+                  <PencilSquareIcon class="h-4 w-4 text-gray-500" />
+                </button>
+                <button
+                  @click="emit('edit-lesson-contents', (content as LessonUDAContent).lesson)"
+                  type="button"
+                  class="p-1.5 border border-gray-300 shadow-sm rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-indigo-500"
+                  title="Modifica Contenuti della Lezione"
+                >
+                  <DocumentTextIcon class="h-4 w-4 text-gray-500" />
+                </button>
+              </template>
               <button
                 @click="emit('delete', content)"
                 type="button"
@@ -114,14 +135,14 @@
              >
                <PencilSquareIcon class="h-4 w-4 text-gray-500" />
              </button>
-              <router-link
-               :to="`/lezioni/${content.lesson}/contenuti`"
-               class="p-1.5 border border-gray-300 shadow-sm rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-indigo-500"
-               rel="noopener noreferrer"
-               title="Vai ai Contenuti della Lezione"
-             >
-               <DocumentTextIcon class="h-4 w-4 text-gray-500" />
-             </router-link>
+              <button
+                @click="emit('edit-lesson-contents', (content as LessonUDAContent).lesson)"
+                type="button"
+                class="p-1.5 border border-gray-300 shadow-sm rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-indigo-500"
+                title="Modifica Contenuti della Lezione"
+              >
+                <DocumentTextIcon class="h-4 w-4 text-gray-500" />
+              </button>
              <button
                @click="emitAssignLesson"
                type="button"
@@ -221,7 +242,7 @@ const props = defineProps({
   }
 });
 
-const emit = defineEmits(['edit', 'delete', 'move', 'update:teacher-marked-completed', 'update:activity-completed', 'assign-lesson', 'edit-lesson', 'assign-quiz']);
+const emit = defineEmits(['edit', 'delete', 'move', 'update:teacher-marked-completed', 'update:activity-completed', 'assign-lesson', 'edit-lesson', 'assign-quiz', 'edit-lesson-contents']);
 
 const udaStore = useUdaStore();
 const isLoadingCompletion = ref(false);
@@ -231,6 +252,11 @@ const lessonTopicName = ref<string | null | undefined>(null);
 const isManuallyMarkedAssigned = ref(false);
 
 const isUDAContext = computed(() => props.context === 'uda');
+
+const isLesson = computed(() =>
+  props.content.content_type === UDAContentType.LESSON ||
+  props.content.content_type === UDATemplateContentType.LESSON
+);
 
 const isTeacherMarkedCompleted = computed(() => {
   if (isUDAContext.value && 'teacher_marked_completed' in props.content) {
@@ -354,8 +380,8 @@ const emitAssignLesson = () => {
 };
 
 const emitEditLesson = () => {
-  if (isUDAContext.value && props.content.content_type === UDAContentType.LESSON && props.content.lesson) {
-    emit('edit-lesson', props.content.lesson);
+  if (isLesson.value && (props.content as LessonUDAContent).lesson) {
+    emit('edit-lesson', (props.content as LessonUDAContent).lesson);
   }
 };
 
