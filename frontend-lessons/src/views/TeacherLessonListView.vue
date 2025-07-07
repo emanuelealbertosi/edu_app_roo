@@ -274,7 +274,7 @@ import AssignLessonModal from '../components/features/lezioni/AssignLessonModal.
 import LessonGroupModal from '../components/features/lezioni/LessonGroupModal.vue';
 import AssignToGroupModal from '../components/features/lezioni/AssignToGroupModal.vue';
 import type { Lesson, LessonGroup } from '@/types/lezioni';
-import { PlusCircleIcon, PencilIcon, TrashIcon, DocumentTextIcon, UserPlusIcon, ChevronUpIcon, ChevronDownIcon, FolderIcon, ChevronRightIcon, XCircleIcon, PlusIcon } from '@heroicons/vue/24/outline';
+import { PlusCircleIcon, PencilIcon, TrashIcon, DocumentTextIcon, UserPlusIcon, ChevronUpIcon, ChevronDownIcon, FolderIcon, ChevronRightIcon, XCircleIcon } from '@heroicons/vue/24/outline';
 
 const searchQuery = ref('');
 const lessonStore = useLessonStore();

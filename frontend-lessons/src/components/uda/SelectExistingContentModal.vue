@@ -76,6 +76,9 @@
                   <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" @click="sortBy('subject')">
                     Materia <span v-if="sortKey === 'subject'"><ChevronUpIcon v-if="sortOrder === 'asc'" class="h-4 w-4 inline-block" /><ChevronDownIcon v-else class="h-4 w-4 inline-block" /></span>
                   </th>
+                  <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" @click="sortBy('group')">
+                    Gruppo <span v-if="sortKey === 'group'"><ChevronUpIcon v-if="sortOrder === 'asc'" class="h-4 w-4 inline-block" /><ChevronDownIcon v-else class="h-4 w-4 inline-block" /></span>
+                  </th>
                   <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" @click="sortBy('estimated_hours')">
                     Ore Stimate <span v-if="sortKey === 'estimated_hours'"><ChevronUpIcon v-if="sortOrder === 'asc'" class="h-4 w-4 inline-block" /><ChevronDownIcon v-else class="h-4 w-4 inline-block" /></span>
                   </th>
@@ -102,6 +105,7 @@
                    <td class="px-6 py-4 whitespace-normal text-sm text-gray-500 max-w-xs truncate">{{ lesson.description }}</td>
                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ getTopicName(lesson.topic) }}</td>
                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ getSubjectNameFromTopic(lesson.topic) }}</td>
+                   <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ lesson.group?.name || '-' }}</td>
                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ lesson.estimated_hours ? `${lesson.estimated_hours}h` : '-' }}</td>
                    <td class="px-6 py-4 whitespace-nowrap text-sm">
                      <span :class="lesson.is_published ? 'text-green-600' : 'text-yellow-600'">
@@ -245,8 +249,9 @@ const filteredLessons = computed(() => {
      const description = lesson.description?.toLowerCase() || '';
      const topicName = getTopicName(lesson.topic).toLowerCase();
      const subjectName = getSubjectNameFromTopic(lesson.topic).toLowerCase();
+     const groupName = lesson.group?.name.toLowerCase() || '';
      const status = (lesson.is_published ? 'pubblicata' : 'bozza').toLowerCase();
-     return title.includes(query) || description.includes(query) || topicName.includes(query) || subjectName.includes(query) || status.includes(query);
+     return title.includes(query) || description.includes(query) || topicName.includes(query) || subjectName.includes(query) || groupName.includes(query) || status.includes(query);
    });
  }
 
@@ -262,6 +267,10 @@ const filteredLessons = computed(() => {
      case 'subject':
        valA = getSubjectNameFromTopic(a.topic);
        valB = getSubjectNameFromTopic(b.topic);
+       break;
+     case 'group':
+       valA = a.group?.name || '';
+       valB = b.group?.name || '';
        break;
      default:
        valA = a[sortKey.value as keyof Lesson];
@@ -325,7 +334,8 @@ onMounted(async () => {
      loadInitialLessons(),
      loadQuizTemplates(),
      topicStore.fetchTopics(),
-     subjectStore.fetchSubjects()
+     subjectStore.fetchSubjects(),
+     lessonStore.fetchLessonGroups() // Aggiunto fetch dei gruppi
    ]);
   } catch (error) {
     const errorMessage = (error instanceof Error) ? error.message : "Errore sconosciuto nel caricamento dei contenuti.";
