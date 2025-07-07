@@ -35,24 +35,25 @@ L'obiettivo è permettere ai docenti di raggruppare logicamente le lezioni.
     - [x] Creare una modale per la creazione/nomina del gruppo.
     - [x] Aggiungere i controlli per espandere/collassare, eliminare un gruppo e rimuovere una lezione da un gruppo.
 
-## 2. Stato Attuale
+## 2. Miglioramenti Successivi
+
+Oltre al piano iniziale, sono state implementate le seguenti funzionalità aggiuntive per migliorare l'esperienza utente:
+
+- **Evidenziazione Gruppo Espanso**: [x] Aggiunto un bordo CSS per distinguere visivamente i gruppi espansi.
+- **Assegnazione a Gruppo Esistente**: [x] Creata la modale `AssignToGroupModal.vue` e integrata la logica per aggiungere lezioni a gruppi preesistenti.
+- **Rimozione Multipla da Gruppo**: [x] Aggiunta la possibilità di rimuovere più lezioni da un gruppo con un'unica azione.
+- **Eliminazione Automatica Gruppi Vuoti**: [x] Implementata la logica nello store per cui un gruppo viene eliminato se rimane senza lezioni.
+- **Gestione Errori Migliorata**: [x] Modificata la creazione dei gruppi per gestire errori (es. nomi duplicati) tramite notifiche specifiche.
+
+## 3. Stato Attuale e Problemi Aperti
 
 ### Completato
 
-- **Backend:** Tutte le modifiche pianificate per il backend (modelli, serializers, viste, URL) sono state completate.
-- **Tipi Frontend:** I tipi TypeScript (`LessonGroup`, `Lesson`) sono stati aggiornati.
-- **Frontend Store (Pinia):** Lo store `lessons.ts` è stato aggiornato con successo con la logica per i gruppi di lezioni.
-- **Branch Git:** È stato creato e stiamo lavorando sul branch `lessonsgroup`.
+- **Backend**: Tutte le funzionalità del backend sono complete e funzionanti.
+- **Frontend**: Tutte le funzionalità dell'interfaccia utente e la logica dello store Pinia sono state implementate come da piano iniziale e successivi miglioramenti.
 
-### Da Fare
+### Problema da Risolvere
 
-- **Frontend UI:** Tutta la parte di interfaccia utente è stata implementata con successo.
-
-## 3. Lavoro Completato
-
-L'implementazione della funzionalità di raggruppamento delle lezioni è completa. Sono state apportate le seguenti modifiche all'interfaccia utente in `TeacherLessonListView.vue`:
-- Aggiunta la selezione multipla delle lezioni tramite checkbox.
-- Creata e integrata una modale (`LessonGroupModal.vue`) per la creazione di nuovi gruppi.
-- Implementata la logica per assegnare le lezioni selezionate a un nuovo gruppo.
-- Aggiunti i controlli per eliminare un intero gruppo o rimuovere una singola lezione da un gruppo.
-Tutte le attività pianificate sono state completate.
+- **Errore di Tipo in `TeacherLessonListView.vue`**:
+  - **Descrizione**: L'ultima modifica alla gestione degli errori nello store (`lessons.ts`) ha causato una desincronizzazione con il componente `TeacherLessonListView.vue`. Il componente non interpreta correttamente la nuova struttura dati restituita dalla funzione `createLessonGroup`, generando un errore di compilazione TypeScript che blocca il rendering.
+  - **Obiettivo**: Risolvere l'errore di tipo nel componente per allinearlo alla logica aggiornata dello store e rendere l'applicazione nuovamente funzionante.

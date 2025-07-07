@@ -498,18 +498,19 @@ export const useLessonStore = defineStore('lessons', {
       }
     },
 
-    async createLessonGroup(groupName: string): Promise<LessonGroup | null> {
+    async createLessonGroup(groupName: string): Promise<{ group: LessonGroup | null; error: string | null }> {
       this.isLoadingLessonGroups = true;
-      this.error = null;
       try {
         const response = await localApiClient.post('/lezioni/groups/', { name: groupName });
         const newGroup = response.data as LessonGroup;
         this.lessonGroups.push(newGroup);
-        return newGroup;
+        // Ordina i gruppi per nome dopo l'aggiunta
+        this.lessonGroups.sort((a, b) => a.name.localeCompare(b.name));
+        return { group: newGroup, error: null };
       } catch (err: any) {
         console.error("Errore nella creazione del gruppo di lezioni:", err);
-        this.error = err.response?.data?.detail || err.message || 'Errore sconosciuto';
-        return null;
+        const errorMessage = err.response?.data?.name?.[0] || err.response?.data?.detail || err.message || 'Errore sconosciuto';
+        return { group: null, error: errorMessage };
       } finally {
         this.isLoadingLessonGroups = false;
       }
@@ -575,16 +576,26 @@ export const useLessonStore = defineStore('lessons', {
         }
     },
 
-    async removeLessonsFromGroup(lessonIds: number[]): Promise<{ success: number; failed: number }> {
+    async removeLessonsFromGroup(lessonIds: number[]): Promise<{ success: number; failed: number, deletedGroups: number }> {
       let success = 0;
       let failed = 0;
+      let deletedGroups = 0;
       this.isLoading = true;
       this.error = null;
+
+      const affectedGroupIds = new Set<number>();
+      
+      // Trova i gruppi interessati prima della rimozione
+      for (const lessonId of lessonIds) {
+        const lesson = this.lessons.find(l => l.id === lessonId);
+        if (lesson && lesson.group) {
+          affectedGroupIds.add(lesson.group.id);
+        }
+      }
 
       for (const lessonId of lessonIds) {
         const lesson = this.lessons.find(l => l.id === lessonId);
         if (lesson && lesson.group) {
-            // This will toggle isLoading for each call, which is not ideal but will work.
             const result = await this.removeLessonFromGroup(lessonId);
             if (result) {
               success++;
@@ -594,11 +605,23 @@ export const useLessonStore = defineStore('lessons', {
         }
       }
 
-      this.isLoading = false; // Ensure it's false at the end.
-      if (failed > 0) {
-        this.error = `Impossibile rimuovere ${failed} lezioni dai rispettivi gruppi.`;
+      // Controlla i gruppi rimasti vuoti e cancellali
+      for (const groupId of affectedGroupIds) {
+        const isGroupNowEmpty = !this.lessons.some(l => l.group?.id === groupId);
+        if (isGroupNowEmpty) {
+          const deleted = await this.deleteLessonGroup(groupId);
+          if(deleted) {
+            deletedGroups++;
+          }
+        }
       }
-      return { success, failed };
+
+      this.isLoading = false;
+      if (failed > 0) {
+        // Non impostare l'errore globale per non mostrare il banner
+        // this.error = `Impossibile rimuovere ${failed} lezioni dai rispettivi gruppi.`;
+      }
+      return { success, failed, deletedGroups };
     },
   },
 });

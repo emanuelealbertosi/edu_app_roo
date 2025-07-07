@@ -1,7 +1,8 @@
-from rest_framework import viewsets, status
+from rest_framework import viewsets, status, serializers
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from django.db import IntegrityError
 from lezioni.models import LessonGroup, Lesson
 from lezioni.serializers import LessonGroupSerializer
 from lezioni.permissions import IsTeacherOwner
@@ -18,13 +19,27 @@ class LessonGroupViewSet(viewsets.ModelViewSet):
         """
         Filtra i gruppi per mostrare solo quelli creati dall'utente corrente.
         """
-        return self.queryset.filter(creator=self.request.user)
+        return self.queryset.filter(creator=self.request.user).order_by('name')
 
-    def perform_create(self, serializer):
+    def create(self, request, *args, **kwargs):
         """
-        Associa l'utente corrente come creatore del gruppo.
+        Sovrascrive il metodo create per gestire l'errore di unicità del nome
+        e restituire un messaggio di errore chiaro (HTTP 400).
         """
-        serializer.save(creator=self.request.user)
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            # L'associazione del creatore avviene qui invece che in perform_create
+            # per avere il pieno controllo sul flusso di creazione e gestione errori.
+            serializer.save(creator=self.request.user)
+        except IntegrityError:
+            return Response(
+                # Questo formato è standard per gli errori di DRF
+                {"name": ["Un gruppo con questo nome esiste già."]},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
     @action(detail=True, methods=['post'], url_path='assign-lessons')
     def assign_lessons(self, request, pk=None):

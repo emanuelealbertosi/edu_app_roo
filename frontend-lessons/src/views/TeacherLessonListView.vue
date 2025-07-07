@@ -462,14 +462,14 @@ const openCreateGroupModal = () => {
 };
 
 const handleGroupSave = async (groupName: string) => {
-  const newGroup = await lessonStore.createLessonGroup(groupName);
-  if (newGroup) {
+  const { group, error } = await lessonStore.createLessonGroup(groupName);
+  if (error) {
+    uiStore.addNotification({ message: error, type: 'error' });
+  } else if (group) {
     const lessonIds = Array.from(selectedLessons.value);
-    await lessonStore.assignLessonsToGroup(newGroup.id, lessonIds);
+    await lessonStore.assignLessonsToGroup(group.id, lessonIds);
     uiStore.addNotification({ message: `Gruppo "${groupName}" creato e ${lessonIds.length} lezioni assegnate.`, type: 'success' });
     selectedLessons.value.clear();
-  } else {
-    uiStore.addNotification({ message: `Errore durante la creazione del gruppo.`, type: 'error' });
   }
   showGroupModal.value = false;
 };
@@ -510,11 +510,17 @@ const confirmRemoveSelectedFromGroup = async () => {
     const idsToRemove = lessonsToRemove.map(l => l.id);
     const result = await lessonStore.removeLessonsFromGroup(idsToRemove);
     
+    let message = `${result.success} lezioni rimosse dai gruppi con successo.`;
+    if (result.deletedGroups > 0) {
+      message += ` ${result.deletedGroups} ${result.deletedGroups === 1 ? 'gruppo è stato' : 'gruppi sono stati'} eliminati perché rimasti vuoti.`;
+    }
+
+    uiStore.addNotification({ message, type: 'success' });
+
     if (result.failed > 0) {
       uiStore.addNotification({ message: `Errore: ${result.failed} lezioni non sono state rimosse.`, type: 'error' });
-    } else {
-      uiStore.addNotification({ message: `${result.success} lezioni rimosse dai gruppi con successo.`, type: 'success' });
     }
+    
     selectedLessons.value.clear();
   }
 };
