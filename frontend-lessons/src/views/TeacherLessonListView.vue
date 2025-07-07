@@ -20,6 +20,32 @@
       />
     </div>
 
+    <!-- Azioni di gruppo -->
+    <div v-if="selectedLessons.size > 0" class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md flex items-center justify-between">
+      <span class="text-sm font-medium text-blue-700">{{ selectedLessons.size }} {{ selectedLessons.size === 1 ? 'lezione selezionata' : 'lezioni selezionate' }}</span>
+      <div class="flex items-center space-x-2">
+        <button
+          @click="confirmRemoveSelectedFromGroup"
+          class="px-4 py-2 bg-red-100 border border-red-300 text-red-700 rounded-md shadow-sm hover:bg-red-200 transition duration-150 ease-in-out font-medium"
+          :disabled="!atLeastOneSelectedLessonInGroup"
+          title="Rimuovi le lezioni selezionate dai loro gruppi"
+        >
+          Rimuovi dal Gruppo
+        </button>
+        <button
+          @click="openAssignToGroupModal"
+          class="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-md shadow-sm hover:bg-gray-50 transition duration-150 ease-in-out font-medium"
+          :disabled="lessonStore.lessonGroups.length === 0"
+          title="Aggiungi le lezioni selezionate a un gruppo esistente"
+        >
+          Aggiungi a Gruppo...
+        </button>
+        <button @click="openCreateGroupModal" class="px-4 py-2 bg-blue-600 text-white rounded-md shadow-sm hover:bg-blue-700 transition duration-150 ease-in-out font-medium">
+          Crea Nuovo Gruppo...
+        </button>
+      </div>
+    </div>
+
     <div v-if="lessonStore.isLoading" class="text-center text-gray-500 py-10">
       Caricamento lezioni...
     </div>
@@ -29,11 +55,14 @@
       <span class="block sm:inline"> {{ lessonStore.error }}</span>
     </div>
 
-    <!-- Tabella Lezioni Filtrate -->
-    <div v-if="!lessonStore.isLoading && filteredLessons.length > 0" class="bg-white shadow-md rounded-lg overflow-hidden">
+    <!-- Tabella Lezioni con Gruppi -->
+    <div v-if="!lessonStore.isLoading && (groupedAndUngroupedLessons.groups.length > 0 || groupedAndUngroupedLessons.unscoped.length > 0)" class="bg-white shadow-md rounded-lg overflow-hidden">
       <table class="min-w-full divide-y divide-gray-200">
         <thead class="bg-gray-50">
           <tr>
+            <th scope="col" class="relative px-4 py-3">
+              <input type="checkbox" class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" @change="toggleSelectAll" :checked="areAllLessonsSelected" :disabled="allVisibleLessonIds.length === 0" />
+            </th>
             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer transition-colors duration-200 hover:text-blue-600" @click="sortBy('title')">
               Titolo
               <span v-if="sortKey === 'title'">
@@ -87,7 +116,80 @@
           </tr>
         </thead>
         <tbody class="bg-white divide-y divide-gray-200">
-          <tr v-for="lesson in filteredLessons" :key="lesson.id" class="hover:bg-gray-50">
+          <!-- Itera sui gruppi -->
+          <!-- Itera sui gruppi -->
+          <template v-for="group in groupedAndUngroupedLessons.groups" :key="group.id">
+            <tr
+              class="bg-blue-50 hover:bg-blue-100 cursor-pointer"
+              @click="toggleGroup(group.id)"
+              :class="{ 'group-header-expanded': expandedGroups.has(group.id) }"
+            >
+              <td colspan="9" class="px-6 py-3 text-sm font-semibold text-blue-800">
+                <div class="flex items-center">
+                  <FolderIcon class="h-5 w-5 mr-2" />
+                  <span>{{ group.name }} ({{ group.lessons.length }})</span>
+                  <div class="ml-auto flex items-center space-x-2">
+                    <button @click.stop="confirmDeleteGroup(group)" class="text-red-500 hover:text-red-700" title="Elimina Gruppo">
+                      <TrashIcon class="h-4 w-4" />
+                    </button>
+                    <ChevronDownIcon v-if="expandedGroups.has(group.id)" class="h-5 w-5" />
+                    <ChevronRightIcon v-else class="h-5 w-5" />
+                  </div>
+                </div>
+              </td>
+            </tr>
+            <!-- Itera sulle lezioni del gruppo se espanso -->
+            <template v-if="expandedGroups.has(group.id)">
+              <tr v-for="(lesson, index) in group.lessons" :key="lesson.id"
+                class="hover:bg-gray-50"
+                :class="{
+                  'bg-blue-50': selectedLessons.has(lesson.id),
+                  'lesson-in-expanded-group': true,
+                  'last-lesson-in-group': index === group.lessons.length - 1
+                }">
+                <td class="px-4 py-4 whitespace-nowrap">
+                  <input type="checkbox" :checked="selectedLessons.has(lesson.id)" @change="toggleLessonSelection(lesson.id)" class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                </td>
+                <td class="pl-12 pr-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600 hover:text-blue-800 cursor-pointer" @click="gotoContents(lesson.id)">
+                  {{ lesson.title }}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ lesson.description }}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ getTopicName(lesson.topic) }}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ getSubjectNameFromTopic(lesson.topic) }}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {{ lesson.estimated_hours ? lesson.estimated_hours + 'h' : '-' }}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm">
+                  <span :class="lesson.is_published ? 'text-green-600' : 'text-yellow-600'">
+                    {{ lesson.is_published ? 'Pubblicata' : 'Bozza' }}
+                  </span>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ formatDate(lesson.created_at) }}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
+                  <button @click="editLesson(lesson as Lesson)" class="text-yellow-600 hover:text-yellow-900 transition duration-150 ease-in-out" title="Modifica Lezione">
+                    <PencilIcon class="h-5 w-5 inline-block" />
+                  </button>
+                  <button @click="gotoContents(lesson.id)" class="text-purple-600 hover:text-purple-900 transition duration-150 ease-in-out" title="Gestisci Contenuti">
+                    <DocumentTextIcon class="h-5 w-5 inline-block" />
+                  </button>
+                  <button @click="gotoAssign(lesson.id)" class="text-cyan-600 hover:text-cyan-900 transition duration-150 ease-in-out" title="Assegna Lezione">
+                    <UserPlusIcon class="h-5 w-5 inline-block" />
+                  </button>
+                  <button @click="confirmDelete(lesson as Lesson)" class="text-red-600 hover:text-red-900 transition duration-150 ease-in-out" title="Elimina Lezione">
+                    <TrashIcon class="h-5 w-5 inline-block" />
+                  </button>
+                  <button @click.stop="confirmRemoveFromGroup(lesson)" class="text-gray-500 hover:text-gray-700" title="Rimuovi dal gruppo">
+                    <XCircleIcon class="h-5 w-5" />
+                  </button>
+                </td>
+              </tr>
+            </template>
+          </template>
+          <!-- Itera sulle lezioni non raggruppate -->
+          <tr v-for="lesson in groupedAndUngroupedLessons.unscoped" :key="lesson.id" class="hover:bg-gray-50" :class="{'bg-blue-50': selectedLessons.has(lesson.id)}">
+            <td class="px-4 py-4 whitespace-nowrap">
+              <input type="checkbox" :checked="selectedLessons.has(lesson.id)" @change="toggleLessonSelection(lesson.id)" class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+            </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600 hover:text-blue-800 cursor-pointer" @click="gotoContents(lesson.id)">
               {{ lesson.title }}
             </td>
@@ -98,9 +200,9 @@
               {{ lesson.estimated_hours ? lesson.estimated_hours + 'h' : '-' }}
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm">
-                <span :class="lesson.is_published ? 'text-green-600' : 'text-yellow-600'">
-                    {{ lesson.is_published ? 'Pubblicata' : 'Bozza' }}
-                </span>
+              <span :class="lesson.is_published ? 'text-green-600' : 'text-yellow-600'">
+                {{ lesson.is_published ? 'Pubblicata' : 'Bozza' }}
+              </span>
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ formatDate(lesson.created_at) }}</td>
             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
@@ -123,9 +225,9 @@
     </div>
 
     <!-- Messaggio Nessuna Lezione Trovata -->
-    <div v-if="!lessonStore.isLoading && filteredLessons.length === 0 && !lessonStore.error" class="text-center text-gray-500 py-10">
+    <div v-if="!lessonStore.isLoading && groupedAndUngroupedLessons.groups.length === 0 && groupedAndUngroupedLessons.unscoped.length === 0 && !lessonStore.error" class="text-center text-gray-500 py-10">
       <span v-if="searchQuery">Nessuna lezione trovata per "{{ searchQuery }}".</span>
-      <span v-else>Non hai ancora creato nessuna lezione.</span>
+      <span v-else>Non hai ancora creato nessuna lezione o gruppo di lezioni.</span>
     </div>
 
      <LessonEditModal
@@ -136,6 +238,12 @@
       @save="handleSave"
     />
 
+    <LessonGroupModal
+      :show="showGroupModal"
+      @close="showGroupModal = false"
+      @save="handleGroupSave"
+    />
+
     <AssignLessonModal
       :show="isAssignModalOpen"
       :lesson-id="currentLessonIdToAssign"
@@ -143,82 +251,32 @@
       @assignment-complete="handleAssignmentCompletion"
     />
 
+    <AssignToGroupModal
+      :show="showAssignToGroupModal"
+      :groups="lessonStore.lessonGroups"
+      @close="showAssignToGroupModal = false"
+      @assign="handleAssignToGroup"
+    />
+
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, onUnmounted } from 'vue'; // Aggiunto onUnmounted
+import { ref, onMounted, computed, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useLessonStore } from '@/stores/lessons';
 import { useTopicStore } from '@/stores/topics';
 import { useSubjectStore } from '@/stores/subjects';
-import { useUiStore } from '@/stores/ui'; // Importa uiStore
-const searchQuery = ref('');
-import emitter from '@/eventBus'; // Importa l'event bus
+import { useUiStore } from '@/stores/ui';
+import emitter from '@/eventBus';
 import LessonEditModal from '../components/features/lezioni/LessonEditModal.vue';
-import AssignLessonModal from '../components/features/lezioni/AssignLessonModal.vue'; // Importa la nuova modale
-// La ricerca e l'ordinamento sono ora gestiti interamente lato client per coerenza.
-const filteredLessons = computed(() => {
-  const query = searchQuery.value.toLowerCase().trim();
+import AssignLessonModal from '../components/features/lezioni/AssignLessonModal.vue';
+import LessonGroupModal from '../components/features/lezioni/LessonGroupModal.vue';
+import AssignToGroupModal from '../components/features/lezioni/AssignToGroupModal.vue';
+import type { Lesson, LessonGroup } from '@/types/lezioni';
+import { PlusCircleIcon, PencilIcon, TrashIcon, DocumentTextIcon, UserPlusIcon, ChevronUpIcon, ChevronDownIcon, FolderIcon, ChevronRightIcon, XCircleIcon, PlusIcon } from '@heroicons/vue/24/outline';
 
-  // 1. Filtra le lezioni in base alla query di ricerca
-  const filtered = query
-    ? lessons.value.filter(lesson => {
-        const topicName = getTopicName(lesson.topic).toLowerCase();
-        const subjectName = getSubjectNameFromTopic(lesson.topic).toLowerCase();
-        const status = (lesson.is_published ? 'pubblicata' : 'bozza').toLowerCase();
-        const title = lesson.title.toLowerCase();
-        const description = lesson.description ? lesson.description.toLowerCase() : '';
-        const estimatedHours = lesson.estimated_hours ? lesson.estimated_hours.toString() : '';
-
-        return title.includes(query) ||
-               description.includes(query) ||
-               topicName.includes(query) ||
-               subjectName.includes(query) ||
-               status.includes(query) ||
-               (query && estimatedHours.includes(query));
-      })
-    : lessons.value;
-
-  // 2. Ordina l'array filtrato (o completo)
-  return filtered.slice().sort((a, b) => {
-    let valA: any;
-    let valB: any;
-
-    // Assegna i valori da confrontare in base a sortKey
-    switch (sortKey.value) {
-      case 'topic':
-        valA = getTopicName(a.topic);
-        valB = getTopicName(b.topic);
-        break;
-      case 'subject':
-        valA = getSubjectNameFromTopic(a.topic);
-        valB = getSubjectNameFromTopic(b.topic);
-        break;
-      default:
-        valA = a[sortKey.value as keyof Lesson];
-        valB = b[sortKey.value as keyof Lesson];
-    }
-
-    // Gestione per diversi tipi di dato
-    if (typeof valA === 'string' && typeof valB === 'string') {
-      valA = valA.toLowerCase();
-      valB = valB.toLowerCase();
-    }
-    
-    if (valA < valB) {
-      return sortOrder.value === 'asc' ? -1 : 1;
-    }
-    if (valA > valB) {
-      return sortOrder.value === 'asc' ? 1 : -1;
-    }
-    return 0;
-  });
-});
-import type { Lesson } from '@/types/lezioni';
-import { PlusCircleIcon, PencilIcon, TrashIcon, DocumentTextIcon, UserPlusIcon, ChevronUpIcon, ChevronDownIcon } from '@heroicons/vue/24/outline';
-
-
+const searchQuery = ref('');
 const lessonStore = useLessonStore();
 const topicStore = useTopicStore();
 const subjectStore = useSubjectStore();
@@ -235,6 +293,10 @@ const currentLessonIdToAssign = ref<number | null>(null);
 // Stato per l'ordinamento
 const sortKey = ref('created_at');
 const sortOrder = ref('desc');
+const expandedGroups = ref<Set<number>>(new Set());
+const selectedLessons = ref(new Set<number>());
+const showGroupModal = ref(false);
+const showAssignToGroupModal = ref(false);
 
 // Funzione chiamata dall'event bus per aprire il modale
 const handleOpenAddModalEvent = () => {
@@ -252,8 +314,8 @@ const openAddModalDirectly = () => {
 onMounted(async () => {
   await subjectStore.fetchSubjects();
   await topicStore.fetchTopics();
-  // Carica tutte le lezioni, l'ordinamento è gestito localmente
   await lessonStore.fetchLessons();
+  await lessonStore.fetchLessonGroups(); // Carica i gruppi di lezioni
   // Registra il listener per l'evento
   emitter.on('open-add-lesson-modal', handleOpenAddModalEvent);
 });
@@ -291,6 +353,30 @@ const confirmDelete = async (lesson: Lesson) => {
     if (lessonStore.error) {
         alert(`Errore durante l'eliminazione: ${lessonStore.error}`);
         lessonStore.error = null;
+    }
+  }
+};
+
+const confirmDeleteGroup = async (group: LessonGroup) => {
+  if (confirm(`Sei sicuro di voler eliminare il gruppo "${group.name}"? Le lezioni contenute non saranno eliminate, ma solo separate dal gruppo.`)) {
+    await lessonStore.deleteLessonGroup(group.id);
+    if (lessonStore.error) {
+      uiStore.addNotification({ message: `Errore durante l'eliminazione del gruppo: ${lessonStore.error}`, type: 'error' });
+      lessonStore.error = null;
+    } else {
+      uiStore.addNotification({ message: `Gruppo "${group.name}" eliminato con successo.`, type: 'success' });
+    }
+  }
+};
+
+const confirmRemoveFromGroup = async (lesson: Lesson) => {
+  if (confirm(`Sei sicuro di voler rimuovere la lezione "${lesson.title}" dal suo gruppo?`)) {
+    await lessonStore.removeLessonFromGroup(lesson.id);
+     if (lessonStore.error) {
+      uiStore.addNotification({ message: `Errore durante la rimozione della lezione dal gruppo: ${lessonStore.error}`, type: 'error' });
+      lessonStore.error = null;
+    } else {
+      uiStore.addNotification({ message: `Lezione rimossa dal gruppo con successo.`, type: 'success' });
     }
   }
 };
@@ -361,8 +447,202 @@ const sortBy = (key: string) => {
     sortKey.value = key;
     sortOrder.value = 'asc';
   }
-  // L'ordinamento viene applicato reattivamente dalla computed property `filteredLessons`.
-  // Non è più necessaria una chiamata API.
 };
 
+const toggleGroup = (groupId: number) => {
+  if (expandedGroups.value.has(groupId)) {
+    expandedGroups.value.delete(groupId);
+  } else {
+    expandedGroups.value.add(groupId);
+  }
+};
+
+const openCreateGroupModal = () => {
+  showGroupModal.value = true;
+};
+
+const handleGroupSave = async (groupName: string) => {
+  const newGroup = await lessonStore.createLessonGroup(groupName);
+  if (newGroup) {
+    const lessonIds = Array.from(selectedLessons.value);
+    await lessonStore.assignLessonsToGroup(newGroup.id, lessonIds);
+    uiStore.addNotification({ message: `Gruppo "${groupName}" creato e ${lessonIds.length} lezioni assegnate.`, type: 'success' });
+    selectedLessons.value.clear();
+  } else {
+    uiStore.addNotification({ message: `Errore durante la creazione del gruppo.`, type: 'error' });
+  }
+  showGroupModal.value = false;
+};
+
+const openAssignToGroupModal = () => {
+  showAssignToGroupModal.value = true;
+};
+
+const handleAssignToGroup = async (groupId: number) => {
+  const lessonIds = Array.from(selectedLessons.value);
+  await lessonStore.assignLessonsToGroup(groupId, lessonIds);
+  if (lessonStore.error) {
+    uiStore.addNotification({ message: `Errore durante l'assegnazione: ${lessonStore.error}`, type: 'error' });
+    lessonStore.error = null;
+  } else {
+    const group = lessonStore.lessonGroups.find(g => g.id === groupId);
+    uiStore.addNotification({ message: `${lessonIds.length} lezioni assegnate al gruppo "${group?.name}".`, type: 'success' });
+    selectedLessons.value.clear();
+  }
+  showAssignToGroupModal.value = false;
+};
+
+const atLeastOneSelectedLessonInGroup = computed(() => {
+  const selectedIds = Array.from(selectedLessons.value);
+  return lessons.value.some(lesson => selectedIds.includes(lesson.id) && lesson.group);
+});
+
+const confirmRemoveSelectedFromGroup = async () => {
+  const selectedIds = Array.from(selectedLessons.value);
+  const lessonsToRemove = lessons.value.filter(lesson => selectedIds.includes(lesson.id) && lesson.group);
+  
+  if (lessonsToRemove.length === 0) {
+    uiStore.addNotification({ message: "Nessuna delle lezioni selezionate è in un gruppo.", type: 'info' });
+    return;
+  }
+
+  if (confirm(`Sei sicuro di voler rimuovere ${lessonsToRemove.length} lezioni dai loro rispettivi gruppi?`)) {
+    const idsToRemove = lessonsToRemove.map(l => l.id);
+    const result = await lessonStore.removeLessonsFromGroup(idsToRemove);
+    
+    if (result.failed > 0) {
+      uiStore.addNotification({ message: `Errore: ${result.failed} lezioni non sono state rimosse.`, type: 'error' });
+    } else {
+      uiStore.addNotification({ message: `${result.success} lezioni rimosse dai gruppi con successo.`, type: 'success' });
+    }
+    selectedLessons.value.clear();
+  }
+};
+
+const toggleLessonSelection = (lessonId: number) => {
+  if (selectedLessons.value.has(lessonId)) {
+    selectedLessons.value.delete(lessonId);
+  } else {
+    selectedLessons.value.add(lessonId);
+  }
+};
+
+const allVisibleLessonIds = computed(() => {
+  return groupedAndUngroupedLessons.value.groups.flatMap(g => g.lessons.map(l => l.id))
+    .concat(groupedAndUngroupedLessons.value.unscoped.map(l => l.id));
+});
+
+const areAllLessonsSelected = computed(() => {
+  const visibleIds = allVisibleLessonIds.value;
+  if (visibleIds.length === 0) return false;
+  return visibleIds.every(id => selectedLessons.value.has(id));
+});
+
+const toggleSelectAll = () => {
+  const visibleIds = allVisibleLessonIds.value;
+  if (areAllLessonsSelected.value) {
+    visibleIds.forEach(id => selectedLessons.value.delete(id));
+  } else {
+    visibleIds.forEach(id => selectedLessons.value.add(id));
+  }
+};
+
+// Sostituisce filteredLessons con una logica che raggruppa le lezioni
+const groupedAndUngroupedLessons = computed(() => {
+  const query = searchQuery.value.toLowerCase().trim();
+
+  // 1. Filtra le lezioni in base alla query
+  const filtered = query
+    ? lessons.value.filter(lesson => {
+        const topicName = getTopicName(lesson.topic).toLowerCase();
+        const subjectName = getSubjectNameFromTopic(lesson.topic).toLowerCase();
+        const status = (lesson.is_published ? 'pubblicata' : 'bozza').toLowerCase();
+        const title = lesson.title.toLowerCase();
+        const description = lesson.description ? lesson.description.toLowerCase() : '';
+        const estimatedHours = lesson.estimated_hours ? lesson.estimated_hours.toString() : '';
+
+        return title.includes(query) ||
+               description.includes(query) ||
+               topicName.includes(query) ||
+               subjectName.includes(query) ||
+               status.includes(query) ||
+               (query && estimatedHours.includes(query));
+      })
+    : lessons.value;
+
+  // 2. Ordina le lezioni filtrate
+  const sorted = filtered.slice().sort((a, b) => {
+    let valA: any;
+    let valB: any;
+    switch (sortKey.value) {
+      case 'topic': valA = getTopicName(a.topic); valB = getTopicName(b.topic); break;
+      case 'subject': valA = getSubjectNameFromTopic(a.topic); valB = getSubjectNameFromTopic(b.topic); break;
+      default: valA = a[sortKey.value as keyof Lesson]; valB = b[sortKey.value as keyof Lesson];
+    }
+    if (typeof valA === 'string' && typeof valB === 'string') {
+      valA = valA.toLowerCase(); valB = valB.toLowerCase();
+    }
+    if (valA < valB) return sortOrder.value === 'asc' ? -1 : 1;
+    if (valA > valB) return sortOrder.value === 'asc' ? 1 : -1;
+    return 0;
+  });
+
+  // 3. Raggruppa le lezioni
+  const unscoped: Lesson[] = [];
+  const groupsMap = new Map<number, Lesson[]>();
+
+  sorted.forEach(lesson => {
+    if (lesson.group) {
+      if (!groupsMap.has(lesson.group.id)) {
+        groupsMap.set(lesson.group.id, []);
+      }
+      groupsMap.get(lesson.group.id)!.push(lesson);
+    } else {
+      unscoped.push(lesson);
+    }
+  });
+
+  const groups = lessonStore.lessonGroups
+    .map(group => ({
+      ...group,
+      lessons: groupsMap.get(group.id) || []
+    }))
+    .filter(group => group.lessons.length > 0);
+
+  return { groups, unscoped };
+});
+
 </script>
+
+<style scoped>
+.group-header-expanded td {
+  border-top: 2px solid #BFDBFE; /* blue-200 */
+  border-left: 2px solid #BFDBFE;
+  border-right: 2px solid #BFDBFE;
+  border-top-left-radius: 8px;
+  border-top-right-radius: 8px;
+}
+
+.lesson-in-expanded-group td:first-child {
+  border-left: 2px solid #BFDBFE;
+}
+.lesson-in-expanded-group td:last-child {
+  border-right: 2px solid #BFDBFE;
+}
+
+.last-lesson-in-group td {
+  border-bottom: 2px solid #BFDBFE;
+}
+
+.last-lesson-in-group td:first-child {
+  border-bottom-left-radius: 8px;
+}
+
+.last-lesson-in-group td:last-child {
+  border-bottom-right-radius: 8px;
+}
+
+.pl-12 {
+  padding-left: 3rem;
+}
+</style>

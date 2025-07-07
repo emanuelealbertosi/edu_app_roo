@@ -76,6 +76,15 @@ export interface Lesson {
   contents?: LessonContent[]; // Opzionale, caricato separatamente o annidato
   assignments?: LessonAssignment[]; // Opzionale
   estimated_hours?: number; // Aggiunto per le ore stimate della lezione
+  group?: LessonGroup | null;
+}
+
+export interface LessonGroup {
+ id: number;
+ name: string;
+ creator: UserSummary;
+ created_at: string;
+ updated_at: string;
 }
 
 export interface LessonContent {

@@ -15,3 +15,4 @@ __all__ = [
     'LessonContentViewSet',
     'LessonAssignmentViewSet', # Ripristinato export
 ]
+from .group_views import LessonGroupViewSet

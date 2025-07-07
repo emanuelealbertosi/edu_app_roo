@@ -2,7 +2,7 @@ from django.utils.text import get_valid_filename
 from rest_framework import serializers, status
 from rest_framework.exceptions import ValidationError
 from django.utils import timezone
-from .models import Subject, Topic, Lesson, LessonContent, LessonAssignment
+from .models import Subject, Topic, Lesson, LessonContent, LessonAssignment, LessonGroup
 from apps.users.models import Student # Importa Student
 from apps.student_groups.models import StudentGroup # Importa StudentGroup
 # Importa User model per UserSummarySerializer
@@ -46,6 +46,14 @@ class TopicSerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'description', 'subject', 'subject_name', 'creator', 'created_at', 'updated_at']
         read_only_fields = ['creator', 'created_at', 'updated_at', 'subject_name']
 
+class LessonGroupSerializer(serializers.ModelSerializer):
+    creator = UserSummarySerializer(read_only=True)
+
+    class Meta:
+        model = LessonGroup
+        fields = ['id', 'name', 'creator', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'creator', 'created_at', 'updated_at']
+
 class LessonContentSerializer(serializers.ModelSerializer):
     def _sanitize_filename(self, validated_data):
         uploaded_file = validated_data.get('file')
@@ -70,6 +78,7 @@ class LessonContentSerializer(serializers.ModelSerializer):
 
 class LessonSerializer(serializers.ModelSerializer):
     contents = LessonContentSerializer(many=True, read_only=True)
+    group = LessonGroupSerializer(read_only=True)
     topic_name = serializers.CharField(source='topic.name', read_only=True)
     subject_name = serializers.CharField(source='topic.subject.name', read_only=True)
     # Specifica UserSummarySerializer per il campo creator
@@ -79,14 +88,14 @@ class LessonSerializer(serializers.ModelSerializer):
         model = Lesson
         fields = [
             'id', 'title', 'description', 'topic', 'topic_name', 'subject_name',
-            'creator', 'created_at', 'updated_at', 'is_published', 'contents', 'estimated_hours'
+            'creator', 'created_at', 'updated_at', 'is_published', 'contents', 'estimated_hours', 'group'
         ]
-        read_only_fields = ['creator', 'created_at', 'updated_at', 'topic_name', 'subject_name', 'contents']
+        read_only_fields = ['creator', 'created_at', 'updated_at', 'topic_name', 'subject_name', 'contents', 'group']
 
 class LessonWriteSerializer(serializers.ModelSerializer):
-     class Meta:
+    class Meta:
         model = Lesson
-        fields = ['id', 'title', 'description', 'topic', 'is_published', 'estimated_hours']
+        fields = ['id', 'title', 'description', 'topic', 'is_published', 'estimated_hours', 'group']
         read_only_fields = ['id']
 
 # --- Serializer per Assegnazioni Lezioni (MODIFICATO) ---

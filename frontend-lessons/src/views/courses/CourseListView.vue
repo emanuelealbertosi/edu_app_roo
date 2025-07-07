@@ -33,7 +33,7 @@
       <span class="block sm:inline">{{ error }}</span>
     </div>
 
-    <div v-else-if="filteredCourses.length === 0" class="text-center py-10">
+    <div v-else-if="filteredAndSortedCourses.length === 0" class="text-center py-10">
       <p class="text-gray-600" v-if="searchQuery">Nessun corso trovato per "{{ searchQuery }}".</p>
       <p class="text-gray-600" v-else>Nessun corso trovato.</p>
       <p class="mt-2 text-sm text-gray-500" v-if="!searchQuery">
@@ -45,11 +45,13 @@
       <table class="min-w-full divide-y divide-gray-200">
         <thead class="bg-gray-50">
           <tr>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer transition-colors duration-200 hover:text-blue-600" @click="sortBy('name')">
               Nome
+              <span v-if="sortKey === 'name'"><ChevronUpIcon v-if="sortOrder === 'asc'" class="h-4 w-4 inline-block" /><ChevronDownIcon v-else class="h-4 w-4 inline-block" /></span>
             </th>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer transition-colors duration-200 hover:text-blue-600" @click="sortBy('description')">
               Descrizione
+              <span v-if="sortKey === 'description'"><ChevronUpIcon v-if="sortOrder === 'asc'" class="h-4 w-4 inline-block" /><ChevronDownIcon v-else class="h-4 w-4 inline-block" /></span>
             </th>
             <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
               Azioni
@@ -57,7 +59,7 @@
           </tr>
         </thead>
         <tbody class="bg-white divide-y divide-gray-200">
-          <tr v-for="course in filteredCourses" :key="course.id" class="hover:bg-gray-50 transition-colors duration-150">
+          <tr v-for="course in filteredAndSortedCourses" :key="course.id" class="hover:bg-gray-50 transition-colors duration-150">
             <td class="px-6 py-4 whitespace-nowrap">
               <div class="text-sm font-medium text-indigo-700 hover:text-indigo-900">
                 <RouterLink :to="{ name: 'course-detail', params: { id: course.id } }">
@@ -106,31 +108,56 @@ import { ref, onMounted, computed } from 'vue';
 import { RouterLink } from 'vue-router';
 import { useCourseStore } from '@/stores/courseStore';
 import { useUiStore } from '@/stores/ui'; // Importa uiStore
-import { PlusCircleIcon, EyeIcon, TrashIcon, DocumentDuplicateIcon } from '@heroicons/vue/24/outline';
+import { PlusCircleIcon, EyeIcon, TrashIcon, DocumentDuplicateIcon, ChevronUpIcon, ChevronDownIcon } from '@heroicons/vue/24/outline';
 
 const courseStore = useCourseStore();
 const uiStore = useUiStore(); // Istanzia uiStore
 const searchQuery = ref('');
+const sortKey = ref('name');
+const sortOrder = ref('asc');
 
 const courses = computed(() => courseStore.courses);
 const loading = computed(() => courseStore.loading);
 const error = computed(() => courseStore.error);
 
-const filteredCourses = computed(() => {
+const filteredAndSortedCourses = computed(() => {
   const query = searchQuery.value.toLowerCase().trim();
-  if (!query) {
-    return courses.value;
-  }
-  return courses.value.filter(course => {
-    const name = course.name.toLowerCase();
-    const description = course.description?.toLowerCase() || '';
-    return name.includes(query) || description.includes(query);
+  
+  const filtered = query
+    ? courses.value.filter(course => {
+        const name = course.name.toLowerCase();
+        const description = course.description?.toLowerCase() || '';
+        return name.includes(query) || description.includes(query);
+      })
+    : courses.value;
+
+  return filtered.slice().sort((a, b) => {
+    let valA = a[sortKey.value as keyof typeof a] as any;
+    let valB = b[sortKey.value as keyof typeof b] as any;
+
+    if (typeof valA === 'string') valA = valA.toLowerCase();
+    if (typeof valB === 'string') valB = valB.toLowerCase();
+    if (valA === null || valA === undefined) valA = '';
+    if (valB === null || valB === undefined) valB = '';
+
+    if (valA < valB) return sortOrder.value === 'asc' ? -1 : 1;
+    if (valA > valB) return sortOrder.value === 'asc' ? 1 : -1;
+    return 0;
   });
 });
 
 onMounted(() => {
   courseStore.fetchCourses();
 });
+
+const sortBy = (key: 'name' | 'description') => {
+  if (sortKey.value === key) {
+    sortOrder.value = sortOrder.value === 'asc' ? 'desc' : 'asc';
+  } else {
+    sortKey.value = key;
+    sortOrder.value = 'asc';
+  }
+};
 
 const handleDeleteCourse = async (courseId: number) => {
   if (confirm('Sei sicuro di voler eliminare questo corso? Questa azione è irreversibile.')) {

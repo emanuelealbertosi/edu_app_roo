@@ -47,6 +47,20 @@ class Topic(models.Model):
     def __str__(self):
         return self.name
 
+class LessonGroup(models.Model):
+    name = models.CharField(max_length=255, verbose_name="Nome Gruppo")
+    creator = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='lesson_groups', verbose_name="Creatore")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Gruppo di Lezioni"
+        verbose_name_plural = "Gruppi di Lezioni"
+        unique_together = ('name', 'creator')
+
+    def __str__(self):
+        return self.name
+
 class Lesson(models.Model):
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True)
@@ -58,6 +72,7 @@ class Lesson(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     is_published = models.BooleanField(default=False, help_text="Se la lezione è visibile agli studenti assegnati.")
     estimated_hours = models.DecimalField(max_digits=4, decimal_places=1, null=True, blank=True, verbose_name="Ore Stimate Lezione")
+    group = models.ForeignKey(LessonGroup, on_delete=models.SET_NULL, null=True, blank=True, related_name='lessons', verbose_name="Gruppo")
 
     def __str__(self):
         return self.title

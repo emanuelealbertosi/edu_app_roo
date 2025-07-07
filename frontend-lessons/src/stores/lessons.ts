@@ -114,18 +114,20 @@ const assignLesson = async (lessonId: number, studentIds: number[], groupIds: nu
 };
 
 
-import type { Lesson, LessonContent, LessonAssignment, Student, AssignmentResult } from '@/types/lezioni';
+import type { Lesson, LessonContent, LessonAssignment, Student, AssignmentResult, LessonGroup } from '@/types/lezioni';
 import type { StudentGroup } from '@/types/groups';
 
 
 export const useLessonStore = defineStore('lessons', {
   state: () => ({
     lessons: [] as Lesson[],
+    lessonGroups: [] as LessonGroup[],
     assignedLessons: [] as LessonAssignment[], // Lezioni assegnate allo studente
     currentLesson: null as Lesson | null, // Lezione attualmente visualizzata/modificata
     isLoading: false,
     isLoadingContents: false, // Loading specifico per i contenuti
     isLoadingAssignments: false, // Loading specifico per le assegnazioni
+    isLoadingLessonGroups: false,
     groups: [] as StudentGroup[], // Lista dei gruppi disponibili per l'assegnazione
     isLoadingGroups: false, // Loading specifico per i gruppi
     error: null as string | null,
@@ -212,7 +214,7 @@ export const useLessonStore = defineStore('lessons', {
       }
     },
 
-    async updateLesson(lessonId: number, lessonData: { title?: string; topic?: number; description?: string; is_published?: boolean; estimated_hours?: number | null }) {
+    async updateLesson(lessonId: number, lessonData: { title?: string; topic?: number; description?: string; is_published?: boolean; estimated_hours?: number | null; group?: number | null }) {
         this.isLoading = true;
         this.error = null;
         try {
@@ -480,5 +482,123 @@ export const useLessonStore = defineStore('lessons', {
       }
     },
 
+    // --- Azioni Gruppi di Lezioni ---
+    async fetchLessonGroups() {
+      this.isLoadingLessonGroups = true;
+      this.error = null;
+      try {
+        const response = await localApiClient.get('/lezioni/groups/');
+        this.lessonGroups = response.data;
+      } catch (err: any) {
+        console.error("Errore nel caricamento dei gruppi di lezioni:", err);
+        this.error = err.response?.data?.detail || err.message || 'Errore sconosciuto';
+        this.lessonGroups = [];
+      } finally {
+        this.isLoadingLessonGroups = false;
+      }
+    },
+
+    async createLessonGroup(groupName: string): Promise<LessonGroup | null> {
+      this.isLoadingLessonGroups = true;
+      this.error = null;
+      try {
+        const response = await localApiClient.post('/lezioni/groups/', { name: groupName });
+        const newGroup = response.data as LessonGroup;
+        this.lessonGroups.push(newGroup);
+        return newGroup;
+      } catch (err: any) {
+        console.error("Errore nella creazione del gruppo di lezioni:", err);
+        this.error = err.response?.data?.detail || err.message || 'Errore sconosciuto';
+        return null;
+      } finally {
+        this.isLoadingLessonGroups = false;
+      }
+    },
+
+    async deleteLessonGroup(groupId: number): Promise<boolean> {
+        this.isLoadingLessonGroups = true;
+        this.error = null;
+        try {
+            await localApiClient.delete(`/lezioni/groups/${groupId}/`);
+            this.lessonGroups = this.lessonGroups.filter(g => g.id !== groupId);
+            // Aggiorna le lezioni che appartenevano a questo gruppo
+            this.lessons.forEach(lesson => {
+                if (lesson.group?.id === groupId) {
+                    lesson.group = null;
+                }
+            });
+            return true;
+        } catch (err: any) {
+            console.error(`Errore nell'eliminazione del gruppo di lezioni ${groupId}:`, err);
+            this.error = err.response?.data?.detail || err.message || 'Errore sconosciuto';
+            return false;
+        } finally {
+            this.isLoadingLessonGroups = false;
+        }
+    },
+
+    async assignLessonsToGroup(groupId: number, lessonIds: number[]): Promise<boolean> {
+        this.isLoading = true;
+        this.error = null;
+        try {
+            await localApiClient.post(`/lezioni/groups/${groupId}/assign-lessons/`, { lesson_ids: lessonIds });
+            // Ricarica le lezioni e i gruppi per riflettere i cambiamenti
+            await this.fetchLessons();
+            await this.fetchLessonGroups();
+            return true;
+        } catch (err: any) {
+            console.error(`Errore nell'assegnare lezioni al gruppo ${groupId}:`, err);
+            this.error = err.response?.data?.detail || err.message || 'Errore sconosciuto';
+            return false;
+        } finally {
+            this.isLoading = false;
+        }
+    },
+
+    async removeLessonFromGroup(lessonId: number): Promise<boolean> {
+        const lesson = this.lessons.find(l => l.id === lessonId);
+        if (!lesson || !lesson.group) return false;
+
+        const groupId = lesson.group.id;
+        this.isLoading = true;
+        this.error = null;
+        try {
+            await localApiClient.post(`/lezioni/groups/${groupId}/unassign-lesson/`, { lesson_id: lessonId });
+            lesson.group = null;
+            return true;
+        } catch (err: any) {
+            console.error(`Errore nel rimuovere la lezione ${lessonId} dal gruppo:`, err);
+            this.error = err.response?.data?.detail || err.message || 'Errore sconosciuto';
+            return false;
+        } finally {
+            this.isLoading = false;
+        }
+    },
+
+    async removeLessonsFromGroup(lessonIds: number[]): Promise<{ success: number; failed: number }> {
+      let success = 0;
+      let failed = 0;
+      this.isLoading = true;
+      this.error = null;
+
+      for (const lessonId of lessonIds) {
+        const lesson = this.lessons.find(l => l.id === lessonId);
+        if (lesson && lesson.group) {
+            // This will toggle isLoading for each call, which is not ideal but will work.
+            const result = await this.removeLessonFromGroup(lessonId);
+            if (result) {
+              success++;
+            } else {
+              failed++;
+            }
+        }
+      }
+
+      this.isLoading = false; // Ensure it's false at the end.
+      if (failed > 0) {
+        this.error = `Impossibile rimuovere ${failed} lezioni dai rispettivi gruppi.`;
+      }
+      return { success, failed };
+    },
   },
 });

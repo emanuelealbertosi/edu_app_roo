@@ -8,7 +8,8 @@ from .views import (
     TopicViewSet,
     LessonViewSet,
     LessonContentViewSet,
-    LessonAssignmentViewSet # Ripristinato
+    LessonAssignmentViewSet, # Ripristinato
+    LessonGroupViewSet
 )
 
 app_name = 'lezioni'
@@ -19,6 +20,7 @@ router.register(r'subjects', SubjectViewSet, basename='subject')
 router.register(r'topics', TopicViewSet, basename='topic')
 router.register(r'lessons', LessonViewSet, basename='lesson') # Include azioni custom come /assign, /revoke, /contents
 router.register(r'assignments', LessonAssignmentViewSet, basename='lessonassignment') # Ripristinato
+router.register(r'groups', LessonGroupViewSet, basename='lessongroup')
 
 # Router annidato per i contenuti delle lezioni
 # Crea un router annidato sotto 'lessons' (identificato da 'lesson_pk')
