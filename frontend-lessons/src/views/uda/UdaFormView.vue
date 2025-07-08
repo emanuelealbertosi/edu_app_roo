@@ -197,7 +197,7 @@
     <LessonEditModal
       v-if="showLessonEditModal"
       :lesson="lessonToEdit"
-      :topics="topicStore.topics"
+      :topics="topicStore.topicsSummary"
       :is-saving="isSubmitting"
       @close="handleCloseLessonEditModal"
       @save="handleSaveLesson"
@@ -230,7 +230,7 @@ import IFrameModal from '@/components/common/IFrameModal.vue';
 import { type UDA, type UDAContent } from '@/types/uda';
 import type { Course as CourseType } from '@/types/uda'; // Course è in uda.ts, rinominato per evitare conflitto
 import type { Subject as SubjectType } from '@/types/subject'; // Rinominato
-import type { Topic as TopicType } from '@/types/topic'; // Rinominato
+import type { Topic as TopicType } from '@/types/lezioni'; // Rinominato
 import { XMarkIcon, CheckCircleIcon } from '@heroicons/vue/24/outline';
 
 type SaveStatus = 'IDLE' | 'DIRTY' | 'SAVING' | 'SAVED' | 'ERROR';

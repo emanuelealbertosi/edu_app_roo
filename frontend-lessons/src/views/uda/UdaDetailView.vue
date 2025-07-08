@@ -199,7 +199,7 @@
   <LessonEditModal
     v-if="lessonToEdit"
     :lesson="lessonToEdit"
-    :topics="topicStore.topics"
+    :topics="topicStore.topicsSummary"
     @close="closeEditModal"
     @save="handleEditSave"
   ></LessonEditModal> <!-- CORRETTO: Tag di chiusura esplicito -->

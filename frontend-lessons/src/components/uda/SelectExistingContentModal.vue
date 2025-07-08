@@ -205,7 +205,7 @@
   <LessonEditModal
     v-if="showCreateLessonModal"
     :lesson="null"
-    :topics="topicStore.topics"
+    :topics="topicStore.topicsSummary"
     :is-saving="isSavingLesson"
     @close="showCreateLessonModal = false"
     @save="handleNewLessonSaved"
@@ -224,7 +224,6 @@ import { useUiStore } from '@/stores/ui';
 // import type { QuizTemplate } from '@/types/quizTemplate'; // Rimosso perché non utilizzato direttamente
 import { UDAContentType } from '@/types/uda'; // Importa l'enum
 import type { SelectedContentItem, RawSelectedContentItem } from '@/types/uda';
-import type { Topic } from '@/types/topic';
 import type { Subject } from '@/types/subject';
 import { ChevronUpIcon, ChevronDownIcon, PlusCircleIcon } from '@heroicons/vue/24/outline';
 import type { Lesson } from '@/types/lezioni';

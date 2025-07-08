@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import type { Topic } from '@/types/topic';
+import type { Topic, TopicSummary } from '@/types/lezioni';
 import apiClient from '@/services/apiClient'; // Da decommentare
 
 interface TopicState {
@@ -19,6 +19,13 @@ export const useTopicStore = defineStore('topic', () => {
   // Getters
   const loading = computed(() => state.value.loading);
   const error = computed(() => state.value.error);
+  const topicsSummary = computed((): TopicSummary[] =>
+    state.value.topics.map(t => ({
+      id: t.id,
+      name: t.name,
+      subject: t.subject,
+    }))
+  );
 
   // Getter per ottenere argomenti filtrati per subject_id
   // Questo approccio ricalcola ogni volta, per performance migliori si potrebbe memoizzare
@@ -95,6 +102,7 @@ export const useTopicStore = defineStore('topic', () => {
     error,
     // State esposto direttamente (o tramite computed)
     topics: computed(() => state.value.topics),
+    topicsSummary,
     // Getters
     getTopicsForSubject,
     getTopicById,

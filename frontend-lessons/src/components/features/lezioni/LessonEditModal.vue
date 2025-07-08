@@ -78,11 +78,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, computed, onMounted, PropType } from 'vue';
+import { ref, watch, computed, onMounted, type PropType } from 'vue';
 import { useSubjectStore } from '@/stores/subjectStore';
-import { useTopicStore } from '@/stores/topicStore';
-import { useLessonStore } from '@/stores/lessons';
-import type { Topic, Lesson } from '@/types/lezioni';
+import type { TopicSummary, Lesson } from '@/types/lezioni';
 
 
 const props = defineProps({
@@ -91,7 +89,7 @@ const props = defineProps({
     default: null
   },
   topics: {
-    type: Array as PropType<Topic[]>,
+    type: Array as PropType<TopicSummary[]>,
     required: true
   },
   isSaving: {
@@ -115,8 +113,6 @@ const editableLesson = ref({
 });
 const formError = ref<string | null>(null);
 const subjectStore = useSubjectStore();
-const topicStore = useTopicStore();
-const lessonStore = useLessonStore();
 
 const isEditing = computed(() => !!(props.lesson && props.lesson.id));
 
@@ -156,7 +152,7 @@ const groupedTopics = computed(() => {
     if (!props.topics || props.topics.length === 0) {
         return [];
     }
-    const groups: { [key: string]: { subjectName: string; topics: Topic[] } } = {};
+    const groups: { [key: string]: { subjectName: string; topics: TopicSummary[] } } = {};
     
     props.topics.forEach(topic => {
         const subject = subjectStore.subjects.find(s => s.id === topic.subject);

@@ -26,6 +26,12 @@ export interface Topic {
   created_at: string;
   updated_at: string;
 }
+export interface TopicSummary {
+  id: number;
+  name: string;
+  subject: number;
+}
+
 
 // Definizione base dello Studente - Potrebbe essere più complessa
 // Assicurati che corrisponda al modello Student effettivo nel backend

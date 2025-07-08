@@ -233,7 +233,7 @@
      <LessonEditModal
       v-if="showAddModal || lessonToEdit"
       :lesson="lessonToEdit"
-      :topics="topicStore.topics"
+      :topics="topicStore.topicsSummary"
       :is-saving="isSaving"
       @close="closeModal"
       @save="handleSave"
@@ -270,10 +270,9 @@
 
 <script setup lang="ts">
 import { ref, onMounted, computed, onUnmounted } from 'vue';
-import { useRouter } from 'vue-router';
 import { useLessonStore } from '@/stores/lessons';
-import { useTopicStore } from '@/stores/topics';
-import { useSubjectStore } from '@/stores/subjects';
+import { useTopicStore } from '@/stores/topicStore';
+import { useSubjectStore } from '@/stores/subjectStore';
 import { useUiStore } from '@/stores/ui';
 import emitter from '@/eventBus';
 import LessonEditModal from '../components/features/lezioni/LessonEditModal.vue';
@@ -289,7 +288,6 @@ const lessonStore = useLessonStore();
 const topicStore = useTopicStore();
 const subjectStore = useSubjectStore();
 const uiStore = useUiStore(); // Istanzia uiStore
-const router = useRouter();
 
 const lessons = computed(() => lessonStore.lessons);
 
@@ -402,7 +400,8 @@ const handleSave = async (lessonData: { id?: number; title: string; topic: numbe
     let success = false;
 
     if (lessonData.id) {
-        success = await lessonStore.updateLesson(lessonData.id, lessonData);
+        const updatedLesson = await lessonStore.updateLesson(lessonData.id, lessonData);
+        success = !!updatedLesson;
     } else {
         const newLesson = await lessonStore.addLesson(lessonData);
         success = !!newLesson;
