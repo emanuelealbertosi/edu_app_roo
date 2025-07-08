@@ -589,6 +589,7 @@ class UDASerializer(serializers.ModelSerializer):
            'materials_tools_html', # Campo per Export DOCX
            'assessment_type_html', # Campo per Export DOCX
            'evaluation_html', # Campo per Export DOCX
+           'key_and_citizenship_competences_html', # Campo per Export DOCX
            'other_involved_subjects_text', # Campo per Export DOCX
            'export_specific_annotations_html', # Campo per Export DOCX
            'start_date', 'end_date',
@@ -681,6 +682,7 @@ class UDASerializer(serializers.ModelSerializer):
         instance.materials_tools_html = validated_data.get('materials_tools_html', instance.materials_tools_html)
         instance.assessment_type_html = validated_data.get('assessment_type_html', instance.assessment_type_html)
         instance.evaluation_html = validated_data.get('evaluation_html', instance.evaluation_html)
+        instance.key_and_citizenship_competences_html = validated_data.get('key_and_citizenship_competences_html', instance.key_and_citizenship_competences_html)
         instance.other_involved_subjects_text = validated_data.get('other_involved_subjects_text', instance.other_involved_subjects_text)
         instance.export_specific_annotations_html = validated_data.get('export_specific_annotations_html', instance.export_specific_annotations_html)
         instance.start_date = validated_data.get('start_date', instance.start_date)

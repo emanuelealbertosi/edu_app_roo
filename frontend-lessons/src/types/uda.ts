@@ -120,6 +120,7 @@ export interface UDA {
   materials_tools_html?: string | null;
   assessment_type_html?: string | null;
   evaluation_html?: string | null;
+  key_and_citizenship_competences_html?: string | null;
   other_involved_subjects_text?: string | null;
   export_specific_annotations_html?: string | null;
 

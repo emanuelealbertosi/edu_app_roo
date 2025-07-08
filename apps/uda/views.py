@@ -163,6 +163,7 @@ class CourseViewSet(viewsets.ModelViewSet):
                 'materials_tools_html': uda_instance.materials_tools_html,
                 'assessment_type_html': uda_instance.assessment_type_html,
                 'evaluation_html': uda_instance.evaluation_html,
+                'key_and_citizenship_competences_html': uda_instance.key_and_citizenship_competences_html,
                 'other_involved_subjects_display': other_subjects_display or "N/D",
                 'is_civic_education': uda_instance.is_civic_education,
                 'lesson_contents': lesson_contents_for_template,
@@ -232,6 +233,7 @@ class CourseViewSet(viewsets.ModelViewSet):
             add_table_row_docx(table_details, 'Materiali e strumenti', uda_data['materials_tools_html'])
             add_table_row_docx(table_details, 'Tipo di verifiche', uda_data['assessment_type_html'])
             add_table_row_docx(table_details, 'Valutazione', uda_data['evaluation_html'])
+            add_table_row_docx(table_details, 'Competenze chiave e di cittadinanza', uda_data['key_and_citizenship_competences_html'])
             add_table_row_docx(table_details, 'Discipline Coinvolte', uda_data['other_involved_subjects_display'], is_html=False)
             
             if uda_data['export_specific_annotations_html']:
@@ -352,6 +354,7 @@ class CourseViewSet(viewsets.ModelViewSet):
                 'materials_tools_html': uda_instance.materials_tools_html,
                 'assessment_type_html': uda_instance.assessment_type_html,
                 'evaluation_html': uda_instance.evaluation_html,
+                'key_and_citizenship_competences_html': uda_instance.key_and_citizenship_competences_html,
                 'other_involved_subjects_display': other_subjects_display or "N/D",
                 'annotations_display': annotations_text_for_pdf or "N/D",
                 'is_html_annotations': is_html_annotations,

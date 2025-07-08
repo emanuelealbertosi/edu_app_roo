@@ -150,6 +150,10 @@
               <label for="evaluationHtml" class="block text-sm font-medium text-gray-700 mb-1">Valutazione</label>
               <WysiwygEditor id="evaluationHtml" v-model="evaluationHtmlForEditor" :editable="true" />
             </div>
+            <div class="border-red-500 border-2 rounded-md p-4">
+              <label for="keyAndCitizenshipCompetencesHtml" class="block text-sm font-medium text-gray-700 mb-1">Competenze Chiave e di Cittadinanza</label>
+              <WysiwygEditor id="keyAndCitizenshipCompetencesHtml" v-model="keyAndCitizenshipCompetencesHtmlForEditor" :editable="true" />
+            </div>
             <div>
               <label for="otherInvolvedSubjectsText" class="block text-sm font-medium text-gray-700 mb-1">Altre Discipline Coinvolte (Testo Libero)</label>
               <textarea id="otherInvolvedSubjectsText" v-model="formData.other_involved_subjects_text" rows="3" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2"></textarea>
@@ -247,6 +251,7 @@ interface UdaFormData {
   materials_tools_html: string | null;
   assessment_type_html: string | null;
   evaluation_html: string | null;
+  key_and_citizenship_competences_html: string | null;
   other_involved_subjects_text: string | null;
   export_specific_annotations_html: string | null;
   start_date: string | null;
@@ -271,6 +276,7 @@ interface UdaApiPayload {
   materials_tools_html?: string | null;
   assessment_type_html?: string | null;
   evaluation_html?: string | null;
+  key_and_citizenship_competences_html?: string | null;
   other_involved_subjects_text?: string | null;
   export_specific_annotations_html?: string | null;
   start_date?: string | null;
@@ -338,6 +344,7 @@ const formData = ref<UdaFormData>({
   materials_tools_html: null,
   assessment_type_html: null,
   evaluation_html: null,
+  key_and_citizenship_competences_html: null,
   other_involved_subjects_text: null,
   export_specific_annotations_html: null,
   start_date: null,
@@ -411,6 +418,11 @@ const assessmentTypeHtmlForEditor = computed({
 const evaluationHtmlForEditor = computed({
   get: () => formData.value.evaluation_html || undefined,
   set: (val) => { formData.value.evaluation_html = val || null; }
+});
+
+const keyAndCitizenshipCompetencesHtmlForEditor = computed({
+  get: () => formData.value.key_and_citizenship_competences_html || undefined,
+  set: (val) => { formData.value.key_and_citizenship_competences_html = val || null; }
 });
 
 const exportSpecificAnnotationsHtmlForEditor = computed({
@@ -508,6 +520,7 @@ watch(() => [
   formData.value.materials_tools_html,
   formData.value.assessment_type_html,
   formData.value.evaluation_html,
+  formData.value.key_and_citizenship_competences_html,
   formData.value.other_involved_subjects_text,
   formData.value.export_specific_annotations_html,
   formData.value.start_date,
@@ -550,6 +563,7 @@ onMounted(async () => {
         formData.value.materials_tools_html = udaToEdit.materials_tools_html || null;
         formData.value.assessment_type_html = udaToEdit.assessment_type_html || null;
         formData.value.evaluation_html = udaToEdit.evaluation_html || null;
+        formData.value.key_and_citizenship_competences_html = udaToEdit.key_and_citizenship_competences_html || null;
         formData.value.other_involved_subjects_text = udaToEdit.other_involved_subjects_text || null;
         formData.value.export_specific_annotations_html = udaToEdit.export_specific_annotations_html || null;
         
@@ -621,6 +635,7 @@ const handleSubmit = async () => {
     materials_tools_html: formData.value.materials_tools_html || undefined,
     assessment_type_html: formData.value.assessment_type_html || undefined,
     evaluation_html: formData.value.evaluation_html || undefined,
+    key_and_citizenship_competences_html: formData.value.key_and_citizenship_competences_html || undefined,
     other_involved_subjects_text: formData.value.other_involved_subjects_text || undefined,
     export_specific_annotations_html: formData.value.export_specific_annotations_html || undefined,
     start_date: formData.value.start_date || undefined,
@@ -710,7 +725,12 @@ const handleSaveLesson = async (lessonData: any) => {
 };
 
 const handleEditLessonContents = (lessonId: number) => {
-  iframeSrc.value = `/lezioni/${lessonId}/contenuti`;
+  const routeData = router.resolve({
+    name: 'lesson-contents',
+    params: { lessonId: lessonId.toString() },
+    query: { embedded: 'true', modal: 'true' }
+  });
+  iframeSrc.value = routeData.href;
   showIframeModal.value = true;
 };
 

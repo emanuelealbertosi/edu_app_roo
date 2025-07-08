@@ -222,6 +222,7 @@ class UDA(models.Model):
     materials_tools_html = models.TextField(blank=True, null=True, help_text="Contenuto HTML per materiali e strumenti (export)")
     assessment_type_html = models.TextField(blank=True, null=True, help_text="Contenuto HTML per il tipo di verifiche (export)")
     evaluation_html = models.TextField(blank=True, null=True, help_text="Contenuto HTML per la valutazione (export)")
+    key_and_citizenship_competences_html = models.TextField(blank=True, null=True, help_text="Contenuto HTML per le Competenze chiave e di cittadinanza (export)")
     other_involved_subjects_text = models.TextField(blank=True, null=True, help_text="Testo libero per Altre Discipline Coinvolte (export)")
     export_specific_annotations_html = models.TextField(blank=True, null=True, help_text="Contenuto HTML per Annotazioni specifiche per l'export")
 
@@ -325,6 +326,9 @@ class UDA(models.Model):
         if self.evaluation_html:
             self.evaluation_html = sanitize_html(self.evaluation_html)
             logger.debug(f"UDA ID {self.pk} after sanitizing evaluation_html: '{str(self.evaluation_html)[:100]}'")
+        if self.key_and_citizenship_competences_html:
+            self.key_and_citizenship_competences_html = sanitize_html(self.key_and_citizenship_competences_html)
+            logger.debug(f"UDA ID {self.pk} after sanitizing key_and_citizenship_competences_html: '{str(self.key_and_citizenship_competences_html)[:100]}'")
         if self.export_specific_annotations_html:
             self.export_specific_annotations_html = sanitize_html(self.export_specific_annotations_html)
             logger.debug(f"UDA ID {self.pk} after sanitizing export_specific_annotations_html: '{str(self.export_specific_annotations_html)[:100]}'")

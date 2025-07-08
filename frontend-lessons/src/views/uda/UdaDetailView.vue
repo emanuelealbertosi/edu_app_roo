@@ -79,8 +79,15 @@
           @save="handleSaveEvaluation"
           class="flex-1 min_w-[300px]"
         />
-        <CollapsibleEditableSection
-          title="Annotazioni Specifiche"
+       <CollapsibleEditableSection
+         title="Competenze Chiave e di Cittadinanza"
+         :initial-content-html="uda.key_and_citizenship_competences_html"
+         border-style-class="border-red-500 border-2 rounded-md"
+         @save="handleSaveKeyAndCitizenshipCompetences"
+         class="flex-1 min-w-[300px]"
+       />
+       <CollapsibleEditableSection
+         title="Annotazioni Specifiche"
           :initial-content-html="uda.export_specific_annotations_html"
           border-style-class="border-orange-500 border-2 rounded-md"
           @save="handleSaveExportAnnotations"
@@ -231,7 +238,7 @@
 </template>
 
 <script setup lang="ts">
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { onMounted, computed, ref } from 'vue';
 import { useUdaStore } from '@/stores/udaStore';
 import { useCourseStore } from '@/stores/courseStore';
@@ -254,7 +261,7 @@ import { useUiStore } from '@/stores/ui'; // CORRETTO: Importa da ui.ts
 import { PencilIcon } from '@heroicons/vue/24/outline';
 
 const route = useRoute();
-// const router = useRouter(); // Rimosso perché non utilizzato
+const router = useRouter();
 const udaStore = useUdaStore();
 const courseStore = useCourseStore(); // Istanzia course store
 const subjectStore = useSubjectStore();
@@ -486,7 +493,12 @@ const handleQuizAssignmentCompleted = () => {
 
 const handleEditLessonContents = (lessonId: number) => {
   console.log(`Request to edit contents for lesson ID: ${lessonId}`);
-  iframeSrc.value = `/lezioni/${lessonId}/contenuti?modal=true`;
+  const routeData = router.resolve({
+    name: 'lesson-contents',
+    params: { lessonId: lessonId.toString() },
+    query: { embedded: 'true', modal: 'true' }
+  });
+  iframeSrc.value = routeData.href;
   showIframeModal.value = true;
 };
 
@@ -608,6 +620,18 @@ const handleSaveCompetences = async (newHtml: string) => {
       uiStore.addNotification({ message: 'Competenze aggiornate!', type: 'success' });
     } catch (e) {
       uiStore.addNotification({ message: `Errore aggiornamento Competenze: ${(e as Error).message}`, type: 'error' });
+      throw e;
+    }
+  }
+};
+
+const handleSaveKeyAndCitizenshipCompetences = async (newHtml: string) => {
+  if (uda.value?.id) {
+    try {
+      await udaStore.updateUda(uda.value.id, { key_and_citizenship_competences_html: newHtml });
+      uiStore.addNotification({ message: 'Competenze Chiave e di Cittadinanza aggiornate!', type: 'success' });
+    } catch (e) {
+      uiStore.addNotification({ message: `Errore aggiornamento Competenze Chiave e di Cittadinanza: ${(e as Error).message}`, type: 'error' });
       throw e;
     }
   }

@@ -270,6 +270,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, computed, onUnmounted } from 'vue';
+import { useRouter } from 'vue-router';
 import { useLessonStore } from '@/stores/lessons';
 import { useTopicStore } from '@/stores/topicStore';
 import { useSubjectStore } from '@/stores/subjectStore';
@@ -288,6 +289,7 @@ const lessonStore = useLessonStore();
 const topicStore = useTopicStore();
 const subjectStore = useSubjectStore();
 const uiStore = useUiStore(); // Istanzia uiStore
+const router = useRouter();
 
 const lessons = computed(() => lessonStore.lessons);
 
@@ -444,7 +446,12 @@ const handleAssignmentCompletion = (result: any) => {
 };
 
 const gotoContents = (lessonId: number) => {
-  iframeSrc.value = `/lezioni/${lessonId}/contenuti`;
+  const routeData = router.resolve({
+    name: 'lesson-contents',
+    params: { lessonId: lessonId.toString() },
+    query: { embedded: 'true' } // Aggiungiamo un query param per indicare che è in un iframe
+  });
+  iframeSrc.value = routeData.href;
   showIframeModal.value = true;
 };
 
