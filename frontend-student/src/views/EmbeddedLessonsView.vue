@@ -13,9 +13,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, onBeforeUnmount } from 'vue';
+import { useRouter } from 'vue-router';
 
 const lessonsIframeRef = ref<HTMLIFrameElement | null>(null);
+const router = useRouter();
 
 // Recupera l'URL base dell'app Lezioni dalle variabili d'ambiente o usa un fallback.
 const lessonsAppBaseUrl = computed(() => (import.meta.env.VITE_LESSONS_APP_URL as string | undefined)?.replace(/\/$/, '') || '/lezioni');
@@ -41,6 +43,15 @@ const lessonsPageUrl = computed(() => {
   return `${url}?embedded=true`;
 });
 
+const handleMessage = (event: MessageEvent) => {
+  if (event.origin !== lessonsAppOrigin.value) {
+    return;
+  }
+  if (event.data && event.data.type === 'navigate-to-host-home') {
+    router.push({ name: 'dashboard' });
+  }
+};
+
 onMounted(() => {
   const iframe = lessonsIframeRef.value;
   if (iframe) {
@@ -53,6 +64,11 @@ onMounted(() => {
       }
     };
   }
+  window.addEventListener('message', handleMessage);
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener('message', handleMessage);
 });
 </script>
 

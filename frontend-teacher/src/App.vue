@@ -3,13 +3,15 @@ import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'; // Impor
 import { useAuthStore } from '@/stores/auth'; // Store specifico Teacher (per logout e checkAuth)
 import { useSharedAuthStore } from '@/stores/sharedAuth'; // Importa store condiviso
 import { useAnnouncementStore } from '@/stores/announcement'; // Importa lo store degli avvisi
-import { RouterLink, RouterView, useRoute, useRouter, type RouteLocationRaw } from 'vue-router';
+import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router';
 import GlobalLoadingIndicator from '@/components/common/GlobalLoadingIndicator.vue';
 import BaseModal from '@/components/common/BaseModal.vue'; // CORRETTO: Importa BaseModal
 import AnnouncementModal from '@/components/common/AnnouncementModal.vue'; // Importa la modale degli avvisi
 import AppFooter from '@/components/layout/AppFooter.vue'; // Importa il footer
 import { marked } from 'marked'; // Importa marked
 import UniformNotificationDisplay from '@/components/common/UniformNotificationDisplay.vue'; // Importa il nuovo componente notifiche
+import { navigateTo } from '@/utils/navigation';
+import Breadcrumb from '@/components/common/Breadcrumb.vue';
 // import NotificationContainer from '@/components/common/NotificationContainer.vue'; // Se esiste
 import {
   HomeIcon, // Dashboard
@@ -246,13 +248,11 @@ const goToProfile = () => {
   router.push({ name: 'profile' });
 };
 
-const forceNavigate = (location: RouteLocationRaw) => {
-  router.push(location);
-};
-
-const forceNavigateAndCloseMobileMenu = (location: RouteLocationRaw) => {
-  router.push(location);
-  toggleMobileMenu();
+const navigateAndCloseMobileMenu = (routeName: string) => {
+  navigateTo(router, routeName);
+  if (isMobileMenuOpen.value) {
+    toggleMobileMenu();
+  }
 };
 
 // LOGGING per debug menu
@@ -261,10 +261,32 @@ watch(route, (to) => {
 }, { immediate: true, deep: true }); // immediate per log iniziale, deep non strettamente necessario ma sicuro
 
 // Hook onMounted per recuperare dati iniziali
+// Gestione della cronologia cross-iframe
+
 onMounted(() => {
   if (sharedAuth.isAuthenticated) {
     announcementStore.fetchAnnouncements();
   }
+  // Ripristina lo stato dei menu a tendina dal sessionStorage
+  const manageQuizExpanded = sessionStorage.getItem('isManageQuizExpanded');
+  if (manageQuizExpanded === 'true') {
+    isManageQuizExpanded.value = true;
+  }
+  const gestioneDidatticaExpanded = sessionStorage.getItem('isGestioneDidatticaExpanded');
+  if (gestioneDidatticaExpanded === 'true') {
+    isGestioneDidatticaExpanded.value = true;
+  }
+  // Ripristina lo stato di espansione della sidebar
+  const sidebarExpanded = sessionStorage.getItem('isSidebarExpanded');
+  if (sidebarExpanded === 'true') {
+    isSidebarExpandedState.value = true;
+  }
+
+  // Aggiungi il listener per i messaggi dall'iframe
+});
+
+onBeforeUnmount(() => {
+  // Rimuovi il listener per evitare memory leak
 });
 
 // Watch per reagire al login/logout
@@ -286,6 +308,7 @@ const sidebarHeaderTitle = computed(() => {
 
 const toggleSidebarExpansion = () => {
   isSidebarExpandedState.value = !isSidebarExpandedState.value;
+  sessionStorage.setItem('isSidebarExpanded', String(isSidebarExpandedState.value));
 };
 
 // Logica per contrarre la sidebar quando si interagisce con il contenuto principale
@@ -297,12 +320,17 @@ const handleContentInteraction = () => {
 
 const toggleManageQuiz = () => {
   isManageQuizExpanded.value = !isManageQuizExpanded.value;
+  sessionStorage.setItem('isManageQuizExpanded', String(isManageQuizExpanded.value));
 };
 
 const toggleGestioneDidattica = () => {
   isGestioneDidatticaExpanded.value = !isGestioneDidatticaExpanded.value;
+  sessionStorage.setItem('isGestioneDidatticaExpanded', String(isGestioneDidatticaExpanded.value));
 };
 
+const showBreadcrumb = computed(() => {
+  return !route.meta.hideHostBreadcrumb;
+});
 </script>
 
 <template>
@@ -321,14 +349,14 @@ const toggleGestioneDidattica = () => {
     <div class="p-6 prose max-w-none" v-html="modalContentHtml"></div>
   </BaseModal>
 
-  <div class="flex min-h-screen bg-neutral-lightest font-sans text-neutral-darkest"> <!-- Changed h-screen to min-h-screen -->
+  <div class="flex h-screen overflow-hidden bg-neutral-lightest font-sans text-neutral-darkest">
     <!-- Sidebar Desktop (visibile da md in su) -->
     <!-- Mostra sidebar solo se autenticato E non sulla landing page -->
     <aside
       v-if="sharedAuth.isAuthenticated && route.name !== 'landing'"
       ref="sidebarAsideRef"
       :class="[
-        'bg-secondary text-neutral-lightest hidden md:flex flex-col transition-all duration-300 ease-in-out overflow-hidden',
+        'bg-secondary text-neutral-lightest hidden md:flex flex-col transition-all duration-300 ease-in-out',
         isSidebarExpandedState ? 'w-64' : 'w-20'
       ]"
       aria-label="Sidebar"
@@ -355,31 +383,31 @@ const toggleGestioneDidattica = () => {
         <ul>
           <!-- Dashboard -->
           <li class="mb-2">
-            <router-link :to="{ name: 'dashboard' }" @click="forceNavigate({ name: 'dashboard' })" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Dashboard">
+            <a @click="navigateTo(router, 'dashboard')" class="flex items-center p-2 rounded hover:bg-secondary-light cursor-pointer" :class="{ 'bg-primary text-white': route.name === 'dashboard' }" title="Dashboard">
               <HomeIcon class="h-5 w-5 flex-shrink-0" />
               <span class="ml-3 text-sm whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">Dashboard</span>
-            </router-link>
+            </a>
           </li>
           <!-- Studenti -->
           <li class="mb-2">
-            <router-link :to="{ name: 'students' }" @click="forceNavigate({ name: 'students' })" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Studenti">
+            <a @click="navigateTo(router, 'students')" class="flex items-center p-2 rounded hover:bg-secondary-light cursor-pointer" :class="{ 'bg-primary text-white': route.name === 'students' }" title="Studenti">
               <UsersIcon class="h-5 w-5 flex-shrink-0" />
               <span class="ml-3 text-sm whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">Studenti</span>
-            </router-link>
+            </a>
           </li>
           <!-- Gruppi Studenti (NUOVO) -->
           <li class="mb-2">
-            <router-link :to="{ name: 'GroupsList' }" @click="forceNavigate({ name: 'GroupsList' })" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Gruppi">
+            <a @click="navigateTo(router, 'GroupsList')" class="flex items-center p-2 rounded hover:bg-secondary-light cursor-pointer" :class="{ 'bg-primary text-white': route.name === 'GroupsList' }" title="Gruppi">
               <UserGroupIcon class="h-5 w-5 flex-shrink-0" />
               <span class="ml-3 text-sm whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">Gruppi</span>
-            </router-link>
+            </a>
           </li>
           <!-- Sfoglia Gruppi Pubblici -->
           <li class="mb-2">
-            <router-link :to="{ name: 'BrowseGroups' }" @click="forceNavigate({ name: 'BrowseGroups' })" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Sfoglia Gruppi">
+            <a @click="navigateTo(router, 'BrowseGroups')" class="flex items-center p-2 rounded hover:bg-secondary-light cursor-pointer" :class="{ 'bg-primary text-white': route.name === 'BrowseGroups' }" title="Sfoglia Gruppi">
               <MagnifyingGlassIcon class="h-5 w-5 flex-shrink-0" />
               <span class="ml-3 text-sm whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">Sfoglia Gruppi</span>
-            </router-link>
+            </a>
           </li>
           <!-- Gestione Quiz (Contraibile) -->
           <li class="mb-2">
@@ -394,45 +422,45 @@ const toggleGestioneDidattica = () => {
             <ul v-if="isManageQuizExpanded" class="pl-4 mt-1">
               <!-- Quiz Templates -->
               <li class="mb-2">
-                <router-link :to="{ name: 'quiz-templates' }" @click="forceNavigate({ name: 'quiz-templates' })" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Quiz Templates">
+                <a @click="navigateTo(router, 'quiz-templates')" class="flex items-center p-2 rounded hover:bg-secondary-light cursor-pointer" :class="{ 'bg-primary text-white': route.name === 'quiz-templates' }" title="Quiz Templates">
                   <ClipboardDocumentListIcon class="h-5 w-5 flex-shrink-0" />
                   <span class="ml-3 text-sm whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">Quiz Templates</span>
-                </router-link>
+                </a>
               </li>
               <!-- Quiz Assegnati -->
               <li class="mb-2">
-                <router-link :to="{ name: 'assigned-quizzes' }" @click="forceNavigate({ name: 'assigned-quizzes' })" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Quiz Assegnati">
+                <a @click="navigateTo(router, 'assigned-quizzes')" class="flex items-center p-2 rounded hover:bg-secondary-light cursor-pointer" :class="{ 'bg-primary text-white': route.name === 'assigned-quizzes' }" title="Quiz Assegnati">
                   <ClipboardDocumentCheckIcon class="h-5 w-5 flex-shrink-0" />
                   <span class="ml-3 text-sm whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">Quiz Assegnati</span>
-                </router-link>
+                </a>
               </li>
               <!-- Ricompense -->
               <li class="mb-2">
-                <router-link :to="{ name: 'rewards' }" @click="forceNavigate({ name: 'rewards' })" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Ricompense">
+                <a @click="navigateTo(router, 'rewards')" class="flex items-center p-2 rounded hover:bg-secondary-light cursor-pointer" :class="{ 'bg-primary text-white': route.name === 'rewards' }" title="Ricompense">
                   <GiftIcon class="h-5 w-5 flex-shrink-0" />
                   <span class="ml-3 text-sm whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">Ricompense</span>
-                </router-link>
+                </a>
               </li>
               <!-- Valutazioni -->
               <li class="mb-2">
-                <router-link :to="{ name: 'GradingDashboard' }" @click="forceNavigate({ name: 'GradingDashboard' })" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Valutazioni">
+                <a @click="navigateTo(router, 'GradingDashboard')" class="flex items-center p-2 rounded hover:bg-secondary-light cursor-pointer" :class="{ 'bg-primary text-white': route.name === 'GradingDashboard' }" title="Valutazioni">
                   <PencilSquareIcon class="h-5 w-5 flex-shrink-0" />
                   <span class="ml-3 text-sm whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">Valutazioni</span>
-                </router-link>
+                </a>
               </li>
               <!-- Consegne -->
               <li class="mb-2">
-                <router-link :to="{ name: 'delivery' }" @click="forceNavigate({ name: 'delivery' })" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Consegne">
+                <a @click="navigateTo(router, 'delivery')" class="flex items-center p-2 rounded hover:bg-secondary-light cursor-pointer" :class="{ 'bg-primary text-white': route.name === 'delivery' }" title="Consegne">
                   <InboxArrowDownIcon class="h-5 w-5 flex-shrink-0" />
                   <span class="ml-3 text-sm whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">Consegne</span>
-                </router-link>
+                </a>
               </li>
               <!-- Progressi -->
               <li class="mb-2">
-                <router-link :to="{ name: 'student-progress' }" @click="forceNavigate({ name: 'student-progress' })" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Progressi">
+                <a @click="navigateTo(router, 'student-progress')" class="flex items-center p-2 rounded hover:bg-secondary-light cursor-pointer" :class="{ 'bg-primary text-white': route.name === 'student-progress' }" title="Progressi">
                   <ChartBarIcon class="h-5 w-5 flex-shrink-0" />
                   <span class="ml-3 text-sm whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">Progressi</span>
-                </router-link>
+                </a>
               </li>
             </ul>
           </li>
@@ -466,34 +494,34 @@ const toggleGestioneDidattica = () => {
             </button>
             <ul v-if="isGestioneDidatticaExpanded" class="pl-4 mt-1">
               <li class="mb-2">
-                <router-link :to="{ name: 'EmbeddedTeacherSubjects' }" @click="forceNavigate({ name: 'EmbeddedTeacherSubjects' })" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Materie">
+                <a @click="navigateTo(router, 'EmbeddedTeacherSubjects')" class="flex items-center p-2 rounded hover:bg-secondary-light cursor-pointer" :class="{ 'bg-primary text-white': route.name === 'EmbeddedTeacherSubjects' }" title="Materie">
                   <TagIcon class="h-5 w-5 flex-shrink-0" />
                   <span class="ml-3 text-sm whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">Materie</span>
-                </router-link>
+                </a>
               </li>
               <li class="mb-2">
-                <router-link :to="{ name: 'EmbeddedTeacherTopics' }" @click="forceNavigate({ name: 'EmbeddedTeacherTopics' })" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Argomenti">
+                <a @click="navigateTo(router, 'EmbeddedTeacherTopics')" class="flex items-center p-2 rounded hover:bg-secondary-light cursor-pointer" :class="{ 'bg-primary text-white': route.name === 'EmbeddedTeacherTopics' }" title="Argomenti">
                   <LightBulbIcon class="h-5 w-5 flex-shrink-0" />
                   <span class="ml-3 text-sm whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">Argomenti</span>
-                </router-link>
+                </a>
               </li>
               <li class="mb-2">
-                <router-link :to="{ name: 'EmbeddedTeacherLessonsList' }" @click="forceNavigate({ name: 'EmbeddedTeacherLessonsList' })" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Lezioni">
+                <a @click="navigateTo(router, 'EmbeddedTeacherLessonsList')" class="flex items-center p-2 rounded hover:bg-secondary-light cursor-pointer" :class="{ 'bg-primary text-white': route.name === 'EmbeddedTeacherLessonsList' }" title="Lezioni">
                   <AcademicCapIcon class="h-5 w-5 flex-shrink-0" />
                   <span class="ml-3 text-sm whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">Lezioni</span>
-                </router-link>
+                </a>
               </li>
               <li class="mb-2">
-                <router-link :to="{ name: 'EmbeddedTeacherCourses' }" @click="forceNavigate({ name: 'EmbeddedTeacherCourses' })" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Corsi">
+                <a @click="navigateTo(router, 'EmbeddedTeacherCourses')" class="flex items-center p-2 rounded hover:bg-secondary-light cursor-pointer" :class="{ 'bg-primary text-white': route.name === 'EmbeddedTeacherCourses' }" title="Corsi">
                   <FolderIcon class="h-5 w-5 flex-shrink-0" />
                   <span class="ml-3 text-sm whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">Corsi</span>
-                </router-link>
+                </a>
               </li>
               <li class="mb-2">
-                <router-link :to="{ name: 'EmbeddedTeacherUdas' }" @click="forceNavigate({ name: 'EmbeddedTeacherUdas' })" class="flex items-center p-2 rounded hover:bg-secondary-light" title="UDA">
+                <a @click="navigateTo(router, 'EmbeddedTeacherUdas')" class="flex items-center p-2 rounded hover:bg-secondary-light cursor-pointer" :class="{ 'bg-primary text-white': route.name === 'EmbeddedTeacherUdas' }" title="UDA">
                   <PuzzlePieceIcon class="h-5 w-5 flex-shrink-0" />
                   <span class="ml-3 text-sm whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">UDA</span>
-                </router-link>
+                </a>
               </li>
             </ul>
           </li>
@@ -686,50 +714,48 @@ const toggleGestioneDidattica = () => {
       </aside>
     </div>
 
-    <!-- Contenuto Principale -->
-    <div class="flex flex-col flex-grow">
-        <!-- Header -->
-        <header v-if="sharedAuth.isAuthenticated && route.name !== 'landing'" class="bg-white shadow p-4 h-16 flex items-center justify-between flex-shrink-0">
-             <!-- Pulsante Hamburger (visibile solo su mobile) -->
-             <button
-                ref="mobileMenuButtonRef"
-                @click="toggleMobileMenu"
-                class="md:hidden p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded focus:outline-none focus:ring-2 focus:ring-inset focus:ring-purple-500"
-              >
-               <span class="sr-only">Apri menu principale</span>
-               <Bars3Icon class="h-6 w-6" />
-             </button>
+    <div class="flex flex-col flex-1">
+      <!-- Header -->
+      <header v-if="sharedAuth.isAuthenticated && route.name !== 'landing'" class="bg-white shadow p-4 h-16 flex items-center justify-between flex-shrink-0">
+           <!-- Pulsante Hamburger (visibile solo su mobile) -->
+           <button
+              ref="mobileMenuButtonRef"
+              @click="toggleMobileMenu"
+              class="md:hidden p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded focus:outline-none focus:ring-2 focus:ring-inset focus:ring-purple-500"
+            >
+             <span class="sr-only">Apri menu principale</span>
+             <Bars3Icon class="h-6 w-6" />
+           </button>
 
-             <!-- Placeholder per Titolo Pagina o Spazio (su desktop occupa spazio, su mobile no) -->
-             <div class="flex-1 md:ml-4">
-                <!-- <h1 v-if="route.meta.title" class="text-xl font-semibold text-gray-800">{{ route.meta.title }}</h1> -->
-             </div>
+           <!-- Placeholder per Titolo Pagina o Spazio (su desktop occupa spazio, su mobile no) -->
+           <div class="flex-1 md:ml-4">
+              <!-- <h1 v-if="route.meta.title" class="text-xl font-semibold text-gray-800">{{ route.meta.title }}</h1> -->
+           </div>
 
-             <!-- Pulsanti Header (Profilo, Logout) -->
-             <div class="flex items-center space-x-3">
-                <button @click="goToProfile" class="flex items-center p-2 rounded text-gray-600 hover:bg-gray-100 hover:text-gray-800" title="Profilo">
-                    <UserCircleIcon class="h-6 w-6" />
-                    <span class="ml-2 text-sm hidden sm:inline">{{ sharedAuth.user?.email }}</span>
-                </button>
-                <!-- Logout Button - Hidden on Desktop Sidebar, shown here for consistency if needed or for smaller screens before mobile menu kicks in -->
-                <!-- <button @click="handleLogout" class="hidden sm:flex items-center p-2 rounded text-gray-600 hover:bg-red-100 hover:text-red-700" title="Logout">
-                    <ArrowLeftOnRectangleIcon class="h-6 w-6" />
-                    <span class="ml-2 text-sm hidden md:inline">Logout</span>
-                </button> -->
-             </div>
-        </header>
-        <!-- Se non autenticato o sulla landing page, mostra solo il contenuto senza header -->
-        <header v-else class="h-0"></header> <!-- Placeholder per mantenere struttura flex -->
+           <!-- Pulsanti Header (Profilo, Logout) -->
+           <div class="flex items-center space-x-3">
+              <button @click="goToProfile" class="flex items-center p-2 rounded text-gray-600 hover:bg-gray-100 hover:text-gray-800" title="Profilo">
+                  <UserCircleIcon class="h-6 w-6" />
+                  <span class="ml-2 text-sm hidden sm:inline">{{ sharedAuth.user?.email }}</span>
+              </button>
+              <!-- Logout Button - Hidden on Desktop Sidebar, shown here for consistency if needed or for smaller screens before mobile menu kicks in -->
+              <!-- <button @click="handleLogout" class="hidden sm:flex items-center p-2 rounded text-gray-600 hover:bg-red-100 hover:text-red-700" title="Logout">
+                  <ArrowLeftOnRectangleIcon class="h-6 w-6" />
+                  <span class="ml-2 text-sm hidden md:inline">Logout</span>
+              </button> -->
+           </div>
+      </header>
+      <!-- Se non autenticato o sulla landing page, mostra solo il contenuto senza header -->
+      <header v-else class="h-0"></header> <!-- Placeholder per mantenere struttura flex -->
 
+      <!-- Area Contenuto -->
+      <main class="flex-1 p-4 md:p-8 overflow-y-auto">
+        <Breadcrumb v-if="showBreadcrumb" />
+        <RouterView />
+      </main>
 
-        <!-- Area Contenuto -->
-        <!-- Aggiunto padding-top se header è visibile -->
-        <main class="flex-grow p-4 md:p-8 overflow-auto" :class="{ 'pt-4': sharedAuth.isAuthenticated && route.name !== 'landing' }">
-          <RouterView />
-        </main> <!-- Moved footer outside main -->
-
-        <!-- Footer Component -->
-        <AppFooter @openPrivacy="openPrivacyModal" @openCookie="openCookieModal" />
+      <!-- Footer Component -->
+      <AppFooter @openPrivacy="openPrivacyModal" @openCookie="openCookieModal" class="flex-shrink-0" />
     </div>
 
   </div>

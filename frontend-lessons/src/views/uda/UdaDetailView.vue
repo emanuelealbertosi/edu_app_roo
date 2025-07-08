@@ -1,5 +1,5 @@
 <template>
-  <div class="uda-detail-view p-4 md:p-8 bg-neutral-lightest min-h-screen">
+  <div class="uda-detail-view bg-neutral-lightest">
     <div v-if="pageLoading" class="loading-message">Caricamento dati UDA...</div>
     <div v-if="pageError" class="error-message">
       Errore nel caricamento dell'UDA: {{ pageError }}
@@ -496,7 +496,7 @@ const handleEditLessonContents = (lessonId: number) => {
   const routeData = router.resolve({
     name: 'lesson-contents',
     params: { lessonId: lessonId.toString() },
-    query: { embedded: 'true', modal: 'true' }
+    query: { embedded: 'true', inModal: 'true' }
   });
   iframeSrc.value = routeData.href;
   showIframeModal.value = true;

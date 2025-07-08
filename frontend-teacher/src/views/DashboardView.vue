@@ -73,7 +73,7 @@ const quickLinks = [
 </script>
 
 <template>
-  <div class="dashboard-view p-6 bg-neutral-lightest min-h-screen"> <!-- Sfondo aggiornato -->
+  <div class="dashboard-view p-6 bg-neutral-lightest"> <!-- Sfondo aggiornato -->
     <div class="bg-primary text-white p-4 rounded-md mb-6"> <!-- Contenitore per titolo e sottotitolo -->
       <h2 class="text-3xl font-bold mb-1">Dashboard Docente</h2> <!-- Rimosso stile individuale, aggiunto mb-1 -->
       <p class="text-xl opacity-90">Benvenuto/a, {{ teacherName }}!</p> <!-- Rimosso stile individuale, aggiunta opacità -->

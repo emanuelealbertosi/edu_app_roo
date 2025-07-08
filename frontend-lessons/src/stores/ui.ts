@@ -18,6 +18,9 @@ export const useUiStore = defineStore('ui', () => {
   // State per le notifiche
   const notifications = ref<Notification[]>([]);
 
+  // State per la visibilità globale dei modali
+  const isModalOpen = ref(false);
+
   // Actions per richiedere l'apertura
   function requestAddSubject() {
     console.log("UI Store: Requesting Add Subject Modal");
@@ -61,6 +64,11 @@ export const useUiStore = defineStore('ui', () => {
     notifications.value = notifications.value.filter(n => n.id !== id);
   }
 
+  // Actions per lo stato del modale
+  function setModalOpen(isOpen: boolean) {
+    isModalOpen.value = isOpen;
+  }
+
   return {
     requestOpenAddSubjectModal,
     requestOpenAddTopicModal,
@@ -76,5 +84,9 @@ export const useUiStore = defineStore('ui', () => {
     notifications,
     addNotification,
     removeNotification,
+
+    // Visibilità modale
+    isModalOpen,
+    setModalOpen,
   };
 });

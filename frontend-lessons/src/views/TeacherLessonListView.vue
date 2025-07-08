@@ -449,7 +449,7 @@ const gotoContents = (lessonId: number) => {
   const routeData = router.resolve({
     name: 'lesson-contents',
     params: { lessonId: lessonId.toString() },
-    query: { embedded: 'true' } // Aggiungiamo un query param per indicare che è in un iframe
+    query: { embedded: 'true', inModal: 'true' } // Aggiungiamo un query param per indicare che è in un iframe
   });
   iframeSrc.value = routeData.href;
   showIframeModal.value = true;

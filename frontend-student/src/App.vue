@@ -3,7 +3,7 @@ import { ref, computed, onMounted, watch, onBeforeUnmount } from 'vue'; // Aggiu
 import { useAuthStore } from '@/stores/auth';
 import { useNotificationStore } from '@/stores/notification';
 import { useAnnouncementStore } from '@/stores/announcement'; // Importa lo store degli avvisi
-import { RouterLink, RouterView, useRoute, useRouter, type RouteLocationRaw } from 'vue-router';
+import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router';
 import GlobalLoadingIndicator from '@/components/common/GlobalLoadingIndicator.vue';
 import NotificationContainer from '@/components/common/NotificationContainer.vue';
 import UniformNotificationDisplay from '@/components/common/UniformNotificationDisplay.vue'; // Per notifiche toast uniformi
@@ -11,6 +11,8 @@ import AnnouncementModal from '@/components/common/AnnouncementModal.vue'; // Im
 import ModalDialog from '@/components/common/ModalDialog.vue'; // Importa la modale
 import AppFooter from '@/components/layout/AppFooter.vue'; // Importa il nuovo footer
 import { marked } from 'marked'; // Importa marked
+import { navigateTo } from '@/utils/navigation';
+import Breadcrumb from '@/components/common/Breadcrumb.vue';
 import {
   HomeIcon, ShoppingCartIcon, UserCircleIcon, CreditCardIcon, TrophyIcon,
   BookOpenIcon, ArrowLeftOnRectangleIcon, BellIcon, Bars3Icon, XMarkIcon,
@@ -258,13 +260,11 @@ const goToProfile = () => {
   router.push({ name: 'Profile' });
 };
 
-const forceNavigate = (location: RouteLocationRaw) => {
-  router.push(location);
-};
-
-const forceNavigateAndCloseMobileMenu = (location: RouteLocationRaw) => {
-  router.push(location);
-  toggleMobileMenu();
+const navigateAndCloseMobileMenu = (routeName: string) => {
+  navigateTo(router, routeName);
+  if (isMobileMenuOpen.value) {
+    toggleMobileMenu();
+  }
 };
 
 const toggleNotificationsDropdown = () => {
@@ -297,6 +297,12 @@ onMounted(async () => { // Aggiunto async
     // I conteggi ora vengono recuperati da initializeAuth o dopo il login
   }
   // Rimuoviamo la simulazione setTimeout, i conteggi sono gestiti dallo store
+
+  // Ripristina lo stato di espansione della sidebar
+  const sidebarExpanded = sessionStorage.getItem('isSidebarExpanded');
+  if (sidebarExpanded === 'true') {
+    isSidebarExpandedState.value = true;
+  }
 });
 
 // TODO: Considerare se un watch su authStore.isAuthenticated è ancora necessario
@@ -323,7 +329,12 @@ const sidebarHeaderTitle = computed(() => {
 
 const toggleSidebarExpansion = () => {
   isSidebarExpandedState.value = !isSidebarExpandedState.value;
+  sessionStorage.setItem('isSidebarExpanded', String(isSidebarExpandedState.value));
 };
+
+const showBreadcrumb = computed(() => {
+  return !route.meta.hideHostBreadcrumb;
+});
 
 // Logica per contrarre la sidebar quando si interagisce con il contenuto principale
 const handleContentInteraction = () => {
@@ -347,13 +358,13 @@ const handleContentInteraction = () => {
     @close="closeModal"
   />
 
-  <div class="flex min-h-screen bg-neutral-lightest font-sans text-neutral-darkest"> <!-- Changed h-screen to min-h-screen -->
+  <div class="flex h-screen bg-neutral-lightest font-sans text-neutral-darkest">
     <!-- Sidebar Desktop (visibile da md in su) -->
     <aside
       v-if="authStore.isAuthenticated"
       ref="sidebarAsideRef"
       :class="[
-        'bg-secondary text-neutral-lightest hidden md:flex flex-col transition-all duration-300 ease-in-out overflow-hidden',
+        'bg-secondary text-neutral-lightest hidden md:flex flex-col transition-all duration-300 ease-in-out',
         isSidebarExpandedState ? 'w-64' : 'w-20'
       ]"
       aria-label="Sidebar"
@@ -380,53 +391,53 @@ const handleContentInteraction = () => {
         <ul>
           <!-- Dashboard -->
           <li class="mb-3">
-            <router-link :to="{ name: 'dashboard' }" @click="forceNavigate({ name: 'dashboard' })" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700" title="Dashboard">
+            <a @click="navigateTo(router, 'dashboard')" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700 cursor-pointer" :class="{ 'bg-primary text-white': route.name === 'dashboard' }" title="Dashboard">
               <HomeIcon class="h-6 w-6 flex-shrink-0" />
               <span class="ml-3 whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">Dashboard</span>
-            </router-link>
+            </a>
           </li>
           <!-- I Miei Quiz -->
           <li class="mb-3">
-            <router-link :to="{ name: 'QuizzesPage' }" @click="forceNavigate({ name: 'QuizzesPage' })" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700 relative" :title="newQuizzesTooltip">
+            <a @click="navigateTo(router, 'QuizzesPage')" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700 relative cursor-pointer" :class="{ 'bg-primary text-white': route.name === 'QuizzesPage' }" :title="newQuizzesTooltip">
               <QuestionMarkCircleIcon class="h-6 w-6 flex-shrink-0" />
               <span class="ml-3 whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">I Miei Quiz</span>
               <span v-if="newQuizzesCount > 0"
                     class="absolute top-1 right-1 h-5 w-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center ring-2 ring-secondary">
                 {{ newQuizzesCount }}
               </span>
-            </router-link>
+            </a>
           </li>
           <!-- Le Mie Lezioni (incorporate) -->
           <li class="mb-3">
-            <router-link :to="{ name: 'EmbeddedLessons' }" @click="forceNavigate({ name: 'EmbeddedLessons' })" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700 relative" :title="newLessonsTooltip">
+            <a @click="navigateTo(router, 'EmbeddedLessons')" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700 relative cursor-pointer" :class="{ 'bg-primary text-white': route.name === 'EmbeddedLessons' }" :title="newLessonsTooltip">
               <BookOpenIcon class="h-6 w-6 flex-shrink-0" />
               <span class="ml-3 whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">Le Mie Lezioni</span>
               <span v-if="newLessonsCount > 0"
                     class="absolute top-1 right-1 h-5 w-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center ring-2 ring-secondary">
                 {{ newLessonsCount }}
               </span>
-            </router-link>
+            </a>
           </li>
           <!-- Shop -->
           <li class="mb-3">
-            <router-link :to="{ name: 'shop' }" @click="forceNavigate({ name: 'shop' })" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700" title="Shop">
+            <a @click="navigateTo(router, 'shop')" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700 cursor-pointer" :class="{ 'bg-primary text-white': route.name === 'shop' }" title="Shop">
               <ShoppingCartIcon class="h-6 w-6 flex-shrink-0" />
               <span class="ml-3 whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">Shop</span>
-            </router-link>
+            </a>
           </li>
           <!-- Acquisti -->
           <li class="mb-3">
-            <router-link :to="{ name: 'purchases' }" @click="forceNavigate({ name: 'purchases' })" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700" title="Acquisti">
+            <a @click="navigateTo(router, 'purchases')" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700 cursor-pointer" :class="{ 'bg-primary text-white': route.name === 'purchases' }" title="Acquisti">
               <CreditCardIcon class="h-6 w-6 flex-shrink-0" />
               <span class="ml-3 whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">Acquisti</span>
-            </router-link>
+            </a>
           </li>
           <!-- Traguardi -->
           <li class="mb-3">
-            <router-link :to="{ name: 'Badges' }" @click="forceNavigate({ name: 'Badges' })" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700" title="Traguardi">
+            <a @click="navigateTo(router, 'Badges')" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700 cursor-pointer" :class="{ 'bg-primary text-white': route.name === 'Badges' }" title="Traguardi">
               <TrophyIcon class="h-6 w-6 flex-shrink-0" />
               <span class="ml-3 whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">Traguardi</span>
-            </router-link>
+            </a>
           </li>
         </ul>
       </nav>
@@ -462,53 +473,53 @@ const handleContentInteraction = () => {
           <ul>
             <!-- Dashboard -->
             <li class="mb-3">
-              <router-link :to="{ name: 'dashboard' }" @click="forceNavigateAndCloseMobileMenu({ name: 'dashboard' })" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700" title="Dashboard">
+              <a @click="navigateAndCloseMobileMenu('dashboard')" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700 cursor-pointer" :class="{ 'bg-primary text-white': route.name === 'dashboard' }" title="Dashboard">
                 <HomeIcon class="h-6 w-6 flex-shrink-0" />
                 <span class="ml-3">Dashboard</span>
-              </router-link>
+              </a>
             </li>
             <!-- I Miei Quiz -->
             <li class="mb-3">
-              <router-link :to="{ name: 'QuizzesPage' }" @click="forceNavigateAndCloseMobileMenu({ name: 'QuizzesPage' })" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700 relative" :title="newQuizzesTooltip">
+              <a @click="navigateAndCloseMobileMenu('QuizzesPage')" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700 relative cursor-pointer" :class="{ 'bg-primary text-white': route.name === 'QuizzesPage' }" :title="newQuizzesTooltip">
                 <QuestionMarkCircleIcon class="h-6 w-6 flex-shrink-0" />
                 <span class="ml-3">I Miei Quiz</span>
                 <span v-if="newQuizzesCount > 0"
                       class="absolute top-1 right-1 h-5 w-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center ring-2 ring-secondary">
                   {{ newQuizzesCount }}
                 </span>
-              </router-link>
+              </a>
             </li>
             <!-- Le Mie Lezioni (incorporate) -->
             <li class="mb-3">
-              <router-link :to="{ name: 'EmbeddedLessons' }" @click="forceNavigateAndCloseMobileMenu({ name: 'EmbeddedLessons' })" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700 relative" :title="newLessonsTooltip">
+              <a @click="navigateAndCloseMobileMenu('EmbeddedLessons')" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700 relative cursor-pointer" :class="{ 'bg-primary text-white': route.name === 'EmbeddedLessons' }" :title="newLessonsTooltip">
                 <BookOpenIcon class="h-6 w-6 flex-shrink-0" />
                 <span class="ml-3">Le Mie Lezioni</span>
                 <span v-if="newLessonsCount > 0"
                       class="absolute top-1 right-1 h-5 w-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center ring-2 ring-secondary">
                   {{ newLessonsCount }}
                 </span>
-              </router-link>
+              </a>
             </li>
             <!-- Shop -->
             <li class="mb-3">
-              <router-link :to="{ name: 'shop' }" @click="forceNavigateAndCloseMobileMenu({ name: 'shop' })" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700" title="Shop">
+              <a @click="navigateAndCloseMobileMenu('shop')" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700 cursor-pointer" :class="{ 'bg-primary text-white': route.name === 'shop' }" title="Shop">
                 <ShoppingCartIcon class="h-6 w-6 flex-shrink-0" />
                 <span class="ml-3">Shop</span>
-              </router-link>
+              </a>
             </li>
             <!-- Acquisti -->
             <li class="mb-3">
-              <router-link :to="{ name: 'purchases' }" @click="forceNavigateAndCloseMobileMenu({ name: 'purchases' })" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700" title="Acquisti">
+              <a @click="navigateAndCloseMobileMenu('purchases')" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700 cursor-pointer" :class="{ 'bg-primary text-white': route.name === 'purchases' }" title="Acquisti">
                 <CreditCardIcon class="h-6 w-6 flex-shrink-0" />
                 <span class="ml-3">Acquisti</span>
-              </router-link>
+              </a>
             </li>
             <!-- Traguardi -->
             <li class="mb-3">
-              <router-link :to="{ name: 'Badges' }" @click="forceNavigateAndCloseMobileMenu({ name: 'Badges' })" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700" title="Traguardi">
+              <a @click="navigateAndCloseMobileMenu('Badges')" class="flex items-center p-2 rounded text-neutral-lightest hover:bg-purple-700 cursor-pointer" :class="{ 'bg-primary text-white': route.name === 'Badges' }" title="Traguardi">
                 <TrophyIcon class="h-6 w-6 flex-shrink-0" />
                 <span class="ml-3">Traguardi</span>
-              </router-link>
+              </a>
             </li>
           </ul>
         </nav>
@@ -523,84 +534,82 @@ const handleContentInteraction = () => {
       </aside>
     </div>
 
-    <!-- Contenuto Principale -->
-    <div class="flex flex-col flex-grow" @click="handleContentInteraction">
-        <!-- Header -->
-        <header v-if="authStore.isAuthenticated" class="bg-white shadow p-4 h-16 flex items-center justify-between flex-shrink-0">
-             <!-- Pulsante Hamburger (visibile solo su mobile) -->
-             <button
-                ref="mobileMenuButtonRef"
-                @click="toggleMobileMenu"
-                class="md:hidden p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded focus:outline-none focus:ring-2 focus:ring-inset focus:ring-purple-500">
-               <span class="sr-only">Apri menu principale</span>
-               <Bars3Icon class="h-6 w-6" />
-             </button>
+    <div class="flex flex-col flex-1 overflow-hidden">
+      <!-- Header -->
+      <header v-if="authStore.isAuthenticated" class="bg-white shadow p-4 h-16 flex items-center justify-between flex-shrink-0">
+           <!-- Pulsante Hamburger (visibile solo su mobile) -->
+           <button
+              ref="mobileMenuButtonRef"
+              @click="toggleMobileMenu"
+              class="md:hidden p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded focus:outline-none focus:ring-2 focus:ring-inset focus:ring-purple-500">
+             <span class="sr-only">Apri menu principale</span>
+             <Bars3Icon class="h-6 w-6" />
+           </button>
 
-             <!-- Placeholder per Titolo Pagina o Spazio (su desktop occupa spazio, su mobile no) -->
-             <div class="flex-1 md:ml-4"></div>
+           <!-- Placeholder per Titolo Pagina o Spazio (su desktop occupa spazio, su mobile no) -->
+           <div class="flex-1 md:ml-4"></div>
 
-             <!-- Pulsanti Header (Notifiche, Profilo) -->
-             <div class="flex items-center space-x-4">
-                 <!-- Pulsante Notifiche -->
-                 <div class="relative">
-                   <button @click="toggleNotificationsDropdown" class="p-2 rounded-full text-gray-500 hover:text-gray-700 hover:bg-gray-100 focus:outline-none focus:bg-gray-100 focus:ring-2 focus:ring-offset-2 focus:ring-purple-500">
-                       <span class="sr-only">View notifications</span>
-                       <BellIcon class="h-6 w-6" />
-                       <span v-if="notificationStore.unreadServerNotificationCount > 0" class="absolute top-0 right-0 block h-2 w-2 transform translate-x-1/2 -translate-y-1/2 rounded-full bg-red-500 ring-2 ring-white"></span>
-                   </button>
-                   <!-- Dropdown Notifiche -->
-                   <div v-if="isNotificationsOpen" class="absolute right-0 mt-2 w-80 bg-white rounded-md shadow-lg overflow-hidden z-20">
-                     <div class="py-2 px-4 text-sm text-gray-700 font-semibold border-b">Notifiche</div>
-                      <div v-if="notificationStore.isLoadingServerNotifications" class="p-4 text-sm text-gray-500 text-center">
-                        Caricamento...
-                      </div>
-                      <div v-else-if="notificationStore.serverNotificationsError" class="p-4 text-sm text-red-500">
-                        Errore: {{ notificationStore.serverNotificationsError }}
-                      </div>
-                      <div v-else-if="notificationStore.serverNotifications.length === 0" class="p-4 text-sm text-gray-500">
-                        Nessuna notifica.
-                      </div>
-                      <ul v-else class="divide-y divide-gray-200 max-h-96 overflow-y-auto">
-                        <li v-for="notification in notificationStore.serverNotifications" :key="notification.id"
-                            class="p-3 hover:bg-gray-50 cursor-pointer"
-                            @click="handleNotificationClick(notification, router)">
-                          <div class="flex justify-between items-center">
-                            <p class="text-sm text-gray-600" :class="{'font-semibold': !notification.is_read}">{{ notification.message }}</p>
-                            <span v-if="!notification.is_read" class="ml-2 h-2 w-2 bg-primary rounded-full"></span>
-                          </div>
-                          <p class="text-xs text-gray-400 mt-1">{{ new Date(notification.created_at).toLocaleString() }}</p>
-                        </li>
-                      </ul>
-                      <div v-if="notificationStore.serverNotifications.length > 0 && !notificationStore.isLoadingServerNotifications && !notificationStore.serverNotificationsError" class="py-2 px-4 border-t">
-                        <button
-                          @click="notificationStore.markAllServerNotificationsAsRead()"
-                          class="w-full text-sm text-primary hover:underline disabled:text-gray-400 disabled:no-underline"
-                          :disabled="notificationStore.unreadServerNotificationCount === 0">
-                          Segna tutte come lette
-                        </button>
-                      </div>
-                   </div>
-                 </div>
-
-                 <!-- Pulsante Profilo (Link diretto) -->
-                 <button @click="goToProfile" class="p-1 rounded-full text-gray-500 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500" title="Profilo">
-                     <span class="sr-only">Vai al profilo</span>
-                     <UserCircleIcon class="h-7 w-7" />
+           <!-- Pulsanti Header (Notifiche, Profilo) -->
+           <div class="flex items-center space-x-4">
+               <!-- Pulsante Notifiche -->
+               <div class="relative">
+                 <button @click="toggleNotificationsDropdown" class="p-2 rounded-full text-gray-500 hover:text-gray-700 hover:bg-gray-100 focus:outline-none focus:bg-gray-100 focus:ring-2 focus:ring-offset-2 focus:ring-purple-500">
+                     <span class="sr-only">View notifications</span>
+                     <BellIcon class="h-6 w-6" />
+                     <span v-if="notificationStore.unreadServerNotificationCount > 0" class="absolute top-0 right-0 block h-2 w-2 transform translate-x-1/2 -translate-y-1/2 rounded-full bg-red-500 ring-2 ring-white"></span>
                  </button>
-             </div>
-        </header>
-        <!-- Se non autenticato, mostra solo il contenuto senza header -->
-        <header v-else class="h-0"></header> <!-- Placeholder per mantenere struttura flex -->
+                 <!-- Dropdown Notifiche -->
+                 <div v-if="isNotificationsOpen" class="absolute right-0 mt-2 w-80 bg-white rounded-md shadow-lg overflow-hidden z-20">
+                   <div class="py-2 px-4 text-sm text-gray-700 font-semibold border-b">Notifiche</div>
+                    <div v-if="notificationStore.isLoadingServerNotifications" class="p-4 text-sm text-gray-500 text-center">
+                      Caricamento...
+                    </div>
+                    <div v-else-if="notificationStore.serverNotificationsError" class="p-4 text-sm text-red-500">
+                      Errore: {{ notificationStore.serverNotificationsError }}
+                    </div>
+                    <div v-else-if="notificationStore.serverNotifications.length === 0" class="p-4 text-sm text-gray-500">
+                      Nessuna notifica.
+                    </div>
+                    <ul v-else class="divide-y divide-gray-200 max-h-96 overflow-y-auto">
+                      <li v-for="notification in notificationStore.serverNotifications" :key="notification.id"
+                          class="p-3 hover:bg-gray-50 cursor-pointer"
+                          @click="handleNotificationClick(notification, router)">
+                        <div class="flex justify-between items-center">
+                          <p class="text-sm text-gray-600" :class="{'font-semibold': !notification.is_read}">{{ notification.message }}</p>
+                          <span v-if="!notification.is_read" class="ml-2 h-2 w-2 bg-primary rounded-full"></span>
+                        </div>
+                        <p class="text-xs text-gray-400 mt-1">{{ new Date(notification.created_at).toLocaleString() }}</p>
+                      </li>
+                    </ul>
+                    <div v-if="notificationStore.serverNotifications.length > 0 && !notificationStore.isLoadingServerNotifications && !notificationStore.serverNotificationsError" class="py-2 px-4 border-t">
+                      <button
+                        @click="notificationStore.markAllServerNotificationsAsRead()"
+                        class="w-full text-sm text-primary hover:underline disabled:text-gray-400 disabled:no-underline"
+                        :disabled="notificationStore.unreadServerNotificationCount === 0">
+                        Segna tutte come lette
+                      </button>
+                    </div>
+                 </div>
+               </div>
 
+               <!-- Pulsante Profilo (Link diretto) -->
+               <button @click="goToProfile" class="p-1 rounded-full text-gray-500 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500" title="Profilo">
+                   <span class="sr-only">Vai al profilo</span>
+                   <UserCircleIcon class="h-7 w-7" />
+               </button>
+           </div>
+      </header>
+      <!-- Se non autenticato, mostra solo il contenuto senza header -->
+      <header v-else class="h-0"></header> <!-- Placeholder per mantenere struttura flex -->
 
-        <!-- Area Contenuto -->
-        <!-- Aggiunto padding-top se header è visibile -->
-        <main class="flex-grow p-4 md:p-8 overflow-auto" :class="{ 'pt-20': authStore.isAuthenticated }">
-          <RouterView />
-        </main> <!-- Moved footer outside main -->
+      <!-- Area Contenuto -->
+      <main class="flex-1 overflow-y-auto p-4 md:p-8">
+        <Breadcrumb v-if="showBreadcrumb" />
+        <RouterView />
+      </main>
 
-        <!-- Footer Component -->
-        <AppFooter @openPrivacy="openPrivacyModal" @openCookie="openCookieModal" />
+      <!-- Footer Component -->
+      <AppFooter @openPrivacy="openPrivacyModal" @openCookie="openCookieModal" class="flex-shrink-0" />
     </div>
 
   </div>

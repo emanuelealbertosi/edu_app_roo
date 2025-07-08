@@ -13,9 +13,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, onBeforeUnmount } from 'vue';
+import { useRouter } from 'vue-router';
 
 const lessonsIframeRef = ref<HTMLIFrameElement | null>(null);
+const router = useRouter();
 
 const lessonsAppBaseUrl = computed(() => (import.meta.env.VITE_LESSONS_APP_URL as string | undefined)?.replace(/\/$/, '') || '');
 const lessonsAppOrigin = computed(() => {
@@ -38,6 +40,19 @@ const lessonsAppOrigin = computed(() => {
 
 const pageUrl = computed(() => `${lessonsAppBaseUrl.value}/materie?embedded=true`);
 
+const handleMessage = (event: MessageEvent) => {
+  // Aggiungi un controllo di sicurezza sull'origine del messaggio
+  if (event.origin !== lessonsAppOrigin.value) {
+    console.warn(`Messaggio ricevuto da un'origine non attendibile: ${event.origin}`);
+    return;
+  }
+
+  if (event.data && event.data.type === 'navigate-to-host-home') {
+    console.log('Messaggio ricevuto dall\'iframe per navigare alla home dell\'host.');
+    router.push({ name: 'dashboard' });
+  }
+};
+
 onMounted(() => {
   const iframe = lessonsIframeRef.value;
   if (iframe) {
@@ -54,13 +69,19 @@ onMounted(() => {
   } else {
     console.error('[EmbeddedTeacherSubjectsView] Riferimento Iframe non trovato in onMounted.');
   }
+
+  window.addEventListener('message', handleMessage);
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener('message', handleMessage);
 });
 </script>
 
 <style scoped>
 .embedded-view-container {
   width: 100%;
-  height: calc(100vh - 64px); /* Adjust 64px based on your header height */
+  height: 100%;
   display: flex;
 }
 .embedded-iframe {

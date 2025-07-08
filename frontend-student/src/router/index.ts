@@ -1,4 +1,4 @@
-import { createRouter, createWebHistory } from 'vue-router'
+import { createRouter, createWebHistory, type RouteLocationNormalized } from 'vue-router'
 import AuthService from '@/api/auth'; // Mantenuto per eventuali chiamate API specifiche se necessarie altrove
 import { usePathwayStore } from '@/stores/pathway';
 import { useSharedAuthStore } from '@/stores/sharedAuth'; // Importa lo store condiviso
@@ -32,31 +32,61 @@ const router = createRouter({
       path: '/dashboard',
       name: 'dashboard',
       component: () => import('../views/DashboardView.vue'),
-      meta: { requiresAuth: true }
+      meta: {
+        requiresAuth: true,
+        breadcrumb: () => [
+          { text: 'Home' }
+        ]
+      }
     },
     {
       path: '/shop',
       name: 'shop',
       component: () => import('../views/ShopView.vue'),
-      meta: { requiresAuth: true }
+      meta: {
+        requiresAuth: true,
+        breadcrumb: () => [
+          { text: 'Home', to: { name: 'dashboard' } },
+          { text: 'Shop' }
+        ]
+      }
     },
     {
       path: '/purchases',
       name: 'purchases',
       component: () => import('../views/PurchasesView.vue'),
-      meta: { requiresAuth: true }
+      meta: {
+        requiresAuth: true,
+        breadcrumb: () => [
+          { text: 'Home', to: { name: 'dashboard' } },
+          { text: 'I miei acquisti' }
+        ]
+      }
     },
     {
       path: '/badges',
       name: 'Badges',
       component: () => import('../views/BadgesView.vue'), // Aggiunto import dinamico
-      meta: { requiresAuth: true }
+      meta: {
+        requiresAuth: true,
+        breadcrumb: () => [
+          { text: 'Home', to: { name: 'dashboard' } },
+          { text: 'I miei badge' }
+        ]
+      }
     },
     {
       path: '/quiz/:id',
       name: 'quiz-details',
       component: () => import('../views/QuizDetailsView.vue'),
-      meta: { requiresAuth: true },
+      meta: {
+        requiresAuth: true,
+        breadcrumb: (route: RouteLocationNormalized) => [
+          { text: 'Home', to: { name: 'dashboard' } },
+          { text: 'I miei Quiz', to: { name: 'QuizzesPage' } },
+          { text: 'Dettaglio' }
+        ]
+      },
       props: true
     },
     {
@@ -64,7 +94,14 @@ const router = createRouter({
       path: '/quiz/:quizId/start',
       name: 'quiz-start-attempt',
       component: () => import('../views/QuizAttemptView.vue'),
-      meta: { requiresAuth: true },
+      meta: {
+        requiresAuth: true,
+        breadcrumb: (route: RouteLocationNormalized) => [
+          { text: 'Home', to: { name: 'dashboard' } },
+          { text: 'I miei Quiz', to: { name: 'QuizzesPage' } },
+          { text: 'Svolgimento' }
+        ]
+      },
       props: route => ({ quizId: Number(route.params.quizId) }) // Passa solo quizId
     },
     {
@@ -72,14 +109,28 @@ const router = createRouter({
       path: '/quiz/:quizId/attempt/:attemptId',
       name: 'quiz-attempt',
       component: () => import('../views/QuizAttemptView.vue'), // Usa la stessa vista per ora
-      meta: { requiresAuth: true },
+      meta: {
+        requiresAuth: true,
+        breadcrumb: (route: RouteLocationNormalized) => [
+          { text: 'Home', to: { name: 'dashboard' } },
+          { text: 'I miei Quiz', to: { name: 'QuizzesPage' } },
+          { text: 'Svolgimento' }
+        ]
+      },
       props: true // Passa sia quizId che attemptId
     },
     {
       path: '/pathway/:id',
       name: 'pathway-details',
       component: () => import('../views/PathwayDetailsView.vue'),
-      meta: { requiresAuth: true },
+      meta: {
+        requiresAuth: true,
+        breadcrumb: (route: RouteLocationNormalized) => [
+          { text: 'Home', to: { name: 'dashboard' } },
+          { text: 'Percorsi', to: { name: 'dashboard' } }, // Assumendo che i percorsi siano in dashboard
+          { text: 'Dettaglio' }
+        ]
+      },
       props: true
     },
     {
@@ -87,7 +138,14 @@ const router = createRouter({
       path: '/quiz/result/:attemptId',
       name: 'QuizResult', // Nome usato in QuizAttemptView.vue
       component: () => import('../views/QuizResultView.vue'),
-      meta: { requiresAuth: true },
+      meta: {
+        requiresAuth: true,
+        breadcrumb: (route: RouteLocationNormalized) => [
+          { text: 'Home', to: { name: 'dashboard' } },
+          { text: 'I miei Quiz', to: { name: 'QuizzesPage' } },
+          { text: 'Risultato' }
+        ]
+      },
       props: true // Passa attemptId come prop
     },
      {
@@ -95,7 +153,14 @@ const router = createRouter({
       path: '/pathway/result/:pathwayId',
       name: 'PathwayResult',
       component: () => import('../views/PathwayResultView.vue'),
-      meta: { requiresAuth: true },
+      meta: {
+        requiresAuth: true,
+        breadcrumb: (route: RouteLocationNormalized) => [
+          { text: 'Home', to: { name: 'dashboard' } },
+          { text: 'Percorsi', to: { name: 'dashboard' } },
+          { text: 'Risultato' }
+        ]
+      },
       props: true // Passa pathwayId come prop
     },
     {
@@ -103,7 +168,14 @@ const router = createRouter({
       path: '/pathway/:pathwayId/attempt',
       name: 'PathwayAttempt', // Nome usato in PathwayList.vue
       component: () => import('../views/PathwayAttemptView.vue'),
-      meta: { requiresAuth: true },
+      meta: {
+        requiresAuth: true,
+        breadcrumb: (route: RouteLocationNormalized) => [
+          { text: 'Home', to: { name: 'dashboard' } },
+          { text: 'Percorsi', to: { name: 'dashboard' } },
+          { text: 'Svolgimento' }
+        ]
+      },
       props: route => ({ pathwayId: Number(route.params.pathwayId) })
     },
     {
@@ -111,7 +183,13 @@ const router = createRouter({
       path: '/profile',
       name: 'Profile',
       component: () => import('../views/ProfileView.vue'),
-      meta: { requiresAuth: true }
+      meta: {
+        requiresAuth: true,
+        breadcrumb: () => [
+          { text: 'Home', to: { name: 'dashboard' } },
+          { text: 'Profilo' }
+        ]
+      }
     },
     // Rotta pubblica per la registrazione studente tramite token
     {
@@ -170,13 +248,26 @@ const router = createRouter({
       path: '/visualizza-lezioni',
       name: 'EmbeddedLessons',
       component: () => import('../views/EmbeddedLessonsView.vue'),
-      meta: { requiresAuth: true }
+      meta: {
+        requiresAuth: true,
+        hideHostBreadcrumb: true,
+        breadcrumb: () => [
+          { text: 'Home', to: { name: 'dashboard' } },
+          { text: 'Lezioni' }
+        ]
+      }
     },
     {
       path: '/i-miei-quiz', // Path per la nuova pagina dei quiz
       name: 'QuizzesPage',
       component: () => import('../views/QuizzesPageView.vue'),
-      meta: { requiresAuth: true }
+      meta: {
+        requiresAuth: true,
+        breadcrumb: () => [
+          { text: 'Home', to: { name: 'dashboard' } },
+          { text: 'I miei Quiz' }
+        ]
+      }
     },
     // Rotta 404 per pagine non trovate
     {
@@ -213,5 +304,6 @@ router.beforeEach(async (to, from, next) => {
     next(); // Procedi con la navigazione
   }
 })
+
 
 export default router

@@ -1,9 +1,23 @@
-import { createRouter, createWebHistory } from 'vue-router'
+import { createRouter, createWebHistory, type RouteLocationNormalized } from 'vue-router'
 // Importa le viste di login
 import TeacherAdminLoginView from '../views/TeacherAdminLoginView.vue' // Rinominata
 import StudentLoginView from '../views/StudentLoginView.vue' // Nuova
 import DashboardView from '../views/DashboardView.vue'
 // import NotFoundView from '../views/NotFoundView.vue'
+
+// Funzione helper per determinare il breadcrumb "Home"
+const getHomeBreadcrumb = () => {
+  // Controlla se l'app è in un iframe e se il parametro 'embedded' è presente
+  const urlParams = new URLSearchParams(window.location.search);
+  const isEmbedded = urlParams.get('embedded') === 'true';
+
+  if (isEmbedded) {
+    // Se è embedded, usa un oggetto speciale che il componente Breadcrumb interpreterà
+    return { text: 'Home', isHostLink: true };
+  }
+  // Altrimenti, linka alla dashboard interna
+  return { text: 'Home', to: { name: 'dashboard' } };
+};
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL), // Usa la history API HTML5
@@ -38,86 +52,182 @@ const router = createRouter({
       path: '/dashboard',
       name: 'dashboard',
       component: DashboardView,
-      meta: { requiresAuth: true } // Richiede autenticazione
+      meta: {
+        requiresAuth: true,
+        breadcrumb: () => [
+          getHomeBreadcrumb()
+        ]
+      }
     },
     // Aggiungere qui altre route per materie, argomenti, lezioni, ecc.
     {
       path: '/materie',
       name: 'subjects',
       component: () => import('../views/SubjectListView.vue'), // Lazy loading
-      meta: { requiresAuth: true, roles: ['Admin', 'Docente', 'Teacher', 'ADMIN', 'TEACHER'] } // Includi case corretto
+      meta: {
+        requiresAuth: true,
+        roles: ['Admin', 'Docente', 'Teacher', 'ADMIN', 'TEACHER'],
+        breadcrumb: () => [
+          getHomeBreadcrumb(),
+          { text: 'Materie' }
+        ]
+      }
     },
     {
       path: '/argomenti', // URL per la lista argomenti
       name: 'topics',
       component: () => import('../views/TopicListView.vue'), // Lazy loading
-      meta: { requiresAuth: true, roles: ['Admin', 'Docente', 'Teacher', 'ADMIN', 'TEACHER'] } // Includi case corretto
+      meta: {
+        requiresAuth: true,
+        roles: ['Admin', 'Docente', 'Teacher', 'ADMIN', 'TEACHER'],
+        breadcrumb: () => [
+          getHomeBreadcrumb(),
+          { text: 'Argomenti' }
+        ]
+      }
     },
      {
       path: '/docente', // Rotta per l'atterraggio del docente da /lezioni/docente
       name: 'teacher-landing', // Nome univoco
       component: () => import('../views/TeacherLessonListView.vue'), // Mostra la lista lezioni
-      meta: { requiresAuth: true, roles: ['Docente', 'Teacher', 'TEACHER'] } // Includi case corretto
+      meta: {
+        requiresAuth: true,
+        roles: ['Docente', 'Teacher', 'TEACHER'],
+        breadcrumb: () => [
+          getHomeBreadcrumb(),
+          { text: 'Le mie Lezioni' }
+        ]
+      }
      },
      {
       path: '/lezioni-docente', // URL alternativo per la lista lezioni del docente (se serve)
       name: 'teacher-lessons', // Nome diverso se si mantiene questa rotta
       component: () => import('../views/TeacherLessonListView.vue'),
-      meta: { requiresAuth: true, roles: ['Docente', 'Teacher', 'TEACHER'] } // Includi case corretto
+      meta: {
+        requiresAuth: true,
+        roles: ['Docente', 'Teacher', 'TEACHER'],
+        breadcrumb: () => [
+          getHomeBreadcrumb(),
+          { text: 'Le mie Lezioni' }
+        ]
+      }
     },
     {
       path: '/lezioni-assegnate', // URL per la lista lezioni dello studente
       name: 'assigned-lessons',
       component: () => import('../views/StudentLessonListView.vue'),
-      meta: { requiresAuth: true, roles: ['Studente', 'STUDENT'] } // Includi case corretto
+      meta: {
+        requiresAuth: true,
+        roles: ['Studente', 'STUDENT'],
+        breadcrumb: () => [
+          getHomeBreadcrumb(),
+          { text: 'Lezioni Assegnate' }
+        ]
+      }
     },
     {
       path: '/lezioni/:id(\\d+)', // Usa regex per assicurare che id sia numerico
       name: 'lesson-detail',
       component: () => import('../views/LessonDetailView.vue'),
       props: true, // Passa i parametri della route (id) come props al componente
-      meta: { requiresAuth: true } // Accessibile da Studenti e Docenti (permesso gestito nella vista/store)
+      meta: {
+        requiresAuth: true,
+        breadcrumb: () => [
+          getHomeBreadcrumb(),
+          { text: 'Lezioni', to: { name: 'teacher-lessons' } }, // o assigned-lessons
+          { text: 'Dettaglio' }
+        ]
+      }
     },
     {
       path: '/lezioni/:lessonId(\\d+)/contenuti', // Rotta per gestire i contenuti
       name: 'lesson-contents',
       component: () => import('../views/LessonContentView.vue'),
       props: true, // Passa lessonId come prop
-      meta: { requiresAuth: true, roles: ['Docente', 'Teacher', 'TEACHER'] } // Includi case corretto
+      meta: {
+        requiresAuth: true,
+        roles: ['Docente', 'Teacher', 'TEACHER'],
+        breadcrumb: (route: RouteLocationNormalized) => [
+          getHomeBreadcrumb(),
+          { text: 'Lezioni', to: { name: 'teacher-lessons' } },
+          { text: `Lezione ${route.params.lessonId}`, to: { name: 'lesson-detail', params: { id: route.params.lessonId } } },
+          { text: 'Contenuti' }
+        ]
+      }
     },
      {
       path: '/lezioni/:lessonId(\\d+)/assegna', // Rotta per assegnare la lezione
       name: 'lesson-assign',
       component: () => import('../views/LessonAssignView.vue'),
       props: true, // Passa lessonId come prop
-      meta: { requiresAuth: true, roles: ['Docente', 'Teacher', 'TEACHER'] } // Includi case corretto
+      meta: {
+        requiresAuth: true,
+        roles: ['Docente', 'Teacher', 'TEACHER'],
+        breadcrumb: (route: RouteLocationNormalized) => [
+          getHomeBreadcrumb(),
+          { text: 'Lezioni', to: { name: 'teacher-lessons' } },
+          { text: `Lezione ${route.params.lessonId}`, to: { name: 'lesson-detail', params: { id: route.params.lessonId } } },
+          { text: 'Assegna' }
+        ]
+      }
     },
     // --- Route per i Corsi (Courses) ---
     {
       path: '/courses',
       name: 'course-list',
       component: () => import('../views/courses/CourseListView.vue'),
-      meta: { requiresAuth: true, roles: ['Docente', 'Teacher', 'TEACHER'] }
+      meta: {
+        requiresAuth: true,
+        roles: ['Docente', 'Teacher', 'TEACHER'],
+        breadcrumb: () => [
+          getHomeBreadcrumb(),
+          { text: 'Corsi' }
+        ]
+      }
     },
     {
       path: '/courses/new',
       name: 'course-new',
       component: () => import('../views/courses/CourseFormView.vue'),
-      meta: { requiresAuth: true, roles: ['Docente', 'Teacher', 'TEACHER'] }
+      meta: {
+        requiresAuth: true,
+        roles: ['Docente', 'Teacher', 'TEACHER'],
+        breadcrumb: () => [
+          getHomeBreadcrumb(),
+          { text: 'Corsi', to: { name: 'course-list' } },
+          { text: 'Nuovo' }
+        ]
+      }
     },
     {
       path: '/courses/:id(\\d+)',
       name: 'course-detail',
       component: () => import('../views/courses/CourseDetailView.vue'),
       props: true,
-      meta: { requiresAuth: true, roles: ['Docente', 'Teacher', 'TEACHER'] }
+      meta: {
+        requiresAuth: true,
+        roles: ['Docente', 'Teacher', 'TEACHER'],
+        breadcrumb: () => [
+          getHomeBreadcrumb(),
+          { text: 'Corsi', to: { name: 'course-list' } },
+          { text: 'Dettaglio' }
+        ]
+      }
     },
     {
       path: '/courses/:id(\\d+)/edit',
       name: 'course-edit',
       component: () => import('../views/courses/CourseFormView.vue'),
       props: true,
-      meta: { requiresAuth: true, roles: ['Docente', 'Teacher', 'TEACHER'] }
+      meta: {
+        requiresAuth: true,
+        roles: ['Docente', 'Teacher', 'TEACHER'],
+        breadcrumb: (route: RouteLocationNormalized) => [
+          getHomeBreadcrumb(),
+          { text: 'Corsi', to: { name: 'course-list' } },
+          { text: `Modifica Corso ${route.params.id}`, to: { name: 'course-detail', params: { id: route.params.id } } },
+        ]
+      }
     },
     // --- Fine Route Corsi ---
 
@@ -126,27 +236,58 @@ const router = createRouter({
       path: '/udas',
       name: 'uda-list',
       component: () => import('../views/uda/UdaListView.vue'),
-      meta: { requiresAuth: true, roles: ['Docente', 'Teacher', 'TEACHER'] }
+      meta: {
+        requiresAuth: true,
+        roles: ['Docente', 'Teacher', 'TEACHER'],
+        breadcrumb: () => [
+          getHomeBreadcrumb(),
+          { text: 'UDA' }
+        ]
+      }
     },
     {
       path: '/udas/new',
       name: 'uda-new',
       component: () => import('../views/uda/UdaFormView.vue'), // Può usare un template opzionale
-      meta: { requiresAuth: true, roles: ['Docente', 'Teacher', 'TEACHER'] }
+      meta: {
+        requiresAuth: true,
+        roles: ['Docente', 'Teacher', 'TEACHER'],
+        breadcrumb: () => [
+          getHomeBreadcrumb(),
+          { text: 'UDA', to: { name: 'uda-list' } },
+          { text: 'Nuova' }
+        ]
+      }
     },
     {
       path: '/udas/:id(\\d+)',
       name: 'uda-detail',
       component: () => import('../views/uda/UdaDetailView.vue'),
       props: true,
-      meta: { requiresAuth: true, roles: ['Docente', 'Teacher', 'TEACHER'] }
+      meta: {
+        requiresAuth: true,
+        roles: ['Docente', 'Teacher', 'TEACHER'],
+        breadcrumb: () => [
+          getHomeBreadcrumb(),
+          { text: 'UDA', to: { name: 'uda-list' } },
+          { text: 'Dettaglio' }
+        ]
+      }
     },
     {
       path: '/udas/:id(\\d+)/edit',
       name: 'uda-edit',
       component: () => import('../views/uda/UdaFormView.vue'),
       props: true,
-      meta: { requiresAuth: true, roles: ['Docente', 'Teacher', 'TEACHER'] }
+      meta: {
+        requiresAuth: true,
+        roles: ['Docente', 'Teacher', 'TEACHER'],
+        breadcrumb: (route: RouteLocationNormalized) => [
+          getHomeBreadcrumb(),
+          { text: 'UDA', to: { name: 'uda-list' } },
+          { text: `Modifica UDA ${route.params.id}`, to: { name: 'uda-detail', params: { id: route.params.id } } },
+        ]
+      }
     },
     // --- Fine Route UDA ---
 
@@ -174,7 +315,7 @@ router.beforeEach(async (to, from, next) => {
   const requiredRoles = to.meta.roles as string[] | undefined;
   const isAuthenticated = sharedAuth.isAuthenticated; // Usa stato condiviso
 
-  console.log(`Guard: To: ${String(to.name)}, From: ${String(from.name)}, Auth: ${isAuthenticated}, Role: ${sharedAuth.userRole}, Query: ${JSON.stringify(to.query)}`);
+  console.log(`[Router Guard] beforeEach: Navigating from ${from.fullPath} to ${to.fullPath}`);
 
   // Logica per far persistere il query parameter 'embedded'
   if (from.query.embedded === 'true' && to.query.embedded !== 'true') {
@@ -218,5 +359,6 @@ router.beforeEach(async (to, from, next) => {
     next();
   }
 });
+
 
 export default router

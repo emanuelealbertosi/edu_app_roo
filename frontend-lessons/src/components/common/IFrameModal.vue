@@ -13,16 +13,29 @@
 </template>
 
 <script setup lang="ts">
+import { onMounted, onBeforeUnmount } from 'vue';
+import { useUiStore } from '@/stores/ui';
+
 defineProps<{
   src: string;
   title: string;
 }>();
 
 const emit = defineEmits(['close']);
+const uiStore = useUiStore();
 
 const close = () => {
+  uiStore.setModalOpen(false);
   emit('close');
 };
+
+onMounted(() => {
+  uiStore.setModalOpen(true);
+});
+
+onBeforeUnmount(() => {
+  uiStore.setModalOpen(false);
+});
 </script>
 
 <style scoped>

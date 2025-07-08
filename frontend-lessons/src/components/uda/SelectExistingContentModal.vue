@@ -213,7 +213,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, computed } from 'vue'; // Aggiunto computed
+import { ref, onMounted, watch, computed, onBeforeUnmount } from 'vue'; // Aggiunto computed
 import { useLessonStore } from '@/stores/lessons';
 import { useQuizStore } from '@/stores/quizStore';
 import { useTopicStore } from '@/stores/topicStore';
@@ -342,6 +342,7 @@ const loadQuizTemplates = async () => {
 };
 
 onMounted(async () => {
+  uiStore.setModalOpen(true);
   loading.value = true;
   errorLoadingContent.value = null;
   try {
@@ -362,6 +363,10 @@ onMounted(async () => {
   } finally {
     loading.value = false;
   }
+});
+
+onBeforeUnmount(() => {
+  uiStore.setModalOpen(false);
 });
 
 watch(activeTab, async (newTab, oldTab) => {
@@ -387,6 +392,7 @@ watch(activeTab, async (newTab, oldTab) => {
 
 const closeModal = () => {
   if (isConfirming.value) return;
+  uiStore.setModalOpen(false);
   emit('close');
 };
 

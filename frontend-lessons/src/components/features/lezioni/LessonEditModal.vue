@@ -78,8 +78,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, computed, onMounted, type PropType } from 'vue';
+import { ref, watch, computed, onMounted, onBeforeUnmount, type PropType } from 'vue';
 import { useSubjectStore } from '@/stores/subjectStore';
+import { useUiStore } from '@/stores/ui'; // Importa lo store UI corretto
 import type { TopicSummary, Lesson } from '@/types/lezioni';
 
 
@@ -113,6 +114,7 @@ const editableLesson = ref({
 });
 const formError = ref<string | null>(null);
 const subjectStore = useSubjectStore();
+const uiStore = useUiStore(); // Usa lo store UI
 
 const isEditing = computed(() => !!(props.lesson && props.lesson.id));
 
@@ -142,10 +144,15 @@ watch(() => props.lesson, (newLesson) => {
 
 
 onMounted(async () => {
+  uiStore.setModalOpen(true); // Imposta lo stato della modale all'apertura
   // Le materie sono necessarie per raggruppare gli argomenti nel menu a discesa.
   if (subjectStore.subjects.length === 0) {
     await subjectStore.fetchSubjects();
   }
+});
+
+onBeforeUnmount(() => {
+  uiStore.setModalOpen(false); // Assicura che lo stato sia reimpostato alla chiusura
 });
 
 const groupedTopics = computed(() => {
@@ -171,6 +178,7 @@ const groupedTopics = computed(() => {
 
 
 const close = () => {
+  uiStore.setModalOpen(false); // Reimposta lo stato prima di chiudere
   emit('close');
 };
 

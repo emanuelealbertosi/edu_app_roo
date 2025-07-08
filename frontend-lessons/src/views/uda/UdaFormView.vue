@@ -1,5 +1,5 @@
 <template>
-  <div class="uda-form-view p-4 md:p-8">
+  <div class="uda-form-view">
     <h1 class="text-3xl font-bold bg-blue-600 text-white p-4 rounded-t-lg mb-6 shadow-md">{{ pageTitle }}</h1>
 
     <div v-if="loadingInitialData" class="text-center py-10">
@@ -728,7 +728,7 @@ const handleEditLessonContents = (lessonId: number) => {
   const routeData = router.resolve({
     name: 'lesson-contents',
     params: { lessonId: lessonId.toString() },
-    query: { embedded: 'true', modal: 'true' }
+    query: { embedded: 'true', inModal: 'true' }
   });
   iframeSrc.value = routeData.href;
   showIframeModal.value = true;

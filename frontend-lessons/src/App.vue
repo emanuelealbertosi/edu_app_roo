@@ -3,10 +3,12 @@ import { computed, onMounted, watch } from 'vue'; // Rimossi ref, useRouter, onB
 import { useSharedAuthStore } from '@/stores/sharedAuth'; // Importa lo store condiviso
 import { useLessonStore } from '@/stores/lessons'; // Importa lo store delle lezioni
 import { RouterView, useRoute } from 'vue-router'; // RouterView e useRoute importate qui. Rimossi RouterLink, useRouter
+import { useUiStore } from '@/stores/ui'; // Importa lo store UI corretto
 // import emitter from '@/eventBus'; // Rimosso se non usato per i modali da qui
 // Rimosso import GlobalLoadingIndicator perché non esiste in questo FE
 // import GlobalLoadingIndicator from '@/components/common/GlobalLoadingIndicator.vue';
 import GlobalNotificationDisplay from '@/components/common/GlobalNotificationDisplay.vue';
+import Breadcrumb from '@/components/common/Breadcrumb.vue';
 // Icone rimosse perché non più usate per menu/header
 // import {
 //   HomeIcon,
@@ -27,6 +29,7 @@ import GlobalNotificationDisplay from '@/components/common/GlobalNotificationDis
 const sharedAuth = useSharedAuthStore(); // Usa lo store condiviso
 const lessonStore = useLessonStore(); // Usa lo store delle lezioni
 const route = useRoute(); // Istanza di useRoute
+const uiStore = useUiStore(); // Usa lo store UI
 
 // Variabili e funzioni per menu, notifiche header, create dropdown, logout rimosse
 // const isMobileMenuOpen = ref(false);
@@ -76,27 +79,20 @@ const isEmbeddedMode = computed(() => { // Mantenuto se serve ad altri component
   return route.query.embedded === 'true';
 });
 
+const showBreadcrumb = computed(() => {
+  const inModal = route.query.inModal === 'true';
+  return !uiStore.isModalOpen && !route.meta.hideBreadcrumb && !inModal;
+});
 </script>
 
 <template>
-  <!-- Rimosso <GlobalLoadingIndicator /> -->
   <GlobalNotificationDisplay />
 
-  <div class="flex h-screen bg-gray-100 font-sans">
-    <!-- Sidebar Desktop (visibile da md in su) - RIMOSSA -->
-    <!-- Sidebar Mobile (Overlay) - RIMOSSA -->
-
-    <!-- Contenuto Principale -->
-    <div class="flex flex-col flex-grow min-w-0">
-        <!-- Header - RIMOSSO -->
-        
-        <!-- Area Contenuto -->
-        <!-- La classe pt-20 condizionale è rimossa perché l'header è rimosso -->
-        <main class="flex-grow overflow-auto" :class="{ 'p-4 md:p-8': !isEmbeddedMode }">
-         <RouterView /> <!-- RouterView importata nello script -->
-       </main>
+  <div class="flex flex-col h-full">
+    <Breadcrumb v-if="showBreadcrumb" class="flex-shrink-0" />
+    <div class="flex-1 overflow-y-auto">
+      <RouterView />
     </div>
-
   </div>
 </template>
 
