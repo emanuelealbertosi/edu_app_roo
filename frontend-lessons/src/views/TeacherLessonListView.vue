@@ -130,6 +130,9 @@
                   <FolderPlusIcon v-else class="h-5 w-5 mr-2 text-blue-600" />
                   <span>{{ group.name }} ({{ group.lessons.length }})</span>
                   <div class="ml-auto flex items-center space-x-2">
+                    <button @click.stop="handleRenameGroup(group)" class="text-gray-500 hover:text-blue-600" title="Rinomina Gruppo">
+                      <PencilIcon class="h-4 w-4" />
+                    </button>
                     <button @click.stop="confirmDeleteGroup(group)" class="text-red-500 hover:text-red-700" title="Elimina Gruppo">
                       <TrashIcon class="h-4 w-4" />
                     </button>
@@ -493,6 +496,19 @@ const handleGroupSave = async (groupName: string) => {
     selectedLessons.value.clear();
   }
   showGroupModal.value = false;
+};
+
+const handleRenameGroup = (group: LessonGroup) => {
+  const newName = prompt(`Rinomina il gruppo "${group.name}":`, group.name);
+  if (newName && newName.trim() !== '' && newName.trim() !== group.name) {
+    lessonStore.updateLessonGroup(group.id, newName.trim())
+      .then(() => {
+        uiStore.addNotification({ message: 'Gruppo rinominato con successo.', type: 'success' });
+      })
+      .catch(err => {
+        uiStore.addNotification({ message: `Errore durante la rinomina del gruppo: ${err.message}`, type: 'error' });
+      });
+  }
 };
 
 const openAssignToGroupModal = () => {

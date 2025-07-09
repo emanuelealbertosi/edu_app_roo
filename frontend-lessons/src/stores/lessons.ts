@@ -538,6 +538,36 @@ export const useLessonStore = defineStore('lessons', {
         }
     },
 
+    async updateLessonGroup(groupId: number, newName: string): Promise<LessonGroup | null> {
+      this.isLoadingLessonGroups = true;
+      this.error = null;
+      try {
+        const response = await localApiClient.patch(`/lezioni/groups/${groupId}/`, { name: newName });
+        const updatedGroup = response.data as LessonGroup;
+
+        // Aggiorna lo stato locale
+        const groupIndex = this.lessonGroups.findIndex(g => g.id === groupId);
+        if (groupIndex !== -1) {
+          this.lessonGroups[groupIndex] = updatedGroup;
+        }
+
+        // Aggiorna il nome del gruppo in tutte le lezioni associate
+        this.lessons.forEach(lesson => {
+          if (lesson.group?.id === groupId) {
+            lesson.group.name = updatedGroup.name;
+          }
+        });
+
+        return updatedGroup;
+      } catch (err: any) {
+        console.error(`Errore nell'aggiornamento del gruppo di lezioni ${groupId}:`, err);
+        this.error = err.response?.data?.detail || err.message || 'Errore sconosciuto';
+        throw new Error(this.error || 'Errore durante l\'aggiornamento del gruppo');
+      } finally {
+        this.isLoadingLessonGroups = false;
+      }
+    },
+
     async assignLessonsToGroup(groupId: number, lessonIds: number[]): Promise<boolean> {
         this.isLoading = true;
         this.error = null;

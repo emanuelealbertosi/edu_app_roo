@@ -100,6 +100,19 @@ export type UDATemplateContent =
 // Tipo per lo stato dell'UDA
 export type UDAStatus = 'TODO' | 'IN_PROGRESS' | 'COMPLETED';
 
+// Interfacce per i gruppi
+export interface CourseGroup {
+  id: number;
+  name: string;
+  teacher: number;
+}
+
+export interface UdaGroup {
+  id: number;
+  name: string;
+  teacher: number;
+}
+
 // Interfaccia per UDA (Unità Didattica di Apprendimento)
 export interface UDA {
   id: number;
@@ -131,6 +144,8 @@ export interface UDA {
   topics?: number[]; // Array di ID di Topic
   status: UDAStatus; // Usa il tipo esportato
   order_in_course?: number | null;
+  group?: UdaGroup | null;
+  group_id?: number | null;
   contents: UDAContent[]; // Array di contenuti specifici dell'UDA
   created_at: string;
   updated_at: string;
@@ -147,6 +162,8 @@ export interface Course {
   teacher_username?: string; // Username dell'autore del corso
   name: string;
   description?: string | null;
+  group?: CourseGroup | null;
+  group_id?: number | null;
   created_at: string;
   updated_at: string;
   // Campo opzionale per contenere le UDA quando fetchate specificamente per un corso

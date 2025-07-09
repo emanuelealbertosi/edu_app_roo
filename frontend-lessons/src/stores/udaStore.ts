@@ -1,15 +1,151 @@
 import { defineStore } from 'pinia';
 import { udaService } from '@/services/udaService';
-import type { UDA, UDAContent } from '@/types/uda';
+import type { UDA, UDAContent, UdaGroup } from '@/types/uda';
 
 export const useUdaStore = defineStore('uda', {
   state: () => ({
     udas: [] as UDA[],
+    udaGroups: [] as UdaGroup[],
     currentUda: null as UDA | null,
     loading: false,
+    isLoadingUdaGroups: false,
     error: null as string | null,
   }),
   actions: {
+    // GROUP ACTIONS
+    async fetchUdaGroups() {
+      this.isLoadingUdaGroups = true;
+      this.error = null;
+      try {
+        this.udaGroups = await udaService.getUdaGroups();
+      } catch (err) {
+        this.error = (err as Error).message || 'Failed to fetch UDA groups';
+        this.udaGroups = [];
+      } finally {
+        this.isLoadingUdaGroups = false;
+      }
+    },
+
+    async createUdaGroup(name: string): Promise<UdaGroup | undefined> {
+      this.isLoadingUdaGroups = true;
+      try {
+        const newGroup = await udaService.createUdaGroup({ name });
+        this.udaGroups.push(newGroup);
+        return newGroup;
+      } catch (error) {
+        this.error = (error as Error).message || 'Failed to create UDA group';
+        throw error;
+      } finally {
+        this.isLoadingUdaGroups = false;
+      }
+    },
+
+    async updateUdaGroup(id: number, name: string): Promise<UdaGroup | undefined> {
+        this.isLoadingUdaGroups = true;
+        try {
+            const updatedGroup = await udaService.updateUdaGroup(id, { name });
+            const index = this.udaGroups.findIndex(g => g.id === id);
+            if (index !== -1) {
+                this.udaGroups[index] = updatedGroup;
+            }
+            this.udas.forEach(uda => {
+                if (uda.group?.id === id) {
+                    uda.group = updatedGroup;
+                }
+            });
+            return updatedGroup;
+        } catch (error) {
+            this.error = (error as Error).message || 'Failed to update UDA group';
+            throw error;
+        } finally {
+            this.isLoadingUdaGroups = false;
+        }
+    },
+
+    async deleteUdaGroup(id: number) {
+      this.isLoadingUdaGroups = true;
+      try {
+        await udaService.deleteUdaGroup(id);
+        this.udaGroups = this.udaGroups.filter(g => g.id !== id);
+        this.udas.forEach(uda => {
+          if (uda.group?.id === id) {
+            uda.group = null;
+            uda.group_id = null;
+          }
+        });
+      } catch (error) {
+        this.error = (error as Error).message || 'Failed to delete UDA group';
+        throw error;
+      } finally {
+        this.isLoadingUdaGroups = false;
+      }
+    },
+
+    async assignUdasToGroup(udaIds: number[], groupId: number | null) {
+        this.loading = true;
+        try {
+            const group = this.udaGroups.find(g => g.id === groupId) || null;
+            this.udas.forEach(uda => {
+                if (udaIds.includes(uda.id)) {
+                    uda.group = group;
+                    uda.group_id = groupId;
+                }
+            });
+            const updatePromises = udaIds.map(udaId =>
+                udaService.updateUda(udaId, { group_id: groupId })
+            );
+            await Promise.all(updatePromises);
+        } catch (error) {
+            this.error = (error as Error).message || 'Failed to assign UDAs to group';
+            await this.fetchUdas(); // Rollback
+            throw error;
+        } finally {
+            this.loading = false;
+        }
+    },
+
+    async removeUdaFromGroup(udaId: number) {
+        this.loading = true;
+        try {
+            const uda = this.udas.find(u => u.id === udaId);
+            if (uda) {
+                uda.group = null;
+                uda.group_id = null;
+            }
+            await udaService.updateUda(udaId, { group_id: null });
+        } catch (error) {
+            this.error = (error as Error).message || 'Failed to remove UDA from group';
+            await this.fetchUdas(); // Rollback
+            throw error;
+        } finally {
+            this.loading = false;
+        }
+    },
+
+    async removeUdasFromGroup(udaIds: number[]) {
+        this.loading = true;
+        try {
+            // Ottimisticamente
+            this.udas.forEach(uda => {
+                if (udaIds.includes(uda.id)) {
+                    uda.group = null;
+                    uda.group_id = null;
+                }
+            });
+            const updatePromises = udaIds.map(udaId =>
+                udaService.updateUda(udaId, { group_id: null })
+            );
+            await Promise.all(updatePromises);
+        } catch (error) {
+            this.error = (error as Error).message || 'Failed to remove UDAs from group';
+            await this.fetchUdas(); // Rollback
+            throw error;
+        } finally {
+            this.loading = false;
+        }
+    },
+
+    // UDA ACTIONS
     async fetchUdas(filters?: { status?: 'TODO' | 'IN_PROGRESS' | 'COMPLETED', courseId?: number }) {
       this.loading = true;
       this.error = null;
@@ -129,7 +265,7 @@ export const useUdaStore = defineStore('uda', {
 
     async updateUda(
       udaId: number,
-      udaData: Partial<Omit<UDA, 'id' | 'teacher' | 'created_at' | 'updated_at' | 'contents' | 'topics' | 'subject' | 'subjects' | 'course'>> & { topics?: number[], subject_ids?: number[], course_id?: number | null, knowledge_html?: string | null, skills_html?: string | null, competences_html?: string | null, is_civic_education?: boolean, didactic_strategies_html?: string | null, materials_tools_html?: string | null, assessment_type_html?: string | null, evaluation_html?: string | null, other_involved_subjects_text?: string | null, export_specific_annotations_html?: string | null },
+      udaData: Partial<Omit<UDA, 'id' | 'teacher' | 'created_at' | 'updated_at' | 'contents' | 'topics' | 'subject' | 'subjects' | 'course'>> & { group_id?: number | null, topics?: number[], subject_ids?: number[], course_id?: number | null, knowledge_html?: string | null, skills_html?: string | null, competences_html?: string | null, is_civic_education?: boolean, didactic_strategies_html?: string | null, materials_tools_html?: string | null, assessment_type_html?: string | null, evaluation_html?: string | null, other_involved_subjects_text?: string | null, export_specific_annotations_html?: string | null },
       options: { silent?: boolean } = {}
     ): Promise<UDA | undefined> {
       if (!options.silent) {

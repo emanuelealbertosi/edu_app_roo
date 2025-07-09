@@ -68,6 +68,46 @@ def sanitize_html(html_content):
     logger.debug(f"Sanitizing HTML (output type: {type(sanitized)}): '{str(sanitized)[:200]}'")
     return sanitized
 
+
+class CourseGroup(models.Model):
+    teacher = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='course_groups'
+    )
+    name = models.CharField(max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        app_label = 'uda'
+        unique_together = ('teacher', 'name')
+        verbose_name = "Course Group"
+        verbose_name_plural = "Course Groups"
+
+    def __str__(self):
+        return self.name
+
+
+class UdaGroup(models.Model):
+    teacher = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='uda_groups'
+    )
+    name = models.CharField(max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        app_label = 'uda'
+        unique_together = ('teacher', 'name')
+        verbose_name = "UDA Group"
+        verbose_name_plural = "UDA Groups"
+
+    def __str__(self):
+        return self.name
+
 class Course(models.Model):
    teacher = models.ForeignKey(
        settings.AUTH_USER_MODEL,
@@ -76,6 +116,13 @@ class Course(models.Model):
    )
    name = models.CharField(max_length=255)
    description = models.TextField(blank=True, null=True)
+   group = models.ForeignKey(
+       'CourseGroup',
+       on_delete=models.SET_NULL,
+       related_name='courses',
+       null=True,
+       blank=True
+   )
    created_at = models.DateTimeField(auto_now_add=True)
    updated_at = models.DateTimeField(auto_now=True)
 
@@ -251,6 +298,13 @@ class UDA(models.Model):
         max_length=20,
         choices=STATUS_CHOICES,
         default='TODO'
+    )
+    group = models.ForeignKey(
+        'UdaGroup',
+        on_delete=models.SET_NULL,
+        related_name='udas',
+        null=True,
+        blank=True
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

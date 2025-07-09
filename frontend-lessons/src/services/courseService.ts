@@ -1,9 +1,31 @@
-import type { Course, UDA } from '@/types/uda'; // Assumendo che i tipi siano definiti qui
+import type { Course, UDA, CourseGroup } from '@/types/uda'; // Assumendo che i tipi siano definiti qui
 import apiClient from './apiClient'; // Assumendo un client API configurato
 
 const BASE_URL = '/uda/courses/';
+const GROUP_BASE_URL = '/uda/course-groups/';
 
 export const courseService = {
+  // Course Group Methods
+  async getCourseGroups(): Promise<CourseGroup[]> {
+    const response = await apiClient.get(GROUP_BASE_URL);
+    return response.data;
+  },
+
+  async createCourseGroup(groupData: { name: string }): Promise<CourseGroup> {
+    const response = await apiClient.post(GROUP_BASE_URL, groupData);
+    return response.data;
+  },
+
+  async updateCourseGroup(id: number, groupData: { name: string }): Promise<CourseGroup> {
+    const response = await apiClient.put(`${GROUP_BASE_URL}${id}/`, groupData);
+    return response.data;
+  },
+
+  async deleteCourseGroup(id: number): Promise<void> {
+    await apiClient.delete(`${GROUP_BASE_URL}${id}/`);
+  },
+
+  // Course Methods
   async getCourses(): Promise<Course[]> {
     const response = await apiClient.get(BASE_URL);
     return response.data;
@@ -20,7 +42,7 @@ export const courseService = {
   },
 
   async updateCourse(id: number, courseData: Partial<Course>): Promise<Course> {
-    const response = await apiClient.put(`${BASE_URL}${id}`, courseData);
+    const response = await apiClient.patch(`${BASE_URL}${id}/`, courseData);
     return response.data;
   },
 

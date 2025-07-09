@@ -1,303 +1,266 @@
 <template>
-  <div class="uda-list-view p-4 md:p-8">
+  <div class="uda-list-container p-6">
     <!-- Intestazione con sfondo blu -->
     <div class="bg-blue-600 text-white p-4 rounded-md mb-6 flex justify-between items-center">
-      <h2 class="text-2xl font-semibold">Elenco Unità Didattiche (UDA)</h2>
-      <!-- Pulsante stile adattato per contrasto -->
+      <h2 class="text-2xl font-semibold">Le Mie UDA</h2>
       <RouterLink
         :to="{ name: 'uda-new' }"
         class="flex items-center px-3 py-2 bg-white text-blue-600 rounded-md shadow-sm hover:bg-blue-100 transition duration-150 ease-in-out font-medium"
       >
         <PlusCircleIcon class="h-5 w-5 sm:mr-2" />
-        <span class="hidden sm:inline">Nuova UDA</span>
+        <span class="hidden sm:inline">Crea Nuova UDA</span>
       </RouterLink>
     </div>
 
     <!-- Campo di Ricerca -->
-    <div class="mb-6">
-        <label for="udaSearch" class="sr-only">Cerca UDA</label>
-        <input
-            id="udaSearch"
-            type="text"
-            v-model="searchQuery"
-            placeholder="Cerca UDA per titolo, descrizione, stato, corso, materia, argomenti..."
-            class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-        />
+    <div class="mb-4">
+      <input
+        type="text"
+        v-model="searchQuery"
+        placeholder="Cerca UDA per titolo, descrizione, stato..."
+        class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+      />
     </div>
 
-    <div v-if="udaStore.loading" class="text-center py-10">
-      <p class="text-gray-600">Caricamento UDA...</p>
-    </div>
-    <div v-else-if="udaStore.error" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
-      <strong class="font-bold">Errore!</strong>
-      <span class="block sm:inline">{{ udaStore.error }}</span>
-    </div>
-    <div v-else-if="filteredUdas.length === 0" class="text-center py-10 bg-gray-50 rounded-md">
-       <p class="text-gray-600 text-lg" v-if="searchQuery">Nessuna UDA trovata per "{{ searchQuery }}".</p>
-       <p class="text-gray-600 text-lg" v-else>Nessuna UDA trovata.</p>
-       <p class="text-gray-500 mt-2" v-if="!searchQuery">Crea la tua prima UDA per iniziare.</p>
+    <!-- Azioni di gruppo -->
+    <div v-if="selectedUdas.size > 0" class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md flex items-center justify-between">
+      <span class="text-sm font-medium text-blue-700">{{ selectedUdas.size }} {{ selectedUdas.size === 1 ? 'UDA selezionata' : 'UDA selezionate' }}</span>
+      <div class="flex items-center space-x-2">
+        <button
+          @click="confirmRemoveSelectedFromGroup"
+          class="px-4 py-2 bg-red-100 border border-red-300 text-red-700 rounded-md shadow-sm hover:bg-red-200 transition duration-150 ease-in-out font-medium"
+          :disabled="!atLeastOneSelectedUdaInGroup"
+          title="Rimuovi le UDA selezionate dai loro gruppi"
+        >
+          Rimuovi dal Gruppo
+        </button>
+        <button
+          @click="openAssignToGroupModal"
+          class="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-md shadow-sm hover:bg-gray-50 transition duration-150 ease-in-out font-medium"
+          :disabled="udaStore.udaGroups.length === 0"
+          title="Aggiungi le UDA selezionate a un gruppo esistente"
+        >
+          Aggiungi a Gruppo...
+        </button>
+        <button @click="openCreateGroupModal" class="px-4 py-2 bg-blue-600 text-white rounded-md shadow-sm hover:bg-blue-700 transition duration-150 ease-in-out font-medium">
+          Crea Nuovo Gruppo...
+        </button>
+      </div>
     </div>
 
-    <!-- Tabella UDA Filtrate -->
-    <div v-else class="shadow-lg overflow-x-auto border-b border-gray-200 sm:rounded-lg">
+    <div v-if="udaStore.loading" class="text-center text-gray-500 py-10">
+      Caricamento UDA...
+    </div>
+
+    <div v-if="udaStore.error" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6" role="alert">
+      <strong class="font-bold">Errore:</strong>
+      <span class="block sm:inline"> {{ udaStore.error }}</span>
+    </div>
+
+    <!-- Tabella UDA con Gruppi -->
+    <div v-if="!udaStore.loading && (groupedUdas.grouped.length > 0 || groupedUdas.ungrouped.length > 0)" class="bg-white shadow-md rounded-lg overflow-hidden">
       <table class="min-w-full divide-y divide-gray-200">
         <thead class="bg-gray-50">
           <tr>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer transition-colors duration-200 hover:text-blue-600" @click="sortBy('title')">
-              Titolo
-              <span v-if="sortKey === 'title'"><ChevronUpIcon v-if="sortOrder === 'asc'" class="h-4 w-4 inline-block" /><ChevronDownIcon v-else class="h-4 w-4 inline-block" /></span>
+            <th scope="col" class="relative px-4 py-3">
+              <input type="checkbox" class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" @change="toggleSelectAll" :checked="areAllUdasSelected" :disabled="allVisibleUdaIds.length === 0" />
             </th>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer transition-colors duration-200 hover:text-blue-600" @click="sortBy('description')">
-              Descrizione
-              <span v-if="sortKey === 'description'"><ChevronUpIcon v-if="sortOrder === 'asc'" class="h-4 w-4 inline-block" /><ChevronDownIcon v-else class="h-4 w-4 inline-block" /></span>
-            </th>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer transition-colors duration-200 hover:text-blue-600" @click="sortBy('status')">
-              Stato
-              <span v-if="sortKey === 'status'"><ChevronUpIcon v-if="sortOrder === 'asc'" class="h-4 w-4 inline-block" /><ChevronDownIcon v-else class="h-4 w-4 inline-block" /></span>
-            </th>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer transition-colors duration-200 hover:text-blue-600" @click="sortBy('course_name')">
-              Corso
-              <span v-if="sortKey === 'course_name'"><ChevronUpIcon v-if="sortOrder === 'asc'" class="h-4 w-4 inline-block" /><ChevronDownIcon v-else class="h-4 w-4 inline-block" /></span>
-            </th>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer transition-colors duration-200 hover:text-blue-600" @click="sortBy('course_teacher_username')">
-              Creato da (Corso)
-              <span v-if="sortKey === 'course_teacher_username'"><ChevronUpIcon v-if="sortOrder === 'asc'" class="h-4 w-4 inline-block" /><ChevronDownIcon v-else class="h-4 w-4 inline-block" /></span>
-            </th>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer transition-colors duration-200 hover:text-blue-600" @click="sortBy('topics_display')">
-              Argomenti
-              <span v-if="sortKey === 'topics_display'"><ChevronUpIcon v-if="sortOrder === 'asc'" class="h-4 w-4 inline-block" /><ChevronDownIcon v-else class="h-4 w-4 inline-block" /></span>
-            </th>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer transition-colors duration-200 hover:text-blue-600" @click="sortBy('subjects_display')">
-              Materie
-              <span v-if="sortKey === 'subjects_display'"><ChevronUpIcon v-if="sortOrder === 'asc'" class="h-4 w-4 inline-block" /><ChevronDownIcon v-else class="h-4 w-4 inline-block" /></span>
-            </th>
-            <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer transition-colors duration-200 hover:text-blue-600" @click="sortBy('contents')">
-              Contenuti
-              <span v-if="sortKey === 'contents'"><ChevronUpIcon v-if="sortOrder === 'asc'" class="h-4 w-4 inline-block" /><ChevronDownIcon v-else class="h-4 w-4 inline-block" /></span>
-            </th>
-            <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer transition-colors duration-200 hover:text-blue-600" @click="sortBy('lesson_count')">
-              N. Lez.
-              <span v-if="sortKey === 'lesson_count'"><ChevronUpIcon v-if="sortOrder === 'asc'" class="h-4 w-4 inline-block" /><ChevronDownIcon v-else class="h-4 w-4 inline-block" /></span>
-            </th>
-            <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer transition-colors duration-200 hover:text-blue-600" @click="sortBy('total_lesson_estimated_hours')">
-              Ore Lez.
-              <span v-if="sortKey === 'total_lesson_estimated_hours'"><ChevronUpIcon v-if="sortOrder === 'asc'" class="h-4 w-4 inline-block" /><ChevronDownIcon v-else class="h-4 w-4 inline-block" /></span>
-            </th>
-            <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer transition-colors duration-200 hover:text-blue-600" @click="sortBy('total_estimated_hours')">
-              Ore Stimate Tot.
-              <span v-if="sortKey === 'total_estimated_hours'"><ChevronUpIcon v-if="sortOrder === 'asc'" class="h-4 w-4 inline-block" /><ChevronDownIcon v-else class="h-4 w-4 inline-block" /></span>
-            </th>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer transition-colors duration-200 hover:text-blue-600" @click="sortBy('start_date')">
-              Date (Inizio/Fine)
-              <span v-if="sortKey === 'start_date'"><ChevronUpIcon v-if="sortOrder === 'asc'" class="h-4 w-4 inline-block" /><ChevronDownIcon v-else class="h-4 w-4 inline-block" /></span>
-            </th>
-            <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Azioni
-            </th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" @click="sortBy('title')">Titolo</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" @click="sortBy('description')">Descrizione</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" @click="sortBy('status')">Stato</th>
+            <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Azioni</th>
           </tr>
         </thead>
         <tbody class="bg-white divide-y divide-gray-200">
-          <tr v-for="uda in filteredUdas" :key="uda.id" class="hover:bg-gray-50 transition-colors duration-150">
-            <td class="px-6 py-4 whitespace-nowrap">
-              <RouterLink :to="{ name: 'uda-detail', params: { id: uda.id } }" class="text-sm font-medium text-indigo-700 hover:text-indigo-900">
-                {{ uda.title }}
-              </RouterLink>
+          <!-- Itera sui gruppi -->
+          <template v-for="item in groupedUdas.grouped" :key="item.group.id">
+            <tr
+              class="bg-blue-50 hover:bg-blue-100 cursor-pointer"
+              @click="toggleGroup(item.group.id)"
+              :class="{ 'group-header-expanded': expandedGroups.has(item.group.id) }"
+            >
+              <td colspan="5" class="px-6 py-3 text-sm font-semibold text-blue-800">
+                <div class="flex items-center">
+                  <FolderMinusIcon v-if="expandedGroups.has(item.group.id)" class="h-5 w-5 mr-2 text-blue-700" />
+                  <FolderPlusIcon v-else class="h-5 w-5 mr-2 text-blue-600" />
+                  <span>{{ item.group.name }} ({{ item.udas.length }})</span>
+                  <div class="ml-auto flex items-center space-x-2">
+                    <button @click.stop="handleRenameGroup(item.group)" class="text-gray-500 hover:text-blue-600"><PencilIcon class="h-4 w-4"/></button>
+                    <button @click.stop="handleDeleteGroup(item.group)" class="text-gray-500 hover:text-red-600"><TrashIcon class="h-4 w-4"/></button>
+                    <ChevronDownIcon v-if="expandedGroups.has(item.group.id)" class="h-5 w-5" />
+                    <ChevronRightIcon v-else class="h-5 w-5" />
+                  </div>
+                </div>
+              </td>
+            </tr>
+            <!-- Itera sulle UDA del gruppo se espanso -->
+            <template v-if="expandedGroups.has(item.group.id)">
+              <tr v-for="(uda, index) in item.udas" :key="uda.id"
+                class="hover:bg-gray-50"
+                :class="{
+                  'bg-blue-50': selectedUdas.has(uda.id),
+                  'uda-in-expanded-group': true,
+                  'last-uda-in-group': index === item.udas.length - 1
+                }">
+                <td class="px-4 py-4 whitespace-nowrap">
+                  <input type="checkbox" :checked="selectedUdas.has(uda.id)" @change="toggleUdaSelection(uda.id)" class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                </td>
+                <td class="pl-12 pr-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600 hover:text-blue-800">{{ uda.title }}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ uda.description }}</td>
+                <td class="px-6 py-4 whitespace-nowrap"><span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full" :class="getStatusClass(uda.status)">{{ uda.status }}</span></td>
+                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
+                  <RouterLink :to="{ name: 'uda-detail', params: { id: uda.id } }" class="text-blue-600 hover:text-blue-900"><EyeIcon class="h-5 w-5 inline-block"/></RouterLink>
+                  <button @click="handleCopyUda(uda.id, uda.title)" class="text-green-600 hover:text-green-900"><DocumentDuplicateIcon class="h-5 w-5 inline-block"/></button>
+                  <button @click="confirmDeleteSingleUda(uda.id, uda.title)" class="text-red-600 hover:text-red-900"><TrashIcon class="h-5 w-5 inline-block"/></button>
+                  <button @click.stop="handleRemoveFromGroup(uda.id)" class="text-gray-500 hover:text-gray-700" title="Rimuovi dal gruppo"><XCircleIcon class="h-5 w-5" /></button>
+                </td>
+              </tr>
+            </template>
+          </template>
+          <!-- UDA non raggruppate -->
+          <tr v-for="uda in groupedUdas.ungrouped" :key="uda.id" class="hover:bg-gray-50" :class="{'bg-blue-50': selectedUdas.has(uda.id)}">
+            <td class="px-4 py-4 whitespace-nowrap">
+              <input type="checkbox" :checked="selectedUdas.has(uda.id)" @change="toggleUdaSelection(uda.id)" class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
             </td>
-            <td class="px-6 py-4 text-sm text-gray-500">
-              <span :title="uda.description" v-if="uda.description && uda.description.length > 20">
-                {{ uda.description.substring(0, 20) + '...' }}
-              </span>
-              <span v-else>{{ uda.description || 'Nessuna descrizione.' }}</span>
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap">
-              <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full" :class="getStatusClass(uda.status)">
-                {{ uda.status }}
-              </span>
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-              <!-- Mostra il nome del corso pulito -->
-              {{ uda.course_name || '-' }}
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-              <!-- Mostra l'autore del corso -->
-              {{ uda.course_teacher_username || '-' }}
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-              <!-- Mostra i nomi degli argomenti -->
-              {{ uda.topics_display?.join(', ') || '-' }}
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-              <!-- Mostra il nome della prima materia, o '-' -->
-              {{ uda.subjects_display?.[0] || '-' }}
-              <!-- Potremmo aggiungere un tooltip o indicatore se ci sono più materie -->
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 text-center">
-              {{ uda.contents?.length || 0 }}
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 text-center">
-              {{ uda.lesson_count || 0 }}
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 text-center">
-              {{ uda.total_lesson_estimated_hours || '0.0' }}h
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 text-center">
-              {{ uda.total_estimated_hours || '0.0' }}h
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-              {{ formatDate(uda.start_date) }} / {{ formatDate(uda.end_date) }}
-            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ uda.title }}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ uda.description }}</td>
+            <td class="px-6 py-4 whitespace-nowrap"><span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full" :class="getStatusClass(uda.status)">{{ uda.status }}</span></td>
             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
-              <RouterLink
-                :to="{ name: 'uda-detail', params: { id: uda.id } }"
-                class="text-blue-600 hover:text-blue-900 transition duration-150 ease-in-out"
-                title="Vedi Dettagli"
-              >
-                <EyeIcon class="h-5 w-5 inline-block" />
-              </RouterLink>
-              <button
-                @click="handleCopyUda(uda.id, uda.title)"
-                class="text-green-600 hover:text-green-900 transition duration-150 ease-in-out"
-                title="Copia UDA"
-              >
-                <DocumentDuplicateIcon class="h-5 w-5 inline-block" />
-              </button>
-              <button
-                @click="confirmDeleteSingleUda(uda.id, uda.title)"
-                class="text-red-600 hover:text-red-900 transition duration-150 ease-in-out"
-                title="Elimina UDA"
-              >
-                <TrashIcon class="h-5 w-5 inline-block" />
-              </button>
+              <RouterLink :to="{ name: 'uda-detail', params: { id: uda.id } }" class="text-blue-600 hover:text-blue-900"><EyeIcon class="h-5 w-5 inline-block"/></RouterLink>
+              <button @click="handleCopyUda(uda.id, uda.title)" class="text-green-600 hover:text-green-900"><DocumentDuplicateIcon class="h-5 w-5 inline-block"/></button>
+              <button @click="confirmDeleteSingleUda(uda.id, uda.title)" class="text-red-600 hover:text-red-900"><TrashIcon class="h-5 w-5 inline-block"/></button>
             </td>
           </tr>
         </tbody>
       </table>
     </div>
+
+    <div v-if="!udaStore.loading && groupedUdas.grouped.length === 0 && groupedUdas.ungrouped.length === 0 && !udaStore.error" class="text-center text-gray-500 py-10">
+      <span v-if="searchQuery">Nessuna UDA trovata per "{{ searchQuery }}".</span>
+      <span v-else>Non hai ancora creato nessuna UDA.</span>
+    </div>
+
+    <UdaGroupModal
+      :show="showGroupModal"
+      @close="showGroupModal = false"
+      @save="handleGroupSave"
+    />
+
+    <AssignToGroupModal
+      :show="showAssignToGroupModal"
+      :groups="udaStore.udaGroups"
+      @close="showAssignToGroupModal = false"
+      @assign="handleAssignToGroup"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'; // Rimosso watch
-import { RouterLink, useRouter } from 'vue-router'; // Aggiunto useRouter
+import { ref, computed, onMounted } from 'vue';
+import { RouterLink, useRouter } from 'vue-router';
 import { useUdaStore } from '@/stores/udaStore';
-import { useCourseStore } from '@/stores/courseStore';
-import { useSubjectStore } from '@/stores/subjectStore';
-import { useTopicStore } from '@/stores/topicStore'; // Importa topicStore
 import { useUiStore } from '@/stores/ui';
-import { TrashIcon, EyeIcon, DocumentDuplicateIcon, PlusCircleIcon, ChevronUpIcon, ChevronDownIcon } from '@heroicons/vue/24/outline'; // Aggiunto icone ordinamento
-import type { UDA } from '@/types/uda'; // Rimosso Course
-// import type { Subject } from '@/types/subject'; // Rimosso Subject
-// import type { Topic } from '@/types/topic'; // Importa Topic type - Non più utilizzato dopo aver commentato la riga 175
+import type { UDA, UdaGroup } from '@/types/uda';
+import UdaGroupModal from '@/components/features/uda/UdaGroupModal.vue';
+import AssignToGroupModal from '@/components/features/uda/AssignToGroupModal.vue';
+import {
+  TrashIcon, EyeIcon, DocumentDuplicateIcon, PlusCircleIcon, ChevronUpIcon, ChevronDownIcon,
+  FolderPlusIcon, FolderMinusIcon, PencilIcon, ChevronRightIcon, XCircleIcon
+} from '@heroicons/vue/24/outline';
 
 const udaStore = useUdaStore();
-const courseStore = useCourseStore();
-const subjectStore = useSubjectStore();
-const topicStore = useTopicStore(); // Istanzia topicStore
 const uiStore = useUiStore();
-const router = useRouter(); // Istanza del router
+const router = useRouter();
+
 const searchQuery = ref('');
-const sortKey = ref('start_date'); // Ordinamento di default
-const sortOrder = ref('desc');
+const sortKey = ref('title');
+const sortOrder = ref('asc');
+const selectedUdas = ref<Set<number>>(new Set());
+const expandedGroups = ref<Set<number>>(new Set());
+const showGroupModal = ref(false);
+const showAssignToGroupModal = ref(false);
 
-// Arricchisce le UDA con dettagli (es. nome corso, nome materia, nomi argomenti)
-const enrichedUdas = computed(() => {
-  return udaStore.udas.map(uda => {
-    const course = uda.course ? courseStore.getCourseById(uda.course) : null;
-    // Gestisce uda.subjects come array di ID, prendendo il primo per la materia principale
-    // const firstSubjectId = uda.subjects && uda.subjects.length > 0 ? uda.subjects[0] : null; // Non usato
-    // const subject = firstSubjectId ? subjectStore.getSubjectById(firstSubjectId) : null; // Non usato
-    // const topics = uda.topics?.map(id => topicStore.getTopicById(id)).filter(Boolean) as Topic[] | undefined; // Non usato
-
-    // Cerca il nome utente del docente. Assumiamo che courseStore.getCourseById restituisca dettagli del docente
-    // o che ci sia un modo per ottenerli (es. uno store utenti). Adattare se necessario.
-    // const teacherUsername = course?.teacher_details?.username || 'N/D'; // Esempio, potrebbe essere diverso
-    // Se il backend fornisce direttamente teacher_username nel corso, usarlo:
-    // Usa direttamente il campo fornito dal backend per l'UDA
-    const teacherUsername = uda.course_teacher_username || '-';
-
-    return {
-      ...uda,
-      course_name: course?.name,
-      course_teacher_username: teacherUsername,
-      // subjects_display e topics_display sono già forniti dal backend
-      // e sono presenti in '...uda'. Non è necessario ricalcolarli qui
-      // se l'obiettivo è solo visualizzare ciò che il backend invia.
-      // Se si volesse una logica di fallback o di arricchimento diversa,
-      // andrebbe gestita con più attenzione. Per ora, usiamo quelli del backend.
-    };
-  });
-});
-
-
-// Filtra e ordina le UDA
 const filteredUdas = computed(() => {
   const query = searchQuery.value.toLowerCase().trim();
-  
-  // 1. Filtra
-  const filtered = query
-    ? enrichedUdas.value.filter(uda => {
-        const title = uda.title?.toLowerCase() || '';
-        const description = uda.description?.toLowerCase() || '';
-        const status = uda.status?.toLowerCase() || '';
-        const courseName = uda.course_name?.toLowerCase() || '';
-        const teacherUsername = uda.course_teacher_username?.toLowerCase() || '';
-        const subjects = uda.subjects_display?.join(' ').toLowerCase() || '';
-        const topics = uda.topics_display?.join(' ').toLowerCase() || '';
-
-        return title.includes(query) ||
-               description.includes(query) ||
-               status.includes(query) ||
-               courseName.includes(query) ||
-               teacherUsername.includes(query) ||
-               subjects.includes(query) ||
-               topics.includes(query);
-      })
-    : enrichedUdas.value;
-
-  // 2. Ordina
-  return filtered.slice().sort((a, b) => {
-    let valA: any;
-    let valB: any;
-
-    const key = sortKey.value;
-
-    // Gestione chiavi speciali
-    if (key === 'contents') {
-      valA = a.contents?.length || 0;
-      valB = b.contents?.length || 0;
-    } else if (key === 'topics_display' || key === 'subjects_display') {
-      valA = a[key]?.join(', ') || '';
-      valB = b[key]?.join(', ') || '';
-    } else {
-      valA = a[key as keyof typeof a];
-      valB = b[key as keyof typeof b];
-    }
-
-    // Normalizzazione per confronto
-    if (typeof valA === 'string') valA = valA.toLowerCase();
-    if (typeof valB === 'string') valB = valB.toLowerCase();
-    if (valA === null || valA === undefined) valA = '';
-    if (valB === null || valB === undefined) valB = '';
-
-    if (valA < valB) return sortOrder.value === 'asc' ? -1 : 1;
-    if (valA > valB) return sortOrder.value === 'asc' ? 1 : -1;
-    return 0;
-  });
+  return udaStore.udas.filter(uda =>
+    uda.title.toLowerCase().includes(query) ||
+    (uda.description && uda.description.toLowerCase().includes(query))
+  );
 });
 
+const groupedUdas = computed(() => {
+  const grouped: { group: UdaGroup; udas: UDA[] }[] = [];
+  const ungrouped: UDA[] = [];
+  const groupMap = new Map<number, { group: UdaGroup; udas: UDA[] }>();
 
-onMounted(async () => {
-  try {
-    await Promise.all([
-      udaStore.fetchUdas(),
-      courseStore.fetchCourses(),
-      subjectStore.fetchSubjects(),
-      topicStore.fetchTopics() // Assicura caricamento argomenti
-    ]);
-  } catch (error) {
-    console.error("Errore caricamento dati per UdaListView:", error);
-    uiStore.addNotification({ message: `Errore caricamento dati: ${(error as Error).message}`, type: 'error'});
+  udaStore.udaGroups.forEach(group => {
+    groupMap.set(group.id, { group, udas: [] });
+  });
+
+  filteredUdas.value.forEach(uda => {
+    if (uda.group && groupMap.has(uda.group.id)) {
+      groupMap.get(uda.group.id)!.udas.push(uda);
+    } else {
+      ungrouped.push(uda);
+    }
+  });
+
+  groupMap.forEach(value => {
+    if (value.udas.length > 0 || !searchQuery.value) {
+      grouped.push(value);
+    }
+  });
+  
+  grouped.sort((a, b) => a.group.name.localeCompare(b.group.name));
+
+  return { grouped, ungrouped };
+});
+
+const allVisibleUdaIds = computed(() => filteredUdas.value.map(u => u.id));
+
+const areAllUdasSelected = computed(() => {
+  const visibleIds = new Set(allVisibleUdaIds.value);
+  return visibleIds.size > 0 && [...visibleIds].every(id => selectedUdas.value.has(id));
+});
+
+const atLeastOneSelectedUdaInGroup = computed(() => {
+  for (const udaId of selectedUdas.value) {
+    const uda = udaStore.udas.find(u => u.id === udaId);
+    if (uda && uda.group) {
+      return true;
+    }
   }
+  return false;
+});
+
+const toggleUdaSelection = (udaId: number) => {
+  if (selectedUdas.value.has(udaId)) {
+    selectedUdas.value.delete(udaId);
+  } else {
+    selectedUdas.value.add(udaId);
+  }
+};
+
+const toggleSelectAll = () => {
+  const visibleIds = allVisibleUdaIds.value;
+  if (areAllUdasSelected.value) {
+    visibleIds.forEach(id => selectedUdas.value.delete(id));
+  } else {
+    visibleIds.forEach(id => selectedUdas.value.add(id));
+  }
+};
+
+const toggleGroup = (groupId: number) => {
+  if (expandedGroups.value.has(groupId)) {
+    expandedGroups.value.delete(groupId);
+  } else {
+    expandedGroups.value.add(groupId);
+  }
+};
+
+onMounted(() => {
+  udaStore.fetchUdas();
+  udaStore.fetchUdaGroups();
 });
 
 const sortBy = (key: string) => {
@@ -310,34 +273,17 @@ const sortBy = (key: string) => {
 };
 
 const confirmDeleteSingleUda = async (udaId: number, udaTitle: string) => {
-  const confirmed = window.confirm(`Sei sicuro di voler eliminare l'UDA "${udaTitle}" (ID: ${udaId})? L'azione non è reversibile.`);
-  if (confirmed) {
-    uiStore.addNotification({ message: `Eliminazione UDA "${udaTitle}" in corso...`, type: 'info' });
-    try {
-      await udaStore.deleteUda(udaId);
-      uiStore.addNotification({ message: `UDA "${udaTitle}" eliminata con successo.`, type: 'success', duration: 3000 });
-    } catch (error) {
-      console.error(`Errore durante l'eliminazione dell'UDA ID ${udaId}:`, error);
-      uiStore.addNotification({ message: `Errore eliminazione: ${(error as Error).message}`, type: 'error' });
-    }
-  } else {
-    uiStore.addNotification({ message: 'Eliminazione UDA annullata.', type: 'info', duration: 2000 });
+  if (confirm(`Sei sicuro di voler eliminare l'UDA "${udaTitle}"?`)) {
+    await udaStore.deleteUda(udaId);
   }
 };
 
 const handleCopyUda = async (udaId: number, udaTitle: string) => {
-  uiStore.addNotification({ message: `Copia dell'UDA "${udaTitle}" in corso...`, type: 'info' });
-  try {
+  if (confirm(`Sei sicuro di voler copiare l'UDA "${udaTitle}"?`)) {
     const newUda = await udaStore.copyUda(udaId);
-    if (newUda && newUda.id) {
-      uiStore.addNotification({ message: `UDA "${udaTitle}" copiata con successo come "${newUda.title}".`, type: 'success', duration: 4000 });
+    if (newUda) {
       router.push({ name: 'uda-edit', params: { id: newUda.id } });
-    } else {
-      throw new Error('ID della nuova UDA non ricevuto.');
     }
-  } catch (error) {
-    console.error(`Errore durante la copia dell'UDA ID ${udaId}:`, error);
-    uiStore.addNotification({ message: `Errore durante la copia dell'UDA: ${(error as Error).message}`, type: 'error' });
   }
 };
 
@@ -349,37 +295,114 @@ const getStatusClass = (status?: UDA['status']) => {
   return 'text-gray-600 bg-gray-100';
 };
 
-// Rimosso getCourseName perché non utilizzato (il nome del corso è in enrichedUdas)
-
 const formatDate = (dateString?: string | null) => {
   if (!dateString) return 'N/D';
+  return new Date(dateString).toLocaleDateString('it-IT', { year: 'numeric', month: 'short', day: 'numeric' });
+};
+
+const openCreateGroupModal = () => {
+  showGroupModal.value = true;
+};
+
+const handleGroupSave = async (groupName: string) => {
   try {
-    const date = new Date(dateString);
-    // Verifica se la data è valida prima di formattare
-    if (isNaN(date.getTime())) {
-        return dateString; // Ritorna la stringa originale se non valida
+    const group = await udaStore.createUdaGroup(groupName);
+    if (group) {
+      const udaIds = Array.from(selectedUdas.value);
+      if (udaIds.length > 0) {
+        await udaStore.assignUdasToGroup(udaIds, group.id);
+        uiStore.addNotification({ message: `Gruppo "${groupName}" creato e ${udaIds.length} UDA assegnate.`, type: 'success' });
+      } else {
+        uiStore.addNotification({ message: `Gruppo "${groupName}" creato con successo.`, type: 'success' });
+      }
+      selectedUdas.value.clear();
+      // Lo store si occupa dell'aggiornamento ottimistico, non è necessario un refetch.
     }
-    return date.toLocaleDateString('it-IT', { year: 'numeric', month: 'short', day: 'numeric' });
-  } catch (e) {
-    return dateString; // Ritorna la stringa originale in caso di errore
+  } catch (err) {
+    uiStore.addNotification({ message: (err as Error).message, type: 'error' });
+  } finally {
+    showGroupModal.value = false;
   }
 };
 
+const openAssignToGroupModal = () => {
+  showAssignToGroupModal.value = true;
+};
+
+const handleAssignToGroup = async (groupId: number) => {
+  const udaIds = Array.from(selectedUdas.value);
+  await udaStore.assignUdasToGroup(udaIds, groupId);
+  uiStore.addNotification({ message: `${udaIds.length} UDA assegnate al gruppo.`, type: 'success' });
+  selectedUdas.value.clear();
+  // Lo store si occupa dell'aggiornamento ottimistico, non è necessario un refetch.
+  showAssignToGroupModal.value = false;
+};
+
+const confirmRemoveSelectedFromGroup = async () => {
+  if (confirm(`Sei sicuro di voler rimuovere le UDA selezionate dai loro gruppi?`)) {
+    const udaIds = Array.from(selectedUdas.value);
+    await udaStore.removeUdasFromGroup(udaIds);
+    if (udaStore.error) {
+      uiStore.addNotification({ message: `Errore durante la rimozione: ${udaStore.error}`, type: 'error' });
+      udaStore.error = null;
+    } else {
+      uiStore.addNotification({ message: `UDA rimosse dai gruppi con successo.`, type: 'success' });
+      selectedUdas.value.clear();
+    }
+  }
+};
+
+const handleRenameGroup = (group: UdaGroup) => {
+  const newName = prompt(`Rinomina il gruppo "${group.name}":`, group.name);
+  if (newName && newName.trim() !== '') {
+    udaStore.updateUdaGroup(group.id, newName)
+      .then(() => uiStore.addNotification({ message: 'Gruppo rinominato con successo.', type: 'success' }))
+      .catch(err => uiStore.addNotification({ message: `Errore: ${err.message}`, type: 'error' }));
+  }
+};
+
+const handleDeleteGroup = async (group: UdaGroup) => {
+  if (confirm(`Sei sicuro di voler eliminare il gruppo "${group.name}"? Le UDA contenute non saranno eliminate, ma solo separate dal gruppo.`)) {
+    await udaStore.deleteUdaGroup(group.id);
+  }
+};
+
+const handleRemoveFromGroup = async (udaId: number) => {
+  if (confirm("Sei sicuro di voler rimuovere questa UDA dal gruppo?")) {
+    await udaStore.removeUdaFromGroup(udaId);
+  }
+};
 </script>
 
 <style scoped>
-.custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
+.group-header-expanded td {
+  border-top: 2px solid #BFDBFE; /* blue-200 */
+  border-left: 2px solid #BFDBFE;
+  border-right: 2px solid #BFDBFE;
+  border-top-left-radius: 8px;
+  border-top-right-radius: 8px;
 }
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: #f1f1f1;
-  border-radius: 10px;
+
+.uda-in-expanded-group td:first-child {
+  border-left: 2px solid #BFDBFE;
 }
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #c5c5c5;
-  border-radius: 10px;
+.uda-in-expanded-group td:last-child {
+  border-right: 2px solid #BFDBFE;
 }
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #a5a5a5;
+
+.last-uda-in-group td {
+  border-bottom: 2px solid #BFDBFE;
+}
+
+.last-uda-in-group td:first-child {
+  border-bottom-left-radius: 8px;
+}
+
+.last-uda-in-group td:last-child {
+  border-bottom-right-radius: 8px;
+}
+
+.pl-12 {
+  padding-left: 3rem;
 }
 </style>

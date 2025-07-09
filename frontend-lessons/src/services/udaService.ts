@@ -1,10 +1,31 @@
-import type { UDA, UDATemplate, UDAContent, UDATemplateContent } from '@/types/uda';
+import type { UDA, UDATemplate, UDAContent, UDATemplateContent, UdaGroup } from '@/types/uda';
 import apiClient from './apiClient';
 
 const UDA_TEMPLATE_BASE_URL = '/uda/uda-templates';
 const UDA_BASE_URL = '/uda/udas';
+const UDA_GROUP_BASE_URL = '/uda/uda-groups/';
 
 export const udaService = {
+  // UDA Group Methods
+  async getUdaGroups(): Promise<UdaGroup[]> {
+    const response = await apiClient.get(UDA_GROUP_BASE_URL);
+    return response.data;
+  },
+
+  async createUdaGroup(groupData: { name: string }): Promise<UdaGroup> {
+    const response = await apiClient.post(UDA_GROUP_BASE_URL, groupData);
+    return response.data;
+  },
+
+  async updateUdaGroup(id: number, groupData: { name: string }): Promise<UdaGroup> {
+    const response = await apiClient.put(`${UDA_GROUP_BASE_URL}${id}/`, groupData);
+    return response.data;
+  },
+
+  async deleteUdaGroup(id: number): Promise<void> {
+    await apiClient.delete(`${UDA_GROUP_BASE_URL}${id}/`);
+  },
+
   // UDA Template Endpoints
   async getUdaTemplates(): Promise<UDATemplate[]> {
     const response = await apiClient.get(`${UDA_TEMPLATE_BASE_URL}/`);

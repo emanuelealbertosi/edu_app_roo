@@ -4,7 +4,8 @@ import logging # Assicurati che sia presente, dovrebbe esserlo già
 from urllib.parse import urlparse # AGGIUNTO PER LA GESTIONE DEGLI URL DEGLI ALLEGATI
 from .models import (
     UDATemplate, UDATemplateTopic, UDATemplateContent,
-    UDA, UDATopic, UDAContent, Course, UDASubject
+    UDA, UDATopic, UDAContent, Course, UDASubject,
+    CourseGroup, UdaGroup
 )
 from lezioni.models import Topic, Subject, Lesson # Importa i modelli Topic, Subject e Lesson
 from apps.education.models import QuizTemplate # Importa il modello QuizTemplate
@@ -52,25 +53,52 @@ class LenientFileField(serializers.FileField):
             # Usiamo 'invalid' che è una chiave standard.
             self.fail('invalid')
 
+class CourseGroupSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CourseGroup
+        fields = ['id', 'name', 'teacher']
+        read_only_fields = ['id', 'teacher']
+
+class UdaGroupSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UdaGroup
+        fields = ['id', 'name', 'teacher']
+        read_only_fields = ['id', 'teacher']
+
+
 class CourseSerializer(serializers.ModelSerializer):
-   # uda_count = serializers.IntegerField(read_only=True) # Esempio per contare le UDA associate
-   # udas = UDASerializer(many=True, read_only=True) # Esempio per mostrare UDA annidate
+    group = CourseGroupSerializer(read_only=True)
+    group_id = serializers.PrimaryKeyRelatedField(
+        queryset=CourseGroup.objects.all(),
+        source='group',
+        write_only=True,
+        required=False,
+        allow_null=True
+    )
 
-   class Meta:
-       model = Course
-       fields = [
-           'id', 'teacher', 'teacher_username', 'name', 'description',
-           'created_at', 'updated_at',
-           # 'uda_count', 'udas' # Esempio
-       ]
-       read_only_fields = ['id', 'teacher', 'created_at', 'updated_at', 'teacher_username']
+    class Meta:
+        model = Course
+        fields = [
+            'id', 'teacher', 'teacher_username', 'name', 'description',
+            'created_at', 'updated_at', 'group', 'group_id'
+        ]
+        read_only_fields = ['id', 'teacher', 'created_at', 'updated_at', 'teacher_username', 'group']
 
-   teacher_username = serializers.CharField(source='teacher.username', read_only=True)
+    teacher_username = serializers.CharField(source='teacher.username', read_only=True)
 
-   def create(self, validated_data):
-       # Imposta il teacher automaticamente sull'utente loggato
-       validated_data['teacher'] = self.context['request'].user
-       return super().create(validated_data)
+    def create(self, validated_data):
+        # Imposta il teacher automaticamente sull'utente loggato
+        validated_data['teacher'] = self.context['request'].user
+        group = validated_data.get('group')
+        if group and group.teacher != validated_data['teacher']:
+            raise serializers.ValidationError("Cannot assign to a group that does not belong to the teacher.")
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        group = validated_data.get('group')
+        if group and group.teacher != instance.teacher:
+            raise serializers.ValidationError("Cannot assign to a group that does not belong to the teacher.")
+        return super().update(instance, validated_data)
 
 class UDATemplateTopicSerializer(serializers.ModelSerializer):
     # Serializer di base, potrebbe non essere necessario esporlo direttamente
@@ -539,6 +567,14 @@ class UDAContentSerializer(serializers.ModelSerializer):
         return representation
 
 class UDASerializer(serializers.ModelSerializer):
+   group = UdaGroupSerializer(read_only=True)
+   group_id = serializers.PrimaryKeyRelatedField(
+       queryset=UdaGroup.objects.all(),
+       source='group',
+       write_only=True,
+       required=False,
+       allow_null=True
+   )
    contents = UDAContentSerializer(many=True, required=False)
    # topics = TopicSerializer(many=True, read_only=True) # Esempio
    topic_ids = serializers.PrimaryKeyRelatedField(
@@ -595,6 +631,7 @@ class UDASerializer(serializers.ModelSerializer):
            'start_date', 'end_date',
            'subjects_display', 'subject_ids', # Sostituisce 'subject'
            'course_id', 'course_name', 'course_teacher_username', 'order_in_course', # Modificato da course_display
+           'group', 'group_id',
            'topics_display', 'topic_ids', 'status', 'contents',
            'total_estimated_hours', # Aggiunto
            'total_lesson_estimated_hours', # Aggiunto
@@ -604,7 +641,7 @@ class UDASerializer(serializers.ModelSerializer):
        read_only_fields = [
            'id', 'teacher', 'created_at', 'updated_at',
            'total_estimated_hours', 'teacher_username',
-           'total_lesson_estimated_hours', 'lesson_count'
+           'total_lesson_estimated_hours', 'lesson_count', 'group'
        ]
 
    teacher_username = serializers.CharField(source='teacher.username', read_only=True)
@@ -671,7 +708,13 @@ class UDASerializer(serializers.ModelSerializer):
         topics_data = validated_data.pop('topics', None)
         subject_data = validated_data.pop('subjects', None)
 
-       # Aggiorna i campi dell'istanza UDA principale
+        # Aggiunto controllo di validazione per il gruppo
+        group = validated_data.get('group')
+        if group and group.teacher != instance.teacher:
+            raise serializers.ValidationError("Cannot assign to a group that does not belong to the teacher.")
+        
+        # Aggiorna i campi dell'istanza UDA principale
+        instance.group = validated_data.get('group', instance.group) # Aggiunto per gestire l'aggiornamento del gruppo
         instance.title = validated_data.get('title', instance.title)
         instance.description = validated_data.get('description', instance.description)
         instance.knowledge_html = validated_data.get('knowledge_html', instance.knowledge_html)

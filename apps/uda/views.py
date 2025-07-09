@@ -9,10 +9,11 @@ from django.template.loader import render_to_string
 from xhtml2pdf import pisa
 import urllib.parse
 
-from .models import Course, UDATemplate, UDA, UDAContent, UDATemplateContent
+from .models import Course, UDATemplate, UDA, UDAContent, UDATemplateContent, CourseGroup, UdaGroup
 from .serializers import (
    CourseSerializer, UDATemplateSerializer, UDASerializer,
-   UDAContentSerializer, UDATemplateContentSerializer
+   UDAContentSerializer, UDATemplateContentSerializer, CourseGroupSerializer,
+   UdaGroupSerializer
 )
 from docx import Document
 from docx.shared import Pt, Inches
@@ -434,6 +435,42 @@ class CourseViewSet(viewsets.ModelViewSet):
             
         serializer = self.get_serializer(new_course)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+class CourseGroupViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet to manage Course Groups.
+    """
+    queryset = CourseGroup.objects.all()
+    serializer_class = CourseGroupSerializer
+    permission_classes = [IsAuthenticated, IsOwnerOrReadOnly]
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.is_authenticated:
+            return CourseGroup.objects.filter(teacher=user)
+        return CourseGroup.objects.none()
+
+    def perform_create(self, serializer):
+        serializer.save(teacher=self.request.user)
+
+
+class UdaGroupViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet to manage UDA Groups.
+    """
+    queryset = UdaGroup.objects.all()
+    serializer_class = UdaGroupSerializer
+    permission_classes = [IsAuthenticated, IsOwnerOrReadOnly]
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.is_authenticated:
+            return UdaGroup.objects.filter(teacher=user)
+        return UdaGroup.objects.none()
+
+    def perform_create(self, serializer):
+        serializer.save(teacher=self.request.user)
+
 
 class UDATemplateViewSet(viewsets.ModelViewSet):
     """

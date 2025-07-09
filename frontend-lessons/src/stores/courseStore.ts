@@ -1,22 +1,169 @@
 import { defineStore } from 'pinia';
 import { courseService } from '@/services/courseService';
-import type { Course, UDA } from '@/types/uda';
+import type { Course, UDA, CourseGroup } from '@/types/uda';
 
 interface CourseState {
   courses: Course[];
+  courseGroups: CourseGroup[];
   currentCourse: Course | null;
   loading: boolean;
+  isLoadingCourseGroups: boolean;
   error: string | null;
 }
 
 export const useCourseStore = defineStore('course', {
   state: (): CourseState => ({
     courses: [],
+    courseGroups: [],
     currentCourse: null,
     loading: false,
+    isLoadingCourseGroups: false,
     error: null,
   }),
   actions: {
+    // GROUP ACTIONS
+    async fetchCourseGroups() {
+      this.isLoadingCourseGroups = true;
+      this.error = null;
+      try {
+        this.courseGroups = await courseService.getCourseGroups();
+      } catch (err) {
+        this.error = (err as Error).message || 'Failed to fetch course groups';
+        this.courseGroups = [];
+      } finally {
+        this.isLoadingCourseGroups = false;
+      }
+    },
+
+    async createCourseGroup(name: string): Promise<CourseGroup | undefined> {
+      this.isLoadingCourseGroups = true;
+      try {
+        const newGroup = await courseService.createCourseGroup({ name });
+        this.courseGroups.push(newGroup);
+        return newGroup;
+      } catch (error) {
+        this.error = (error as Error).message || 'Failed to create course group';
+        throw error;
+      } finally {
+        this.isLoadingCourseGroups = false;
+      }
+    },
+
+    async updateCourseGroup(id: number, name: string): Promise<CourseGroup | undefined> {
+        this.isLoadingCourseGroups = true;
+        try {
+            const updatedGroup = await courseService.updateCourseGroup(id, { name });
+            const index = this.courseGroups.findIndex(g => g.id === id);
+            if (index !== -1) {
+                this.courseGroups[index] = updatedGroup;
+            }
+            // Aggiorna anche i corsi che potrebbero avere questo gruppo
+            this.courses.forEach(course => {
+                if (course.group?.id === id) {
+                    course.group = updatedGroup;
+                }
+            });
+            return updatedGroup;
+        } catch (error) {
+            this.error = (error as Error).message || 'Failed to update course group';
+            throw error;
+        } finally {
+            this.isLoadingCourseGroups = false;
+        }
+    },
+
+
+    async deleteCourseGroup(id: number) {
+      this.isLoadingCourseGroups = true;
+      try {
+        await courseService.deleteCourseGroup(id);
+        this.courseGroups = this.courseGroups.filter(g => g.id !== id);
+        // Rimuovi il gruppo da tutti i corsi che lo avevano assegnato
+        this.courses.forEach(course => {
+          if (course.group?.id === id) {
+            course.group = null;
+            course.group_id = null;
+          }
+        });
+      } catch (error) {
+        this.error = (error as Error).message || 'Failed to delete course group';
+        throw error;
+      } finally {
+        this.isLoadingCourseGroups = false;
+      }
+    },
+
+    async assignCoursesToGroup(courseIds: number[], groupId: number | null) {
+        this.loading = true;
+        try {
+            const group = this.courseGroups.find(g => g.id === groupId) || null;
+            // Ottimisticamente, aggiorna il frontend prima della risposta del backend
+            this.courses.forEach(course => {
+                if (courseIds.includes(course.id)) {
+                    course.group = group;
+                    course.group_id = groupId;
+                }
+            });
+            // Chiamata al servizio per aggiornare il backend per ogni corso
+            // Questo potrebbe essere ottimizzato con un endpoint batch se disponibile
+            const updatePromises = courseIds.map(courseId =>
+                courseService.updateCourse(courseId, { group_id: groupId })
+            );
+            await Promise.all(updatePromises);
+            // Opzionale: rifare il fetch dei corsi per essere sicuri dello stato
+            // await this.fetchCourses();
+        } catch (error) {
+            this.error = (error as Error).message || 'Failed to assign courses to group';
+            // Rollback in caso di errore
+            await this.fetchCourses();
+            throw error;
+        } finally {
+            this.loading = false;
+        }
+    },
+
+    async removeCourseFromGroup(courseId: number) {
+        this.loading = true;
+        try {
+            const course = this.courses.find(c => c.id === courseId);
+            if (course) {
+                course.group = null;
+                course.group_id = null;
+            }
+            await courseService.updateCourse(courseId, { group_id: null });
+        } catch (error) {
+            this.error = (error as Error).message || 'Failed to remove course from group';
+            await this.fetchCourses(); // Rollback
+            throw error;
+        } finally {
+            this.loading = false;
+        }
+    },
+
+    async removeCoursesFromGroup(courseIds: number[]) {
+        this.loading = true;
+        try {
+            // Ottimisticamente
+            this.courses.forEach(course => {
+                if (courseIds.includes(course.id)) {
+                    course.group = null;
+                    course.group_id = null;
+                }
+            });
+            const updatePromises = courseIds.map(courseId =>
+                courseService.updateCourse(courseId, { group_id: null })
+            );
+            await Promise.all(updatePromises);
+        } catch (error) {
+            this.error = (error as Error).message || 'Failed to remove courses from group';
+            await this.fetchCourses(); // Rollback
+            throw error;
+        } finally {
+            this.loading = false;
+        }
+    },
+
+    // COURSE ACTIONS
     async fetchCourses() {
       this.loading = true;
       this.error = null;
@@ -66,7 +213,7 @@ export const useCourseStore = defineStore('course', {
       }
     },
 
-    async updateCourse(id: number, courseData: Partial<Pick<Course, 'name' | 'description'>>): Promise<Course | undefined> {
+    async updateCourse(id: number, courseData: Partial<Pick<Course, 'name' | 'description' | 'group_id'>>): Promise<Course | undefined> {
       this.loading = true;
       this.error = null;
       try {
