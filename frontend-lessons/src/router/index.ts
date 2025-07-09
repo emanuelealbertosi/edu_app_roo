@@ -13,7 +13,8 @@ const getHomeBreadcrumb = () => {
 
   if (isEmbedded) {
     // Se è embedded, usa un oggetto speciale che il componente Breadcrumb interpreterà
-    return { text: 'Home', isHostLink: true };
+    // Se è embedded, usa un oggetto speciale che il componente Breadcrumb interpreterà
+    return { text: 'Home', isHostLink: true, hostLinkType: 'home' };
   }
   // Altrimenti, linka alla dashboard interna
   return { text: 'Home', to: { name: 'dashboard' } };
@@ -132,11 +133,25 @@ const router = createRouter({
       props: true, // Passa i parametri della route (id) come props al componente
       meta: {
         requiresAuth: true,
-        breadcrumb: () => [
-          getHomeBreadcrumb(),
-          { text: 'Lezioni', to: { name: 'teacher-lessons' } }, // o assigned-lessons
-          { text: 'Dettaglio' }
-        ]
+        breadcrumb: () => {
+          const urlParams = new URLSearchParams(window.location.search);
+          const isEmbedded = urlParams.get('embedded') === 'true';
+
+          let lessonsBreadcrumb;
+          if (isEmbedded) {
+            // Se embedded (dentro student FE), il link deve tornare alla lista dell'host
+            lessonsBreadcrumb = { text: 'Lezioni Assegnate', isHostLink: true, hostLinkType: 'assigned-lessons' };
+          } else {
+            // Altrimenti, è un docente/admin dentro l'app lessons, va alla sua lista
+            lessonsBreadcrumb = { text: 'Lezioni', to: { name: 'teacher-lessons' } };
+          }
+
+          return [
+            getHomeBreadcrumb(),
+            lessonsBreadcrumb,
+            { text: 'Dettaglio' }
+          ];
+        }
       }
     },
     {

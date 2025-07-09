@@ -75,9 +75,6 @@ watch(() => [sharedAuth.userRole, sharedAuth.isAuthenticated], ([newUserRole, ne
 // const studentAppUrl = computed(() => ...); // Rimosso se non usato qui
 // const handleLogout = () => { ... }; // Rimosso, sarà gestito dalla DashboardView
 
-const isEmbeddedMode = computed(() => { // Mantenuto se serve ad altri componenti o logica residua
-  return route.query.embedded === 'true';
-});
 
 const showBreadcrumb = computed(() => {
   const inModal = route.query.inModal === 'true';

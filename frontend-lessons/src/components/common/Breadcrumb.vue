@@ -8,7 +8,8 @@ const route = useRoute();
 interface BreadcrumbLink {
   text: string;
   to?: object;
-  isHostLink?: boolean; // Aggiunta proprietà opzionale
+  isHostLink?: boolean;
+  hostLinkType?: 'home' | 'assigned-lessons'; // Tipo di link per l'host
 }
 
 const breadcrumbs = computed((): BreadcrumbLink[] => {
@@ -18,10 +19,24 @@ const breadcrumbs = computed((): BreadcrumbLink[] => {
   return [];
 });
 
-// Funzione per gestire il click sul link che deve notificare l'host
-const handleHostLinkClick = () => {
-  // Invia un messaggio alla finestra genitore (l'host)
-  window.parent.postMessage({ type: 'navigate-to-host-home' }, '*'); // Usa un target origin più specifico in produzione
+// Funzione generalizzata per gestire i click sui link che notificano l'host
+const handleHostLinkClick = (type: 'home' | 'assigned-lessons' | undefined) => {
+  if (!type) return;
+
+  let messageType: string;
+  switch (type) {
+    case 'home':
+      messageType = 'navigate-to-host-home';
+      break;
+    case 'assigned-lessons':
+      messageType = 'navigate-to-host-assigned-lessons';
+      break;
+    default:
+      console.warn('Tipo di link host non riconosciuto:', type);
+      return;
+  }
+  // Invia un messaggio specifico alla finestra genitore (l'host)
+  window.parent.postMessage({ type: messageType }, '*'); // Usa un target origin più specifico in produzione
 };
 </script>
 
@@ -33,7 +48,7 @@ const handleHostLinkClick = () => {
         <a
           v-if="crumb.isHostLink"
           href="#"
-          @click.prevent="handleHostLinkClick"
+          @click.prevent="handleHostLinkClick(crumb.hostLinkType)"
           class="hover:text-gray-700 hover:underline"
         >
           {{ crumb.text }}

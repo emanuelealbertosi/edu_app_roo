@@ -11,7 +11,6 @@
     <!-- Lesson Content -->
     <div v-else-if="lesson">
       <!-- Pulsante Indietro sopra l'header -->
-      <button @click="goBack" class="back-button mb-4">&larr; Torna alla lista</button>
 
       <!-- Intestazione con sfondo blu -->
       <div class="bg-blue-600 text-white p-4 rounded-md mb-6">
@@ -84,9 +83,8 @@
 
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { useRoute } from 'vue-router';
 import { useLessonStore } from '@/stores/lessons';
-import { useAuthStore } from '@/stores/auth'; // Per eventuali azioni specifiche ruolo
 // Importa il componente per visualizzare i contenuti usando percorso relativo
 import LessonContentDisplay from '../components/features/lezioni/LessonContentDisplay.vue';
 // Importa i tipi corretti
@@ -98,12 +96,8 @@ const htmlModalContent = ref('');
 
 
 const route = useRoute();
-const router = useRouter();
 const lessonStore = useLessonStore();
-const authStore = useAuthStore(); // Per controlli ruolo
-
 const lessonId = ref<number | null>(null);
-
 // Estrae l'ID dalla route e carica i dati
 const loadLesson = async () => {
     const idParam = route.params.id;
@@ -156,21 +150,6 @@ const sortedContents = computed(() => {
     return [...lesson.value.contents].sort((a, b) => a.order - b.order);
 });
 
-const goBack = () => {
-    // Torna indietro nella history o a una lista specifica
-    if (window.history.length > 1) {
-        router.go(-1);
-    } else {
-        // Fallback se non c'è history (es. accesso diretto all'URL)
-        if (authStore.userRole === 'Studente') {
-            router.push({ name: 'assigned-lessons' });
-        } else if (authStore.userRole === 'Docente') {
-             router.push({ name: 'teacher-lessons' });
-        } else {
-            router.push({ name: 'dashboard' }); // Default
-        }
-    }
-};
 
 // Funzioni placeholder per azioni docente (da implementare)
 // const editLessonDetails = () => { ... }

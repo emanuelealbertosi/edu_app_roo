@@ -367,6 +367,7 @@ const openAddActivityModal = () => {
       activity_completed: false,
       teacher_marked_completed: false,
       order: 0,
+      actual_hours: null, // Inizializza il nuovo campo
     } as ActivityUDAContent;
   }
   showEditActivityModal.value = true;
@@ -378,58 +379,24 @@ const closeEditActivityModal = () => {
   editingActivityContent.value = null;
 };
 
-const handleSaveActivity = async (payload: { activityData: Partial<ActivityUDAContent | ActivityTemplateUDAContent>, file?: File }) => {
-  const { activityData, file } = payload;
+const handleSaveActivity = (payload: { activityData: Partial<ActivityUDAContent | ActivityTemplateUDAContent>, file?: File }) => {
+  const { activityData } = payload; // 'file' non è più gestito qui, ma dal salvataggio globale
 
-  if (props.context === 'template') {
-    const existingIndex = localContents.value.findIndex(content =>
-        (content.temp_id && content.temp_id === activityData.temp_id) ||
-        (content.id && content.id === activityData.id)
-    );
-    if (existingIndex > -1) {
-        localContents.value.splice(existingIndex, 1, { ...activityData } as ContentItem);
-    } else {
-        const newActivityWithId = { ...activityData, temp_id: activityData.temp_id || generateTempId(), order: 0 };
-        localContents.value.push(newActivityWithId as ContentItem);
-    }
-    recalculateOrder();
-  } else if (props.context === 'uda') {
-    if (!activityData.id && !activityData.temp_id) { // È un nuovo contenuto UDA
-      if (props.udaId === undefined) {
-        console.error("Impossibile aggiungere contenuto attività UDA: udaId non è definito.");
-        closeEditActivityModal();
-        return;
-      }
-      // Assicurati che activityData sia del tipo corretto per la creazione
-      const createPayload: Partial<Omit<ActivityUDAContent, 'id' | 'uda_id' | 'created_at' | 'updated_at'>> = {
-        content_type: UDAContentType.ACTIVITY,
-        activity_title: (activityData as Partial<ActivityUDAContent>).activity_title,
-        activity_description: (activityData as Partial<ActivityUDAContent>).activity_description,
-        activity_attachment_url: (activityData as Partial<ActivityUDAContent>).activity_attachment_url,
-        activity_completed: (activityData as Partial<ActivityUDAContent>).activity_completed || false,
-        teacher_marked_completed: (activityData as Partial<ActivityUDAContent>).teacher_marked_completed || false,
-        order: localContents.value.length + 1,
-      };
-      try {
-        await udaStore.addContentToUda(props.udaId, createPayload, file);
-      } catch (error) {
-        console.error("Errore durante l'aggiunta del contenuto attività UDA:", error);
-        // TODO: Gestire l'errore
-      }
-    } else {
-      // La modifica di attività UDA esistenti è gestita dalla modale EditActivityContentModal,
-      // che chiama direttamente lo store. Questo blocco non dovrebbe essere raggiunto per modifiche UDA.
-      console.warn("handleSaveActivity in UdaContentEditor ha ricevuto un'attività UDA esistente per la gestione. Flusso inaspettato.");
-       const existingIndex = localContents.value.findIndex(content =>
-            (content.temp_id && content.temp_id === activityData.temp_id) ||
-            (content.id && content.id === activityData.id)
-        );
-        if (existingIndex > -1) {
-            localContents.value.splice(existingIndex, 1, { ...activityData } as ContentItem);
-             recalculateOrder(); // Ricalcola se modifichiamo localmente
-        }
-    }
+  const existingIndex = localContents.value.findIndex(content =>
+    (content.temp_id && content.temp_id === activityData.temp_id) ||
+    (content.id && content.id === activityData.id)
+  );
+
+  if (existingIndex > -1) {
+    // Modifica di un'attività esistente
+    localContents.value.splice(existingIndex, 1, { ...activityData } as ContentItem);
+  } else {
+    // Aggiunta di una nuova attività
+    const newActivityWithId = { ...activityData, temp_id: activityData.temp_id || generateTempId() };
+    localContents.value.push(newActivityWithId as ContentItem);
   }
+  
+  recalculateOrder();
   closeEditActivityModal();
 };
 

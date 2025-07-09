@@ -47,8 +47,21 @@ const handleMessage = (event: MessageEvent) => {
   if (event.origin !== lessonsAppOrigin.value) {
     return;
   }
-  if (event.data && event.data.type === 'navigate-to-host-home') {
-    router.push({ name: 'dashboard' });
+  if (event.data && typeof event.data.type === 'string') {
+    switch (event.data.type) {
+      case 'navigate-to-host-home':
+        router.push({ name: 'dashboard' });
+        break;
+      case 'navigate-to-host-assigned-lessons':
+        // Se siamo già sulla pagina che mostra le lezioni, un semplice push non
+        // ricaricherebbe la vista o l'iframe. Forziamo un reload per resettare lo stato.
+        if (router.currentRoute.value.name === 'EmbeddedLessons') {
+          window.location.reload();
+        } else {
+          router.push({ name: 'EmbeddedLessons' });
+        }
+        break;
+    }
   }
 };
 
