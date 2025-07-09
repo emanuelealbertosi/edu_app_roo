@@ -126,7 +126,8 @@
             >
               <td colspan="9" class="px-6 py-3 text-sm font-semibold text-blue-800">
                 <div class="flex items-center">
-                  <FolderIcon class="h-5 w-5 mr-2" />
+                  <FolderMinusIcon v-if="expandedGroups.has(group.id)" class="h-5 w-5 mr-2 text-blue-700" />
+                  <FolderPlusIcon v-else class="h-5 w-5 mr-2 text-blue-600" />
                   <span>{{ group.name }} ({{ group.lessons.length }})</span>
                   <div class="ml-auto flex items-center space-x-2">
                     <button @click.stop="confirmDeleteGroup(group)" class="text-red-500 hover:text-red-700" title="Elimina Gruppo">
@@ -282,7 +283,7 @@ import LessonGroupModal from '../components/features/lezioni/LessonGroupModal.vu
 import AssignToGroupModal from '../components/features/lezioni/AssignToGroupModal.vue';
 import IFrameModal from '@/components/common/IFrameModal.vue';
 import type { Lesson, LessonGroup } from '@/types/lezioni';
-import { PlusCircleIcon, PencilIcon, TrashIcon, DocumentTextIcon, UserPlusIcon, ChevronUpIcon, ChevronDownIcon, FolderIcon, ChevronRightIcon, XCircleIcon } from '@heroicons/vue/24/outline';
+import { PlusCircleIcon, PencilIcon, TrashIcon, DocumentTextIcon, UserPlusIcon, ChevronUpIcon, ChevronDownIcon, FolderPlusIcon, FolderMinusIcon, ChevronRightIcon, XCircleIcon } from '@heroicons/vue/24/outline';
 
 const searchQuery = ref('');
 const lessonStore = useLessonStore();
@@ -573,13 +574,34 @@ const toggleSelectAll = () => {
   }
 };
 
-// Sostituisce filteredLessons con una logica che raggruppa le lezioni
+// Logica robusta per raggruppare e filtrare le lezioni
 const groupedAndUngroupedLessons = computed(() => {
+  // Se i dati non sono pronti, restituisci una struttura vuota per evitare errori di rendering
+  if (!lessonStore.lessons || !lessonStore.lessonGroups) {
+    return { groups: [], unscoped: [] };
+  }
+
   const query = searchQuery.value.toLowerCase().trim();
 
-  // 1. Filtra le lezioni in base alla query
-  const filtered = query
-    ? lessons.value.filter(lesson => {
+  // 1. Identifica i gruppi che corrispondono alla query
+  const matchingGroupIds = new Set<number>();
+  if (query) {
+    lessonStore.lessonGroups.forEach(group => {
+      if (group.name.toLowerCase().includes(query)) {
+        matchingGroupIds.add(group.id);
+      }
+    });
+  }
+
+  // 2. Filtra le lezioni
+  const filteredLessons = !query
+    ? lessons.value // Se non c'è query, prendi tutte le lezioni
+    : lessons.value.filter(lesson => {
+        // Includi la lezione se appartiene a un gruppo corrispondente
+        if (lesson.group && matchingGroupIds.has(lesson.group.id)) {
+          return true;
+        }
+        // Altrimenti, controlla se le proprietà della lezione corrispondono
         const topicName = getTopicName(lesson.topic).toLowerCase();
         const subjectName = getSubjectNameFromTopic(lesson.topic).toLowerCase();
         const status = (lesson.is_published ? 'pubblicata' : 'bozza').toLowerCase();
@@ -593,11 +615,10 @@ const groupedAndUngroupedLessons = computed(() => {
                subjectName.includes(query) ||
                status.includes(query) ||
                (query && estimatedHours.includes(query));
-      })
-    : lessons.value;
+      });
 
-  // 2. Ordina le lezioni filtrate
-  const sorted = filtered.slice().sort((a, b) => {
+  // 3. Ordina le lezioni filtrate
+  const sorted = filteredLessons.slice().sort((a, b) => {
     let valA: any;
     let valB: any;
     switch (sortKey.value) {
@@ -613,7 +634,7 @@ const groupedAndUngroupedLessons = computed(() => {
     return 0;
   });
 
-  // 3. Raggruppa le lezioni
+  // 4. Raggruppa le lezioni ordinate
   const unscoped: Lesson[] = [];
   const groupsMap = new Map<number, Lesson[]>();
 
@@ -628,12 +649,16 @@ const groupedAndUngroupedLessons = computed(() => {
     }
   });
 
+  // 5. Costruisci l'array finale dei gruppi da visualizzare
   const groups = lessonStore.lessonGroups
     .map(group => ({
       ...group,
       lessons: groupsMap.get(group.id) || []
     }))
-    .filter(group => group.lessons.length > 0);
+    .filter(group => {
+      // Mostra un gruppo se il suo nome corrisponde alla query o se contiene lezioni filtrate
+      return matchingGroupIds.has(group.id) || group.lessons.length > 0;
+    });
 
   return { groups, unscoped };
 });
