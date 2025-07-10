@@ -117,7 +117,11 @@
                 <td class="px-4 py-4 whitespace-nowrap">
                   <input type="checkbox" :checked="selectedCourses.has(course.id)" @change="toggleCourseSelection(course.id)" class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
                 </td>
-                <td class="pl-12 pr-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600 hover:text-blue-800">{{ course.name }}</td>
+                <td class="pl-12 pr-6 py-4 whitespace-nowrap text-sm font-medium">
+                  <RouterLink :to="{ name: 'course-detail', params: { id: course.id } }" class="text-blue-600 hover:text-blue-800 hover:underline">
+                    {{ course.name }}
+                  </RouterLink>
+                </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ course.description }}</td>
                 <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
                   <RouterLink :to="{ name: 'course-edit', params: { id: course.id } }" class="text-yellow-600 hover:text-yellow-900"><PencilIcon class="h-5 w-5 inline-block"/></RouterLink>
@@ -135,7 +139,11 @@
             <td class="px-4 py-4 whitespace-nowrap">
               <input type="checkbox" :checked="selectedCourses.has(course.id)" @change="toggleCourseSelection(course.id)" class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ course.name }}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+              <RouterLink :to="{ name: 'course-detail', params: { id: course.id } }" class="text-gray-900 hover:text-blue-600 hover:underline">
+                {{ course.name }}
+              </RouterLink>
+            </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ course.description }}</td>
             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
               <RouterLink :to="{ name: 'course-edit', params: { id: course.id } }" class="text-yellow-600 hover:text-yellow-900"><PencilIcon class="h-5 w-5 inline-block"/></RouterLink>

@@ -47,7 +47,7 @@ export const courseService = {
   },
 
   async deleteCourse(id: number): Promise<void> {
-    await apiClient.delete(`${BASE_URL}${id}`);
+    await apiClient.delete(`${BASE_URL}${id}/`);
   },
 
   async getUdasForCourse(courseId: number): Promise<UDA[]> {

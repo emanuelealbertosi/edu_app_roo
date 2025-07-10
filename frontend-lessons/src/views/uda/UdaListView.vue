@@ -105,7 +105,11 @@
                 <td class="px-4 py-4 whitespace-nowrap">
                   <input type="checkbox" :checked="selectedUdas.has(uda.id)" @change="toggleUdaSelection(uda.id)" class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
                 </td>
-                <td class="pl-12 pr-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600 hover:text-blue-800">{{ uda.title }}</td>
+                <td class="pl-12 pr-6 py-4 whitespace-nowrap text-sm font-medium">
+                  <RouterLink :to="{ name: 'uda-detail', params: { id: uda.id } }" class="text-blue-600 hover:text-blue-800 hover:underline">
+                    {{ uda.title }}
+                  </RouterLink>
+                </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ uda.description }}</td>
                 <td class="px-6 py-4 whitespace-nowrap"><span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full" :class="getStatusClass(uda.status)">{{ uda.status }}</span></td>
                 <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
@@ -122,7 +126,11 @@
             <td class="px-4 py-4 whitespace-nowrap">
               <input type="checkbox" :checked="selectedUdas.has(uda.id)" @change="toggleUdaSelection(uda.id)" class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ uda.title }}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+              <RouterLink :to="{ name: 'uda-detail', params: { id: uda.id } }" class="text-gray-900 hover:text-blue-600 hover:underline">
+                {{ uda.title }}
+              </RouterLink>
+            </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ uda.description }}</td>
             <td class="px-6 py-4 whitespace-nowrap"><span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full" :class="getStatusClass(uda.status)">{{ uda.status }}</span></td>
             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
