@@ -77,13 +77,25 @@
                     <table class="min-w-full divide-y divide-gray-300">
                       <thead class="bg-gray-100">
                         <tr>
-                          <th class="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase">Nome</th>
-                          <th class="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase">Descrizione</th>
+                          <th class="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase cursor-pointer transition-colors duration-200 hover:text-blue-600" @click="sortTopicsBy(subject.id, 'name')">
+                            Nome
+                            <span v-if="topicSortState[subject.id]?.key === 'name'">
+                              <ChevronUpIcon v-if="topicSortState[subject.id]?.order === 'asc'" class="h-4 w-4 inline-block" />
+                              <ChevronDownIcon v-else class="h-4 w-4 inline-block" />
+                            </span>
+                          </th>
+                          <th class="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase cursor-pointer transition-colors duration-200 hover:text-blue-600" @click="sortTopicsBy(subject.id, 'description')">
+                            Descrizione
+                            <span v-if="topicSortState[subject.id]?.key === 'description'">
+                              <ChevronUpIcon v-if="topicSortState[subject.id]?.order === 'asc'" class="h-4 w-4 inline-block" />
+                              <ChevronDownIcon v-else class="h-4 w-4 inline-block" />
+                            </span>
+                          </th>
                           <th class="px-4 py-2 text-right text-xs font-medium text-gray-600 uppercase">Azioni</th>
                         </tr>
                       </thead>
                       <tbody class="bg-white divide-y divide-gray-200">
-                        <tr v-for="topic in getTopicsForSubject(subject.id)" :key="topic.id">
+                        <tr v-for="topic in getSortedTopics(subject.id)" :key="topic.id">
                           <td class="px-4 py-2 text-sm">{{ topic.name }}</td>
                           <td class="px-4 py-2 text-sm">{{ topic.description || '-' }}</td>
                           <td class="px-4 py-2 text-right text-sm space-x-2">
@@ -156,6 +168,7 @@ const currentSubjectIdForModal = ref<number | null>(null);
 const searchQuery = ref('');
 const sortKey = ref<'name' | 'description'>('name');
 const sortOrder = ref('asc');
+const topicSortState = ref<Record<number, { key: 'name' | 'description'; order: 'asc' | 'desc' }>>({});
 
 const filteredAndSortedSubjects = computed(() => {
   const query = searchQuery.value.toLowerCase().trim();
@@ -192,6 +205,29 @@ const filteredAndSortedSubjects = computed(() => {
 
 const getTopicsForSubject = (subjectId: number) => {
   return topicStore.topics.filter(topic => topic.subject === subjectId);
+};
+
+const getSortedTopics = (subjectId: number) => {
+  const topics = getTopicsForSubject(subjectId);
+  const sortConfig = topicSortState.value[subjectId];
+
+  if (!sortConfig) {
+    return topics;
+  }
+
+  return topics.slice().sort((a, b) => {
+    let valA = a[sortConfig.key];
+    let valB = b[sortConfig.key];
+
+    if (typeof valA === 'string') valA = valA.toLowerCase();
+    if (typeof valB === 'string') valB = valB.toLowerCase();
+    if (valA === null || valA === undefined) valA = '';
+    if (valB === null || valB === undefined) valB = '';
+
+    if (valA < valB) return sortConfig.order === 'asc' ? -1 : 1;
+    if (valA > valB) return sortConfig.order === 'asc' ? 1 : -1;
+    return 0;
+  });
 };
 
 // Funzione chiamata dall'event bus per aprire il modale
@@ -235,6 +271,15 @@ const sortBy = (key: 'name' | 'description') => {
   } else {
     sortKey.value = key;
     sortOrder.value = 'asc';
+  }
+};
+
+const sortTopicsBy = (subjectId: number, key: 'name' | 'description') => {
+  const currentState = topicSortState.value[subjectId];
+  if (currentState && currentState.key === key) {
+    topicSortState.value[subjectId].order = currentState.order === 'asc' ? 'desc' : 'asc';
+  } else {
+    topicSortState.value[subjectId] = { key, order: 'asc' };
   }
 };
 
