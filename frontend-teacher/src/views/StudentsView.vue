@@ -17,7 +17,7 @@
       <input
         type="text"
         v-model="searchQuery"
-        placeholder="Cerca per nome, cognome o codice studente..."
+        placeholder="Cerca per nome, cognome, codice studente o gruppo..."
         class="mt-1 block w-full px-3 py-2 bg-white border border-neutral-DEFAULT rounded-md shadow-sm placeholder-neutral-dark focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
       />
     </div>
@@ -44,7 +44,10 @@
               Codice Studente
               <span v-if="sortKey === 'student_code'"><ChevronUpIcon v-if="sortOrder === 'asc'" class="h-4 w-4 inline-block" /><ChevronDownIcon v-else class="h-4 w-4 inline-block" /></span>
             </th>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider">Gruppi</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider cursor-pointer hover:text-primary" @click="sortBy('groups')">
+              Gruppi
+              <span v-if="sortKey === 'groups'"><ChevronUpIcon v-if="sortOrder === 'asc'" class="h-4 w-4 inline-block" /><ChevronDownIcon v-else class="h-4 w-4 inline-block" /></span>
+            </th>
             <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-neutral-darker uppercase tracking-wider">Azioni</th>
           </tr>
         </thead>
@@ -113,17 +116,26 @@ const filteredAndSortedStudents = computed(() => {
         const firstName = s.first_name.toLowerCase();
         const lastName = s.last_name.toLowerCase();
         const studentCode = s.student_code.toLowerCase();
-        return firstName.includes(query) || lastName.includes(query) || studentCode.includes(query);
+        const inGroup = s.groups && s.groups.some(group => group.name.toLowerCase().includes(query));
+        return firstName.includes(query) || lastName.includes(query) || studentCode.includes(query) || inGroup;
       })
     : students.value;
 
   return filtered.slice().sort((a, b) => {
-    let valA: any = a[sortKey.value as keyof Student];
-    let valB: any = b[sortKey.value as keyof Student];
+    let valA: any;
+    let valB: any;
 
-    if (typeof valA === 'string' && typeof valB === 'string') {
-      valA = valA.toLowerCase();
-      valB = valB.toLowerCase();
+    if (sortKey.value === 'groups') {
+      valA = a.groups && a.groups.length > 0 ? a.groups[0].name.toLowerCase() : '';
+      valB = b.groups && b.groups.length > 0 ? b.groups[0].name.toLowerCase() : '';
+    } else {
+      valA = a[sortKey.value as keyof Student];
+      valB = b[sortKey.value as keyof Student];
+
+      if (typeof valA === 'string' && typeof valB === 'string') {
+        valA = valA.toLowerCase();
+        valB = valB.toLowerCase();
+      }
     }
     
     if (valA < valB) return sortOrder.value === 'asc' ? -1 : 1;

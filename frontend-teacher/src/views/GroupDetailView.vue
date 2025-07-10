@@ -153,17 +153,22 @@
                 <thead class="bg-gray-50">
                   <tr>
                     <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nome</th>
-                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cognome</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Studente</th>
                     <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Aggiunto il</th>
                     <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Azioni</th>
                   </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
                   <tr v-for="member in currentGroupMembers" :key="member.id"> <!-- Usa member.id come chiave -->
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ member.id }}</td> <!-- Mostra member.id -->
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ member.first_name }}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ member.last_name }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ member.id }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      <div class="flex items-center">
+                        <span>{{ member.first_name }} {{ member.last_name }}</span>
+                        <router-link :to="{ name: 'student-progress-detail', params: { studentId: member.id } }" class="ml-2 text-gray-400 hover:text-primary" title="Vedi progressi studente">
+                          <UserCircleIcon class="h-5 w-5" />
+                        </router-link>
+                      </div>
+                    </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ formatDate(member.joined_at) }}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <BaseButton @click="handleRemoveStudent(member.id)" :is-loading="isLoadingAction && studentIdBeingRemoved === member.id" :disabled="isLoadingAction" variant="danger" size="sm"> <!-- Passa member.id e confronta con member.id -->
@@ -213,7 +218,7 @@ import type { GroupAccessRequest } from '@/types/groups'; // Import type
 import BaseButton from '@/components/common/BaseButton.vue';
 import GlobalLoadingIndicator from '@/components/common/GlobalLoadingIndicator.vue';
 import StudentSelectionModal from '@/components/groups/StudentSelectionModal.vue'; // Importa la modale
-import { ClipboardDocumentIcon, CheckCircleIcon, XCircleIcon } from '@heroicons/vue/24/outline'; // Import copy icon + check/x icons
+import { ClipboardDocumentIcon, CheckCircleIcon, XCircleIcon, UserCircleIcon } from '@heroicons/vue/24/outline'; // Import icons
 
 const route = useRoute();
 const router = useRouter();

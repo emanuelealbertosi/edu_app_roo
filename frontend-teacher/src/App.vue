@@ -500,12 +500,6 @@ const showBreadcrumb = computed(() => {
                 </a>
               </li>
               <li class="mb-2">
-                <a @click="navigateTo(router, 'EmbeddedTeacherTopics')" class="flex items-center p-2 rounded hover:bg-secondary-light cursor-pointer" :class="{ 'bg-primary text-white': route.name === 'EmbeddedTeacherTopics' }" title="Argomenti">
-                  <LightBulbIcon class="h-5 w-5 flex-shrink-0" />
-                  <span class="ml-3 text-sm whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">Argomenti</span>
-                </a>
-              </li>
-              <li class="mb-2">
                 <a @click="navigateTo(router, 'EmbeddedTeacherLessonsList')" class="flex items-center p-2 rounded hover:bg-secondary-light cursor-pointer" :class="{ 'bg-primary text-white': route.name === 'EmbeddedTeacherLessonsList' }" title="Lezioni">
                   <AcademicCapIcon class="h-5 w-5 flex-shrink-0" />
                   <span class="ml-3 text-sm whitespace-nowrap transition-opacity duration-200 ease-in-out" :class="{ 'opacity-100': isEffectivelyExpanded, 'opacity-0': !isEffectivelyExpanded }">Lezioni</span>
@@ -673,12 +667,6 @@ const showBreadcrumb = computed(() => {
                   <router-link :to="{ name: 'EmbeddedTeacherSubjects' }" @click="forceNavigateAndCloseMobileMenu({ name: 'EmbeddedTeacherSubjects' })" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Materie">
                     <TagIcon class="h-5 w-5 flex-shrink-0" />
                     <span class="ml-3 text-sm">Materie</span>
-                  </router-link>
-                </li>
-                <li class="mb-2">
-                  <router-link :to="{ name: 'EmbeddedTeacherTopics' }" @click="forceNavigateAndCloseMobileMenu({ name: 'EmbeddedTeacherTopics' })" class="flex items-center p-2 rounded hover:bg-secondary-light" title="Argomenti">
-                    <LightBulbIcon class="h-5 w-5 flex-shrink-0" />
-                    <span class="ml-3 text-sm">Argomenti</span>
                   </router-link>
                 </li>
                 <li class="mb-2">

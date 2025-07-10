@@ -26,7 +26,6 @@
                 <!-- Link per Admin/Teacher -->
                 <template v-if="sharedAuthStore.userRole === 'TEACHER' || sharedAuthStore.userRole === 'ADMIN'">
                     <li><a @click="navigateTo(router, 'subjects')" class="text-blue-600 hover:underline cursor-pointer">Materie</a></li>
-                    <li><a @click="navigateTo(router, 'topics')" class="text-blue-600 hover:underline cursor-pointer">Argomenti</a></li>
                     <li v-if="sharedAuthStore.userRole === 'TEACHER'"><a @click="navigateTo(router, 'teacher-lessons')" class="text-blue-600 hover:underline cursor-pointer">Gestione Lezioni</a></li>
                     <li><a @click="navigateTo(router, 'course-list')" class="text-blue-600 hover:underline cursor-pointer">Corsi</a></li>
                     <li><a @click="navigateTo(router, 'uda-list')" class="text-blue-600 hover:underline cursor-pointer">Unità Didattiche</a></li>

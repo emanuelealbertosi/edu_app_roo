@@ -15,7 +15,7 @@
       <input
         type="text"
         v-model="searchQuery"
-        placeholder="Cerca materie per nome o descrizione..."
+        placeholder="Cerca materie o argomenti per nome o descrizione..."
         class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
       />
     </div>
@@ -45,22 +45,62 @@
           </tr>
         </thead>
         <tbody class="bg-white divide-y divide-gray-200">
-          <tr v-for="subject in filteredAndSortedSubjects" :key="subject.id" class="hover:bg-gray-50">
-            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-              <a href="#" @click.prevent="editSubject(subject as Subject)" class="text-indigo-600 hover:text-indigo-900 hover:underline" title="Modifica Materia">
-                {{ subject.name }}
-              </a>
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ subject.description || '-' }}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
-              <button @click="editSubject(subject as Subject)" class="text-yellow-600 hover:text-yellow-900 transition duration-150 ease-in-out" title="Modifica Materia">
-                <PencilIcon class="h-5 w-5 inline-block" />
-              </button>
-              <button @click="confirmDelete(subject as Subject)" class="text-red-600 hover:text-red-900 transition duration-150 ease-in-out" title="Elimina Materia">
-                <TrashIcon class="h-5 w-5 inline-block" />
-              </button>
-            </td>
-          </tr>
+          <template v-for="subject in filteredAndSortedSubjects" :key="subject.id">
+            <tr class="hover:bg-gray-50 cursor-pointer" @click="toggleSubject(subject.id)">
+              <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                <div class="flex items-center">
+                  <ChevronDownIcon class="h-5 w-5 mr-2 transition-transform" :class="{'transform rotate-180': expandedSubjects.has(subject.id)}" />
+                  <a href="#" @click.prevent.stop="editSubject(subject as Subject)" class="text-indigo-600 hover:text-indigo-900 hover:underline" title="Modifica Materia">
+                    {{ subject.name }}
+                  </a>
+                </div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ subject.description || '-' }}</td>
+              <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
+                <button @click.stop="openAddTopicModal(subject.id)" class="text-green-600 hover:text-green-900 transition duration-150 ease-in-out" title="Aggiungi Argomento">
+                  <PlusCircleIcon class="h-5 w-5 inline-block" />
+                </button>
+                <button @click.stop="editSubject(subject as Subject)" class="text-yellow-600 hover:text-yellow-900 transition duration-150 ease-in-out" title="Modifica Materia">
+                  <PencilIcon class="h-5 w-5 inline-block" />
+                </button>
+                <button @click.stop="confirmDelete(subject as Subject)" class="text-red-600 hover:text-red-900 transition duration-150 ease-in-out" title="Elimina Materia">
+                  <TrashIcon class="h-5 w-5 inline-block" />
+                </button>
+              </td>
+            </tr>
+            <!-- Riga espandibile per gli argomenti -->
+            <tr v-if="expandedSubjects.has(subject.id)">
+              <td colspan="3" class="p-0 bg-gray-50">
+                <div class="p-4">
+                  <div v-if="getTopicsForSubject(subject.id).length > 0">
+                    <h4 class="text-md font-semibold mb-2 text-gray-700">Argomenti:</h4>
+                    <table class="min-w-full divide-y divide-gray-300">
+                      <thead class="bg-gray-100">
+                        <tr>
+                          <th class="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase">Nome</th>
+                          <th class="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase">Descrizione</th>
+                          <th class="px-4 py-2 text-right text-xs font-medium text-gray-600 uppercase">Azioni</th>
+                        </tr>
+                      </thead>
+                      <tbody class="bg-white divide-y divide-gray-200">
+                        <tr v-for="topic in getTopicsForSubject(subject.id)" :key="topic.id">
+                          <td class="px-4 py-2 text-sm">{{ topic.name }}</td>
+                          <td class="px-4 py-2 text-sm">{{ topic.description || '-' }}</td>
+                          <td class="px-4 py-2 text-right text-sm space-x-2">
+                            <button @click.stop="editTopic(topic as Topic)" class="text-yellow-600 hover:text-yellow-900"><PencilIcon class="h-4 w-4" /></button>
+                            <button @click.stop="confirmDeleteTopic(topic as Topic)" class="text-red-600 hover:text-red-900"><TrashIcon class="h-4 w-4" /></button>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <div v-else class="text-center text-gray-500 py-4">
+                    Nessun argomento per questa materia.
+                  </div>
+                </div>
+              </td>
+            </tr>
+          </template>
         </tbody>
       </table>
     </div>
@@ -78,20 +118,41 @@
       @save="handleSave"
     />
 
+    <!-- Modale per Aggiungere/Modificare Argomenti -->
+    <TopicEditModal
+      v-if="showTopicModal || topicToEdit"
+      :topic="topicToEdit"
+      :subjects="subjectStore.subjects"
+      :defaultSubjectId="currentSubjectIdForModal"
+      @close="closeTopicModal"
+      @save="handleTopicSave"
+    />
+
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, onUnmounted } from 'vue'; // Aggiunto onUnmounted
+import { ref, onMounted, computed, onUnmounted, watch } from 'vue'; // Aggiunto onUnmounted
 import { useSubjectStore } from '@/stores/subjects';
+import { useTopicStore } from '@/stores/topics'; // Importa lo store degli argomenti
 import emitter from '@/eventBus'; // Importa l'event bus
 import SubjectEditModal from '../components/features/lezioni/SubjectEditModal.vue';
-import type { Subject } from '@/types/lezioni';
+import TopicEditModal from '../components/features/lezioni/TopicEditModal.vue'; // Importa il modale degli argomenti
+import type { Subject, Topic } from '@/types/lezioni'; // Importa anche il tipo Topic
 import { PlusCircleIcon, PencilIcon, TrashIcon, ChevronUpIcon, ChevronDownIcon } from '@heroicons/vue/24/outline';
 
 const subjectStore = useSubjectStore();
+const topicStore = useTopicStore(); // Istanzia lo store degli argomenti
+
+// State per le materie
 const subjectToEdit = ref<Subject | null>(null);
-const showAddModal = ref(false);
+const showAddModal = ref(false); // Questo diventerà showSubjectModal
+
+// State per gli argomenti
+const topicToEdit = ref<Topic | null>(null);
+const showTopicModal = ref(false);
+const expandedSubjects = ref<Set<number>>(new Set()); // Tiene traccia delle materie espanse
+const currentSubjectIdForModal = ref<number | null>(null);
 const searchQuery = ref('');
 const sortKey = ref<'name' | 'description'>('name');
 const sortOrder = ref('asc');
@@ -100,10 +161,18 @@ const filteredAndSortedSubjects = computed(() => {
   const query = searchQuery.value.toLowerCase().trim();
   
   const filtered = query
-    ? subjectStore.subjects.filter(subject =>
-        (subject.name?.toLowerCase() || '').includes(query) ||
-        (subject.description?.toLowerCase() || '').includes(query)
-      )
+    ? subjectStore.subjects.filter(subject => {
+        const subjectMatch = (subject.name?.toLowerCase() || '').includes(query) ||
+                             (subject.description?.toLowerCase() || '').includes(query);
+        
+        if (subjectMatch) return true;
+
+        const topics = getTopicsForSubject(subject.id);
+        return topics.some(topic =>
+          (topic.name?.toLowerCase() || '').includes(query) ||
+          (topic.description?.toLowerCase() || '').includes(query)
+        );
+      })
     : subjectStore.subjects;
 
   return filtered.slice().sort((a, b) => {
@@ -121,6 +190,10 @@ const filteredAndSortedSubjects = computed(() => {
   });
 });
 
+const getTopicsForSubject = (subjectId: number) => {
+  return topicStore.topics.filter(topic => topic.subject === subjectId);
+};
+
 // Funzione chiamata dall'event bus per aprire il modale
 const handleOpenAddModalEvent = () => {
   console.log("SubjectListView: Received open-add-subject-modal event.");
@@ -136,6 +209,7 @@ const openAddModalDirectly = () => {
 
 onMounted(async () => {
   await subjectStore.fetchSubjects();
+  await topicStore.fetchTopics(); // Carica anche gli argomenti
   // Registra il listener per l'evento
   emitter.on('open-add-subject-modal', handleOpenAddModalEvent);
 });
@@ -145,6 +219,16 @@ onUnmounted(() => {
   emitter.off('open-add-subject-modal', handleOpenAddModalEvent);
 });
 
+watch(searchQuery, (query) => {
+  if (query.trim()) {
+    // Quando l'utente cerca, espandi automaticamente i risultati
+    expandedSubjects.value = new Set(filteredAndSortedSubjects.value.map(s => s.id));
+  } else {
+    // Quando la ricerca viene cancellata, collassa tutto
+    expandedSubjects.value.clear();
+  }
+});
+
 const sortBy = (key: 'name' | 'description') => {
   if (sortKey.value === key) {
     sortOrder.value = sortOrder.value === 'asc' ? 'desc' : 'asc';
@@ -152,6 +236,20 @@ const sortBy = (key: 'name' | 'description') => {
     sortKey.value = key;
     sortOrder.value = 'asc';
   }
+};
+
+const toggleSubject = (subjectId: number) => {
+  if (expandedSubjects.value.has(subjectId)) {
+    expandedSubjects.value.delete(subjectId);
+  } else {
+    expandedSubjects.value.add(subjectId);
+  }
+};
+
+const openAddTopicModal = (subjectId: number) => {
+  topicToEdit.value = null;
+  currentSubjectIdForModal.value = subjectId;
+  showTopicModal.value = true;
 };
 
 const editSubject = (subject: Subject) => {
@@ -174,6 +272,12 @@ const closeModal = () => {
   subjectToEdit.value = null;
 };
 
+const closeTopicModal = () => {
+  showTopicModal.value = false;
+  topicToEdit.value = null;
+  currentSubjectIdForModal.value = null;
+};
+
 const handleSave = async (subjectData: { id?: number; name: string; description?: string }) => {
     let success = false;
     if (subjectData.id) {
@@ -189,6 +293,38 @@ const handleSave = async (subjectData: { id?: number; name: string; description?
          alert(`Errore durante il salvataggio: ${subjectStore.error}`);
          subjectStore.error = null;
     }
+};
+
+const handleTopicSave = async (topicData: { id?: number; name: string; subject: number; description?: string }) => {
+    let success = false;
+    if (topicData.id) {
+        success = await topicStore.updateTopic(topicData.id, topicData);
+    } else {
+        const result = await topicStore.addTopic(topicData);
+        success = !!result;
+    }
+
+    if (success) {
+        closeTopicModal();
+    } else {
+         alert(`Errore durante il salvataggio dell'argomento: ${topicStore.error}`);
+         topicStore.error = null;
+    }
+};
+
+const editTopic = (topic: Topic) => {
+  topicToEdit.value = { ...topic };
+  showTopicModal.value = true;
+};
+
+const confirmDeleteTopic = async (topic: Topic) => {
+  if (confirm(`Sei sicuro di voler eliminare l'argomento "${topic.name}"?`)) {
+    await topicStore.deleteTopic(topic.id);
+    if (topicStore.error) {
+      alert(`Errore durante l'eliminazione: ${topicStore.error}`);
+      topicStore.error = null;
+    }
+  }
 };
 
 </script>

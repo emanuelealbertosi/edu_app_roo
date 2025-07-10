@@ -74,19 +74,6 @@ const router = createRouter({
         ]
       }
     },
-    {
-      path: '/argomenti', // URL per la lista argomenti
-      name: 'topics',
-      component: () => import('../views/TopicListView.vue'), // Lazy loading
-      meta: {
-        requiresAuth: true,
-        roles: ['Admin', 'Docente', 'Teacher', 'ADMIN', 'TEACHER'],
-        breadcrumb: () => [
-          getHomeBreadcrumb(),
-          { text: 'Argomenti' }
-        ]
-      }
-    },
      {
       path: '/docente', // Rotta per l'atterraggio del docente da /lezioni/docente
       name: 'teacher-landing', // Nome univoco
