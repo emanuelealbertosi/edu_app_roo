@@ -172,7 +172,7 @@ import type { UDA, UdaGroup } from '@/types/uda';
 import UdaGroupModal from '@/components/features/uda/UdaGroupModal.vue';
 import AssignToGroupModal from '@/components/features/uda/AssignToGroupModal.vue';
 import {
-  TrashIcon, EyeIcon, DocumentDuplicateIcon, PlusCircleIcon, ChevronUpIcon, ChevronDownIcon,
+  TrashIcon, EyeIcon, DocumentDuplicateIcon, PlusCircleIcon, ChevronDownIcon,
   FolderPlusIcon, FolderMinusIcon, PencilIcon, ChevronRightIcon, XCircleIcon
 } from '@heroicons/vue/24/outline';
 
@@ -303,10 +303,6 @@ const getStatusClass = (status?: UDA['status']) => {
   return 'text-gray-600 bg-gray-100';
 };
 
-const formatDate = (dateString?: string | null) => {
-  if (!dateString) return 'N/D';
-  return new Date(dateString).toLocaleDateString('it-IT', { year: 'numeric', month: 'short', day: 'numeric' });
-};
 
 const openCreateGroupModal = () => {
   showGroupModal.value = true;

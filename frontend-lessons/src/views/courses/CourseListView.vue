@@ -176,14 +176,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, reactive } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { RouterLink } from 'vue-router';
 import { useCourseStore } from '@/stores/courseStore';
 import { useUiStore } from '@/stores/ui';
 import type { Course, CourseGroup } from '@/types/uda';
 import {
   PlusCircleIcon, TrashIcon, DocumentDuplicateIcon, ChevronUpIcon, ChevronDownIcon,
-  FolderIcon, PencilIcon, FolderPlusIcon, FolderMinusIcon, ChevronRightIcon, XCircleIcon
+  PencilIcon, FolderPlusIcon, FolderMinusIcon, ChevronRightIcon, XCircleIcon
 } from '@heroicons/vue/24/outline';
 import CourseGroupModal from '@/components/features/courses/CourseGroupModal.vue';
 import AssignToGroupModal from '@/components/features/courses/AssignToGroupModal.vue';
