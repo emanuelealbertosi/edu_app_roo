@@ -1,7 +1,7 @@
 # Piano di Implementazione: Sistema di Avvisi Modali
 
-**Versione:** 1.0
-**Data:** 2025-07-05
+**Versione:** 1.1
+**Data:** 2025-07-11
 
 ## 1. Obiettivo del Progetto
 
@@ -44,6 +44,11 @@ L'intera infrastruttura backend per il sistema di avvisi è stata implementata c
 - **Controllo Versioni (Git):**
   - È stato creato un nuovo branch `announcements`.
   - Tutte le modifiche sono state committate e pushate sul repository remoto.
+
+- **Editor Rich Text (WYSIWYG):**
+  - Per il campo `content` è stato implementato un editor WYSIWYG (`django-ckeditor-5`) nell'admin di Django.
+  - Questa scelta è stata fatta dopo aver scartato `django-ckeditor` a causa di warning di sicurezza e problemi tecnici con l'upload di file.
+  - L'editor supporta la formattazione del testo, l'upload di immagini e l'inserimento di contenuti multimediali, migliorando significativamente la gestione degli avvisi.
 
 ---
 

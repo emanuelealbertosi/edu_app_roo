@@ -32,6 +32,10 @@ echo "Setting permissions for media files..."
 echo "Ensuring parent media directory /app/mediafiles exists..."
 mkdir -p /app/mediafiles
 echo "Parent media directory ensured."
+# Set ownership of the media directory to the user running the app
+echo "Setting ownership of /app/mediafiles..."
+chown -R root:root /app/mediafiles
+echo "Ownership set."
 # Rimosso blocco per creare /app/mediafiles/tmp_uploads
 # Set broader read permissions on mediafiles for Nginx
 echo "Setting read permissions on /app/mediafiles for Nginx..."

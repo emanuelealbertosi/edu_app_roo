@@ -1,6 +1,7 @@
 from django.db import models
 from django.conf import settings
 from django.utils.translation import gettext_lazy as _
+from django_ckeditor_5.fields import CKEditor5Field
 
 class Announcement(models.Model):
     """
@@ -13,7 +14,7 @@ class Announcement(models.Model):
     )
 
     title = models.CharField(_("Title"), max_length=255)
-    content = models.TextField(_("Content"), help_text=_("Rich text content for the announcement modal."))
+    content = CKEditor5Field(_("Content"), config_name='extends', help_text=_("Rich text content for the announcement modal."))
     is_active = models.BooleanField(_("Is Active"), default=True, help_text=_("Only active announcements will be shown."))
     is_important = models.BooleanField(_("Is Important"), default=False, help_text=_("Important announcements are shown first."))
     target_audience = models.CharField(

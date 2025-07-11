@@ -57,6 +57,7 @@ urlpatterns = [
     path('api/groups/', include('apps.student_groups.urls')), # Gestione Gruppi Studenti (Prefisso corretto)
     path('api/uda/', include('apps.uda.urls')), # Gestione UDA (Unità Didattiche Apprendimento)
     path('api/announcements/', include('apps.announcements.urls')), # Gestione Avvisi
+    path("ckeditor5/", include('django_ckeditor_5.urls'), name="ck_editor_5_upload_file"),
 ]
 
 # Serve media files during development
