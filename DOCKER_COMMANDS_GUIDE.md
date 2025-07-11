@@ -29,25 +29,25 @@ Questo metodo builda le immagini direttamente con il tuo username Docker Hub e u
 
 *   **Build Backend:**
     ```bash
-    docker build -t albertosiemanuele/edu-app-backend:v24 .
+    docker build -t albertosiemanuele/edu-app-backend:v27 .
     ```
 *   **Build Frontend Studente:**
     ```bash
-    docker build -t albertosiemanuele/edu-app-frontend-student:v24 ./frontend-student
-	docker build -t albertosiemanuele/edu-app-frontend-student:v24 --build-arg VITE_LESSONS_APP_URL="https://www.eduapp.it/lezioni/" frontend-student/
+    docker build -t albertosiemanuele/edu-app-frontend-student:v27 ./frontend-student
+	docker build -t albertosiemanuele/edu-app-frontend-student:v27 --build-arg VITE_LESSONS_APP_URL="https://www.eduapp.it/lezioni/" frontend-student/
 
 
     ```
 *   **Build Frontend Docente:**
     ```bash
-    docker build -t albertosiemanuele/edu-app-frontend-teacher:v24 ./frontend-teacher
-	docker build -t albertosiemanuele/edu-app-frontend-teacher:v24 --build-arg VITE_LESSONS_APP_URL="https://www.eduapp.it/lezioni/" frontend-teacher/
+    docker build -t albertosiemanuele/edu-app-frontend-teacher:v27 ./frontend-teacher
+	docker build -t albertosiemanuele/edu-app-frontend-teacher:v27 --build-arg VITE_LESSONS_APP_URL="https://www.eduapp.it/lezioni/" frontend-teacher/
 
 
     ```
 *   **Build Frontend Lezioni:**
     ```bash
-    docker build -t albertosiemanuele/edu-app-frontend-lessons:v24 ./frontend-lessons
+    docker build -t albertosiemanuele/edu-app-frontend-lessons:v27 ./frontend-lessons
   ```
 
 docker build -t albertosiemanuele/edu-app-frontend-teacher:v18 --build-arg VITE_LESSONS_APP_URL="https://www.eduapp.it/lezioni/" frontend-teacher/
@@ -147,10 +147,10 @@ Ti verranno chiesti username e password.
 ### Passo 3.2: Pushare le Immagini Taggate
 Assicurati che `tuo_tag_specifico` sia lo stesso usato nei comandi `docker build -t`.
 ```bash
-docker push albertosiemanuele/edu-app-backend:v24
-docker push albertosiemanuele/edu-app-frontend-student:v24
-docker push albertosiemanuele/edu-app-frontend-teacher:v24
-docker push albertosiemanuele/edu-app-frontend-lessons:v24
+docker push albertosiemanuele/edu-app-backend:v27
+docker push albertosiemanuele/edu-app-frontend-student:v27
+docker push albertosiemanuele/edu-app-frontend-teacher:v27
+docker push albertosiemanuele/edu-app-frontend-lessons:v27
 ```
 
 ---

@@ -535,11 +535,11 @@ class EffectiveQuizAssigneeSerializer(serializers.Serializer):
         quiz_instance = obj.get('quiz')
         latest_attempt = self._get_latest_attempt(student_instance, quiz_instance)
         if latest_attempt:
-            if latest_attempt.status == QuizAttempt.StatusChoices.PENDING_MANUAL_GRADING:
+            if latest_attempt.status == QuizAttempt.AttemptStatus.PENDING_GRADING:
                 return 'pending_manual_grading'
-            elif latest_attempt.status == QuizAttempt.StatusChoices.GRADED:
+            elif latest_attempt.status in [QuizAttempt.AttemptStatus.COMPLETED, QuizAttempt.AttemptStatus.FAILED]:
                  return 'graded'
-            elif latest_attempt.submitted_at:
+            elif latest_attempt.completed_at:
                 return 'completed'
             elif latest_attempt.started_at:
                 return 'in_progress'
@@ -562,7 +562,7 @@ class EffectiveQuizAssigneeSerializer(serializers.Serializer):
         quiz_instance = obj.get('quiz')
         latest_attempt = self._get_latest_attempt(student_instance, quiz_instance)
         if latest_attempt:
-            activity_date = latest_attempt.submitted_at or latest_attempt.started_at
+            activity_date = latest_attempt.completed_at or latest_attempt.started_at
             return activity_date.isoformat() if activity_date else None
         return None
 
