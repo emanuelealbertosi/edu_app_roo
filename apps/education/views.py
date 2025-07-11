@@ -749,8 +749,15 @@ class TeacherQuestionTemplateViewSet(viewsets.ModelViewSet): # Aggiunta azione q
             quiz_template=quiz_template,
             order__gt=deleted_order
         ).order_by('order')
-        updated_count = questions_to_reorder.update(order=F('order') - 1)
-        logger.info(f"Riordinate {updated_count} domande nel template quiz {quiz_template.id} dopo eliminazione ordine {deleted_order}.")
+        # Usiamo un loop per aggiornare una domanda alla volta, partendo da quella con l'ordine più basso.
+        # Questo garantisce che non ci siano conflitti con il vincolo di unicità.
+        count = 0
+        for question in questions_to_reorder:
+            question.order -= 1
+            question.save()
+            count += 1
+        
+        logger.info(f"Riordinate {count} domande nel template quiz {quiz_template.id} dopo eliminazione ordine {deleted_order}.")
 
     # Modificato: detail=False perché l'azione opera sul template (tramite quiz_template_pk), non su una singola domanda (pk)
     @action(detail=False, methods=['get'], url_path='question-ids', permission_classes=[permissions.IsAuthenticated, IsTeacherUser])
@@ -1017,7 +1024,7 @@ class QuizViewSet(viewsets.ModelViewSet):
             elif assignment_obj.group:
                 # Assegnazione a un gruppo, espandi per ogni studente
                 # Usiamo group.students.all() che dovrebbe essere precaricato da 'group__students'
-                for membership in assignment_obj.group.memberships.all():
+                for membership in assignment_obj.group.memberships.all(): # .all() qui è sicuro perché i dati sono precaricati
                     student_member = membership.student
                     payload_item = {
                         **assignment_details_base,

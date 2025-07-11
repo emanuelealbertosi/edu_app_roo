@@ -20,17 +20,47 @@
         <p class="text-sm text-gray-500">Sottomesso il: {{ formatDate(attemptDetails.completed_at) }}</p>
       </header>
 
+      <div class="mb-6 p-4 bg-gray-100 rounded-lg">
+        <h4 class="font-semibold text-gray-700 mb-2">Filtra domande per stato:</h4>
+        <div class="flex items-center space-x-4">
+          <label class="flex items-center cursor-pointer">
+            <input type="checkbox" v-model="filters.correct" class="form-checkbox h-5 w-5 text-green-600 rounded focus:ring-green-500">
+            <span class="ml-2 text-gray-700">Corrette</span>
+          </label>
+          <label class="flex items-center cursor-pointer">
+            <input type="checkbox" v-model="filters.incorrect" class="form-checkbox h-5 w-5 text-red-600 rounded focus:ring-red-500">
+            <span class="ml-2 text-gray-700">Sbagliate</span>
+          </label>
+          <label class="flex items-center cursor-pointer">
+            <input type="checkbox" v-model="filters.pending" class="form-checkbox h-5 w-5 text-yellow-600 rounded focus:ring-yellow-500">
+            <span class="ml-2 text-gray-700">In attesa</span>
+          </label>
+        </div>
+      </div>
+
       <form @submit.prevent="submitGrading">
-        <div v-for="(question, index) in attemptDetails.questions_with_answers" :key="question.id" class="mb-8 p-6 bg-white shadow-lg rounded-lg border border-gray-200">
+        <div v-for="(question, index) in filteredQuestions" :key="question.id" class="mb-8 p-6 bg-white shadow-lg rounded-lg border border-gray-200">
           <h3 class="text-xl font-semibold text-gray-700 mb-3">Domanda {{ question.order + 1 }}:</h3>
           <p class="text-gray-800 mb-4 whitespace-pre-wrap">{{ question.text }}</p>
           <p class="text-sm text-gray-500 mb-1">Tipo: {{ question.question_type_display }}</p>
 
           <div v-if="question.student_answer" class="mt-4 p-4 bg-gray-50 rounded-md">
             <h4 class="font-semibold text-gray-700 mb-2">Risposta dello Studente:</h4>
-            <p class="text-gray-600 whitespace-pre-wrap mb-3">{{ question.student_answer.selected_answers_text || 'Nessuna risposta testuale fornita (o tipo di domanda diverso).' }}</p>
+            <div v-if="question.question_type === 'MULTIPLE_RESPONSE' && question.student_answer.selected_answers">
+              <ul class="list-disc list-inside text-gray-600" v-if="question.answer_options && question.answer_options.filter(o => question.student_answer.selected_answers.includes(o.id)).length > 0">
+                  <li v-for="opt in question.answer_options.filter(o => question.student_answer.selected_answers.includes(o.id))" :key="opt.id">
+                      {{ opt.text }}
+                  </li>
+              </ul>
+              <p v-else class="text-gray-500 italic">
+                  Nessuna opzione selezionata dallo studente.
+              </p>
+            </div>
+            <p v-else class="text-gray-600 whitespace-pre-wrap mb-3">
+              {{ question.student_answer.selected_answers_text || 'Nessuna risposta testuale fornita (o tipo di domanda diverso).' }}
+            </p>
 
-            <div v-if="question.question_type === 'OPEN_MANUAL'">
+            <div v-if="question.question_type === 'OPEN_MANUAL' || (question.question_type_display && question.question_type_display.includes('Manual Grading'))">
               <div class="mb-4">
                 <label class="block text-sm font-medium text-gray-700 mb-1">Valutazione:</label>
                 <div class="flex items-center space-x-4">
@@ -74,12 +104,12 @@
                 <template v-if="question.student_answer.score !== null">
                   <span class="ml-2 text-gray-600">(Punteggio: {{ question.student_answer.score }})</span>
                 </template>
-                <template v-else-if="attemptDetails && attemptDetails.status === 'PENDING_GRADING' && question.question_type !== 'OPEN_MANUAL'">
+                <template v-else-if="attemptDetails && attemptDetails.status === 'PENDING_GRADING' && !(question.question_type === 'OPEN_MANUAL' || (question.question_type_display && question.question_type_display.includes('Manual Grading')))">
                    <span class="ml-2 text-gray-600">(Punteggio: In attesa)</span>
                 </template>
               </p>
               <!-- Mostra opzioni corrette per domande non aperte -->
-              <div v-if="question.answer_options && question.answer_options.length > 0 && question.question_type !== 'OPEN_MANUAL'" class="mt-2">
+              <div v-if="question.answer_options && question.answer_options.length > 0 && !(question.question_type === 'OPEN_MANUAL' || (question.question_type_display && question.question_type_display.includes('Manual Grading')))" class="mt-2">
                 <p class="text-xs text-gray-500">Opzioni Corrette:</p>
                 <ul class="list-disc list-inside text-xs">
                     <li v-for="opt in question.answer_options.filter(o => o.is_correct)" :key="opt.id" class="text-gray-600">{{ opt.text }}</li>
@@ -90,7 +120,7 @@
           <div v-else class="mt-4 p-4 bg-yellow-50 rounded-md text-yellow-700">
             Nessuna risposta registrata per questa domanda.
           </div>
-          <hr v-if="index < attemptDetails.questions_with_answers.length - 1" class="my-6">
+          <hr v-if="index < filteredQuestions.length - 1" class="my-6">
         </div>
 
         <div class="mt-8 flex justify-end space-x-3">
@@ -124,6 +154,7 @@ interface GradingStudentAnswerData {
   question_text: string;
   question_order: number;
   selected_answers_text: string | null;
+  selected_answers?: number[];
   is_correct: boolean | null;
   score: number | null;
   teacher_comment: string | null;
@@ -147,6 +178,7 @@ interface GradeItem {
   student_answer_id: number;
   is_correct: boolean | null; // Può essere null inizialmente
   teacher_comment: string | null;
+  score: number | null; // Manteniamo score per il payload
 }
 
 const route = useRoute();
@@ -160,7 +192,40 @@ const submissionError = ref<string | null>(null);
 
 const grades = ref<Record<number, GradeItem>>({});
 
+const filters = ref({
+  correct: true,
+  incorrect: true,
+  pending: true,
+});
+
 const attemptId = computed(() => Number(route.params.attemptId));
+
+const filteredQuestions = computed(() => {
+  if (!attemptDetails.value) return [];
+
+  const { correct, incorrect, pending } = filters.value;
+
+  // Se tutti sono selezionati o nessuno è selezionato, mostra tutto
+  if ((correct && incorrect && pending) || (!correct && !incorrect && !pending)) {
+    return attemptDetails.value.questions_with_answers;
+  }
+
+  return attemptDetails.value.questions_with_answers.filter(q => {
+    // Per le domande senza risposta dello studente
+    if (!q.student_answer) {
+      // Mostra se 'in attesa' è selezionato
+      return pending;
+    }
+
+    // Per le domande con risposta
+    const isCorrect = q.student_answer.is_correct;
+    if (isCorrect === true && correct) return true;
+    if (isCorrect === false && incorrect) return true;
+    if (isCorrect === null && pending) return true; // In attesa di valutazione manuale
+
+    return false;
+  });
+});
 
 const fetchAttemptDetails = async () => {
   isLoading.value = true;
@@ -181,11 +246,12 @@ const initializeGrades = () => {
   if (attemptDetails.value) {
     const initialGrades: Record<number, GradeItem> = {};
     attemptDetails.value.questions_with_answers.forEach(q => {
-      if (q.student_answer && q.question_type === 'OPEN_MANUAL') {
+      if (q.student_answer && (q.question_type === 'OPEN_MANUAL' || (q.question_type_display && q.question_type_display.includes('Manual Grading')))) {
         initialGrades[q.student_answer.id] = {
           student_answer_id: q.student_answer.id,
-          is_correct: q.student_answer.is_correct, // Pre-popola se già valutato (improbabile per PENDING)
-          teacher_comment: q.student_answer.teacher_comment || ''
+          is_correct: q.student_answer.is_correct, // Pre-popola se già valutato
+          teacher_comment: q.student_answer.teacher_comment || '',
+          score: q.student_answer.score // Inizializza con il punteggio esistente se c'è
         };
       }
     });
@@ -197,10 +263,11 @@ const isFormValid = computed(() => {
   if (!attemptDetails.value) return false;
   // Controlla che tutte le domande OPEN_MANUAL abbiano una valutazione (is_correct non sia null)
   return attemptDetails.value.questions_with_answers.every(q => {
-    if (q.question_type === 'OPEN_MANUAL' && q.student_answer) {
+    if ((q.question_type === 'OPEN_MANUAL' || (q.question_type_display && q.question_type_display.includes('Manual Grading'))) && q.student_answer) {
+      // La validazione richiede solo che is_correct sia definito (true o false)
       return grades.value[q.student_answer.id]?.is_correct !== null;
     }
-    return true; // Le domande non manuali o senza risposta non bloccano la validità del form di correzione
+    return true;
   });
 });
 
@@ -214,8 +281,10 @@ const submitGrading = async () => {
 
   const payloadAnswers = Object.values(grades.value).map(g => ({
     student_answer_id: g.student_answer_id,
-    is_correct: g.is_correct as boolean, // Assicurati che sia boolean, la validazione lo garantisce
-    teacher_comment: g.teacher_comment || null
+    is_correct: g.is_correct as boolean,
+    teacher_comment: g.teacher_comment || null,
+    // Il punteggio viene derivato da is_correct: 1 per corretto, 0 per sbagliato.
+    score: g.is_correct ? 1 : 0
   }));
 
   try {

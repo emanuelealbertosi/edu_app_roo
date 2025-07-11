@@ -3,6 +3,7 @@ import { ref, computed, onMounted } from 'vue'; // Aggiungere ref, computed, onM
 import { useRouter } from 'vue-router';
 // Importa la nuova interfaccia per i tentativi
 import type { QuizAttemptDashboardItem } from '@/api/dashboard';
+import { useDashboardStore } from '@/stores/dashboard';
 import BaseModal from '@/components/common/BaseModal.vue'; // Importare la modale
 import QuizDetailsView from '@/views/QuizDetailsView.vue'; // Importare la vista dettagli
 import QuizAttemptView from '@/views/QuizAttemptView.vue'; // Importare la vista tentativo
@@ -20,6 +21,7 @@ const props = defineProps<{
 }>();
 
 const router = useRouter();
+const dashboardStore = useDashboardStore();
 
 // const isGridView = computed(() => props.displayMode === 'grid'); // Rimosso isGridView
 
@@ -83,9 +85,10 @@ const openAttemptModal = (quizId: number, attemptId: number | null = null) => {
 };
 const closeAttemptModal = () => {
   isAttemptModalOpen.value = false;
-  // Potremmo voler ricaricare i dati della dashboard qui se l'utente chiude a metà
-  quizIdForAttempt.value = null; // Reset immediato
-  attemptIdToContinue.value = null; // Ripristinato: Resetta anche l'ID del tentativo // Reset immediato
+  quizIdForAttempt.value = null;
+  attemptIdToContinue.value = null;
+  // Forziamo il ricaricamento dei dati della dashboard per aggiornare lo stato dei quiz
+  dashboardStore.loadDashboard();
 };
 
 // Gestisce l'avvio DALLA MODALE DETTAGLI (riceve già quizId, corretto)

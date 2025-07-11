@@ -389,7 +389,7 @@ const questionComponentMap = {
   'mc_multi': shallowRef(MultipleChoiceMultipleQuestion),
   'tf': shallowRef(TrueFalseQuestion),
   'fill_blank': shallowRef(FillBlankQuestion),
-  'open_answer_manual': shallowRef(OpenAnswerManualQuestion),
+  'open_manual': shallowRef(OpenAnswerManualQuestion),
   // Manteniamo le vecchie chiavi per retrocompatibilità se necessario,
   // ma la logica di accesso ora normalizza a minuscolo.
   // 'MC_SINGLE': shallowRef(MultipleChoiceSingleQuestion),

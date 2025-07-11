@@ -655,11 +655,58 @@ class QuizDetailWithAssignmentsSerializer(QuizSerializer):
     # Assumendo 'quizassignment_set' o 'assignments' come possibilità comuni.
     # Usiamo 'quizassignment_set' come placeholder se il related_name non è noto con certezza.
     # DEVE USARE QuizAssignmentModelSerializer e il source corretto è 'assignments'
-    assignments = QuizAssignmentModelSerializer(many=True, read_only=True)
+    assignments = serializers.SerializerMethodField()
 
     class Meta(QuizSerializer.Meta): # Eredita Meta da QuizSerializer
         # Estende i campi del QuizSerializer con il campo 'assignments'
         fields = list(QuizSerializer.Meta.fields) + ['assignments']
+
+    def get_assignments(self, quiz_instance):
+        request = self.context.get('request')
+        # Re-utilizza la logica dell'endpoint 'assignees'
+        # Questo è un approccio semplificato. In un'app reale, potresti voler refattorizzare
+        # la logica di costruzione del payload in una funzione helper condivisa.
+        
+        raw_assignments = quiz_instance.assignments.all().select_related(
+            'student', 'group', 'assigned_by'
+        ).prefetch_related(
+            'student__quiz_attempts',
+            'group__memberships__student',
+            'group__memberships__student__quiz_attempts'
+        )
+
+        effective_assignees_payload = []
+        for assignment_obj in raw_assignments:
+            assignment_details_base = {
+                "quiz": quiz_instance,
+                "assigned_by": assignment_obj.assigned_by,
+                "assigned_at": assignment_obj.assigned_at,
+                "due_date": assignment_obj.due_date,
+                "original_assignment_id": assignment_obj.id,
+            }
+
+            if assignment_obj.student:
+                payload_item = {
+                    **assignment_details_base,
+                    "student": assignment_obj.student,
+                    "group": None,
+                    "id": f"student-{assignment_obj.student.id}-quiz-{quiz_instance.id}"
+                }
+                effective_assignees_payload.append(payload_item)
+            
+            elif assignment_obj.group:
+                for membership in assignment_obj.group.memberships.all():
+                    student_member = membership.student
+                    payload_item = {
+                        **assignment_details_base,
+                        "student": student_member,
+                        "group": assignment_obj.group,
+                        "id": f"group-{assignment_obj.group.id}-student-{student_member.id}-quiz-{quiz_instance.id}"
+                    }
+                    effective_assignees_payload.append(payload_item)
+        
+        # Serializza il payload costruito con il serializer corretto
+        return EffectiveQuizAssigneeSerializer(effective_assignees_payload, many=True, context=self.context).data
         # read_only_fields sono ereditati; 'assignments' è read_only per definizione del campo.
 
 # --- Serializers per Statistiche Quiz ---
@@ -2091,7 +2138,7 @@ class StudentAnswerReviewSerializer(serializers.ModelSerializer):
     """
     class Meta:
         model = StudentAnswer
-        fields = ['question_id', 'selected_answers', 'answered_at', 'is_correct'] # selected_answers è JSONB
+        fields = ['question_id', 'selected_answers', 'answered_at', 'is_correct', 'teacher_comment'] # selected_answers è JSONB
         read_only_fields = fields
 
 

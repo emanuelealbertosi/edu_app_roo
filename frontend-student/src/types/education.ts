@@ -136,6 +136,7 @@ export interface StudentAnswerReview {
   selected_answers: any; // Può essere string, number[], object a seconda del tipo di domanda
   answered_at: string | null;
   is_correct?: boolean; // Aggiunto per indicare se la risposta data è corretta
+  teacher_comment?: string | null; // Aggiunto per il feedback del docente
 }
 
 /**

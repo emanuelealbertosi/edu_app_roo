@@ -9,16 +9,16 @@
     </div>
 
     <!-- Modalità Input -->
-    <div v-if="currentDisplayMode === 'input' && fillBlankMetadataForInput" class="prose dark:prose-invert max-w-none">
+    <div v-if="currentDisplayMode === 'input' && fillBlankMetadataForInput" class="question-text-with-blanks text-lg leading-relaxed dark:text-gray-300 max-w-none flex items-baseline">
       <template v-for="(part, index) in parsedParts" :key="`input-${index}`">
-        <span v-if="part.type === 'text'" v-html="part.content" class="align-baseline"></span>
+        <span v-if="part.type === 'text'" v-html="part.content"></span>
         <input
           v-else-if="part.type === 'blank'"
           type="text"
           :aria-label="`Risposta per spazio vuoto ${part.order + 1}`"
           v-model="studentResponses[part.blankId]"
           @input="handleInputChange()"
-          class="blank-input mx-1 px-2 py-1 border-b border-gray-500 dark:border-gray-400 focus:border-blue-500 dark:focus:border-blue-400 focus:border-b-2 outline-none text-center text-lg align-baseline w-24 md:w-32 bg-transparent dark:text-gray-200"
+          class="blank-input text-lg mx-1 px-2 py-1 border-b border-gray-500 dark:border-gray-400 focus:border-blue-500 dark:focus:border-blue-400 focus:border-b-2 outline-none text-center w-24 md:w-32 bg-transparent dark:text-gray-200"
         />
       </template>
     </div>
@@ -164,16 +164,27 @@ const initializeAndParse = () => {
   const { text_with_placeholders, blanks } = currentMeta;
   const sortedBlanks = [...blanks].sort((a, b) => a.order - b.order);
   const parts: ParsedPart[] = [];
-  const placeholderRegex = /\{([\w-]+)\}/g;
+  const placeholderRegex = /\{([\w-]+)\}|\[Spazio Vuoto #(\d+)\]/g;
   let lastIndex = 0;
   let match;
 
   while ((match = placeholderRegex.exec(text_with_placeholders)) !== null) {
-    const placeholderId = match[1];
+    const idPlaceholder = match[1];
+    const orderPlaceholder = match[2];
+
     if (match.index > lastIndex) {
       parts.push({ type: 'text', content: text_with_placeholders.substring(lastIndex, match.index) });
     }
-    const blankConfig = sortedBlanks.find(b => b.id === placeholderId);
+
+    let blankConfig;
+    if (idPlaceholder) {
+      blankConfig = sortedBlanks.find(b => b.id === idPlaceholder);
+    } else if (orderPlaceholder) {
+      const order = parseInt(orderPlaceholder, 10);
+      // I placeholder sono 1-based, gli indici/order sono tipicamente 0-based.
+      blankConfig = sortedBlanks.find(b => b.order === order - 1);
+    }
+    
     if (blankConfig) {
       parts.push({ type: 'blank', blankId: blankConfig.id, order: blankConfig.order });
     } else {

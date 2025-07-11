@@ -253,6 +253,12 @@ const getIndividualBlankAnswers = (question: QuestionReview): Array<{ id: string
             </div>
           </div>
         </div>
+        
+        <!-- Sezione Commento del Docente -->
+        <div v-if="question.student_answer?.teacher_comment" class="mt-3 pt-3 border-t border-gray-200">
+          <p class="font-medium text-sm text-gray-700">Commento del Docente:</p>
+          <p class="text-gray-800 whitespace-pre-wrap bg-yellow-50 p-2 rounded-md">{{ question.student_answer.teacher_comment }}</p>
+        </div>
       </div>
     </div>
     <div v-else class="p-6 text-center">
