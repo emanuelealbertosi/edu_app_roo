@@ -127,6 +127,7 @@ export interface UDA {
   knowledge_html?: string | null;
   skills_html?: string | null;
   competences_html?: string | null;
+  prerequisites_html?: string | null;
   // Campi per Export DOCX
   is_civic_education?: boolean;
   didactic_strategies_html?: string | null;

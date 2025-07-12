@@ -120,6 +120,14 @@
               :editable="true"
             />
           </div>
+          <div class="border-orange-500 border-2 rounded-md p-4">
+            <label for="prerequisitesHtml" class="block text-sm font-medium text-gray-700 mb-2">Prerequisiti</label>
+            <WysiwygEditor
+              id="prerequisitesHtml"
+              v-model="prerequisitesHtmlForEditor"
+              :editable="true"
+            />
+          </div>
         </div>
 
         <!-- Campi per Export DOCX -->
@@ -245,6 +253,7 @@ interface UdaFormData {
   knowledge_html: string | null; // Aggiunto
   skills_html: string | null;    // Aggiunto
   competences_html: string | null; // Aggiunto
+  prerequisites_html: string | null;
   // Campi per Export DOCX
   is_civic_education: boolean;
   didactic_strategies_html: string | null;
@@ -270,6 +279,7 @@ interface UdaApiPayload {
   knowledge_html?: string | null; // Aggiunto
   skills_html?: string | null;    // Aggiunto
   competences_html?: string | null; // Aggiunto
+  prerequisites_html?: string | null;
   // Campi per Export DOCX
   is_civic_education?: boolean;
   didactic_strategies_html?: string | null;
@@ -338,6 +348,7 @@ const formData = ref<UdaFormData>({
   knowledge_html: null,
   skills_html: null,
   competences_html: null,
+  prerequisites_html: null,
   // Campi per Export DOCX
   is_civic_education: false,
   didactic_strategies_html: null,
@@ -400,6 +411,11 @@ const competencesHtmlForEditor = computed({
   set: (val) => { formData.value.competences_html = val || null; }
 });
 
+const prerequisitesHtmlForEditor = computed({
+  get: () => formData.value.prerequisites_html || undefined,
+  set: (val) => { formData.value.prerequisites_html = val || null; }
+});
+
 const didacticStrategiesHtmlForEditor = computed({
   get: () => formData.value.didactic_strategies_html || undefined,
   set: (val) => { formData.value.didactic_strategies_html = val || null; }
@@ -457,6 +473,7 @@ const handleAutoSave = async () => {
     knowledge_html: formData.value.knowledge_html || undefined,
     skills_html: formData.value.skills_html || undefined,
     competences_html: formData.value.competences_html || undefined,
+    prerequisites_html: formData.value.prerequisites_html || undefined,
     is_civic_education: formData.value.is_civic_education,
     didactic_strategies_html: formData.value.didactic_strategies_html || undefined,
     materials_tools_html: formData.value.materials_tools_html || undefined,

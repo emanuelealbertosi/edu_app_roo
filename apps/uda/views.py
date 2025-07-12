@@ -159,6 +159,7 @@ class CourseViewSet(viewsets.ModelViewSet):
                 'topics_string': ", ".join([topic.name for topic in uda_instance.topics.all()]),
                 'knowledge_html': uda_instance.knowledge_html,
                 'skills_html': uda_instance.skills_html,
+                'prerequisites_html': uda_instance.prerequisites_html,
                 'total_estimated_hours_display': total_estimated_hours_display,
                 'didactic_strategies_html': uda_instance.didactic_strategies_html,
                 'materials_tools_html': uda_instance.materials_tools_html,
@@ -230,6 +231,7 @@ class CourseViewSet(viewsets.ModelViewSet):
             add_table_row_docx(table_details, 'Competenze attese a livello di UdA', uda_data['competences_html'])
             add_table_row_docx(table_details, 'Conoscenze ADA (sapere)', uda_data['knowledge_html'])
             add_table_row_docx(table_details, 'Abilità-Capacità ADA (saper fare)', uda_data['skills_html'])
+            add_table_row_docx(table_details, 'Prerequisiti', uda_data['prerequisites_html'])
             add_table_row_docx(table_details, 'Strategie didattiche', uda_data['didactic_strategies_html'])
             add_table_row_docx(table_details, 'Materiali e strumenti', uda_data['materials_tools_html'])
             add_table_row_docx(table_details, 'Tipo di verifiche', uda_data['assessment_type_html'])
@@ -350,6 +352,7 @@ class CourseViewSet(viewsets.ModelViewSet):
                 'topics_string': ", ".join([topic.name for topic in uda_instance.topics.all()]),
                 'knowledge_html': uda_instance.knowledge_html,
                 'skills_html': uda_instance.skills_html,
+                'prerequisites_html': uda_instance.prerequisites_html,
                 'total_estimated_hours_display': total_estimated_hours_display,
                 'didactic_strategies_html': uda_instance.didactic_strategies_html,
                 'materials_tools_html': uda_instance.materials_tools_html,

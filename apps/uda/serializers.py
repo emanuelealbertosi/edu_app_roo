@@ -619,7 +619,7 @@ class UDASerializer(serializers.ModelSerializer):
        model = UDA
        fields = [
            'id', 'teacher', 'teacher_username', 'source_template_id', 'title', 'description',
-           'knowledge_html', 'skills_html', 'competences_html', # Campi aggiunti
+           'knowledge_html', 'skills_html', 'competences_html', 'prerequisites_html', # Campi aggiunti
            'is_civic_education', # Campo per Export DOCX
            'didactic_strategies_html', # Campo per Export DOCX
            'materials_tools_html', # Campo per Export DOCX

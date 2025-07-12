@@ -262,6 +262,7 @@ class UDA(models.Model):
     knowledge_html = models.TextField(blank=True, null=True, help_text="Contenuto HTML per le conoscenze")
     skills_html = models.TextField(blank=True, null=True, help_text="Contenuto HTML per le abilità")
     competences_html = models.TextField(blank=True, null=True, help_text="Contenuto HTML per le competenze")
+    prerequisites_html = models.TextField(blank=True, null=True, help_text="Contenuto HTML per i prerequisiti")
 
     # Campi per Export DOCX
     is_civic_education = models.BooleanField(default=False, help_text="Indica se l'UDA rientra nel percorso di Educazione Civica")
@@ -368,6 +369,9 @@ class UDA(models.Model):
         if self.competences_html:
             self.competences_html = sanitize_html(self.competences_html)
             logger.debug(f"UDA ID {self.pk} after sanitizing competences_html: '{str(self.competences_html)[:100]}'")
+        if self.prerequisites_html:
+            self.prerequisites_html = sanitize_html(self.prerequisites_html)
+            logger.debug(f"UDA ID {self.pk} after sanitizing prerequisites_html: '{str(self.prerequisites_html)[:100]}'")
         if self.didactic_strategies_html:
             self.didactic_strategies_html = sanitize_html(self.didactic_strategies_html)
             logger.debug(f"UDA ID {self.pk} after sanitizing didactic_strategies_html: '{str(self.didactic_strategies_html)[:100]}'")

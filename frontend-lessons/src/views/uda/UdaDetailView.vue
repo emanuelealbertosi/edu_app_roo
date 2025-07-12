@@ -45,6 +45,13 @@
           @save="handleSaveCompetences"
           class="flex-1 min-w-[300px]"
         />
+        <CollapsibleEditableSection
+          title="Prerequisiti"
+          :initial-content-html="uda.prerequisites_html"
+          border-style-class="border-orange-500 border-2 rounded-md"
+          @save="handleSavePrerequisites"
+          class="flex-1 min-w-[300px]"
+        />
       </div>
 
       <!-- Sezioni per i campi di esportazione DOCX -->
@@ -439,6 +446,12 @@ const handleTeacherMarkedCompletedUpdate = (payload: { contentId: number, comple
 
 const handleActivityCompletedUpdate = (payload: { contentId: number, completed: boolean }) => {
   console.log('Activity completed update:', payload);
+};
+
+const handleSavePrerequisites = async (newContent: string) => {
+  if (uda.value) {
+    await udaStore.updateUda(uda.value.id, { prerequisites_html: newContent });
+  }
 };
 
 const handleAssignLesson = (lessonIdInput: number | string) => {
