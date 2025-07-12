@@ -416,7 +416,11 @@ const sortBy = (key: string) => {
         </thead>
         <tbody class="bg-white divide-y divide-neutral-DEFAULT">
           <tr v-for="template in filteredAndSortedTemplates" :key="template.id" class="hover:bg-neutral-lightest transition-colors duration-150">
-            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-neutral-darkest">{{ template.title }}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-neutral-darkest">
+              <a href="#" @click.prevent="editQuizTemplate(template.id)" class="hover:underline cursor-pointer">
+                {{ template.title }}
+              </a>
+            </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-neutral-darker">{{ template.description || '-' }}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-neutral-darker">{{ template.subject || '-' }}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-neutral-darker">{{ template.topic || '-' }}</td>

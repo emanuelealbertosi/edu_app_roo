@@ -425,143 +425,108 @@ class QuestionSerializer(serializers.ModelSerializer):
 
 
 class QuizSerializer(serializers.ModelSerializer):
-    teacher_username = serializers.CharField(source='teacher.username', read_only=True) # Mantenuto per compatibilità, se necessario
+    teacher_username = serializers.CharField(source='teacher.username', read_only=True)
     teacher_full_name = serializers.SerializerMethodField()
+    assignee = serializers.SerializerMethodField()
+    source_template_info = serializers.SerializerMethodField()
 
     class Meta:
         model = Quiz
         fields = [
             'id', 'teacher', 'teacher_username', 'teacher_full_name', 'source_template',
+            'source_template_info',
             'title', 'description',
-            'subject', # Ripristinato CharField
-            'topic',   # Ripristinato CharField
-            'metadata', 'created_at', 'available_from', 'available_until'
+            'subject',
+            'topic',
+            'metadata', 'created_at', 'available_from', 'available_until',
+            'assignee'
         ]
         read_only_fields = [
-            'id', 'teacher', 'teacher_username', 'teacher_full_name', 'created_at'
+            'id', 'teacher', 'teacher_username', 'teacher_full_name', 'created_at', 'assignee',
+            'source_template_info'
         ]
         extra_kwargs = {
             'description': {'required': False, 'allow_blank': True, 'allow_null': True},
-            # Rimosso extra_kwargs per _id
         }
-        # Rimosse definizioni subject_name, topic_name, subject_color_placeholder
 
     def get_teacher_full_name(self, obj: Quiz) -> str:
         if obj.teacher:
             return f"{obj.teacher.first_name} {obj.teacher.last_name}".strip()
-        return "N/D" # O un valore di default appropriato
+        return "N/D"
+
+    def get_assignee(self, obj: Quiz) -> dict | None:
+        assignment = QuizAssignment.objects.filter(quiz=obj).select_related('student', 'group').first()
+        if not assignment:
+            return None
+
+        if assignment.student:
+            return {
+                'type': 'student',
+                'id': assignment.student.id,
+                'name': f"{assignment.student.first_name} {assignment.student.last_name}".strip()
+            }
+        elif assignment.group:
+            return {
+                'type': 'group',
+                'id': assignment.group.id,
+                'name': assignment.group.name
+            }
+        return None
+
+    def get_source_template_info(self, obj: Quiz) -> dict | None:
+        if obj.source_template:
+            return {
+                'id': obj.source_template.id,
+                'title': obj.source_template.title
+            }
+        return None
 class EffectiveQuizAssigneeSerializer(serializers.Serializer):
     """
-    Serializer per visualizzare i dati degli assegnatari effettivi di un quiz,
-    espandendo le assegnazioni di gruppo in voci individuali per studente.
-    Questo serializer ora si aspetta una lista di dizionari dalla vista.
-    Utilizzato specificamente dalla vista QuizViewSet.assignees.
+    Serializer per visualizzare i dati degli assegnatari effettivi di un quiz.
+    Utilizza un payload pre-elaborato dalla vista che include l'ultimo tentativo.
     """
-    id = serializers.CharField(read_only=True) # ID univoco generato dalla vista
-    quiz_id = serializers.SerializerMethodField()
-    quiz_title = serializers.SerializerMethodField()
-
-    student_info = serializers.SerializerMethodField()
-    group_info = serializers.SerializerMethodField()
-    assigned_by_info = serializers.SerializerMethodField()
+    id = serializers.CharField(read_only=True)
+    student_info = StudentBasicSerializer(source='student', read_only=True)
+    group_info = StudentGroupBasicSerializer(source='group', read_only=True)
     
     assigned_at = serializers.DateTimeField(read_only=True)
     due_date = serializers.DateTimeField(read_only=True, allow_null=True)
 
+    # Campi derivati dall'ultimo tentativo, che ora è passato nel payload
     status = serializers.SerializerMethodField()
     score = serializers.SerializerMethodField()
     attempt_id = serializers.SerializerMethodField()
     last_activity_at = serializers.SerializerMethodField()
 
-    def get_quiz_id(self, obj: dict) -> int | None:
-        quiz_instance = obj.get('quiz')
-        return quiz_instance.id if quiz_instance else None
-
-    def get_quiz_title(self, obj: dict) -> str | None:
-        quiz_instance = obj.get('quiz')
-        return quiz_instance.title if quiz_instance else None
-
-    def get_student_info(self, obj: dict) -> dict | None:
-        student_instance = obj.get('student')
-        if student_instance:
-            return StudentBasicSerializer(student_instance).data
-        return None
-
-    def get_group_info(self, obj: dict) -> dict | None:
-        group_instance = obj.get('group')
-        if group_instance:
-            return StudentGroupBasicSerializer(group_instance).data
-        return None
-        
-    def get_assigned_by_info(self, obj: dict) -> dict | None:
-        assigned_by_instance = obj.get('assigned_by')
-        if assigned_by_instance:
-            return UserSerializer(assigned_by_instance).data
-        return None
-
-    def _get_latest_attempt(self, student_obj: Student | None, quiz_obj: Quiz | None) -> QuizAttempt | None:
-        if student_obj and quiz_obj:
-            attempts_for_student_quiz = []
-            
-            prefetched_attempts = None
-            # Controlla se i tentativi sono stati precaricati nella cache dell'oggetto studente
-            if hasattr(student_obj, '_prefetched_objects_cache') and 'quizattempt_set' in student_obj._prefetched_objects_cache:
-                prefetched_attempts = student_obj._prefetched_objects_cache['quizattempt_set']
-                # logger.debug(f"Accessing prefetched attempts for student {student_obj.id} from _prefetched_objects_cache.")
-            # Fallback se non nella cache ma la relazione esiste (potrebbe fare una query)
-            elif hasattr(student_obj, 'quizattempt_set'):
-                # logger.warning(f"Accessing attempts for student {student_obj.id} via related manager (might query DB).")
-                prefetched_attempts = student_obj.quizattempt_set.all()
-
-
-            if prefetched_attempts is not None:
-                for attempt in prefetched_attempts:
-                    if attempt.quiz_id == quiz_obj.id: # Filtra per il quiz corretto
-                        attempts_for_student_quiz.append(attempt)
-            
-            if attempts_for_student_quiz:
-                attempts_for_student_quiz.sort(
-                    key=lambda a: (a.completed_at or timezone.datetime.min.replace(tzinfo=timezone.utc), # CORRETTO submitted_at
-                                   a.started_at or timezone.datetime.min.replace(tzinfo=timezone.utc)),
-                    reverse=True
-                )
-                # logger.debug(f"Found and sorted {len(attempts_for_student_quiz)} attempts for student {student_obj.id}, quiz {quiz_obj.id}. Latest ID: {attempts_for_student_quiz[0].id}")
-                return attempts_for_student_quiz[0]
-            # logger.debug(f"No attempts found for student {student_obj.id}, quiz {quiz_obj.id} after checking prefetched/related.")
-        return None
+    # Campi informativi aggiuntivi (opzionali, ma utili per il contesto)
+    quiz_title = serializers.CharField(source='quiz.title', read_only=True)
+    assigned_by_info = UserSerializer(source='assigned_by', read_only=True)
 
     def get_status(self, obj: dict) -> str:
-        student_instance = obj.get('student')
-        quiz_instance = obj.get('quiz')
-        latest_attempt = self._get_latest_attempt(student_instance, quiz_instance)
+        latest_attempt = obj.get('latest_attempt')
         if latest_attempt:
-            if latest_attempt.status == QuizAttempt.AttemptStatus.PENDING_GRADING:
-                return 'pending_manual_grading'
-            elif latest_attempt.status in [QuizAttempt.AttemptStatus.COMPLETED, QuizAttempt.AttemptStatus.FAILED]:
-                 return 'graded'
-            elif latest_attempt.completed_at:
-                return 'completed'
-            elif latest_attempt.started_at:
-                return 'in_progress'
+            # Mappatura diretta dello stato del modello a quello del frontend
+            status_map = {
+                QuizAttempt.AttemptStatus.IN_PROGRESS: 'in_progress',
+                QuizAttempt.AttemptStatus.PENDING_GRADING: 'pending_manual_grading',
+                QuizAttempt.AttemptStatus.COMPLETED: 'completed',
+                QuizAttempt.AttemptStatus.FAILED: 'completed', # Anche FAILED è considerato 'completato'
+            }
+            return status_map.get(latest_attempt.status, 'in_progress')
         return 'not_started'
 
     def get_score(self, obj: dict) -> float | None:
-        student_instance = obj.get('student')
-        quiz_instance = obj.get('quiz')
-        latest_attempt = self._get_latest_attempt(student_instance, quiz_instance)
+        latest_attempt = obj.get('latest_attempt')
         return latest_attempt.score if latest_attempt and latest_attempt.score is not None else None
 
     def get_attempt_id(self, obj: dict) -> int | None:
-        student_instance = obj.get('student')
-        quiz_instance = obj.get('quiz')
-        latest_attempt = self._get_latest_attempt(student_instance, quiz_instance)
+        latest_attempt = obj.get('latest_attempt')
         return latest_attempt.id if latest_attempt else None
 
     def get_last_activity_at(self, obj: dict) -> str | None:
-        student_instance = obj.get('student')
-        quiz_instance = obj.get('quiz')
-        latest_attempt = self._get_latest_attempt(student_instance, quiz_instance)
+        latest_attempt = obj.get('latest_attempt')
         if latest_attempt:
+            # Usa completed_at se disponibile, altrimenti started_at.
             activity_date = latest_attempt.completed_at or latest_attempt.started_at
             return activity_date.isoformat() if activity_date else None
         return None

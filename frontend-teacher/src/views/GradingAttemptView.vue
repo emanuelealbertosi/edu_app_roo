@@ -41,23 +41,23 @@
       <form @submit.prevent="submitGrading">
         <div v-for="(question, index) in filteredQuestions" :key="question.id" class="mb-8 p-6 bg-white shadow-lg rounded-lg border border-gray-200">
           <h3 class="text-xl font-semibold text-gray-700 mb-3">Domanda {{ question.order + 1 }}:</h3>
-          <p class="text-gray-800 mb-4 whitespace-pre-wrap">{{ question.text }}</p>
+          <div class="text-gray-800 mb-4 whitespace-pre-wrap" v-html="question.text"></div>
           <p class="text-sm text-gray-500 mb-1">Tipo: {{ question.question_type_display }}</p>
 
           <div v-if="question.student_answer" class="mt-4 p-4 bg-gray-50 rounded-md">
             <h4 class="font-semibold text-gray-700 mb-2">Risposta dello Studente:</h4>
-            <div v-if="question.question_type === 'MULTIPLE_RESPONSE' && question.student_answer.selected_answers">
-              <ul class="list-disc list-inside text-gray-600" v-if="question.answer_options && question.answer_options.filter(o => question.student_answer.selected_answers.includes(o.id)).length > 0">
-                  <li v-for="opt in question.answer_options.filter(o => question.student_answer.selected_answers.includes(o.id))" :key="opt.id">
-                      {{ opt.text }}
-                  </li>
+            <div v-if="question.question_type === 'MULTIPLE_RESPONSE'">
+              <ul class="list-disc list-inside text-gray-600" v-if="getSelectedOptions(question).length > 0">
+                <li v-for="opt in getSelectedOptions(question)" :key="opt.id">
+                  {{ opt.text }}
+                </li>
               </ul>
               <p v-else class="text-gray-500 italic">
-                  Nessuna opzione selezionata dallo studente.
+                Nessuna opzione selezionata dallo studente.
               </p>
             </div>
-            <p v-else class="text-gray-600 whitespace-pre-wrap mb-3">
-              {{ question.student_answer.selected_answers_text || 'Nessuna risposta testuale fornita (o tipo di domanda diverso).' }}
+            <p v-else-if="question.student_answer" class="text-gray-600 whitespace-pre-wrap mb-3">
+              {{ question.student_answer.selected_answers_text || 'Nessuna risposta testuale fornita.' }}
             </p>
 
             <div v-if="question.question_type === 'OPEN_MANUAL' || (question.question_type_display && question.question_type_display.includes('Manual Grading'))">
@@ -231,7 +231,7 @@ const fetchAttemptDetails = async () => {
   isLoading.value = true;
   error.value = null;
   try {
-    const response = await api.get<GradingAttemptDetails>(`/education/teacher/grading/attempts/${attemptId.value}/details-for-grading/`);
+    const response = await api.get<GradingAttemptDetails>(`/education/teacher/grading/attempts/${attemptId.value}/details/`);
     attemptDetails.value = response.data;
     initializeGrades();
   } catch (err: any) {
@@ -309,6 +309,15 @@ const formatDate = (dateString: string | null | undefined) => {
     year: 'numeric', month: 'long', day: 'numeric',
     hour: '2-digit', minute: '2-digit'
   });
+};
+
+const getSelectedOptions = (question: GradingQuestionData) => {
+  const { student_answer, answer_options } = question;
+  if (!student_answer || !student_answer.selected_answers || !answer_options) {
+    return [];
+  }
+  const selectedIds = student_answer.selected_answers;
+  return answer_options.filter(o => selectedIds.includes(o.id));
 };
 
 onMounted(() => {

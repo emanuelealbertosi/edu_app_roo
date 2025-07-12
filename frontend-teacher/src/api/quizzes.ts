@@ -6,7 +6,11 @@ export interface Quiz {
   id: number;
   teacher: number; // ID del docente
   teacher_username: string;
-  source_template: number | null; // ID del template sorgente, se esiste
+  source_template: number | null;
+  source_template_info: {
+    id: number;
+    title: string;
+  } | null;
   title: string;
   description: string | null;
   subject?: string | null; // Campo per il nome della materia (stringa)
@@ -19,7 +23,11 @@ export interface Quiz {
   created_at: string; // Formato ISO 8601
   available_from: string | null; // Formato ISO 8601
   available_until: string | null; // Formato ISO 8601
-  // Aggiungere qui altri campi se necessari in futuro (es. questions_count se aggiunto al serializer)
+  assignee: {
+    type: 'student' | 'group';
+    id: number;
+    name: string;
+  } | null;
 }
 // Interfaccia per rappresentare i dati di un Quiz Template
 // (basata su QuizTemplateSerializer, ora include teacher)

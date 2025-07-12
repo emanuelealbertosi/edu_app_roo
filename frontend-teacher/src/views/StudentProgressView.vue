@@ -65,7 +65,11 @@
         </thead>
         <tbody class="bg-white divide-y divide-neutral-DEFAULT">
           <tr v-for="summary in filteredAndSortedSummaries" :key="summary.student_id" class="hover:bg-neutral-lightest transition-colors duration-150">
-            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-neutral-darkest">{{ summary.full_name }}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-neutral-darkest">
+              <a href="#" @click.prevent="viewDetails(summary.student_id)" class="hover:underline cursor-pointer">
+                {{ summary.full_name }}
+              </a>
+            </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-neutral-darker">{{ summary.student_code }}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-neutral-darker">{{ summary.completed_quizzes_count ?? 0 }}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-neutral-darker">{{ summary.completed_pathways_count ?? 0 }}</td>

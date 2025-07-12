@@ -47,6 +47,9 @@
                 <ChevronDownIcon v-else class="h-4 w-4 inline-block" />
               </span>
             </th>
+           <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider">
+             Assegnato a
+           </th>
             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-neutral-darker uppercase tracking-wider cursor-pointer hover:text-primary" @click="sortBy('created_at')">
               Creato il
               <span v-if="sortKey === 'created_at'">
@@ -59,9 +62,37 @@
         </thead>
         <tbody class="bg-white divide-y divide-neutral-DEFAULT">
           <tr v-for="quiz in filteredAndSortedQuizzes" :key="quiz.id" class="hover:bg-neutral-lightest transition-colors duration-150">
-            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-neutral-darkest">{{ quiz.title }}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-neutral-darkest">
+              <a href="#" @click.prevent="viewQuizDetails(quiz.id)" class="hover:underline cursor-pointer">
+                {{ quiz.title }}
+              </a>
+            </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-neutral-darker">{{ quiz.description || '-' }}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-neutral-darker">{{ quiz.source_template ? `ID: ${quiz.source_template}` : 'N/D' }}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-neutral-darker">
+             <router-link
+               v-if="quiz.source_template_info"
+               :to="{ name: 'quiz-template-edit', params: { id: quiz.source_template_info.id } }"
+               class="text-blue-600 hover:underline"
+             >
+               {{ quiz.source_template_info.title }}
+             </router-link>
+             <span v-else>N/D</span>
+           </td>
+           <td class="px-6 py-4 whitespace-nowrap text-sm text-neutral-darker">
+             <div v-if="quiz.assignee">
+               <router-link
+                 v-if="quiz.assignee.type === 'student'"
+                 :to="{ name: 'student-progress-detail', params: { studentId: quiz.assignee.id } }"
+                 class="text-blue-600 hover:underline"
+               >
+                 {{ quiz.assignee.name }}
+               </router-link>
+               <span v-else>
+                 {{ quiz.assignee.name }} (Gruppo)
+               </span>
+             </div>
+             <span v-else class="text-gray-400 italic">N/D</span>
+           </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-neutral-darker">{{ new Date(quiz.created_at).toLocaleDateString() }}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
               <BaseButton variant="info" size="sm" @click="viewQuizDetails(quiz.id)" class="p-2" title="Vedi Dettagli Quiz Assegnato">

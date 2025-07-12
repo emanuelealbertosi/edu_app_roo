@@ -987,55 +987,70 @@ class QuizViewSet(viewsets.ModelViewSet):
         """
         Restituisce l'elenco degli assegnatari (studenti/gruppi) per un quiz specifico.
         Accessibile tramite /api/education/quizzes/{quiz_id}/assignees/
+        Utilizza una logica ottimizzata per recuperare l'ultimo tentativo per ogni studente.
         """
-        quiz_instance = self.get_object() # Applica i permessi del ViewSet
-        
+        quiz_instance = self.get_object()
+
+        # 1. Get all assignments, prefetching related data to minimize queries
         raw_assignments = quiz_instance.assignments.all().select_related(
-            'student', # Precarica lo studente per assegnazioni dirette
-            'group',   # Precarica il gruppo per assegnazioni a gruppi
-            'assigned_by'
+            'student', 'group', 'assigned_by'
         ).prefetch_related(
-            'student__quiz_attempts', # Per _get_latest_attempt su assegnazioni dirette
-            'group__memberships__student', # Precarica gli studenti del gruppo tramite memberships
-            'group__memberships__student__quiz_attempts' # Per _get_latest_attempt su studenti da gruppi
+            'group__memberships__student'
         )
 
-        effective_assignees_payload = []
+        # 2. Collect all unique student IDs from both direct and group assignments
+        student_ids = set()
+        for assignment in raw_assignments:
+            if assignment.student:
+                student_ids.add(assignment.student.id)
+            elif assignment.group:
+                for membership in assignment.group.memberships.all():
+                    student_ids.add(membership.student.id)
+        
+        # 3. Fetch the latest attempt for each student for this specific quiz in a single query.
+        # Uses `distinct('student_id')` which is efficient on PostgreSQL.
+        latest_attempts_qs = QuizAttempt.objects.filter(
+            student_id__in=student_ids,
+            quiz=quiz_instance
+        ).order_by('student_id', '-started_at').distinct('student_id')
 
+        # Create a lookup map for easy access: {student_id: attempt_object}
+        latest_attempts_map = {attempt.student_id: attempt for attempt in latest_attempts_qs}
+
+        # 4. Build the payload for the serializer, injecting the latest attempt for each student.
+        effective_assignees_payload = []
         for assignment_obj in raw_assignments:
             assignment_details_base = {
-                "quiz": quiz_instance, # L'oggetto Quiz stesso
+                "quiz": quiz_instance,
                 "assigned_by": assignment_obj.assigned_by,
                 "assigned_at": assignment_obj.assigned_at,
                 "due_date": assignment_obj.due_date,
-                "original_assignment_id": assignment_obj.id, # ID dell'oggetto QuizAssignment originale
+                "original_assignment_id": assignment_obj.id,
             }
 
             if assignment_obj.student:
-                # Assegnazione diretta a uno studente
+                student = assignment_obj.student
                 payload_item = {
                     **assignment_details_base,
-                    "student": assignment_obj.student, # L'oggetto Student
-                    "group": None, # Non è un'assegnazione di gruppo
-                    "id": f"student-{assignment_obj.student.id}-quiz-{quiz_instance.id}" # ID univoco per il frontend
+                    "student": student,
+                    "group": None,
+                    "id": f"student-{student.id}-quiz-{quiz_instance.id}",
+                    "latest_attempt": latest_attempts_map.get(student.id)
                 }
                 effective_assignees_payload.append(payload_item)
             
             elif assignment_obj.group:
-                # Assegnazione a un gruppo, espandi per ogni studente
-                # Usiamo group.students.all() che dovrebbe essere precaricato da 'group__students'
-                for membership in assignment_obj.group.memberships.all(): # .all() qui è sicuro perché i dati sono precaricati
+                for membership in assignment_obj.group.memberships.all():
                     student_member = membership.student
                     payload_item = {
                         **assignment_details_base,
-                        "student": student_member, # L'oggetto Student membro del gruppo
-                        "group": assignment_obj.group, # Manteniamo l'info del gruppo originale
-                        "id": f"group-{assignment_obj.group.id}-student-{student_member.id}-quiz-{quiz_instance.id}" # ID univoco
+                        "student": student_member,
+                        "group": assignment_obj.group,
+                        "id": f"group-{assignment_obj.group.id}-student-{student_member.id}-quiz-{quiz_instance.id}",
+                        "latest_attempt": latest_attempts_map.get(student_member.id)
                     }
                     effective_assignees_payload.append(payload_item)
         
-        # Passiamo la lista di dizionari costruiti al serializer
-        # Il serializer dovrà essere adattato per gestire questa struttura di dati (non più istanze di QuizAssignment)
         serializer = self.get_serializer(effective_assignees_payload, many=True)
         return Response(serializer.data)
 
@@ -2358,10 +2373,10 @@ class TeacherGradingViewSet(viewsets.GenericViewSet):
         serializer = self.get_serializer(pending_attempts, many=True)
         return Response(serializer.data)
 
-    @action(detail=False, methods=['get'], url_path=r'attempts/(?P<pk>[^/.]+)/details-for-grading', serializer_class=GradingQuizAttemptDetailSerializer)
-    def get_attempt_details_for_grading(self, request, pk=None):
+    @action(detail=False, methods=['get'], url_path=r'attempts/(?P<pk>[^/.]+)/details', serializer_class=GradingQuizAttemptDetailSerializer)
+    def get_attempt_details(self, request, pk=None):
         """
-        Restituisce i dettagli completi di un QuizAttempt specifico per la correzione,
+        Restituisce i dettagli completi di un QuizAttempt specifico,
         incluse tutte le domande e le relative risposte dello studente.
         Il pk è l'ID del QuizAttempt.
         """
@@ -2370,19 +2385,13 @@ class TeacherGradingViewSet(viewsets.GenericViewSet):
         queryset = self.get_queryset().select_related('student', 'quiz', 'quiz__teacher')
         attempt = get_object_or_404(queryset, pk=pk)
 
-        # Verifica permessi: il docente può correggere questo tentativo?
+        # Verifica permessi: il docente può vedere questo tentativo?
         # Ad esempio, se è il docente del quiz o se il tentativo è per un suo studente.
         if attempt.quiz.teacher != request.user:
             # Potremmo aggiungere un controllo più granulare se lo studente appartiene al docente
             # if not Student.objects.filter(user=request.user, students__quiz_attempts=attempt).exists():
             # Per ora, semplice controllo sul creatore del quiz.
-            raise DRFPermissionDenied("Non sei autorizzato a correggere questo tentativo.")
-
-        if attempt.status != QuizAttempt.AttemptStatus.PENDING_GRADING:
-            return Response(
-                {'detail': 'Questo tentativo non è in attesa di correzione manuale.'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            raise DRFPermissionDenied("Non sei autorizzato a vedere questo tentativo.")
 
         serializer = self.get_serializer(attempt, context={'request': request})
         return Response(serializer.data)

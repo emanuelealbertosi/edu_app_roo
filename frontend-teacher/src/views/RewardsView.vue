@@ -71,7 +71,11 @@
         </thead>
         <tbody class="bg-white divide-y divide-neutral-DEFAULT">
           <tr v-for="reward in filteredAndSortedRewards" :key="reward.id" class="hover:bg-neutral-lightest transition-colors duration-150">
-            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-neutral-darkest">{{ reward.name }}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-neutral-darkest">
+              <a href="#" @click.prevent="editReward(reward.id)" class="hover:underline cursor-pointer">
+                {{ reward.name }}
+              </a>
+            </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-neutral-darker">{{ reward.description || '-' }}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-neutral-darker">{{ reward.cost_points }}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm">
