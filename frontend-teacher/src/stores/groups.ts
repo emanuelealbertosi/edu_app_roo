@@ -2,6 +2,7 @@
 import { defineStore } from 'pinia';
 // Importa tipi direttamente da types/groups
 import type { StudentGroup, GroupMember, StudentGroupData, AddStudentToGroupData, GroupAccessRequestData, GroupAccessRequest, RespondGroupAccessRequestData } from '@/types/groups'; // Aggiunto GroupAccessRequest, RespondGroupAccessRequestData
+import { useAuthStore } from './auth';
 // Import API functions
 import * as groupApi from '@/api/groups';
 
@@ -165,8 +166,43 @@ export const useGroupStore = defineStore('groups', {
         }
     },
 
-    // --- Group Members ---
-    async fetchGroupMembers(groupId: number) {
+    async leaveGroup(groupId: number) {
+        this.isLoadingList = true;
+        this.error = null;
+        try {
+            await groupApi.leaveGroup(groupId);
+            // Rimuovi il gruppo dallo stato locale
+            this.groups = this.groups.filter(g => g.id !== groupId);
+            if (this.currentGroup?.id === groupId) {
+                this.clearCurrentGroup();
+            }
+        } catch (err: any) {
+            this.error = err.response?.data?.detail || err.message || 'Errore nell\'abbandonare il gruppo.';
+        } finally {
+            this.isLoadingList = false;
+        }
+    },
+
+    async handleGroupRemoval(group: StudentGroup) {
+        const authStore = useAuthStore();
+        const userId = authStore.userId;
+
+        if (!userId) {
+            this.error = "Impossibile verificare l'utente. Effettua nuovamente il login.";
+            return;
+        }
+
+        if (group.owner === userId) {
+            // L'utente è il proprietario, elimina il gruppo
+            await this.deleteGroup(group.id);
+        } else {
+            // L'utente non è il proprietario, abbandona il gruppo
+            await this.leaveGroup(group.id);
+        }
+    },
+ 
+     // --- Group Members ---
+     async fetchGroupMembers(groupId: number) {
         this.isLoadingDetail = true; // Loading happens in the detail view
         this.error = null;
         // Don't clear currentGroup here, only members

@@ -50,6 +50,15 @@ export const deleteGroup = (groupId: number): Promise<void> => {
   return apiClient.delete(`/groups/groups/${groupId}/`);
 };
 
+/**
+ * Disassocia il docente corrente da un gruppo condiviso (non lo elimina).
+ * @param groupId L'ID del gruppo da abbandonare.
+ */
+export const leaveGroup = (groupId: number): Promise<void> => {
+  // Questo endpoint dovrà essere creato nel backend
+  return apiClient.post(`/groups/groups/${groupId}/leave/`);
+};
+
 // --- Group Members ---
 
 /**

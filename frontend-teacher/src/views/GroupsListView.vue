@@ -89,7 +89,7 @@
               <BaseButton @click="goToGroupDetail(group.id)" variant="info" size="sm" class="mr-2 p-2" title="Dettagli Gruppo">
                 <EyeIcon class="h-5 w-5" />
               </BaseButton>
-              <BaseButton @click="handleDeleteGroup(group.id)" variant="danger" size="sm" class="p-2" title="Elimina Gruppo">
+              <BaseButton @click="handleDeleteGroup(group)" variant="danger" size="sm" class="p-2" :title="getDeleteButtonTitle(group)">
                 <TrashIcon class="h-5 w-5" />
               </BaseButton>
             </td>
@@ -111,15 +111,19 @@ import { onMounted, computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { storeToRefs } from 'pinia';
 import { useGroupStore } from '@/stores/groups';
+import { useAuthStore } from '@/stores/auth';
+import type { StudentGroup } from '@/types/groups';
 import BaseButton from '@/components/common/BaseButton.vue';
 import GlobalLoadingIndicator from '@/components/common/GlobalLoadingIndicator.vue';
 import { PlusCircleIcon, EyeIcon, TrashIcon, ChevronUpIcon, ChevronDownIcon } from '@heroicons/vue/24/outline';
 
 const router = useRouter();
 const groupStore = useGroupStore();
+const authStore = useAuthStore();
 
 // Use storeToRefs to keep reactivity
 const { groups, isLoadingList, error } = storeToRefs(groupStore);
+const { userId } = storeToRefs(authStore);
 
 const searchQuery = ref('');
 const sortKey = ref('created_at');
@@ -170,12 +174,21 @@ const goToEditGroup = (groupId: number) => {
   router.push({ name: 'GroupEdit', params: { id: groupId } });
 };
 
-const handleDeleteGroup = async (groupId: number) => {
-  // Simple confirmation dialog (consider a custom modal component for better UX)
-  if (window.confirm(`Sei sicuro di voler eliminare il gruppo ID ${groupId}? Questa azione non può essere annullata.`)) {
-    await groupStore.deleteGroup(groupId);
+const handleDeleteGroup = async (group: StudentGroup) => {
+  const isOwner = group.owner === userId.value;
+  const message = isOwner
+    ? `Sei sicuro di voler eliminare definitivamente il gruppo "${group.name}"? Tutti i contenuti associati verranno persi. Questa azione non può essere annullata.`
+    : `Sei sicuro di voler abbandonare il gruppo "${group.name}"? Non potrai più accedervi a meno che non ti venga nuovamente condiviso.`;
+
+  if (window.confirm(message)) {
+    // La logica di chiamare delete o leave sarà nello store
+    await groupStore.handleGroupRemoval(group);
     // Optionally show a success notification
   }
+};
+
+const getDeleteButtonTitle = (group: StudentGroup): string => {
+  return group.owner === userId.value ? 'Elimina Gruppo (Proprietario)' : 'Abbandona Gruppo';
 };
 
 const formatDate = (dateString: string) => {

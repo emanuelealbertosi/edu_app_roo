@@ -61,6 +61,10 @@ class StudentGroupViewSet(mixins.CreateModelMixin,
         if self.action in ['update', 'partial_update', 'destroy', 'generate_token', 'delete_token', 'list_access_requests', 'respond_access_request']:
             # Solo il proprietario può modificare, eliminare, gestire token e richieste
             return [IsAuthenticated(), IsGroupOwner()]
+        elif self.action == 'leave':
+            # Per 'leave', l'utente deve essere autenticato, ma non il proprietario.
+            # La logica specifica (deve avere accesso condiviso) è nell'azione stessa.
+            return [IsAuthenticated()]
         elif self.action in ['retrieve', 'students', 'add_student', 'remove_student']:
             # Proprietario o chi ha accesso può vedere dettagli, membri e aggiungere/rimuovere membri
             return [IsAuthenticated(), IsOwnerOrHasAccess()]
@@ -304,6 +308,45 @@ class StudentGroupViewSet(mixins.CreateModelMixin,
         access_request.save()
 
         return Response({'status': f'Richiesta {access_request.id} aggiornata a {new_status}.'}, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['post'], url_path='leave')
+    def leave(self, request, pk=None):
+        """
+        Permette a un docente di abbandonare un gruppo a cui ha accesso
+        ma di cui non è proprietario.
+        """
+        group = self.get_object()
+        user = request.user
+
+        # 1. Controlla che l'utente non sia il proprietario
+        if group.owner == user:
+            return Response(
+                {'error': 'Il proprietario non può abbandonare il gruppo, può solo eliminarlo.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # 2. Trova la richiesta di accesso approvata che garantisce l'accesso
+        try:
+            access_request = GroupAccessRequest.objects.get(
+                group=group,
+                requesting_teacher=user,
+                status=GroupAccessRequest.AccessStatus.APPROVED
+            )
+        except GroupAccessRequest.DoesNotExist:
+            # Questo caso non dovrebbe accadere se get_queryset funziona correttamente,
+            # ma è una buona protezione.
+            return Response(
+                {'error': 'Non hai accesso a questo gruppo o la richiesta non è valida.'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # 3. Elimina la richiesta di accesso, rimuovendo di fatto la condivisione
+        access_request.delete()
+
+        return Response(
+            {'status': f'Hai abbandonato il gruppo "{group.name}".'},
+            status=status.HTTP_204_NO_CONTENT
+        )
 
 
 # --- ViewSet per le richieste di accesso (dal punto di vista del richiedente) ---
