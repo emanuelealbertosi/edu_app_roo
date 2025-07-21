@@ -51,12 +51,6 @@
       </div>
     </div>
     
-    <div v-if="content.activity_attachment_url" class="flex">
-      <strong class="w-28 flex-shrink-0 text-gray-700">Allegato:</strong>
-      <a :href="content.activity_attachment_url" target="_blank" rel="noopener noreferrer" class="text-indigo-600 hover:text-indigo-800 truncate">
-        {{ content.activity_attachment_url.split('/').pop() || 'Vedi allegato' }}
-      </a>
-    </div>
     
   </div>
 </template>

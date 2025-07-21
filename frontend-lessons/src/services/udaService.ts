@@ -107,71 +107,13 @@ export const udaService = {
     return response.data;
   },
 
-  async addContentToUda(udaId: number, contentData: Partial<UDAContent>, file?: File): Promise<UDAContent> {
-    let dataToSend: any = contentData;
-    let headers = {};
-
-    if (file) {
-      const formData = new FormData();
-      Object.keys(contentData).forEach(key => {
-        const value = (contentData as any)[key];
-        if (value !== null && value !== undefined) {
-          if (typeof value === 'boolean') {
-            formData.append(key, value ? 'true' : 'false');
-          } else {
-            formData.append(key, value as string);
-          }
-        }
-      });
-      formData.append('activity_attachment_url', file, file.name);
-      dataToSend = formData;
-      headers = { 'Content-Type': 'multipart/form-data' };
-    }
-
-    const response = await apiClient.post(`${UDA_BASE_URL}/${udaId}/contents/`, dataToSend, { headers });
+  async addContentToUda(udaId: number, contentData: Partial<UDAContent>): Promise<UDAContent> {
+    const response = await apiClient.post(`${UDA_BASE_URL}/${udaId}/contents/`, contentData);
     return response.data;
   },
 
-  async updateUdaContent(udaId: number, contentId: number, contentData: Partial<UDAContent>, file?: File): Promise<UDAContent> {
-    let dataToSend: any = contentData;
-    let headers = {};
-
-    if (file) {
-      const formData = new FormData();
-      // Aggiungi i campi di contentData al FormData
-      // Nota: i campi booleani e null potrebbero necessitare di una gestione speciale
-      // o essere omessi se il backend li gestisce correttamente con FormData.
-      // Per i FileField, il backend si aspetta il file stesso.
-      // Per altri campi, li inviamo come stringhe o il backend deve essere in grado di parsarli.
-      Object.keys(contentData).forEach(key => {
-        const value = (contentData as any)[key];
-        if (value !== null && value !== undefined) {
-          if (typeof value === 'boolean') {
-            formData.append(key, value ? 'true' : 'false');
-          } else if (value instanceof File) {
-            // Questo caso non dovrebbe accadere se il file è passato separatamente
-            // ma lo gestiamo per robustezza se contentData contenesse un file.
-            formData.append(key, value, value.name);
-          } else if (typeof value === 'object' && !(value instanceof Date)) {
-             // Non inviare oggetti complessi direttamente in FormData a meno che il backend non sia configurato per gestirli (es. JSON stringato)
-             // Per ora, omettiamo o stringifichiamo. Per UDAContent, i campi sono principalmente primitivi o FK.
-             // Se ci sono campi JSON, andrebbero stringati: formData.append(key, JSON.stringify(value));
-          }
-          else {
-            formData.append(key, value as string); // Assumiamo stringhe o valori convertibili
-          }
-        }
-      });
-      
-      // Il nome del campo per il file deve corrispondere a quello atteso dal serializer Django per il FileField
-      // Spesso è il nome del campo stesso, es. 'activity_attachment_url'
-      formData.append('activity_attachment_url', file, file.name);
-      
-      dataToSend = formData;
-      headers = { 'Content-Type': 'multipart/form-data' };
-    }
-
-    const response = await apiClient.patch(`${UDA_BASE_URL}/${udaId}/contents/${contentId}/`, dataToSend, { headers });
+  async updateUdaContent(udaId: number, contentId: number, contentData: Partial<UDAContent>): Promise<UDAContent> {
+    const response = await apiClient.patch(`${UDA_BASE_URL}/${udaId}/contents/${contentId}/`, contentData);
     return response.data;
   },
 

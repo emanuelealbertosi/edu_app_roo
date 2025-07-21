@@ -373,14 +373,12 @@ export const useUdaStore = defineStore('uda', {
     // Aggiornata la firma per includere estimated_hours nel tipo contentData (tramite UDAContent)
     async addContentToUda(
       udaId: number,
-      contentData: Partial<Omit<UDAContent, 'id' | 'uda_id' | 'created_at' | 'updated_at'>>,
-      file?: File // Aggiunto parametro file opzionale
+      contentData: Partial<Omit<UDAContent, 'id' | 'uda_id' | 'created_at' | 'updated_at'>>
     ): Promise<UDAContent | undefined> {
       this.loading = true;
       this.error = null;
       try {
-        // Passa il file al servizio se presente
-        const newContentFromService = await udaService.addContentToUda(udaId, contentData, file);
+        const newContentFromService = await udaService.addContentToUda(udaId, contentData);
         console.log('[udaStore.addContentToUda] newContentFromService:', JSON.parse(JSON.stringify(newContentFromService))); // LOG 1
         const newContent = {
             ...newContentFromService,
@@ -415,14 +413,12 @@ export const useUdaStore = defineStore('uda', {
     async updateContentInUda(
       udaId: number,
       contentId: number,
-      contentData: Partial<Omit<UDAContent, 'id' | 'uda_id' | 'created_at' | 'updated_at'>>,
-      file?: File // Aggiunto parametro file opzionale
+      contentData: Partial<Omit<UDAContent, 'id' | 'uda_id' | 'created_at' | 'updated_at'>>
     ): Promise<UDAContent | undefined> {
       this.loading = true;
       this.error = null;
       try {
-        // Passa il file al servizio se presente
-        const updatedContentFromService = await udaService.updateUdaContent(udaId, contentId, contentData, file);
+        const updatedContentFromService = await udaService.updateUdaContent(udaId, contentId, contentData);
         console.log('[udaStore.updateContentInUda] updatedContentFromService:', JSON.parse(JSON.stringify(updatedContentFromService))); // LOG 3
         const updatedContent = {
             ...updatedContentFromService,
@@ -540,16 +536,11 @@ export const useUdaStore = defineStore('uda', {
       this.loading = true;
       this.error = null;
       try {
-        const reorderedContents = await udaService.reorderUdaContents(udaId, contentIds);
-        // Aggiorna i contenuti nell'UDA corrente se corrisponde
-        if (this.currentUda?.id === udaId) {
-          this.currentUda.contents = reorderedContents;
-        }
-        // Aggiorna anche i contenuti nell'array 'udas' se l'UDA è presente
-        const udaInList = this.udas.find((u: UDA) => u.id === udaId);
-        if (udaInList) {
-          udaInList.contents = reorderedContents;
-        }
+        await udaService.reorderUdaContents(udaId, contentIds);
+        // Dopo aver riordinato, ricarica i dati dell'UDA per assicurarti che lo stato sia consistente
+        // e che tutti i dati arricchiti (es. titoli delle lezioni) siano presenti.
+        // Questo risolve il problema di visualizzazione in UdaDetailView.
+        await this.fetchUda(udaId);
       } catch (err) {
         this.error = (err as Error).message || `Failed to reorder contents for UDA ${udaId}`;
         console.error(err);

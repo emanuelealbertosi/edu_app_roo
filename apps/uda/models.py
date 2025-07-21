@@ -454,7 +454,6 @@ class UDAContent(models.Model):
     note_content = models.TextField(blank=True, null=True)
     activity_title = models.CharField(max_length=255, blank=True, null=True)
     activity_description = models.TextField(blank=True, null=True)
-    activity_attachment_url = models.FileField(upload_to='uda_attachments/', blank=True, null=True) # o CharField se URL esterno
     activity_completed = models.BooleanField(default=False) # Specifico per ACTIVITY
     teacher_marked_completed = models.BooleanField(default=False) # Per tutti i tipi, marcato dal docente
     order = models.PositiveIntegerField()

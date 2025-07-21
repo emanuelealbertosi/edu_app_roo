@@ -44,6 +44,13 @@ export function createApiClient() {
       } else {
         console.log('[apiClient Request Interceptor] Nessun accessToken trovato in sharedAuthStore.');
       }
+      
+      // Se la richiesta contiene FormData, lascia che il browser imposti il Content-Type.
+      // Rimuovi l'header 'Content-Type' preimpostato per evitare conflitti.
+      if (config.data instanceof FormData) {
+        delete config.headers['Content-Type'];
+      }
+      
       return config;
     },
     (error) => {

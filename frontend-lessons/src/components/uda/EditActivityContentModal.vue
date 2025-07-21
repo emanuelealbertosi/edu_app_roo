@@ -23,16 +23,6 @@
           </div>
           <template v-if="props.context === 'uda'">
             <div>
-              <label for="activityAttachment" class="block text-sm font-medium text-gray-700 mb-1">Allegato Attività</label>
-              <FileUpload
-                ref="fileUploadComponent"
-                :current-file-url="editableContent.attachmentUrl"
-                @file-selected="handleFileSelected"
-                @file-removed="handleFileRemoved"
-              />
-              <!-- <small class="form-text text-muted">L'upload effettivo del file avverrà al salvataggio.</small> -->
-            </div>
-            <div>
               <label for="activityEstimatedHours" class="block text-sm font-medium text-gray-700 mb-1">Tempo Stimato (ore)</label>
               <input type="number" id="activityEstimatedHours" v-model.number="editableContent.estimated_hours" step="0.1" min="0"
                      placeholder="Es. 1.5"
@@ -65,7 +55,6 @@
 
 <script setup lang="ts">
 import { ref, watch, type PropType, computed } from 'vue';
-import FileUpload from './FileUpload.vue';
 import WysiwygEditor from '@/components/WysiwygEditor.vue'; // Import WysiwygEditor
 import { useUdaStore } from '@/stores/udaStore';
 import {
@@ -79,7 +68,6 @@ import {
 type EditableActivityType = Partial<ActivityUDAContent | ActivityTemplateUDAContent> & {
   title?: string;
   description?: string;
-  attachmentUrl?: string;
   estimated_hours?: number | null;
   actual_hours?: number | null; // Aggiunto per ore effettive
 };
@@ -103,8 +91,6 @@ const emit = defineEmits(['update:modelValue', 'save', 'close']);
 const udaStore = useUdaStore();
 
 const editableContent = ref<EditableActivityType>({ title: '', description: '', estimated_hours: null, actual_hours: null }); // Inizializzato
-const fileUploadComponent = ref<InstanceType<typeof FileUpload> | null>(null);
-const selectedActivityFileObject = ref<File | null>(null);
 
 const isEditing = computed(() => !!(props.modelValue && (props.modelValue.id || props.modelValue.temp_id)));
 
@@ -125,7 +111,6 @@ watch(() => props.modelValue, (newValue) => {
         ...udaActivity,
         title: udaActivity.activity_title || '',
         description: udaActivity.activity_description || '',
-        attachmentUrl: udaActivity.activity_attachment_url || '',
         estimated_hours: udaActivity.estimated_hours,
         actual_hours: udaActivity.actual_hours // Aggiunto
       };
@@ -134,23 +119,12 @@ watch(() => props.modelValue, (newValue) => {
     editableContent.value = {
       title: '',
       description: '',
-      attachmentUrl: '',
       estimated_hours: null,
       actual_hours: null // Aggiunto reset
     };
-    selectedActivityFileObject.value = null;
-    fileUploadComponent.value?.reset();
   }
 }, { immediate: true, deep: true });
 
-const handleFileSelected = (file: File) => {
-  selectedActivityFileObject.value = file;
-};
-
-const handleFileRemoved = () => {
-  selectedActivityFileObject.value = null;
-  editableContent.value.attachmentUrl = ''; // Pulisce l'URL se il file viene rimosso
-};
 
 const closeModal = () => {
   emit('close');
@@ -165,40 +139,33 @@ const saveActivity = async () => {
       activity_template_title: editableContent.value.title,
       activity_template_description: editableContent.value.description,
       estimated_hours: editableContent.value.estimated_hours || null,
-      // actual_hours non pertinente per template
       content_type: UDATemplateContentType.ACTIVITY_TEMPLATE,
     } as Partial<ActivityTemplateUDAContent>;
-    emit('save', { activityData: dataToSave, file: undefined });
+    emit('save', { activityData: dataToSave });
   } else {
     const currentActivityData = props.modelValue as ActivityUDAContent | null;
-    dataToSave = {
+    const baseDataToSave: Partial<ActivityUDAContent> = {
       ...(currentActivityData || {}),
       activity_title: editableContent.value.title,
       activity_description: editableContent.value.description,
-      activity_attachment_url: editableContent.value.attachmentUrl,
       teacher_marked_completed: currentActivityData?.teacher_marked_completed ?? false,
       estimated_hours: editableContent.value.estimated_hours || null,
-      actual_hours: editableContent.value.actual_hours || null, // Aggiunto
+      actual_hours: editableContent.value.actual_hours || null,
       content_type: UDAContentType.ACTIVITY,
-    } as Partial<ActivityUDAContent>;
+    };
 
-    if (!isEditing.value && dataToSave.teacher_marked_completed === undefined) {
-        (dataToSave as Partial<ActivityUDAContent>).teacher_marked_completed = false;
+    if (!isEditing.value && baseDataToSave.teacher_marked_completed === undefined) {
+      (baseDataToSave as Partial<ActivityUDAContent>).teacher_marked_completed = false;
     }
     
     if (isEditing.value && currentActivityData?.id && props.udaId) {
-      try {
-        await udaStore.updateContentInUda(
-          props.udaId,
-          currentActivityData.id,
-          dataToSave as Partial<Omit<UDAContent, 'id' | 'uda_id' | 'created_at' | 'updated_at'>>,
-          selectedActivityFileObject.value || undefined
-        );
-      } catch (error) {
-        console.error("Errore durante l'aggiornamento dell'attività UDA:", error);
-      }
+      await udaStore.updateContentInUda(
+        props.udaId,
+        currentActivityData.id,
+        baseDataToSave as Partial<Omit<UDAContent, 'id' | 'uda_id' | 'created_at' | 'updated_at'>>
+      );
     } else {
-      emit('save', { activityData: dataToSave, file: selectedActivityFileObject.value || undefined });
+      emit('save', { activityData: baseDataToSave });
     }
   }
   closeModal();
