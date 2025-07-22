@@ -155,11 +155,11 @@ export const useUdaStore = defineStore('uda', {
         // inclusi knowledge_html, skills_html, competences_html se presenti dal backend.
         this.udas = rawData.map((udaData: any) => ({
           ...udaData, // Copia tutti i campi ricevuti
-          course: udaData.course_id, // Salva l'ID del corso nel campo 'course'
-          course_name: udaData.course_name, // Salva il nome del corso
-          course_teacher_username: udaData.course_teacher_username, // Salva l'username dell'autore
-          subjects: udaData.subject_ids || [], // Mappa subject_ids a subjects (per il form)
-          topics: udaData.topic_ids || [],      // Mappa topic_ids a topics (per il form)
+          course: udaData.course?.id ?? udaData.course_id,
+          course_name: udaData.course?.name ?? udaData.course_name,
+          course_teacher_username: udaData.course?.teacher_username ?? udaData.course_teacher_username,
+          subjects: (udaData.subjects?.map((s: any) => s.id) ?? udaData.subject_ids) || [],
+          topics: (udaData.topics?.map((t: any) => t.id) ?? udaData.topic_ids) || [],
           // Campi per Export DOCX
           is_civic_education: udaData.is_civic_education,
           didactic_strategies_html: udaData.didactic_strategies_html,
@@ -198,11 +198,11 @@ export const useUdaStore = defineStore('uda', {
         this.currentUda = {
           ...rawData, // Copia tutti i campi ricevuti
           contents: processedContents, // Usa i contenuti processati (o originali se non c'erano)
-          course: rawData.course_id, // Salva l'ID del corso nel campo 'course'
-          course_name: rawData.course_name, // Salva il nome del corso
-          course_teacher_username: rawData.course_teacher_username, // Salva l'username dell'autore
-          subjects: rawData.subject_ids || [], // Mappa subject_ids a subjects (per il form)
-          topics: rawData.topic_ids || [],      // Mappa topic_ids a topics (per il form)
+          course: rawData.course?.id ?? rawData.course_id,
+          course_name: rawData.course?.name ?? rawData.course_name,
+          course_teacher_username: rawData.course?.teacher_username ?? rawData.course_teacher_username,
+          subjects: (rawData.subjects?.map((s: any) => s.id) ?? rawData.subject_ids) || [],
+          topics: (rawData.topics?.map((t: any) => t.id) ?? rawData.topic_ids) || [],
           // Campi per Export DOCX
           is_civic_education: rawData.is_civic_education,
           didactic_strategies_html: rawData.didactic_strategies_html,
@@ -232,17 +232,9 @@ export const useUdaStore = defineStore('uda', {
       this.error = null;
       try {
         const payload = { ...udaData } as any; // Usiamo 'any' temporaneamente per flessibilità
-        if (payload.topics && Array.isArray(payload.topics) && payload.topics.length > 0 && typeof payload.topics[0] === 'object' && payload.topics[0] !== null && 'id' in payload.topics[0]) {
-            payload.topics = payload.topics.map((t: any) => t.id);
-        }
-
-        // Assicuriamoci che subject_ids sia un array, anche se vuoto, se non fornito
-        if (payload.subject_ids === undefined) {
-            payload.subject_ids = [];
-        }
-        
-        // Rimuoviamo il vecchio subject_id se presente per errore
-        delete payload.subject_id;
+        // La logica di conversione del payload è stata rimossa.
+        // Il componente del form (UdaFormView) ora invia direttamente i campi corretti per l'API
+        // (es. 'subject_ids', 'course_id').
 
         // Se stiamo creando da un template, il backend gestirà la copia dei contenuti.
         // Rimuoviamo 'contents' dal payload per evitare conflitti o sovrascritture.
@@ -250,7 +242,7 @@ export const useUdaStore = defineStore('uda', {
           delete payload.contents;
         }
 
-        const newUda = await udaService.createUda(payload as Partial<UDA>);
+        const newUda = await udaService.createUda(payload);
         this.udas.push(newUda);
         // this.currentUda = newUda; // Opzionale: impostare come corrente
         return newUda;
@@ -275,30 +267,9 @@ export const useUdaStore = defineStore('uda', {
       try {
         const payload = { ...udaData } as any; // Usiamo 'any' temporaneamente
         
-        if (udaData.topics !== undefined) {
-            if (Array.isArray(udaData.topics) && udaData.topics.length > 0 && typeof udaData.topics[0] === 'object' && udaData.topics[0] !== null && 'id' in udaData.topics[0]) {
-                payload.topics = udaData.topics.map((t: any) => t.id);
-            } else {
-                payload.topics = udaData.topics;
-            }
-        } else {
-            delete payload.topics;
-        }
-
-        if (udaData.subject_ids !== undefined) {
-             if (!Array.isArray(udaData.subject_ids)) {
-                console.warn('subject_ids is defined but not an array in updateUda, setting to empty array.');
-                payload.subject_ids = [];
-            } else {
-                payload.subject_ids = udaData.subject_ids;
-            }
-        } else {
-            delete payload.subject_ids;
-        }
-        
-        delete payload.subject_id;
-
-        const updatedUda = await udaService.updateUda(udaId, payload as Partial<UDA>);
+        // La logica di conversione del payload è stata rimossa.
+        // Il componente del form (UdaFormView) ora invia direttamente i campi corretti per l'API.
+        const updatedUda = await udaService.updateUda(udaId, payload);
         
         if (!options.silent) {
           const index = this.udas.findIndex((u: UDA) => u.id === udaId);

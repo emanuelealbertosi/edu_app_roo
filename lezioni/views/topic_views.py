@@ -22,7 +22,14 @@ class TopicViewSet(viewsets.ModelViewSet):
         queryset = Topic.objects.select_related('subject').all() # Ottimizza recuperando la materia correlata
         subject_id = self.request.query_params.get('subject_id')
         if subject_id:
-            queryset = queryset.filter(subject_id=subject_id)
+            try:
+                # Assicura che subject_id sia un intero valido
+                subject_id_int = int(subject_id)
+                queryset = queryset.filter(subject_id=subject_id_int)
+            except (ValueError, TypeError):
+                # Se subject_id non è un intero valido, non restituire nulla
+                # per evitare di esporre dati non richiesti.
+                return queryset.none()
         return queryset.order_by('subject__name', 'name')
 
     def perform_create(self, serializer):

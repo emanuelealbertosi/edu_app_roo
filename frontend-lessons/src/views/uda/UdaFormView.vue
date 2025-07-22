@@ -292,8 +292,8 @@ interface UdaApiPayload {
   start_date?: string | null;
   end_date?: string | null;
   status: UDA['status'];
-  subject_ids?: number[]; 
-  topic_ids?: number[];
+  subjects?: number[];
+  topics?: number[];
   course_id?: number | null;
   order_in_course?: number | null;
   contents: Omit<UDAContent, 'temp_id' | 'lesson_title' | 'quiz_title'>[];
@@ -385,13 +385,34 @@ const availableTopicsForSelectedSubject = computed(() => {
 // Watchers per selectedSubjectIds e selectedTopicIds rimossi.
 // La logica per caricare i topic in base alla materia selezionata
 // ora osserverà formData.subjects.
+watch(() => formData.value.course, async (newCourseId, oldCourseId) => {
+  if (newCourseId !== oldCourseId) {
+    // Se il cambio è manuale (non al caricamento iniziale), resetta materie e argomenti
+    if (initialLoadComplete.value) {
+      formData.value.subjects = [];
+      formData.value.topics = [];
+    }
+    
+    if (newCourseId) {
+      await subjectStore.fetchSubjects({ course_id: newCourseId });
+    } else {
+      // Se nessun corso è selezionato, carica tutte le materie (o nessuna, a seconda della logica desiderata)
+      await subjectStore.fetchSubjects();
+    }
+  }
+});
+
 watch(() => formData.value.subjects, (newSubjects, oldSubjects) => {
   if (JSON.stringify(newSubjects) !== JSON.stringify(oldSubjects)) {
-    // Questo reset è intenzionale quando l'utente cambia le materie.
-    // Durante onMounted, questo verrà eseguito, ma formData.topics sarà ripopolato correttamente dopo.
-    formData.value.topics = [];
+    // Se il cambio è manuale, resetta gli argomenti
+    if (initialLoadComplete.value) {
+        formData.value.topics = [];
+    }
     if (newSubjects && newSubjects.length > 0) {
-      topicStore.fetchTopicsBySubject(newSubjects[0]);
+      const firstSubjectId = newSubjects[0];
+      if (typeof firstSubjectId === 'number' && !isNaN(firstSubjectId)) {
+        topicStore.fetchTopicsBySubject(firstSubjectId);
+      }
     }
   }
 }, { deep: true });
@@ -479,21 +500,22 @@ const handleAutoSave = async () => {
     materials_tools_html: formData.value.materials_tools_html || undefined,
     assessment_type_html: formData.value.assessment_type_html || undefined,
     evaluation_html: formData.value.evaluation_html || undefined,
+    key_and_citizenship_competences_html: formData.value.key_and_citizenship_competences_html || undefined,
     other_involved_subjects_text: formData.value.other_involved_subjects_text || undefined,
     export_specific_annotations_html: formData.value.export_specific_annotations_html || undefined,
     start_date: formData.value.start_date || undefined,
     end_date: formData.value.end_date || undefined,
     status: formData.value.status,
-    subject_ids: formData.value.subjects,
-    topic_ids: formData.value.topics,
+    subjects: formData.value.subjects.filter(id => id != null),
+    topics: formData.value.topics.filter(id => id != null),
     course_id: formData.value.course || undefined,
     order_in_course: formData.value.order_in_course || undefined,
     contents: formData.value.contents.map(c => {
-      const { temp_id, lesson_title, quiz_title, ...contentToSave } = c as any;
+      const { temp_id, lesson_title, quiz_title, ...contentToSave } = c as any; 
       return contentToSave;
     })
   };
-
+  
   Object.keys(payload).forEach(keyStr => {
     const key = keyStr as keyof UdaApiPayload;
     if (payload[key] === undefined) {
@@ -505,76 +527,44 @@ const handleAutoSave = async () => {
     await udaStore.updateUda(udaId.value, payload, { silent: true });
     saveStatus.value = 'SAVED';
   } catch (error) {
-    console.error("Errore durante il salvataggio automatico dell'UDA:", error);
     saveStatus.value = 'ERROR';
-  }
-};
-
-const debouncedAutoSave = debounce(handleAutoSave, 3000);
-
-watch(saveStatus, (newStatus) => {
-  if (newStatus === 'DIRTY') {
-    debouncedAutoSave();
-  }
-});
-
-const setDirty = () => {
-  if (initialLoadComplete.value && saveStatus.value !== 'DIRTY') {
-    saveStatus.value = 'DIRTY';
+    console.error('Errore durante il salvataggio automatico:', error);
   }
 }
 
-watch(() => formData.value.contents, setDirty, { deep: true });
+const debouncedAutoSave = debounce(handleAutoSave, 2000);
 
-watch(() => [
-  formData.value.title,
-  formData.value.description,
-  formData.value.knowledge_html,
-  formData.value.skills_html,
-  formData.value.competences_html,
-  formData.value.is_civic_education,
-  formData.value.didactic_strategies_html,
-  formData.value.materials_tools_html,
-  formData.value.assessment_type_html,
-  formData.value.evaluation_html,
-  formData.value.key_and_citizenship_competences_html,
-  formData.value.other_involved_subjects_text,
-  formData.value.export_specific_annotations_html,
-  formData.value.start_date,
-  formData.value.end_date,
-  formData.value.status,
-  formData.value.subjects,
-  formData.value.topics,
-  formData.value.course
-], setDirty, { deep: true });
+watch(formData, () => {
+  if (initialLoadComplete.value) {
+    saveStatus.value = 'DIRTY';
+    debouncedAutoSave();
+  }
+}, { deep: true });
 
 
 onMounted(async () => {
   loadingInitialData.value = true;
   initialError.value = null;
   try {
-    const promises = [
-      subjectStore.fetchSubjects(),
+    await Promise.all([
       courseStore.fetchCourses(),
+      subjectStore.fetchSubjects(),
+      topicStore.fetchTopics(),
+      quizStore.fetchQuizTemplates(),
       lessonStore.fetchLessons(),
-      topicStore.fetchTopics()
-    ];
-    await Promise.all(promises);
+    ]);
 
     if (isEditMode.value && udaId.value) {
       await udaStore.fetchUda(udaId.value);
       const udaToEdit = udaStore.currentUda;
       if (udaToEdit) {
-        const enrichedContents = await enrichContents(udaToEdit.contents);
-
-        // Attendi il prossimo ciclo di aggiornamento DOM prima di popolare il form
-        // per dare tempo alle opzioni del select (es. corsi) di essere renderizzate.
+        // Popola i dati semplici del form
         formData.value.title = udaToEdit.title;
         formData.value.description = udaToEdit.description || null;
         formData.value.knowledge_html = udaToEdit.knowledge_html || null;
         formData.value.skills_html = udaToEdit.skills_html || null;
         formData.value.competences_html = udaToEdit.competences_html || null;
-        // Campi per Export DOCX
+        formData.value.prerequisites_html = udaToEdit.prerequisites_html || null;
         formData.value.is_civic_education = udaToEdit.is_civic_education || false;
         formData.value.didactic_strategies_html = udaToEdit.didactic_strategies_html || null;
         formData.value.materials_tools_html = udaToEdit.materials_tools_html || null;
@@ -583,27 +573,47 @@ onMounted(async () => {
         formData.value.key_and_citizenship_competences_html = udaToEdit.key_and_citizenship_competences_html || null;
         formData.value.other_involved_subjects_text = udaToEdit.other_involved_subjects_text || null;
         formData.value.export_specific_annotations_html = udaToEdit.export_specific_annotations_html || null;
-        
         formData.value.start_date = udaToEdit.start_date || null;
         formData.value.end_date = udaToEdit.end_date || null;
         formData.value.status = udaToEdit.status;
-        formData.value.course = udaToEdit.course || null;
         formData.value.order_in_course = udaToEdit.order_in_course || null;
         
-        // Popola materie e argomenti
-        formData.value.subjects = udaToEdit.subjects || [];
+        // Gestione caricamento a cascata per corso -> materie -> argomenti
+        const courseData = udaToEdit.course;
+        formData.value.course = (typeof courseData === 'object' && courseData !== null) ? (courseData as any).id : courseData || null;
+        
+        // 1. Carica le materie in base al corso (o tutte se nessun corso)
+        if (formData.value.course) {
+          await subjectStore.fetchSubjects({ course_id: formData.value.course });
+        } else {
+          await subjectStore.fetchSubjects();
+        }
+        
+        // 2. Imposta le materie selezionate
+        formData.value.subjects = (udaToEdit.subjects || []).map(s => typeof s === 'object' && s !== null ? (s as any).id : s);
+
+        // 3. Carica gli argomenti in base alle materie e imposta la selezione
         if (formData.value.subjects.length > 0) {
           await topicStore.fetchTopicsBySubject(formData.value.subjects[0]);
-          formData.value.topics = udaToEdit.topics || [];
+          // Qui assumiamo che `udaToEdit.topics` contenga gli ID o oggetti con ID.
+          // Il JSON fornito mostrava stringhe, che è un problema separato del backend.
+          // Questo codice gestisce ID o oggetti con ID.
+          formData.value.topics = (udaToEdit.topics || []).map(t => typeof t === 'object' && t !== null ? (t as any).id : t);
         } else {
           formData.value.topics = [];
         }
 
+        // Popola i contenuti
+        const enrichedContents = await enrichContents(udaToEdit.contents);
         formData.value.contents = enrichedContents;
+
       } else {
         initialError.value = `UDA con ID ${udaId.value} non trovata.`;
         console.error(initialError.value);
       }
+    } else {
+      // Modalità creazione: carica tutte le materie inizialmente
+      await subjectStore.fetchSubjects();
     }
   } catch (error) {
     console.error("Errore durante il caricamento iniziale dei dati UDA:", error);
@@ -658,9 +668,9 @@ const handleSubmit = async () => {
     start_date: formData.value.start_date || undefined,
     end_date: formData.value.end_date || undefined,
     status: formData.value.status,
-    subject_ids: formData.value.subjects,
-    topic_ids: formData.value.topics,
-    course_id: formData.value.course || undefined,
+    subjects: formData.value.subjects.filter(id => id != null),
+    topics: formData.value.topics.filter(id => id != null),
+    course_id: formData.value.course,
     order_in_course: formData.value.order_in_course || undefined,
     contents: formData.value.contents.map(c => {
       const { temp_id, lesson_title, quiz_title, ...contentToSave } = c as any; 
@@ -680,16 +690,10 @@ const handleSubmit = async () => {
       await udaStore.updateUda(udaId.value, payload);
       uiStore.addNotification({ message: 'UDA aggiornata con successo!', type: 'success' });
     } else {
-      await udaStore.createUda(payload);
+      const newUda = await udaStore.createUda(payload);
       uiStore.addNotification({ message: 'UDA creata con successo!', type: 'success' });
-    }
-    if (isEditMode.value) {
-      // Non fare nulla, l'utente rimane sulla pagina
-    } else {
-      // Dopo la creazione, reindirizza alla modalità di modifica della nuova UDA
-      const newUdaId = udaStore.currentUda?.id;
-      if (newUdaId) {
-        router.push({ name: 'uda-edit', params: { id: newUdaId } });
+      if (newUda && newUda.id) {
+        router.push({ name: 'uda-edit', params: { id: newUda.id } });
       } else {
         router.push({ name: 'uda-list' });
       }
@@ -742,12 +746,7 @@ const handleSaveLesson = async (lessonData: any) => {
 };
 
 const handleEditLessonContents = (lessonId: number) => {
-  const routeData = router.resolve({
-    name: 'lesson-contents',
-    params: { lessonId: lessonId.toString() },
-    query: { embedded: 'true', inModal: 'true' }
-  });
-  iframeSrc.value = routeData.href;
+  iframeSrc.value = `/lezioni/${lessonId}/contenuti`;
   showIframeModal.value = true;
 };
 
@@ -758,5 +757,9 @@ const handleCloseIframeModal = () => {
 </script>
 
 <style scoped>
-/* Stili aggiuntivi se necessari */
+.uda-form-view {
+  max-width: 1200px;
+  margin: 0 auto;
+  background-color: #f9fafb; /* Un grigio molto chiaro per lo sfondo generale */
+}
 </style>

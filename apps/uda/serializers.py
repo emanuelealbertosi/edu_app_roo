@@ -294,25 +294,27 @@ class UDASerializer(serializers.ModelSerializer):
         allow_null=True
     )
     contents = UDAContentSerializer(many=True, required=False)
-    subjects = UDASubjectSerializer(source='udasubject_set', many=True, read_only=True)
-    subject_ids = serializers.PrimaryKeyRelatedField(
+    subjects = serializers.PrimaryKeyRelatedField(
         queryset=Subject.objects.all(),
         many=True,
-        write_only=True,
-        source='subjects',
         required=False
     )
-    topics = serializers.StringRelatedField(many=True, read_only=True)
-    topic_ids = serializers.PrimaryKeyRelatedField(
+    topics = serializers.PrimaryKeyRelatedField(
         queryset=Topic.objects.all(),
         many=True,
-        write_only=True,
-        source='topics',
         required=False
     )
     total_estimated_hours = serializers.DecimalField(max_digits=5, decimal_places=1, read_only=True)
     total_lesson_estimated_hours = serializers.DecimalField(max_digits=5, decimal_places=1, read_only=True)
     lesson_count = serializers.IntegerField(read_only=True)
+    course = CourseSerializer(read_only=True)
+    course_id = serializers.PrimaryKeyRelatedField(
+        queryset=Course.objects.all(),
+        source='course',
+        write_only=True,
+        required=False,
+        allow_null=True
+    )
 
     class Meta:
         model = UDA
@@ -322,8 +324,8 @@ class UDASerializer(serializers.ModelSerializer):
             'is_civic_education', 'didactic_strategies_html', 'materials_tools_html',
             'assessment_type_html', 'evaluation_html', 'key_and_citizenship_competences_html',
             'other_involved_subjects_text', 'export_specific_annotations_html',
-            'start_date', 'end_date', 'subjects', 'subject_ids', 'topics', 'topic_ids',
-            'course', 'order_in_course', 'status', 'group', 'group_id',
+            'start_date', 'end_date', 'subjects', 'topics',
+            'course', 'course_id', 'order_in_course', 'status', 'group', 'group_id',
             'created_at', 'updated_at', 'contents', 'total_estimated_hours',
             'total_lesson_estimated_hours', 'lesson_count'
         ]
@@ -331,16 +333,17 @@ class UDASerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         contents_data = validated_data.pop('contents', [])
-        subjects_data = validated_data.pop('subjects', [])
-        topics_data = validated_data.pop('topics', [])
+        subjects_data = validated_data.pop('subjects', None)
+        topics_data = validated_data.pop('topics', None)
         
         validated_data['teacher'] = self.context['request'].user
         
-        uda = UDA.objects.create(**validated_data)
+        course = validated_data.pop('course', None)
+        uda = UDA.objects.create(course=course, **validated_data)
         
-        if subjects_data:
+        if subjects_data is not None:
             uda.subjects.set(subjects_data)
-        if topics_data:
+        if topics_data is not None:
             uda.topics.set(topics_data)
 
         for content_data in contents_data:
@@ -353,6 +356,8 @@ class UDASerializer(serializers.ModelSerializer):
         subjects_data = validated_data.pop('subjects', None)
         topics_data = validated_data.pop('topics', None)
 
+        # instance = super().update(instance, validated_data)
+        # La gestione manuale del corso non è necessaria, super().update gestisce l'assegnazione.
         instance = super().update(instance, validated_data)
 
         if subjects_data is not None:

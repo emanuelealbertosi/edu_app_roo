@@ -22,29 +22,24 @@ export const useSubjectStore = defineStore('subject', () => {
   const error = computed(() => state.value.error);
 
   // Actions
-  async function fetchSubjects() {
-    if (state.value.subjects.length > 0 && !state.value.error) {
-      // Non ricaricare se già presenti e non c'è stato errore precedente
-      // console.log('Subjects already loaded');
-      // return;
-    }
-    console.log('Fetching subjects...');
+  async function fetchSubjects(params: { course_id?: number } = {}) {
+    const { course_id } = params;
+    const cacheKey = course_id ? `course_${course_id}` : 'all';
+
+    // Semplifichiamo la logica di caching per ora, ricaricando sempre.
+    // In futuro, si potrebbe implementare una cache più sofisticata se necessario.
+    
+    console.log(`Fetching subjects for ${cacheKey}...`);
     state.value.loading = true;
     state.value.error = null;
+    
     try {
-      // Simula una chiamata API
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      const response = await apiClient.get('/lezioni/subjects/'); // Esempio con apiClient
+      const url = course_id
+        ? `/lezioni/subjects/?course_id=${course_id}`
+        : '/lezioni/subjects/';
+        
+      const response = await apiClient.get(url);
       state.value.subjects = response.data;
-      
-      // Dati mock per ora, in attesa dell'API reale
-      // const mockSubjects: Subject[] = [
-      //   { id: 1, name: 'Matematica', color_placeholder: '#FF5733' },
-      //   { id: 2, name: 'Storia', color_placeholder: '#33FF57' },
-      //   { id: 3, name: 'Scienze', color_placeholder: '#3357FF' },
-      //   { id: 4, name: 'Italiano', color_placeholder: '#F3FF33'},
-      // ];
-      // state.value.subjects = mockSubjects;
       console.log('Subjects fetched:', state.value.subjects);
 
     } catch (err) {
