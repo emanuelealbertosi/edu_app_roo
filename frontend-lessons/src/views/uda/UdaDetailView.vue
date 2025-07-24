@@ -326,7 +326,10 @@ const topicNames = computed(() => {
   }
   if (!uda.value?.topics || uda.value.topics.length === 0) return null;
   return uda.value.topics
-    .map(id => topicStore.getTopicById(id)?.name || `ID:${id}`)
+    .map(topic => {
+      const topicId = typeof topic === 'number' ? topic : topic.id;
+      return topicStore.getTopicById(topicId)?.name || `ID:${topicId}`;
+    })
     .join(', ');
 });
 // Computed property per arricchire i contenuti UDA con i titoli di lezioni/quiz

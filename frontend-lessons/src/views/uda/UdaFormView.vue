@@ -292,8 +292,8 @@ interface UdaApiPayload {
   start_date?: string | null;
   end_date?: string | null;
   status: UDA['status'];
-  subjects?: number[];
-  topics?: number[];
+  subject_ids?: number[];
+  topic_ids?: number[];
   course_id?: number | null;
   order_in_course?: number | null;
   contents: Omit<UDAContent, 'temp_id' | 'lesson_title' | 'quiz_title'>[];
@@ -506,8 +506,8 @@ const handleAutoSave = async () => {
     start_date: formData.value.start_date || undefined,
     end_date: formData.value.end_date || undefined,
     status: formData.value.status,
-    subjects: formData.value.subjects.filter(id => id != null),
-    topics: formData.value.topics.filter(id => id != null),
+    subject_ids: formData.value.subjects.filter(id => id != null),
+    topic_ids: formData.value.topics.filter(id => id != null),
     course_id: formData.value.course || undefined,
     order_in_course: formData.value.order_in_course || undefined,
     contents: formData.value.contents.map(c => {
@@ -668,8 +668,8 @@ const handleSubmit = async () => {
     start_date: formData.value.start_date || undefined,
     end_date: formData.value.end_date || undefined,
     status: formData.value.status,
-    subjects: formData.value.subjects.filter(id => id != null),
-    topics: formData.value.topics.filter(id => id != null),
+    subject_ids: formData.value.subjects.filter(id => id != null),
+    topic_ids: formData.value.topics.filter(id => id != null),
     course_id: formData.value.course,
     order_in_course: formData.value.order_in_course || undefined,
     contents: formData.value.contents.map(c => {

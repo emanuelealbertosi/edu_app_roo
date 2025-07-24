@@ -142,7 +142,7 @@ export interface UDA {
   end_date?: string | null;   // Formato YYYY-MM-DD
   subjects?: number[]; // Array di ID di Subject (usato internamente nel form e per l'invio come subject_ids)
   subjects_display?: string[]; // Array di nomi di Subject (per la visualizzazione, fornito dal backend)
-  topics?: number[]; // Array di ID di Topic
+  topics?: (number[] | TopicReference[]); // Array di ID o di oggetti Topic
   status: UDAStatus; // Usa il tipo esportato
   order_in_course?: number | null;
   group?: UdaGroup | null;
@@ -154,6 +154,11 @@ export interface UDA {
   total_estimated_hours?: number | null; // Aggiunto per il totale ore stimate
   total_lesson_estimated_hours?: number | null; // Aggiunto per il totale ore stimate delle lezioni
   lesson_count?: number; // Aggiunto per il numero di lezioni
+}
+
+export interface TopicReference {
+  id: number;
+  name: string;
 }
 
 // Interfaccia per Course

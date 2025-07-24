@@ -294,14 +294,20 @@ class UDASerializer(serializers.ModelSerializer):
         allow_null=True
     )
     contents = UDAContentSerializer(many=True, required=False)
-    subjects = serializers.PrimaryKeyRelatedField(
+    subjects = UDASubjectSerializer(source='udasubject_set', many=True, read_only=True)
+    subject_ids = serializers.PrimaryKeyRelatedField(
         queryset=Subject.objects.all(),
         many=True,
+        write_only=True,
+        source='subjects',
         required=False
     )
-    topics = serializers.PrimaryKeyRelatedField(
+    topics = serializers.SerializerMethodField()
+    topic_ids = serializers.PrimaryKeyRelatedField(
         queryset=Topic.objects.all(),
         many=True,
+        write_only=True,
+        source='topics',
         required=False
     )
     total_estimated_hours = serializers.DecimalField(max_digits=5, decimal_places=1, read_only=True)
@@ -324,12 +330,15 @@ class UDASerializer(serializers.ModelSerializer):
             'is_civic_education', 'didactic_strategies_html', 'materials_tools_html',
             'assessment_type_html', 'evaluation_html', 'key_and_citizenship_competences_html',
             'other_involved_subjects_text', 'export_specific_annotations_html',
-            'start_date', 'end_date', 'subjects', 'topics',
+            'start_date', 'end_date', 'subjects', 'subject_ids', 'topics', 'topic_ids', 'prerequisites_html',
             'course', 'course_id', 'order_in_course', 'status', 'group', 'group_id',
             'created_at', 'updated_at', 'contents', 'total_estimated_hours',
             'total_lesson_estimated_hours', 'lesson_count'
         ]
-        read_only_fields = ['id', 'teacher', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'teacher', 'created_at', 'updated_at', 'topics']
+
+    def get_topics(self, obj):
+        return [{'id': topic.id, 'name': topic.name} for topic in obj.topics.all()]
 
     def create(self, validated_data):
         contents_data = validated_data.pop('contents', [])
