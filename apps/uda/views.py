@@ -422,11 +422,19 @@ class CourseViewSet(viewsets.ModelViewSet):
         Crea una copia di un Corso, incluse tutte le sue UDA.
         """
         original_course = self.get_object()
+        new_name = f"Copia di {original_course.name}"
+
+        # Controlla se una copia con lo stesso nome esiste già per questo docente
+        if Course.objects.filter(teacher=request.user, name=new_name).exists():
+            return Response(
+                {'error': f"Una copia del corso con nome '{new_name}' esiste già. Rinomina la copia esistente prima di crearne un'altra."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
         
         # 1. Crea la copia del corso
         new_course = Course.objects.create(
             teacher=request.user,
-            name=f"Copia di {original_course.name}",
+            name=new_name,
             description=original_course.description
         )
         
@@ -571,7 +579,6 @@ def _copy_uda_instance(original_uda, new_course, teacher):
             note_content=original_content.note_content,
             activity_title=original_content.activity_title,
             activity_description=original_content.activity_description,
-            activity_attachment_url=original_content.activity_attachment_url,
             activity_completed=False,
             teacher_marked_completed=False,
             order=original_content.order,

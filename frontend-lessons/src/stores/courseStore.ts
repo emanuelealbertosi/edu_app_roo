@@ -1,6 +1,8 @@
 import { defineStore } from 'pinia';
 import { courseService } from '@/services/courseService';
 import type { Course, UDA, CourseGroup } from '@/types/uda';
+import { useUiStore } from './ui';
+import axios from 'axios';
 
 interface CourseState {
   courses: Course[];
@@ -261,8 +263,23 @@ export const useCourseStore = defineStore('course', {
         await this.fetchCourses();
         return newCourse;
       } catch (err) {
-        this.error = (err as Error).message || 'Failed to copy course';
-        throw err;
+        const uiStore = useUiStore();
+        if (axios.isAxiosError(err) && err.response) {
+          const errorMessage = err.response.data.error || 'Errore durante la copia del corso.';
+          uiStore.addNotification({
+            title: 'Errore',
+            message: errorMessage,
+            type: 'error',
+            duration: 5000
+          });
+        } else {
+          uiStore.addNotification({
+            title: 'Errore',
+            message: 'Si è verificato un errore imprevisto.',
+            type: 'error',
+            duration: 5000
+          });
+        }
       } finally {
         this.loading = false;
       }
